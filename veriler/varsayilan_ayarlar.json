@@ -1,0 +1,20 @@
+{
+    "varsayilan_port": 4444,
+    "varsayilan_boyut_mb": 100,
+    "disk_algilama_araligi_ms": 3000,
+    "otomatik_rapor": true,
+    "hash_algoritmasi": "sha256",
+    "vaka_klasoru": "~/Worm",
+    "cikti_klasoru": "~/Worm/Ciktilar",
+    "parca_boyutu": 4194304,
+    "log_seviyesi": "INFO",
+    "wireguard": {
+        "enabled": false,
+        "config_dosya": "~/Worm/wireguard.conf",
+        "interface": "wg0",
+        "sunucu_endpoint": "192.168.1.1:51820",
+        "public_key": "",
+        "private_key": "",
+        "dns": "1.1.1.1"
+    }
+}
