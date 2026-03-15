@@ -1,0 +1,31 @@
+# Build artifacts
+build/
+build-worm/
+*.o
+*.obj
+*.a
+*.so
+*.dll
+*.dylib
+*.exe
+
+# Meson
+.mesonpy-native-file.ini
+meson-private/
+meson-logs/
+.mesonpy*
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and temp
+*.log
+*.tmp
+*.cache
