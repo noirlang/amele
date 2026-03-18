@@ -1,5 +1,5 @@
 project('worm', ['c', 'cpp'],
-    version : '0.0.1-alpha',
+    version : '0.0.2',
     default_options : ['warning_level=2', 'c_std=c11', 'cpp_std=c++17']
 )
 
@@ -35,6 +35,10 @@ sources = files(
     'kaynak/moduller/kanit/kanit_kasasi.c',
     'kaynak/moduller/vpn/wireguard.c',
 )
+
+if host_machine.system() == 'windows'
+    sources += files('kaynak/qt/worm.rc')
+endif
 
 # Include dizinleri
 inc_dirs = include_directories(
@@ -75,3 +79,21 @@ install_data(
     ],
     install_dir : get_option('datadir') / 'worm'
 )
+
+# Logo dosyalarini kur (ana sayfa logosu + uygulama ikonu)
+install_subdir(
+    'logo',
+    install_dir : get_option('datadir') / 'worm'
+)
+
+# Masaustu entegrasyonu icin desktop dosyasi ve ikon
+if host_machine.system() != 'windows'
+    worm_icon = configure_file(
+        input : 'logo/icon.png',
+        output : 'worm.png',
+        copy : true
+    )
+
+    install_data('packaging/worm.desktop', install_dir : get_option('datadir') / 'applications')
+    install_data(worm_icon, install_dir : get_option('datadir') / 'icons' / 'hicolor' / '256x256' / 'apps')
+endif

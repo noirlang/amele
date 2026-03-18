@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Worm
+Comment=Digital forensics desktop platform
+Exec=worm
+Icon=worm
+Terminal=false
+Categories=Utility;Security;
+StartupNotify=true

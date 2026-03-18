@@ -524,12 +524,17 @@ private:
 
     QString logo_dosyasi_bul(const QString& dosya_adi) const {
         const QString app_dir = QCoreApplication::applicationDirPath();
+        const QString appdir_root = qEnvironmentVariable("APPDIR");
         const QStringList adaylar = {
             QDir::currentPath() + "/logo/" + dosya_adi,
             QDir::currentPath() + "/../logo/" + dosya_adi,
             app_dir + "/logo/" + dosya_adi,
             app_dir + "/../logo/" + dosya_adi,
             app_dir + "/../../logo/" + dosya_adi,
+            app_dir + "/../share/worm/logo/" + dosya_adi,
+            app_dir + "/../../share/worm/logo/" + dosya_adi,
+            appdir_root + "/usr/share/worm/logo/" + dosya_adi,
+            "/usr/share/worm/logo/" + dosya_adi,
         };
 
         for (const QString& yol : adaylar) {
@@ -567,7 +572,7 @@ private:
         alt1->setFont(f1);
         duzen->addWidget(alt1);
 
-        QLabel* alt2 = new QLabel("Worm v0.0.1 alpha");
+        QLabel* alt2 = new QLabel("Worm v0.0.2");
         alt2->setAlignment(Qt::AlignCenter);
         QFont f2 = alt2->font();
         f2.setPointSize(13);
@@ -1080,6 +1085,15 @@ private:
         setWindowTitle("Worm Forensic Tool");
         resize(1340, 860);
 
+        const QString pencere_ikon_yolu = logo_dosyasi_bul("icon.png");
+        if (!pencere_ikon_yolu.isEmpty()) {
+            const QIcon pencere_ikonu(pencere_ikon_yolu);
+            if (!pencere_ikonu.isNull()) {
+                setWindowIcon(pencere_ikonu);
+                qApp->setWindowIcon(pencere_ikonu);
+            }
+        }
+
         QFont arayuz_font;
         arayuz_font.setFamilies(QStringList() << "Manrope" << "Noto Sans" << "Segoe UI Variable Text" << "Ubuntu" << "Arial");
         arayuz_font.setPointSize(11);
@@ -1141,9 +1155,9 @@ private:
 
         ana->addLayout(ust);
 
-        QMenuBar* menu_cubugu = new QMenuBar();
-        menu_cubugu->setNativeMenuBar(false);
-        ana->addWidget(menu_cubugu);
+        QMenuBar* menu_cubugu = new QMenuBar(this);
+        menu_cubugu->setNativeMenuBar(true);
+        setMenuBar(menu_cubugu);
 
         genel_ilerleme_ = new QProgressBar();
         genel_ilerleme_->setRange(0, 100);
@@ -2393,7 +2407,7 @@ private:
         baslik->setFont(baslik_font);
         ust_icerik->addWidget(baslik);
 
-        QLabel* surum = new QLabel("Surum 0.0.1 alpha");
+        QLabel* surum = new QLabel("Surum 0.0.2");
         ust_icerik->addWidget(surum);
 
         QLabel* ozet = new QLabel(
@@ -4816,7 +4830,12 @@ private:
 int main(int argc, char* argv[]) {
     setlocale(LC_ALL, "");
 
+    QCoreApplication::setApplicationName("worm");
+    QApplication::setApplicationDisplayName("Worm");
+    QCoreApplication::setOrganizationName("noirlang");
+
     QApplication uygulama(argc, argv);
+    uygulama.setDesktopFileName("worm");
     AnaPencere pencere;
     pencere.show();
     return uygulama.exec();
