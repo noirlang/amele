@@ -144,6 +144,8 @@ private:
     QPushButton* baglan_btn_ = nullptr;
     QPushButton* disk_getir_btn_ = nullptr;
     QPushButton* imaj_btn_ = nullptr;
+    QPushButton* uzak_duraklat_btn_ = nullptr;
+    QPushButton* uzak_durdur_btn_ = nullptr;
     QProgressBar* uzak_ilerleme_ = nullptr;
     QLabel* uzak_durum_label_ = nullptr;
     QProgressBar* aktif_uzak_ilerleme_ = nullptr;
@@ -156,6 +158,8 @@ private:
     QPushButton* linux_uzak_baglan_btn_ = nullptr;
     QPushButton* linux_uzak_disk_getir_btn_ = nullptr;
     QPushButton* linux_uzak_imaj_btn_ = nullptr;
+    QPushButton* linux_uzak_duraklat_btn_ = nullptr;
+    QPushButton* linux_uzak_durdur_btn_ = nullptr;
     QProgressBar* linux_uzak_ilerleme_ = nullptr;
     QLabel* linux_uzak_durum_label_ = nullptr;
     QCheckBox* linux_uzak_vpn_kullan_secim_ = nullptr;
@@ -195,6 +199,8 @@ private:
     QPushButton* winpmem_kontrol_btn_ = nullptr;
     QPushButton* winpmem_baslat_btn_ = nullptr;
     QPushButton* winpmem_indir_btn_ = nullptr;
+    QPushButton* winpmem_duraklat_btn_ = nullptr;
+    QPushButton* winpmem_durdur_btn_ = nullptr;
     QProgressBar* winpmem_ilerleme_ = nullptr;
     QLabel* winpmem_durum_label_ = nullptr;
     QLabel* winpmem_bilgi_label_ = nullptr;
@@ -237,6 +243,8 @@ private:
     QPushButton* linux_uzak_ram_kontrol_btn_ = nullptr;
     QPushButton* linux_uzak_ram_baslat_btn_ = nullptr;
     QPushButton* linux_uzak_ram_indir_btn_ = nullptr;
+    QPushButton* linux_uzak_ram_duraklat_btn_ = nullptr;
+    QPushButton* linux_uzak_ram_durdur_btn_ = nullptr;
     QCheckBox* linux_uzak_ram_vpn_kullan_secim_ = nullptr;
     QPushButton* linux_uzak_ram_vpn_yapilandir_btn_ = nullptr;
     QProgressBar* linux_uzak_ram_ilerleme_ = nullptr;
@@ -261,6 +269,15 @@ private:
 
     bool temizlendi_ = false;
     QString aktif_dil_ = "tr";
+    QString aktif_uzak_is_id_;
+    bool aktif_uzak_duraklatildi_ = false;
+    bool aktif_uzak_durdurma_istendi_ = false;
+    enum class UzakIsTur {
+        Yok,
+        Disk,
+        Ram
+    };
+    UzakIsTur aktif_uzak_is_turu_ = UzakIsTur::Yok;
     std::unordered_map<std::string, std::string> ceviri_tr_en_;
     std::unordered_map<std::string, std::string> ceviri_en_tr_;
 
@@ -572,7 +589,7 @@ private:
         alt1->setFont(f1);
         duzen->addWidget(alt1);
 
-        QLabel* alt2 = new QLabel("Worm v0.0.2");
+        QLabel* alt2 = new QLabel("Worm v0.0.3");
         alt2->setAlignment(Qt::AlignCenter);
         QFont f2 = alt2->font();
         f2.setPointSize(13);
@@ -1068,16 +1085,20 @@ private:
     void ust_ikonlari_guncelle(bool karanlik) {
         const QColor ikon_renk = karanlik ? QColor("#ffffff") : QColor("#24374a");
         if (top_ana_menu_btn_) {
-            top_ana_menu_btn_->setIcon(icon_renklendir(top_ana_menu_icon_, ikon_renk));
+            QIcon ikon = icon_renklendir(top_ana_menu_icon_, ikon_renk);
+            top_ana_menu_btn_->setIcon(ikon.isNull() ? top_ana_menu_icon_ : ikon);
         }
         if (top_sistem_btn_) {
-            top_sistem_btn_->setIcon(icon_renklendir(top_sistem_icon_, ikon_renk));
+            QIcon ikon = icon_renklendir(top_sistem_icon_, ikon_renk);
+            top_sistem_btn_->setIcon(ikon.isNull() ? top_sistem_icon_ : ikon);
         }
         if (top_hakkinda_btn_) {
-            top_hakkinda_btn_->setIcon(icon_renklendir(top_hakkinda_icon_, ikon_renk));
+            QIcon ikon = icon_renklendir(top_hakkinda_icon_, ikon_renk);
+            top_hakkinda_btn_->setIcon(ikon.isNull() ? top_hakkinda_icon_ : ikon);
         }
         if (top_ayarlar_btn_) {
-            top_ayarlar_btn_->setIcon(icon_renklendir(top_ayarlar_icon_, ikon_renk));
+            QIcon ikon = icon_renklendir(top_ayarlar_icon_, ikon_renk);
+            top_ayarlar_btn_->setIcon(ikon.isNull() ? top_ayarlar_icon_ : ikon);
         }
     }
 
@@ -1123,6 +1144,8 @@ private:
         top_ana_menu_btn_->setObjectName("TopNavButton");
         top_ana_menu_icon_ = tema_ikonu("go-home-symbolic", QStyle::SP_DirHomeIcon);
         top_ana_menu_btn_->setIcon(top_ana_menu_icon_);
+        top_ana_menu_btn_->setIconSize(QSize(20, 20));
+        top_ana_menu_btn_->setToolButtonStyle(Qt::ToolButtonIconOnly);
         top_ana_menu_btn_->setToolTip("Ana Menu");
         top_ana_menu_btn_->setAutoRaise(true);
         ust->addWidget(top_ana_menu_btn_);
@@ -1133,6 +1156,8 @@ private:
         top_sistem_btn_->setObjectName("TopNavButton");
         top_sistem_icon_ = tema_ikonu("computer-symbolic", QStyle::SP_ComputerIcon);
         top_sistem_btn_->setIcon(top_sistem_icon_);
+        top_sistem_btn_->setIconSize(QSize(20, 20));
+        top_sistem_btn_->setToolButtonStyle(Qt::ToolButtonIconOnly);
         top_sistem_btn_->setToolTip("Sistem Bilgisi");
         top_sistem_btn_->setAutoRaise(true);
         ust->addWidget(top_sistem_btn_);
@@ -1141,6 +1166,8 @@ private:
         top_hakkinda_btn_->setObjectName("TopNavButton");
         top_hakkinda_icon_ = tema_ikonu("help-about-symbolic", QStyle::SP_MessageBoxInformation);
         top_hakkinda_btn_->setIcon(top_hakkinda_icon_);
+        top_hakkinda_btn_->setIconSize(QSize(20, 20));
+        top_hakkinda_btn_->setToolButtonStyle(Qt::ToolButtonIconOnly);
         top_hakkinda_btn_->setToolTip("Hakkinda");
         top_hakkinda_btn_->setAutoRaise(true);
         ust->addWidget(top_hakkinda_btn_);
@@ -1149,6 +1176,8 @@ private:
         top_ayarlar_btn_->setObjectName("TopNavButton");
         top_ayarlar_icon_ = tema_ikonu("preferences-system-symbolic", QStyle::SP_FileDialogDetailedView);
         top_ayarlar_btn_->setIcon(top_ayarlar_icon_);
+        top_ayarlar_btn_->setIconSize(QSize(20, 20));
+        top_ayarlar_btn_->setToolButtonStyle(Qt::ToolButtonIconOnly);
         top_ayarlar_btn_->setToolTip("Ayarlar");
         top_ayarlar_btn_->setAutoRaise(true);
         ust->addWidget(top_ayarlar_btn_);
@@ -1336,6 +1365,18 @@ private:
         imaj_btn_ = new QPushButton("Imaj Al");
         icerik->addWidget(imaj_btn_);
 
+        {
+            QHBoxLayout* satir = new QHBoxLayout();
+            uzak_duraklat_btn_ = new QPushButton("Duraklat");
+            uzak_durdur_btn_ = new QPushButton("Durdur");
+            uzak_duraklat_btn_->setEnabled(false);
+            uzak_durdur_btn_->setEnabled(false);
+            satir->addWidget(uzak_duraklat_btn_);
+            satir->addWidget(uzak_durdur_btn_);
+            satir->addStretch();
+            icerik->addLayout(satir);
+        }
+
         uzak_ilerleme_ = new QProgressBar();
         uzak_ilerleme_->setRange(0, 100);
         uzak_ilerleme_->setValue(0);
@@ -1350,6 +1391,8 @@ private:
         connect(baglan_btn_, &QPushButton::clicked, this, [this]() { uzak_baglan(); });
         connect(disk_getir_btn_, &QPushButton::clicked, this, [this]() { uzak_disk_getir(); });
         connect(imaj_btn_, &QPushButton::clicked, this, [this]() { uzak_imaj_baslat(); });
+        connect(uzak_duraklat_btn_, &QPushButton::clicked, this, [this]() { uzak_edinim_duraklat_devam_et(); });
+        connect(uzak_durdur_btn_, &QPushButton::clicked, this, [this]() { uzak_edinim_durdur(); });
         connect(vpn_yapilandir_btn_, &QPushButton::clicked, this, [this]() { vpn_yapilandir(); });
         connect(guvenlik_onay_btn_, &QPushButton::clicked, this, [this]() { guvenlik_anahtari_onayla(); });
         connect(guvenlik_sifirla_btn_, &QPushButton::clicked, this, [this]() { guvenlik_anahtari_sifirla(); });
@@ -1448,6 +1491,18 @@ private:
         linux_uzak_imaj_btn_ = new QPushButton("Imaj Al");
         icerik->addWidget(linux_uzak_imaj_btn_);
 
+        {
+            QHBoxLayout* satir = new QHBoxLayout();
+            linux_uzak_duraklat_btn_ = new QPushButton("Duraklat");
+            linux_uzak_durdur_btn_ = new QPushButton("Durdur");
+            linux_uzak_duraklat_btn_->setEnabled(false);
+            linux_uzak_durdur_btn_->setEnabled(false);
+            satir->addWidget(linux_uzak_duraklat_btn_);
+            satir->addWidget(linux_uzak_durdur_btn_);
+            satir->addStretch();
+            icerik->addLayout(satir);
+        }
+
         linux_uzak_ilerleme_ = new QProgressBar();
         linux_uzak_ilerleme_->setRange(0, 100);
         linux_uzak_ilerleme_->setValue(0);
@@ -1460,6 +1515,8 @@ private:
         connect(linux_uzak_baglan_btn_, &QPushButton::clicked, this, [this]() { linux_uzak_baglan(); });
         connect(linux_uzak_disk_getir_btn_, &QPushButton::clicked, this, [this]() { linux_uzak_disk_getir(); });
         connect(linux_uzak_imaj_btn_, &QPushButton::clicked, this, [this]() { linux_uzak_imaj_baslat(); });
+        connect(linux_uzak_duraklat_btn_, &QPushButton::clicked, this, [this]() { uzak_edinim_duraklat_devam_et(); });
+        connect(linux_uzak_durdur_btn_, &QPushButton::clicked, this, [this]() { uzak_edinim_durdur(); });
 
         duzen->addWidget(cerceve);
         duzen->addStretch();
@@ -1704,10 +1761,16 @@ private:
             QHBoxLayout* satir = new QHBoxLayout();
             winpmem_baslat_btn_ = new QPushButton("RAM Edinimini Baslat");
             winpmem_indir_btn_ = new QPushButton("RAM Indir");
+            winpmem_duraklat_btn_ = new QPushButton("Duraklat");
+            winpmem_durdur_btn_ = new QPushButton("Durdur");
             winpmem_baslat_btn_->setEnabled(false);
             winpmem_indir_btn_->setEnabled(false);
+            winpmem_duraklat_btn_->setEnabled(false);
+            winpmem_durdur_btn_->setEnabled(false);
             satir->addWidget(winpmem_baslat_btn_);
             satir->addWidget(winpmem_indir_btn_);
+            satir->addWidget(winpmem_duraklat_btn_);
+            satir->addWidget(winpmem_durdur_btn_);
             icerik->addLayout(satir);
         }
 
@@ -1770,6 +1833,8 @@ private:
         connect(winpmem_kontrol_btn_, &QPushButton::clicked, this, [this]() { winpmem_kontrol_yap(); });
         connect(winpmem_baslat_btn_, &QPushButton::clicked, this, [this]() { winpmem_baslat(); });
         connect(winpmem_indir_btn_, &QPushButton::clicked, this, [this]() { winpmem_indir(); });
+        connect(winpmem_duraklat_btn_, &QPushButton::clicked, this, [this]() { uzak_edinim_duraklat_devam_et(); });
+        connect(winpmem_durdur_btn_, &QPushButton::clicked, this, [this]() { uzak_edinim_durdur(); });
 
         return sayfa;
     }
@@ -1852,10 +1917,16 @@ private:
             QHBoxLayout* satir = new QHBoxLayout();
             linux_uzak_ram_baslat_btn_ = new QPushButton("RAM Edinimini Baslat");
             linux_uzak_ram_indir_btn_ = new QPushButton("RAM Indir");
+            linux_uzak_ram_duraklat_btn_ = new QPushButton("Duraklat");
+            linux_uzak_ram_durdur_btn_ = new QPushButton("Durdur");
             linux_uzak_ram_baslat_btn_->setEnabled(false);
             linux_uzak_ram_indir_btn_->setEnabled(false);
+            linux_uzak_ram_duraklat_btn_->setEnabled(false);
+            linux_uzak_ram_durdur_btn_->setEnabled(false);
             satir->addWidget(linux_uzak_ram_baslat_btn_);
             satir->addWidget(linux_uzak_ram_indir_btn_);
+            satir->addWidget(linux_uzak_ram_duraklat_btn_);
+            satir->addWidget(linux_uzak_ram_durdur_btn_);
             icerik->addLayout(satir);
         }
 
@@ -1875,6 +1946,8 @@ private:
         connect(linux_uzak_ram_kontrol_btn_, &QPushButton::clicked, this, [this]() { linux_uzak_ram_kontrol_yap(); });
         connect(linux_uzak_ram_baslat_btn_, &QPushButton::clicked, this, [this]() { linux_uzak_ram_baslat(); });
         connect(linux_uzak_ram_indir_btn_, &QPushButton::clicked, this, [this]() { linux_uzak_ram_indir(); });
+        connect(linux_uzak_ram_duraklat_btn_, &QPushButton::clicked, this, [this]() { uzak_edinim_duraklat_devam_et(); });
+        connect(linux_uzak_ram_durdur_btn_, &QPushButton::clicked, this, [this]() { uzak_edinim_durdur(); });
 
         return sayfa;
     }
@@ -2407,7 +2480,7 @@ private:
         baslik->setFont(baslik_font);
         ust_icerik->addWidget(baslik);
 
-        QLabel* surum = new QLabel("Surum 0.0.2");
+        QLabel* surum = new QLabel("Surum 0.0.3");
         ust_icerik->addWidget(surum);
 
         QLabel* ozet = new QLabel(
@@ -2603,6 +2676,116 @@ private:
                 genel_ilerleme_->setValue(oran);
             }
         }, Qt::QueuedConnection);
+    }
+
+    void uzak_kontrol_butonlari_guncelle(bool aktif) {
+        const QString duraklat_metin = aktif_uzak_duraklatildi_ ? "Devam Et" : "Duraklat";
+
+        if (uzak_duraklat_btn_) {
+            uzak_duraklat_btn_->setEnabled(aktif);
+            uzak_duraklat_btn_->setText(duraklat_metin);
+        }
+        if (linux_uzak_duraklat_btn_) {
+            linux_uzak_duraklat_btn_->setEnabled(aktif);
+            linux_uzak_duraklat_btn_->setText(duraklat_metin);
+        }
+        if (winpmem_duraklat_btn_) {
+            winpmem_duraklat_btn_->setEnabled(aktif);
+            winpmem_duraklat_btn_->setText(duraklat_metin);
+        }
+        if (linux_uzak_ram_duraklat_btn_) {
+            linux_uzak_ram_duraklat_btn_->setEnabled(aktif);
+            linux_uzak_ram_duraklat_btn_->setText(duraklat_metin);
+        }
+
+        if (uzak_durdur_btn_) {
+            uzak_durdur_btn_->setEnabled(aktif);
+        }
+        if (linux_uzak_durdur_btn_) {
+            linux_uzak_durdur_btn_->setEnabled(aktif);
+        }
+        if (winpmem_durdur_btn_) {
+            winpmem_durdur_btn_->setEnabled(aktif);
+        }
+        if (linux_uzak_ram_durdur_btn_) {
+            linux_uzak_ram_durdur_btn_->setEnabled(aktif);
+        }
+    }
+
+    void aktif_uzak_is_baslat(const QString& is_id, UzakIsTur tur) {
+        aktif_uzak_is_id_ = is_id;
+        aktif_uzak_is_turu_ = tur;
+        aktif_uzak_duraklatildi_ = false;
+        aktif_uzak_durdurma_istendi_ = false;
+        uzak_kontrol_butonlari_guncelle(true);
+    }
+
+    void aktif_uzak_is_temizle() {
+        aktif_uzak_is_id_.clear();
+        aktif_uzak_is_turu_ = UzakIsTur::Yok;
+        aktif_uzak_duraklatildi_ = false;
+        aktif_uzak_durdurma_istendi_ = false;
+        uzak_kontrol_butonlari_guncelle(false);
+    }
+
+    void uzak_edinim_duraklat_devam_et() {
+        if (!baglanti_ || aktif_uzak_is_id_.isEmpty()) {
+            QMessageBox::warning(this, "Bilgi", "Kontrol edilecek aktif uzak edinim yok.");
+            return;
+        }
+
+        const char* eylem = aktif_uzak_duraklatildi_ ? "resume" : "pause";
+        char sonuc[256] = {0};
+        bool ok = uzak_edinim_kontrol_gonder(
+            baglanti_,
+            aktif_uzak_is_id_.toUtf8().constData(),
+            eylem,
+            sonuc,
+            sizeof(sonuc)
+        );
+
+        if (!ok) {
+            QString mesaj = QString::fromUtf8(sonuc);
+            if (mesaj.isEmpty()) {
+                mesaj = "Kontrol komutu gonderilemedi";
+            }
+            QMessageBox::warning(this, "Uyari", mesaj);
+            return;
+        }
+
+        aktif_uzak_duraklatildi_ = !aktif_uzak_duraklatildi_;
+        uzak_kontrol_butonlari_guncelle(true);
+        log_ekle(
+            aktif_uzak_duraklatildi_ ? "Uzak edinim duraklatildi" : "Uzak edinim devam ettirildi",
+            GUNLUK_SEVIYE_INFO
+        );
+    }
+
+    void uzak_edinim_durdur() {
+        if (!baglanti_ || aktif_uzak_is_id_.isEmpty()) {
+            QMessageBox::warning(this, "Bilgi", "Durdurulacak aktif uzak edinim yok.");
+            return;
+        }
+
+        char sonuc[256] = {0};
+        bool ok = uzak_edinim_kontrol_gonder(
+            baglanti_,
+            aktif_uzak_is_id_.toUtf8().constData(),
+            "stop",
+            sonuc,
+            sizeof(sonuc)
+        );
+        if (!ok) {
+            QString mesaj = QString::fromUtf8(sonuc);
+            if (mesaj.isEmpty()) {
+                mesaj = "Durdur komutu gonderilemedi";
+            }
+            QMessageBox::warning(this, "Uyari", mesaj);
+            return;
+        }
+
+        aktif_uzak_durdurma_istendi_ = true;
+        log_ekle("Uzak edinim durdurma komutu gonderildi", GUNLUK_SEVIYE_WARN);
     }
 
     void guvenlik_anahtari_onayla() {
@@ -2987,6 +3170,7 @@ private:
         }
         imaj_calisiyor_ = true;
         aktif_uzak_ilerleme_ = uzak_ilerleme_;
+        aktif_uzak_is_baslat(QString::fromUtf8(baglanti_->is_id), UzakIsTur::Disk);
 
         std::thread([this]() {
             IsGorevi* is = is_olustur(IS_TIPI_DISK_EDINIM, "Uzak Disk Imaji");
@@ -3005,12 +3189,17 @@ private:
                     uzak_durum_label_->setText("Imaj alma tamamlandi");
                     durum_guncelle("Hazir");
                     log_ekle("Uzak imaj alma tamamlandi", GUNLUK_SEVIYE_INFO);
+                } else if (aktif_uzak_durdurma_istendi_) {
+                    uzak_durum_label_->setText("Imaj alma durduruldu (kismi kayit var)");
+                    durum_guncelle("Hazir");
+                    log_ekle("Uzak imaj alma kullanici tarafindan durduruldu", GUNLUK_SEVIYE_WARN);
                 } else {
                     uzak_durum_label_->setText("Imaj alma basarisiz");
                     durum_guncelle("Hata");
                     log_ekle("Uzak imaj alma basarisiz", GUNLUK_SEVIYE_ERROR);
                 }
                 aktif_uzak_ilerleme_ = nullptr;
+                aktif_uzak_is_temizle();
             }, Qt::QueuedConnection);
 
             is_temizle(is);
@@ -3270,6 +3459,7 @@ private:
         }
         imaj_calisiyor_ = true;
         aktif_uzak_ilerleme_ = linux_uzak_ilerleme_;
+        aktif_uzak_is_baslat(QString::fromUtf8(baglanti_->is_id), UzakIsTur::Disk);
 
         std::thread([this]() {
             IsGorevi* is = is_olustur(IS_TIPI_DISK_EDINIM, "Linux Uzak Disk Imaji");
@@ -3291,6 +3481,12 @@ private:
                     }
                     durum_guncelle("Hazir");
                     log_ekle("Linux uzak imaj alma tamamlandi", GUNLUK_SEVIYE_INFO);
+                } else if (aktif_uzak_durdurma_istendi_) {
+                    if (linux_uzak_durum_label_) {
+                        linux_uzak_durum_label_->setText("Imaj alma durduruldu (kismi kayit var)");
+                    }
+                    durum_guncelle("Hazir");
+                    log_ekle("Linux uzak imaj alma kullanici tarafindan durduruldu", GUNLUK_SEVIYE_WARN);
                 } else {
                     if (linux_uzak_durum_label_) {
                         linux_uzak_durum_label_->setText("Imaj alma basarisiz");
@@ -3299,6 +3495,7 @@ private:
                     log_ekle("Linux uzak imaj alma basarisiz", GUNLUK_SEVIYE_ERROR);
                 }
                 aktif_uzak_ilerleme_ = nullptr;
+                aktif_uzak_is_temizle();
             }, Qt::QueuedConnection);
 
             is_temizle(is);
@@ -3917,18 +4114,24 @@ private:
             ajan_cikti = "memory_dump.raw";
         }
 
+        const QString ram_is_id = "RAM_" + QString::number(QDateTime::currentSecsSinceEpoch());
+        aktif_uzak_is_baslat(ram_is_id, UzakIsTur::Ram);
+
         log_ekle("WinPMEM RAM edinimi baslatildi (uzak ajan): " + ajan_cikti, GUNLUK_SEVIYE_INFO);
 
         // Asenkron RAM edinim
-        std::thread([this, tam_cikti, ajan_cikti]() {
+        std::thread([this, tam_cikti, ajan_cikti, ram_is_id]() {
             char sonuc_metin[256] = {0};
             bool sonuc = uzak_ram_edinim_baslat_ve_takip(
                 baglanti_,
                 ajan_cikti.toUtf8().constData(),
+                ram_is_id.toUtf8().constData(),
                 winpmem_ilerleme_callback,
                 this,
                 sonuc_metin,
-                sizeof(sonuc_metin)
+                sizeof(sonuc_metin),
+                nullptr,
+                0
             );
 
             bool otomatik_indir = false;
@@ -3999,7 +4202,9 @@ private:
                     log_ekle(hata_mesaj, GUNLUK_SEVIYE_ERROR);
                     QMessageBox::critical(this, "Hata", hata_mesaj);
                 }
+                aktif_uzak_is_temizle();
             }, Qt::QueuedConnection);
+
         }).detach();
     }
 
@@ -4275,16 +4480,21 @@ private:
         }
 
         const QString ajan_cikti = QFileInfo(tam_cikti).fileName();
+        const QString ram_is_id = "RAM_" + QString::number(QDateTime::currentSecsSinceEpoch());
+        aktif_uzak_is_baslat(ram_is_id, UzakIsTur::Ram);
 
-        std::thread([this, tam_cikti, ajan_cikti]() {
+        std::thread([this, tam_cikti, ajan_cikti, ram_is_id]() {
             char sonuc_metin[256] = {0};
             bool sonuc = uzak_ram_edinim_baslat_ve_takip(
                 baglanti_,
                 ajan_cikti.toUtf8().constData(),
+                ram_is_id.toUtf8().constData(),
                 linux_uzak_ram_ilerleme_callback,
                 this,
                 sonuc_metin,
-                sizeof(sonuc_metin)
+                sizeof(sonuc_metin),
+                nullptr,
+                0
             );
 
             QMetaObject::invokeMethod(this, [this, sonuc, tam_cikti, sonuc_metin]() {
@@ -4301,6 +4511,7 @@ private:
                     }
                     QMessageBox::critical(this, cevir_metin("Hata"), cevir_metin("Linux uzak RAM hatasi: ") + QString::fromUtf8(sonuc_metin));
                 }
+                aktif_uzak_is_temizle();
             }, Qt::QueuedConnection);
         }).detach();
     }

@@ -19,6 +19,40 @@ static bool ciktiya_tam_yaz(GOutputStream* cikti, const char* veri, gsize uzunlu
     return g_output_stream_write_all(cikti, veri, uzunluk, &yazilan, NULL, hata) && yazilan == uzunluk;
 }
 
+static bool json_satir_yaniti_ok_mu(const char* satir, char* mesaj, size_t mesaj_boyut) {
+    if (mesaj && mesaj_boyut > 0) {
+        mesaj[0] = '\0';
+    }
+    if (!satir) {
+        return false;
+    }
+
+    JsonParser* parser = json_parser_new();
+    bool ok = false;
+    if (json_parser_load_from_data(parser, satir, -1, NULL)) {
+        JsonObject* obj = json_node_get_object(json_parser_get_root(parser));
+        if (obj && json_object_has_member(obj, "durum") &&
+            strcmp(json_object_get_string_member(obj, "durum"), "ok") == 0) {
+            ok = true;
+            if (mesaj && mesaj_boyut > 0 && json_object_has_member(obj, "mesaj")) {
+                const char* m = json_object_get_string_member(obj, "mesaj");
+                if (m) {
+                    strncpy(mesaj, m, mesaj_boyut - 1);
+                    mesaj[mesaj_boyut - 1] = '\0';
+                }
+            }
+        } else if (obj && mesaj && mesaj_boyut > 0 && json_object_has_member(obj, "mesaj")) {
+            const char* m = json_object_get_string_member(obj, "mesaj");
+            if (m) {
+                strncpy(mesaj, m, mesaj_boyut - 1);
+                mesaj[mesaj_boyut - 1] = '\0';
+            }
+        }
+    }
+    g_object_unref(parser);
+    return ok;
+}
+
 UzakDiskBaglanti* uzak_disk_baglanti_olustur(const char* ip, int port, const char* token) {
     if (!ip || port <= 0) return NULL;
     
@@ -175,6 +209,82 @@ bool uzak_disk_baglan(UzakDiskBaglanti* baglanti) {
     }
     
     return true;
+}
+
+bool uzak_edinim_kontrol_gonder(UzakDiskBaglanti* baglanti,
+                                const char* is_id,
+                                const char* eylem,
+                                char* sonuc_metin,
+                                size_t sonuc_metin_boyut) {
+    if (sonuc_metin && sonuc_metin_boyut > 0) {
+        sonuc_metin[0] = '\0';
+    }
+    if (!baglanti || !is_id || !eylem || is_id[0] == '\0' || eylem[0] == '\0') {
+        return false;
+    }
+
+    UzakDiskBaglanti* kontrol = uzak_disk_baglanti_olustur(
+        baglanti->ip,
+        baglanti->port,
+        baglanti->token[0] ? baglanti->token : NULL
+    );
+    if (!kontrol) {
+        if (sonuc_metin && sonuc_metin_boyut > 0) {
+            strncpy(sonuc_metin, "Kontrol baglantisi olusturulamadi", sonuc_metin_boyut - 1);
+            sonuc_metin[sonuc_metin_boyut - 1] = '\0';
+        }
+        return false;
+    }
+
+    if (!uzak_disk_baglan(kontrol)) {
+        if (sonuc_metin && sonuc_metin_boyut > 0) {
+            const char* m = kontrol->son_hata[0] ? kontrol->son_hata : "Kontrol baglantisi kurulamadi";
+            strncpy(sonuc_metin, m, sonuc_metin_boyut - 1);
+            sonuc_metin[sonuc_metin_boyut - 1] = '\0';
+        }
+        uzak_disk_baglanti_kapat(kontrol);
+        return false;
+    }
+
+    GError* hata = NULL;
+    JsonBuilder* builder = json_builder_new();
+    json_builder_begin_object(builder);
+    json_builder_set_member_name(builder, "komut");
+    json_builder_add_string_value(builder, "edinim_kontrol");
+    json_builder_set_member_name(builder, "is_id");
+    json_builder_add_string_value(builder, is_id);
+    json_builder_set_member_name(builder, "eylem");
+    json_builder_add_string_value(builder, eylem);
+    json_builder_end_object(builder);
+
+    JsonNode* root = json_builder_get_root(builder);
+    gchar* json_str = json_to_string(root, FALSE);
+    gchar* mesaj = g_strdup_printf("%s\n", json_str);
+
+    bool sonuc = false;
+    if (ciktiya_tam_yaz(kontrol->cikti, mesaj, strlen(mesaj), &hata) &&
+        g_output_stream_flush(kontrol->cikti, NULL, &hata)) {
+        gchar* satir = g_data_input_stream_read_line(kontrol->girdi, NULL, NULL, &hata);
+        if (satir) {
+            sonuc = json_satir_yaniti_ok_mu(satir, sonuc_metin, sonuc_metin_boyut);
+            g_free(satir);
+        }
+    }
+
+    if (hata && sonuc_metin && sonuc_metin_boyut > 0 && sonuc_metin[0] == '\0') {
+        strncpy(sonuc_metin, hata->message ? hata->message : "Kontrol komutu hatasi", sonuc_metin_boyut - 1);
+        sonuc_metin[sonuc_metin_boyut - 1] = '\0';
+    }
+
+    if (hata) {
+        g_error_free(hata);
+    }
+    g_free(mesaj);
+    g_free(json_str);
+    json_node_free(root);
+    g_object_unref(builder);
+    uzak_disk_baglanti_kapat(kontrol);
+    return sonuc;
 }
 
 GList* uzak_disk_listele(UzakDiskBaglanti* baglanti) {
@@ -379,6 +489,16 @@ bool uzak_imaj_stream_al(UzakDiskBaglanti* baglanti, IsGorevi* is,
     GError* hata = NULL;
     bool tamamlandi = false;
     bool hata_var = false;
+    bool kullanici_durdurdu = false;
+    baglanti->son_hata[0] = '\0';
+
+    GSocket* soket = g_socket_connection_get_socket(baglanti->baglanti);
+    guint onceki_timeout = 0;
+    if (soket) {
+        onceki_timeout = g_socket_get_timeout(soket);
+        // Duraklatma sirasinda akista veri akmayabilecegi icin timeout kapatilir.
+        g_socket_set_timeout(soket, 0);
+    }
     
     while (!tamamlandi && !hata_var) {
         gchar* satir = g_data_input_stream_read_line(baglanti->girdi, NULL, NULL, &hata);
@@ -413,6 +533,19 @@ bool uzak_imaj_stream_al(UzakDiskBaglanti* baglanti, IsGorevi* is,
         const char* tur = json_object_get_string_member(obj, "tur");
 
         if (strcmp(tur, "hata") == 0) {
+            if (json_object_has_member(obj, "mesaj")) {
+                const char* m = json_object_get_string_member(obj, "mesaj");
+                if (m) {
+                    strncpy(baglanti->son_hata, m, sizeof(baglanti->son_hata) - 1);
+                    baglanti->son_hata[sizeof(baglanti->son_hata) - 1] = '\0';
+                }
+            }
+            if (json_object_has_member(obj, "kod")) {
+                const char* kod = json_object_get_string_member(obj, "kod");
+                if (kod && strcmp(kod, "STOPPED_BY_USER") == 0) {
+                    kullanici_durdurdu = true;
+                }
+            }
             hata_var = true;
             g_object_unref(parser);
             g_free(satir);
@@ -499,11 +632,30 @@ bool uzak_imaj_stream_al(UzakDiskBaglanti* baglanti, IsGorevi* is,
                 } else {
                     JsonNode* root = json_parser_get_root(parser);
                     JsonObject* obj = json_node_get_object(root);
-                    if (!json_object_has_member(obj, "tur") ||
-                        strcmp(json_object_get_string_member(obj, "tur"), "bitti") != 0) {
+                    if (!json_object_has_member(obj, "tur")) {
                         hata_var = true;
                     } else {
-                        tamamlandi = true;
+                        const char* tur = json_object_get_string_member(obj, "tur");
+                        if (strcmp(tur, "bitti") == 0) {
+                            tamamlandi = true;
+                        } else if (strcmp(tur, "hata") == 0) {
+                            if (json_object_has_member(obj, "mesaj")) {
+                                const char* m = json_object_get_string_member(obj, "mesaj");
+                                if (m) {
+                                    strncpy(baglanti->son_hata, m, sizeof(baglanti->son_hata) - 1);
+                                    baglanti->son_hata[sizeof(baglanti->son_hata) - 1] = '\0';
+                                }
+                            }
+                            if (json_object_has_member(obj, "kod")) {
+                                const char* kod = json_object_get_string_member(obj, "kod");
+                                if (kod && strcmp(kod, "STOPPED_BY_USER") == 0) {
+                                    kullanici_durdurdu = true;
+                                }
+                            }
+                            hata_var = true;
+                        } else {
+                            hata_var = true;
+                        }
                     }
                 }
                 g_object_unref(parser);
@@ -523,8 +675,20 @@ bool uzak_imaj_stream_al(UzakDiskBaglanti* baglanti, IsGorevi* is,
         if (partial_yol_uret(partial_yol, sizeof(partial_yol), baglanti->hedef_yol)) {
             rename(baglanti->hedef_yol, partial_yol);
         }
-        
-        is_hata(is, "Imaj alma yarida kesildi");
+
+        if (kullanici_durdurdu) {
+            is_durum_guncelle(is, IS_DURUMU_IPTAL_EDILDI, -1);
+            if (baglanti->son_hata[0] == '\0') {
+                strncpy(baglanti->son_hata, "Imaj alma kullanici tarafindan durduruldu", sizeof(baglanti->son_hata) - 1);
+                baglanti->son_hata[sizeof(baglanti->son_hata) - 1] = '\0';
+            }
+        } else {
+            is_hata(is, "Imaj alma yarida kesildi");
+        }
+
+        if (soket) {
+            g_socket_set_timeout(soket, onceki_timeout);
+        }
         return false;
     }
     
@@ -533,6 +697,10 @@ bool uzak_imaj_stream_al(UzakDiskBaglanti* baglanti, IsGorevi* is,
     
     if (is) {
         is_tamamla(is, NULL);
+    }
+
+    if (soket) {
+        g_socket_set_timeout(soket, onceki_timeout);
     }
     return true;
 }
@@ -673,16 +841,22 @@ bool uzak_avml_kontrol(UzakDiskBaglanti* baglanti,
 
 bool uzak_ram_edinim_baslat_ve_takip(UzakDiskBaglanti* baglanti,
                                      const char* cikti_dosya,
+                                     const char* is_id_istek,
                                      void (*ilerleme_cb)(int64_t okunan, int64_t toplam, void* veri),
                                      void* kullanici_verisi,
                                      char* sonuc_metin,
-                                     size_t sonuc_metin_boyut) {
+                                     size_t sonuc_metin_boyut,
+                                     char* is_id_cikti,
+                                     size_t is_id_cikti_boyut) {
     if (!baglanti || !baglanti->girdi || !baglanti->cikti || !cikti_dosya) {
         return false;
     }
 
     if (sonuc_metin && sonuc_metin_boyut > 0) {
         sonuc_metin[0] = '\0';
+    }
+    if (is_id_cikti && is_id_cikti_boyut > 0) {
+        is_id_cikti[0] = '\0';
     }
 
     GError* hata = NULL;
@@ -700,6 +874,14 @@ bool uzak_ram_edinim_baslat_ve_takip(UzakDiskBaglanti* baglanti,
     json_builder_add_string_value(builder, "ram_edinim_baslat");
     json_builder_set_member_name(builder, "cikti_dosya");
     json_builder_add_string_value(builder, cikti_dosya);
+    if (is_id_istek && is_id_istek[0] != '\0') {
+        json_builder_set_member_name(builder, "is_id");
+        json_builder_add_string_value(builder, is_id_istek);
+        if (is_id_cikti && is_id_cikti_boyut > 0) {
+            strncpy(is_id_cikti, is_id_istek, is_id_cikti_boyut - 1);
+            is_id_cikti[is_id_cikti_boyut - 1] = '\0';
+        }
+    }
     json_builder_end_object(builder);
 
     JsonNode* root = json_builder_get_root(builder);
@@ -790,6 +972,13 @@ bool uzak_ram_edinim_baslat_ve_takip(UzakDiskBaglanti* baglanti,
             if (json_object_has_member(obj, "toplam_boyut")) {
                 toplam = json_object_get_int_member(obj, "toplam_boyut");
             }
+            if (is_id_cikti && is_id_cikti_boyut > 0 && json_object_has_member(obj, "is_id")) {
+                const char* is_id = json_object_get_string_member(obj, "is_id");
+                if (is_id) {
+                    strncpy(is_id_cikti, is_id, is_id_cikti_boyut - 1);
+                    is_id_cikti[is_id_cikti_boyut - 1] = '\0';
+                }
+            }
             g_object_unref(parser);
             g_free(satir);
             continue;
@@ -807,6 +996,14 @@ bool uzak_ram_edinim_baslat_ve_takip(UzakDiskBaglanti* baglanti,
             veri_basladi = true;
             if (json_object_has_member(obj, "toplam")) {
                 toplam = json_object_get_int_member(obj, "toplam");
+            }
+            if (is_id_cikti && is_id_cikti_boyut > 0 && is_id_cikti[0] == '\0' &&
+                json_object_has_member(obj, "is_id")) {
+                const char* is_id = json_object_get_string_member(obj, "is_id");
+                if (is_id) {
+                    strncpy(is_id_cikti, is_id, is_id_cikti_boyut - 1);
+                    is_id_cikti[is_id_cikti_boyut - 1] = '\0';
+                }
             }
             g_object_unref(parser);
             g_free(satir);

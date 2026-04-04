@@ -65,10 +65,19 @@ bool uzak_avml_kontrol(UzakDiskBaglanti* baglanti,
 
 bool uzak_ram_edinim_baslat_ve_takip(UzakDiskBaglanti* baglanti,
                                      const char* cikti_dosya,
+                                     const char* is_id_istek,
                                      void (*ilerleme_cb)(int64_t okunan, int64_t toplam, void* veri),
                                      void* kullanici_verisi,
                                      char* sonuc_metin,
-                                     size_t sonuc_metin_boyut);
+                                     size_t sonuc_metin_boyut,
+                                     char* is_id_cikti,
+                                     size_t is_id_cikti_boyut);
+
+bool uzak_edinim_kontrol_gonder(UzakDiskBaglanti* baglanti,
+                                const char* is_id,
+                                const char* eylem,
+                                char* sonuc_metin,
+                                size_t sonuc_metin_boyut);
 
 bool uzak_ram_dosya_indir(UzakDiskBaglanti* baglanti,
                           const char* uzak_dosya,
