@@ -171,6 +171,7 @@ private:
     QLineEdit* yerel_cikti_klasor_giris_ = nullptr;
     QPushButton* yerel_disk_getir_btn_ = nullptr;
     QPushButton* yerel_imaj_btn_ = nullptr;
+    QPushButton* yerel_iptal_btn_ = nullptr;
     QProgressBar* yerel_ilerleme_ = nullptr;
     QLabel* yerel_durum_label_ = nullptr;
     std::vector<DiskBilgisi> yerel_diskler_;
@@ -219,6 +220,7 @@ private:
     QPushButton* winpmem_yerel_kontrol_btn_ = nullptr;
     QPushButton* winpmem_yerel_indir_btn_ = nullptr;
     QPushButton* winpmem_yerel_baslat_btn_ = nullptr;
+    QPushButton* winpmem_yerel_iptal_btn_ = nullptr;
     QProgressBar* winpmem_yerel_ilerleme_ = nullptr;
     QLabel* winpmem_yerel_durum_label_ = nullptr;
     QLabel* winpmem_yerel_bilgi_label_ = nullptr;
@@ -228,6 +230,7 @@ private:
     // Linux yerel RAM edinimi (AVML)
     QPushButton* avml_kontrol_btn_ = nullptr;
     QPushButton* avml_baslat_btn_ = nullptr;
+    QPushButton* avml_iptal_btn_ = nullptr;
     QProgressBar* avml_ilerleme_ = nullptr;
     QLabel* avml_durum_label_ = nullptr;
     QLabel* avml_bilgi_label_ = nullptr;
@@ -278,6 +281,12 @@ private:
         Ram
     };
     UzakIsTur aktif_uzak_is_turu_ = UzakIsTur::Yok;
+    bool yerel_disk_edinim_aktif_ = false;
+    bool yerel_disk_iptal_istendi_ = false;
+    bool winpmem_yerel_edinim_aktif_ = false;
+    bool winpmem_yerel_iptal_istendi_ = false;
+    bool avml_yerel_edinim_aktif_ = false;
+    bool avml_yerel_iptal_istendi_ = false;
     std::unordered_map<std::string, std::string> ceviri_tr_en_;
     std::unordered_map<std::string, std::string> ceviri_en_tr_;
 
@@ -429,6 +438,7 @@ private:
                 "QGroupBox { border: 1px solid #202020; border-radius: 10px; margin-top: 10px; padding: 10px; background-color: #050505; }"
                 "QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 6px; color: #d7dde3; }"
                 "QFrame#AboutHeaderCard { background-color: #0b0b0b; border: 1px solid #242424; border-radius: 12px; }"
+                "QFrame#ContributorCard { background-color: #090909; border: 1px solid #2b2b2b; border-radius: 10px; }"
                 "QLineEdit, QTextEdit, QComboBox, QProgressBar {"
                 "  background-color: #080808; border: 1px solid #242424; border-radius: 8px; padding: 5px 7px; color: #f2f5f8;"
                 "}"
@@ -469,6 +479,7 @@ private:
                 "QGroupBox { border: 1px solid #d7e1ea; border-radius: 10px; margin-top: 10px; padding: 10px; background-color: #ffffff; }"
                 "QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 6px; color: #35526d; }"
                 "QFrame#AboutHeaderCard { background-color: #ffffff; border: 1px solid #d7e1ea; border-radius: 12px; }"
+                "QFrame#ContributorCard { background-color: #f7fbff; border: 1px solid #cfddea; border-radius: 10px; }"
                 "QLineEdit, QTextEdit, QComboBox, QProgressBar {"
                 "  background-color: #ffffff; border: 1px solid #c9d8e6; border-radius: 8px; padding: 5px 7px; color: #1c2733;"
                 "}"
@@ -589,7 +600,7 @@ private:
         alt1->setFont(f1);
         duzen->addWidget(alt1);
 
-        QLabel* alt2 = new QLabel("Worm v0.0.3");
+        QLabel* alt2 = new QLabel("Worm v0.0.4");
         alt2->setAlignment(Qt::AlignCenter);
         QFont f2 = alt2->font();
         f2.setPointSize(13);
@@ -1577,8 +1588,11 @@ private:
             QHBoxLayout* satir = new QHBoxLayout();
             yerel_disk_getir_btn_ = new QPushButton("Yerel Diskleri Getir");
             yerel_imaj_btn_ = new QPushButton("Yerel Imaj Al");
+            yerel_iptal_btn_ = new QPushButton("Iptal Et");
+            yerel_iptal_btn_->setEnabled(false);
             satir->addWidget(yerel_disk_getir_btn_);
             satir->addWidget(yerel_imaj_btn_);
+            satir->addWidget(yerel_iptal_btn_);
             satir->addStretch();
             icerik->addLayout(satir);
         }
@@ -1596,6 +1610,7 @@ private:
 
         connect(yerel_disk_getir_btn_, &QPushButton::clicked, this, [this]() { yerel_disk_getir(); });
         connect(yerel_imaj_btn_, &QPushButton::clicked, this, [this]() { yerel_imaj_baslat(); });
+        connect(yerel_iptal_btn_, &QPushButton::clicked, this, [this]() { yerel_disk_edinim_iptal_et(); });
 
         return sayfa;
 #endif
@@ -1648,8 +1663,11 @@ private:
             QHBoxLayout* satir = new QHBoxLayout();
             yerel_disk_getir_btn_ = new QPushButton("Yerel Diskleri Getir");
             yerel_imaj_btn_ = new QPushButton("Yerel Imaj Al");
+            yerel_iptal_btn_ = new QPushButton("Iptal Et");
+            yerel_iptal_btn_->setEnabled(false);
             satir->addWidget(yerel_disk_getir_btn_);
             satir->addWidget(yerel_imaj_btn_);
+            satir->addWidget(yerel_iptal_btn_);
             satir->addStretch();
             icerik->addLayout(satir);
         }
@@ -1664,6 +1682,7 @@ private:
 
         connect(yerel_disk_getir_btn_, &QPushButton::clicked, this, [this]() { yerel_disk_getir(); });
         connect(yerel_imaj_btn_, &QPushButton::clicked, this, [this]() { yerel_imaj_baslat(); });
+        connect(yerel_iptal_btn_, &QPushButton::clicked, this, [this]() { yerel_disk_edinim_iptal_et(); });
 #else
         QLabel* bilgi = new QLabel("Bu ozellik sadece Windows'ta calisir.");
         bilgi->setWordWrap(true);
@@ -2001,7 +2020,10 @@ private:
             QHBoxLayout* satir = new QHBoxLayout();
             winpmem_yerel_baslat_btn_ = new QPushButton("Yerel RAM Edinimini Baslat");
             winpmem_yerel_baslat_btn_->setEnabled(false);
+            winpmem_yerel_iptal_btn_ = new QPushButton("Iptal Et");
+            winpmem_yerel_iptal_btn_->setEnabled(false);
             satir->addWidget(winpmem_yerel_baslat_btn_);
+            satir->addWidget(winpmem_yerel_iptal_btn_);
             satir->addStretch();
             icerik->addLayout(satir);
         }
@@ -2017,6 +2039,7 @@ private:
         connect(winpmem_yerel_kontrol_btn_, &QPushButton::clicked, this, [this]() { winpmem_yerel_kontrol_yap(); });
         connect(winpmem_yerel_indir_btn_, &QPushButton::clicked, this, [this]() { winpmem_yerel_indir(); });
         connect(winpmem_yerel_baslat_btn_, &QPushButton::clicked, this, [this]() { winpmem_yerel_baslat(); });
+        connect(winpmem_yerel_iptal_btn_, &QPushButton::clicked, this, [this]() { winpmem_yerel_edinim_iptal_et(); });
 #endif
 
         duzen->addWidget(cerceve);
@@ -2068,7 +2091,10 @@ private:
             QHBoxLayout* satir = new QHBoxLayout();
             avml_baslat_btn_ = new QPushButton("Linux Yerel RAM Edinimini Baslat");
             avml_baslat_btn_->setEnabled(false);
+            avml_iptal_btn_ = new QPushButton("Iptal Et");
+            avml_iptal_btn_->setEnabled(false);
             satir->addWidget(avml_baslat_btn_);
+            satir->addWidget(avml_iptal_btn_);
             satir->addStretch();
             icerik->addLayout(satir);
         }
@@ -2083,6 +2109,7 @@ private:
 
         connect(avml_kontrol_btn_, &QPushButton::clicked, this, [this]() { avml_kontrol_yap(); });
         connect(avml_baslat_btn_, &QPushButton::clicked, this, [this]() { avml_baslat(); });
+        connect(avml_iptal_btn_, &QPushButton::clicked, this, [this]() { avml_yerel_edinim_iptal_et(); });
 #endif
 
         duzen->addWidget(cerceve);
@@ -2480,7 +2507,7 @@ private:
         baslik->setFont(baslik_font);
         ust_icerik->addWidget(baslik);
 
-        QLabel* surum = new QLabel("Surum 0.0.3");
+        QLabel* surum = new QLabel("Surum 0.0.4");
         ust_icerik->addWidget(surum);
 
         QLabel* ozet = new QLabel(
@@ -2511,6 +2538,48 @@ private:
         ilke_metin->setWordWrap(true);
         ilke_icerik->addWidget(ilke_metin);
         duzen->addWidget(ilke);
+
+        QGroupBox* katkicilar = new QGroupBox("Contributors");
+        QHBoxLayout* katkici_satir = new QHBoxLayout(katkicilar);
+        katkici_satir->setSpacing(10);
+        const QString isimler[] = {
+            "Melih Emik",
+            "Muhammed Ali Guner",
+            "Yusuf Tuncel",
+        };
+        for (const QString& isim : isimler) {
+            QFrame* kart = new QFrame();
+            kart->setObjectName("ContributorCard");
+            kart->setMinimumSize(150, 150);
+            QVBoxLayout* kart_duzen = new QVBoxLayout(kart);
+            kart_duzen->setContentsMargins(12, 10, 12, 10);
+
+            QLabel* isim_label = new QLabel(isim);
+            QFont isim_font = isim_label->font();
+            isim_font.setBold(true);
+            isim_font.setPointSize(11);
+            isim_label->setFont(isim_font);
+            isim_label->setAlignment(Qt::AlignCenter);
+
+            QLabel* rol_label = new QLabel("Forensic Contributor");
+            rol_label->setAlignment(Qt::AlignCenter);
+
+            kart_duzen->addWidget(isim_label);
+            kart_duzen->addWidget(rol_label);
+            katkici_satir->addWidget(kart, 1);
+        }
+        duzen->addWidget(katkicilar);
+
+        QLabel* sirket_logo = new QLabel();
+        sirket_logo->setAlignment(Qt::AlignCenter);
+        const QString sirket_logo_yol = logo_dosyasi_bul("sirket.png");
+        if (!sirket_logo_yol.isEmpty()) {
+            QPixmap sirket_pix(sirket_logo_yol);
+            if (!sirket_pix.isNull()) {
+                sirket_logo->setPixmap(sirket_pix.scaled(220, 90, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            }
+        }
+        duzen->addWidget(sirket_logo);
 
         duzen->addStretch();
         return sayfa;
@@ -2786,6 +2855,56 @@ private:
 
         aktif_uzak_durdurma_istendi_ = true;
         log_ekle("Uzak edinim durdurma komutu gonderildi", GUNLUK_SEVIYE_WARN);
+    }
+
+    void yerel_disk_edinim_iptal_et() {
+        if (!yerel_disk_edinim_aktif_) {
+            QMessageBox::information(this, "Bilgi", "Iptal edilecek aktif yerel disk edinimi yok.");
+            return;
+        }
+
+        yerel_disk_iptal_istendi_ = true;
+        disk_edinim_iptal();
+        if (yerel_durum_label_) {
+            yerel_durum_label_->setText("Yerel disk edinimi durduruluyor...");
+        }
+        log_ekle("Yerel disk edinimi icin iptal istendi", GUNLUK_SEVIYE_WARN);
+    }
+
+    void winpmem_yerel_edinim_iptal_et() {
+#ifndef _WIN32
+        QMessageBox::warning(this, "Bilgi", "Bu ozellik sadece Windows'ta calisir.");
+#else
+        if (!winpmem_yerel_edinim_aktif_ || !winpmem_yerel_edinim_) {
+            QMessageBox::information(this, "Bilgi", "Iptal edilecek aktif yerel RAM edinimi yok.");
+            return;
+        }
+
+        winpmem_yerel_iptal_istendi_ = true;
+        winpmem_iptal_et(winpmem_yerel_edinim_);
+        if (winpmem_yerel_durum_label_) {
+            winpmem_yerel_durum_label_->setText("Windows yerel RAM edinimi durduruluyor...");
+        }
+        log_ekle("Windows yerel RAM edinimi icin iptal istendi", GUNLUK_SEVIYE_WARN);
+#endif
+    }
+
+    void avml_yerel_edinim_iptal_et() {
+#ifdef _WIN32
+        QMessageBox::warning(this, "Bilgi", "Bu ozellik sadece Linux'ta calisir.");
+#else
+        if (!avml_yerel_edinim_aktif_ || !avml_edinim_) {
+            QMessageBox::information(this, "Bilgi", "Iptal edilecek aktif Linux RAM edinimi yok.");
+            return;
+        }
+
+        avml_yerel_iptal_istendi_ = true;
+        avml_iptal_et(avml_edinim_);
+        if (avml_durum_label_) {
+            avml_durum_label_->setText("Linux yerel RAM edinimi durduruluyor...");
+        }
+        log_ekle("Linux yerel RAM edinimi icin iptal istendi", GUNLUK_SEVIYE_WARN);
+#endif
     }
 
     void guvenlik_anahtari_onayla() {
@@ -3617,11 +3736,16 @@ private:
         log_ekle("Yerel imaj baslatildi: " + kaynak, GUNLUK_SEVIYE_INFO);
 
         imaj_calisiyor_ = true;
+        yerel_disk_edinim_aktif_ = true;
+        yerel_disk_iptal_istendi_ = false;
         if (yerel_imaj_btn_) {
             yerel_imaj_btn_->setEnabled(false);
         }
         if (yerel_disk_getir_btn_) {
             yerel_disk_getir_btn_->setEnabled(false);
+        }
+        if (yerel_iptal_btn_) {
+            yerel_iptal_btn_->setEnabled(true);
         }
         if (imaj_btn_) {
             imaj_btn_->setEnabled(false);
@@ -3677,12 +3801,16 @@ private:
 
             QMetaObject::invokeMethod(this, [this, basarili, hedef, hata]() {
                 imaj_calisiyor_ = false;
+                yerel_disk_edinim_aktif_ = false;
 
                 if (yerel_imaj_btn_) {
                     yerel_imaj_btn_->setEnabled(true);
                 }
                 if (yerel_disk_getir_btn_) {
                     yerel_disk_getir_btn_->setEnabled(true);
+                }
+                if (yerel_iptal_btn_) {
+                    yerel_iptal_btn_->setEnabled(false);
                 }
                 if (imaj_btn_) {
                     imaj_btn_->setEnabled(true);
@@ -3700,6 +3828,12 @@ private:
                     }
                     durum_guncelle("Hazir");
                     log_ekle("Yerel imaj tamamlandi: " + hedef, GUNLUK_SEVIYE_INFO);
+                } else if (yerel_disk_iptal_istendi_) {
+                    if (yerel_durum_label_) {
+                        yerel_durum_label_->setText("Yerel imaj alma iptal edildi (kismi kayit korunur)");
+                    }
+                    durum_guncelle("Hazir");
+                    log_ekle("Yerel imaj alma kullanici tarafindan iptal edildi", GUNLUK_SEVIYE_WARN);
                 } else {
                     if (yerel_durum_label_) {
                         yerel_durum_label_->setText("Yerel imaj alma basarisiz");
@@ -3713,6 +3847,8 @@ private:
                     }
                     QMessageBox::critical(this, "Hata", detay);
                 }
+
+                yerel_disk_iptal_istendi_ = false;
             }, Qt::QueuedConnection);
 
             is_temizle(is);
@@ -4701,6 +4837,9 @@ private:
         winpmem_yerel_bilgi_label_->setText(bilgi);
         winpmem_yerel_indir_btn_->setEnabled(!mevcut);
         winpmem_yerel_baslat_btn_->setEnabled(mevcut && yetki);
+        if (winpmem_yerel_iptal_btn_) {
+            winpmem_yerel_iptal_btn_->setEnabled(false);
+        }
         winpmem_yerel_durum_label_->setText((mevcut && yetki) ? "Hazir" : "Hazir degil");
         winpmem_yerel_kontrol_btn_->setEnabled(true);
 #endif
@@ -4759,10 +4898,15 @@ private:
             winpmem_yerel_cikti_giris_->setText(tam_cikti);
         }
 
+        winpmem_yerel_edinim_aktif_ = true;
+        winpmem_yerel_iptal_istendi_ = false;
         winpmem_yerel_baslat_btn_->setEnabled(false);
         winpmem_yerel_kontrol_btn_->setEnabled(false);
         if (winpmem_yerel_indir_btn_) {
             winpmem_yerel_indir_btn_->setEnabled(false);
+        }
+        if (winpmem_yerel_iptal_btn_) {
+            winpmem_yerel_iptal_btn_->setEnabled(true);
         }
         if (winpmem_yerel_ilerleme_) {
             winpmem_yerel_ilerleme_->setValue(0);
@@ -4781,13 +4925,20 @@ private:
             );
 
             QMetaObject::invokeMethod(this, [this, ok, tam_cikti, hata]() {
+                winpmem_yerel_edinim_aktif_ = false;
                 winpmem_yerel_kontrol_btn_->setEnabled(true);
                 winpmem_yerel_baslat_btn_->setEnabled(true);
                 if (winpmem_yerel_indir_btn_) {
                     winpmem_yerel_indir_btn_->setEnabled(false);
                 }
+                if (winpmem_yerel_iptal_btn_) {
+                    winpmem_yerel_iptal_btn_->setEnabled(false);
+                }
 
-                if (ok) {
+                if (winpmem_yerel_iptal_istendi_) {
+                    winpmem_yerel_durum_label_->setText("Windows yerel RAM edinimi iptal edildi (kismi kayit korunur)");
+                    log_ekle("Windows yerel RAM edinimi kullanici tarafindan iptal edildi", GUNLUK_SEVIYE_WARN);
+                } else if (ok) {
                     if (winpmem_yerel_ilerleme_) {
                         winpmem_yerel_ilerleme_->setValue(100);
                     }
@@ -4799,6 +4950,8 @@ private:
                     log_ekle("Windows yerel RAM edinimi basarisiz", GUNLUK_SEVIYE_ERROR);
                     QMessageBox::critical(this, "Hata", "Windows yerel RAM edinimi basarisiz. Hata kodu: " + QString::number((int)hata));
                 }
+
+                winpmem_yerel_iptal_istendi_ = false;
             }, Qt::QueuedConnection);
         }).detach();
 #endif
@@ -4855,6 +5008,9 @@ private:
         if (avml_baslat_btn_) {
             avml_baslat_btn_->setEnabled(avml_mevcut && root);
         }
+        if (avml_iptal_btn_) {
+            avml_iptal_btn_->setEnabled(false);
+        }
         if (avml_durum_label_) {
             avml_durum_label_->setText((avml_mevcut && root) ? "Hazir" : "Hazir degil");
         }
@@ -4891,8 +5047,13 @@ private:
             avml_cikti_giris_->setText(tam_cikti);
         }
 
+        avml_yerel_edinim_aktif_ = true;
+        avml_yerel_iptal_istendi_ = false;
         if (avml_baslat_btn_) {
             avml_baslat_btn_->setEnabled(false);
+        }
+        if (avml_iptal_btn_) {
+            avml_iptal_btn_->setEnabled(true);
         }
         if (avml_ilerleme_) {
             avml_ilerleme_->setValue(0);
@@ -4913,11 +5074,20 @@ private:
             );
 
             QMetaObject::invokeMethod(this, [this, ok, tam_cikti, hata]() {
+                avml_yerel_edinim_aktif_ = false;
                 if (avml_baslat_btn_) {
                     avml_baslat_btn_->setEnabled(true);
                 }
+                if (avml_iptal_btn_) {
+                    avml_iptal_btn_->setEnabled(false);
+                }
 
-                if (ok) {
+                if (avml_yerel_iptal_istendi_) {
+                    if (avml_durum_label_) {
+                        avml_durum_label_->setText("Linux yerel RAM edinimi iptal edildi (kismi kayit korunur)");
+                    }
+                    log_ekle("Linux yerel RAM edinimi kullanici tarafindan iptal edildi", GUNLUK_SEVIYE_WARN);
+                } else if (ok) {
                     if (avml_ilerleme_) {
                         avml_ilerleme_->setValue(100);
                     }
@@ -4933,6 +5103,8 @@ private:
                     log_ekle("Linux yerel RAM edinimi basarisiz", GUNLUK_SEVIYE_ERROR);
                     QMessageBox::critical(this, "Hata", "Linux yerel RAM edinimi basarisiz. Hata kodu: " + QString::number((int)hata));
                 }
+
+                avml_yerel_iptal_istendi_ = false;
             }, Qt::QueuedConnection);
         }).detach();
 #endif

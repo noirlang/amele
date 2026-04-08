@@ -1,5 +1,5 @@
 project('worm', ['c', 'cpp'],
-    version : '0.0.3',
+    version : '0.0.4',
     default_options : ['warning_level=2', 'c_std=c11', 'cpp_std=c++17']
 )
 

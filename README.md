@@ -44,6 +44,42 @@ Calistirma:
 ./build/worm
 ```
 
+### Iced Arayuzu (Rust) - Onizleme
+
+Qt arayuzune paralel olarak gelistirilen iced arayuzu `iced-ui/` altindadir.
+
+Gereksinimler (Ubuntu/Debian ornegi):
+
+```bash
+sudo apt update
+sudo apt install -y build-essential pkg-config libglib2.0-dev libjson-glib-dev libssl-dev
+curl https://sh.rustup.rs -sSf | sh
+```
+
+Derleme kontrolu:
+
+```bash
+cd iced-ui
+cargo check
+```
+
+Calistirma:
+
+```bash
+cd iced-ui
+cargo run
+```
+
+Mevcut iced kapsamı:
+
+- Disk listeleme (C backend koprusu)
+- Yerel disk edinim baslatma (C backend koprusu)
+- Uzak disk edinim baslatma (C backend koprusu)
+- Hash hesaplama ve SHA256 karsilastirma
+- Vaka olusturma, kanit listeleme
+- TXT + JSON rapor olusturma (C rapor modulu)
+- Gunluk goruntuleme ve seviye filtresi
+
 ### Windows'ta Derleme
 
 Windows tarafinda MSYS2 veya benzeri bir ortama Qt6 + Meson + Ninja kurulumu gerekir.
@@ -123,6 +159,42 @@ Run:
 ```bash
 ./build/worm
 ```
+
+### Iced UI (Rust) - Preview
+
+An iced-based UI is available in `iced-ui/` as a parallel migration track.
+
+Requirements (Ubuntu/Debian example):
+
+```bash
+sudo apt update
+sudo apt install -y build-essential pkg-config libglib2.0-dev libjson-glib-dev libssl-dev
+curl https://sh.rustup.rs -sSf | sh
+```
+
+Build check:
+
+```bash
+cd iced-ui
+cargo check
+```
+
+Run:
+
+```bash
+cd iced-ui
+cargo run
+```
+
+Current iced coverage:
+
+- Disk listing (C backend bridge)
+- Local disk acquisition trigger (C backend bridge)
+- Remote disk acquisition trigger (C backend bridge)
+- Hash calculation and SHA256 compare
+- Case creation and evidence listing
+- TXT + JSON report generation (C report module)
+- Log viewing with level filtering
 
 ### Build on Windows
 

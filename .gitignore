@@ -29,3 +29,11 @@ Thumbs.db
 *.log
 *.tmp
 *.cache
+
+# AppImage / release outputs
+dist/
+.appimagetool.AppImage
+
+# Rust (iced-ui)
+iced-ui/target/
+iced-ui/Cargo.lock

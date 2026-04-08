@@ -1,8 +1,8 @@
 IDI_APP_ICON ICON "../../logo/icon.ico"
 
 1 VERSIONINFO
-FILEVERSION 0,0,3,0
-PRODUCTVERSION 0,0,3,0
+FILEVERSION 0,0,4,0
+PRODUCTVERSION 0,0,4,0
 FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
 FILEFLAGS 0x1L
@@ -19,11 +19,11 @@ BEGIN
 		BEGIN
 			VALUE "CompanyName", "noirLang\0"
 			VALUE "FileDescription", "Worm Forensic Tool\0"
-			VALUE "FileVersion", "0.0.3\0"
+			VALUE "FileVersion", "0.0.4\0"
 			VALUE "InternalName", "worm\0"
 			VALUE "OriginalFilename", "worm.exe\0"
 			VALUE "ProductName", "Worm\0"
-			VALUE "ProductVersion", "0.0.3\0"
+			VALUE "ProductVersion", "0.0.4\0"
 			VALUE "Comments", "https://worm.noirlang.tr\0"
 		END
 	END
