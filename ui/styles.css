@@ -765,6 +765,95 @@ button {
   overflow: auto;
 }
 
+code {
+  color: var(--green);
+  font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+}
+
+.link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.link-row a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(101, 229, 138, 0.07);
+  color: var(--green);
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.link-row a:hover {
+  border-color: var(--line-strong);
+}
+
+.hash-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.hash-result {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.hash-result small {
+  display: block;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.hash-result strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text);
+  font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-badge,
+.settings-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  min-height: 36px;
+  margin-top: 14px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(101, 229, 138, 0.08);
+  color: var(--green);
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.settings-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.settings-meta span {
+  margin-top: 0;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.035);
+}
+
 .settings-grid {
   grid-template-columns: 1fr 1fr;
 }
@@ -816,6 +905,108 @@ button {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.section-heading {
+  margin: 24px 0 14px;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+
+.about-hero {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 26px;
+  align-items: center;
+  padding: 30px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(circle at 82% 20%, rgba(101, 229, 138, 0.18), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)),
+    var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.about-hero h1 {
+  margin: 0;
+  font-size: clamp(36px, 6vw, 64px);
+  line-height: 0.98;
+  letter-spacing: -0.07em;
+}
+
+.about-hero p:not(.eyebrow) {
+  max-width: 760px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.about-logo {
+  display: grid;
+  place-items: center;
+  width: 112px;
+  height: 112px;
+  border: 1px solid var(--line-strong);
+  border-radius: 28px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.32)),
+    #04080c;
+  color: #fff;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 58px;
+  font-weight: 900;
+}
+
+.capability-grid,
+.contributor-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.capability-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.capability-card .card-icon {
+  margin-bottom: 18px;
+}
+
+.usage-card {
+  margin-top: 16px;
+}
+
+.contributor-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.contributor-card {
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
+    var(--panel);
+}
+
+.contributor-card h3 {
+  margin: 14px 0 0;
+  font-size: 21px;
+}
+
+.contributor-card .link-row {
+  margin-bottom: 0;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: rgba(101, 229, 138, 0.1);
+  color: var(--green);
+  font-weight: 900;
+}
+
 .log-box {
   min-height: 190px;
   padding: 14px;
@@ -846,7 +1037,9 @@ svg {
   .workflow-layout,
   .hero,
   .settings-grid,
-  .doc-grid {
+  .doc-grid,
+  .capability-grid,
+  .contributor-grid {
     grid-template-columns: 1fr;
   }
 
@@ -917,8 +1110,21 @@ svg {
   .home-grid,
   .tool-grid,
   .other-grid,
+  .hash-grid,
   .status-strip {
     grid-template-columns: 1fr;
+  }
+
+  .about-hero {
+    grid-template-columns: 1fr;
+    padding: 22px;
+  }
+
+  .about-logo {
+    width: 86px;
+    height: 86px;
+    border-radius: 22px;
+    font-size: 44px;
   }
 
   .metric {

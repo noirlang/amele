@@ -2,7 +2,7 @@ const icons = {
   home: '<path d="m3 11 9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
   grid: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
   tiles: '<rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/>',
-  linux: '<path d="M12 3c2 0 4 2.2 4 6v2l3 5-2 4-4-2h-2l-4 2-2-4 3-5V9c0-3.8 2-6 4-6Z"/><path d="M9 11h6"/><path d="M10 7h.01"/><path d="M14 7h.01"/>',
+  linux: '<circle cx="12" cy="6" r="3"/><path d="M8.2 11.2c.6-1.8 1.9-3.2 3.8-3.2s3.2 1.4 3.8 3.2l1.4 4.3c.5 1.5-.6 3-2.2 3H9c-1.6 0-2.7-1.5-2.2-3l1.4-4.3Z"/><path d="M9 18.5 6.5 21"/><path d="M15 18.5l2.5 2.5"/><path d="M10.2 6h.01"/><path d="M13.8 6h.01"/><path d="M10 13h4"/>',
   network: '<circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><path d="M10.5 7.5 6.5 16"/><path d="M13.5 7.5 17.5 16"/><path d="M8 19h8"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/><path d="M8 11h6"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v6"/><path d="M12 7h.01"/>',
@@ -19,6 +19,9 @@ const icons = {
   windows: '<path d="M3 5.5 11 4v7H3V5.5Z"/><path d="M13 3.7 21 2v9h-8V3.7Z"/><path d="M3 13h8v7l-8-1.5V13Z"/><path d="M13 13h8v9l-8-1.7V13Z"/>',
   ram: '<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 7V4"/><path d="M12 7V4"/><path d="M17 7V4"/><path d="M7 20v-3"/><path d="M12 20v-3"/><path d="M17 20v-3"/>',
   folder: '<path d="M3 6h7l2 2h9v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Z"/>',
+  download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.8-4 4.4-6 8-6s6.2 2 8 6"/>',
   key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9"/><path d="m15 4 3 3"/><path d="m13 6 3 3"/>',
   refresh: '<path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/><path d="M3 12A9 9 0 0 1 18.5 5.8L21 8"/><path d="M21 3v5h-5"/>',
   pause: '<path d="M8 5v14"/><path d="M16 5v14"/>',
@@ -238,10 +241,9 @@ function homePage() {
         <div>
           <p class="eyebrow">Digital Forensics Core</p>
           <h1>Worm</h1>
-          <p>Disk, RAM, hash, kanıt kasası ve rapor akışını tek bir modern adli bilişim merkezinde toplayan Rust tabanlı platform.</p>
+          <p>Disk, RAM, hash, kanıt kasası ve rapor akışını tek ekranda toparlayan modern adli bilişim merkezi.</p>
           <div class="hero-actions">
             <button class="primary-button" data-route="windows">Hemen Başla ${icon("arrow")}</button>
-            <button class="secondary-button" data-route="agent">Agent Kurulumunu Aç</button>
           </div>
         </div>
         <div class="worm-art"><span>WORM</span></div>
@@ -427,10 +429,46 @@ function sideInfo(title, body, iconName) {
 function agentPage() {
   return `
     <section class="page">
-      ${pageTitle("Agent", "Uzak sistemlerde çalışan Windows ve Linux agentları için kısa kurulum, güvenlik ve kullanım dokümantasyonu.", "network")}
+      ${pageTitle("Agent", "Orijinal Worm agent sayfalarındaki Windows ve Linux kullanım özetleri modern dokümantasyon kartları olarak taşındı.", "network")}
       <div class="doc-grid">
-        ${agentDoc("Windows Agent", "worm-win.exe", "https://worm.noirlang.tr/worm-win.exe", "Yönetici olarak çalıştırın. WinPMEM otomatik kontrol edilir veya indirilir.", "windows")}
-        ${agentDoc("Linux Agent", "worm-linux", "https://worm.noirlang.tr/worm-linux", "Root yetkisi disk ve AVML RAM edinimi için gereklidir.", "linux")}
+        ${agentDoc({
+          title: "Windows Agent",
+          repo: "https://github.com/noirlang/worm-win",
+          binary: "worm-win.exe",
+          url: "https://worm.noirlang.tr/worm-win.exe",
+          note: "Windows Agent kullanım özeti. Dosyayı Windows üzerinde yönetici olarak çalıştırın ve ana uygulamadaki IP/Port bilgisiyle eşleştirin.",
+          iconName: "windows",
+          stepsTr: [
+            "Agent indirin: wget -O worm-win.exe https://worm.noirlang.tr/worm-win.exe",
+            "Windows'ta worm-win.exe dosyasını yönetici olarak çalıştırın.",
+            "Ana uygulamadaki IP/Port bilgisi ile eşleştirin."
+          ],
+          stepsEn: [
+            "Download agent: wget -O worm-win.exe https://worm.noirlang.tr/worm-win.exe",
+            "Run worm-win.exe as Administrator on Windows.",
+            "Match IP/Port values with the main Worm application."
+          ]
+        })}
+        ${agentDoc({
+          title: "Linux Agent",
+          repo: "https://github.com/noirlang/worm-linux",
+          binary: "worm-linux",
+          url: "https://worm.noirlang.tr/worm-linux",
+          note: "Linux Agent kullanım özeti. Çalıştırılabilir izin verin, agentı başlatın ve ana uygulamadaki IP/Port ile bağlanın.",
+          iconName: "linux",
+          stepsTr: [
+            "Agent indirin: wget -O worm-linux https://worm.noirlang.tr/worm-linux",
+            "Yetki verin: chmod +x worm-linux",
+            "Çalıştırın: ./worm-linux",
+            "Ana uygulamadaki IP/Port ile bağlantı kurun."
+          ],
+          stepsEn: [
+            "Download agent: wget -O worm-linux https://worm.noirlang.tr/worm-linux",
+            "Make it executable: chmod +x worm-linux",
+            "Run: ./worm-linux",
+            "Connect using the same IP/Port from the main Worm app."
+          ]
+        })}
       </div>
       <div class="doc-card" style="margin-top:16px">
         <h3>Güvenlik Anahtarı Davranışı</h3>
@@ -441,19 +479,28 @@ function agentPage() {
   `;
 }
 
-function agentDoc(title, binary, url, note, iconName) {
-  const linux = iconName === "linux";
+function agentDoc({ title, repo, binary, url, note, iconName, stepsTr, stepsEn }) {
+  const commands = iconName === "linux"
+    ? `wget -O ${binary} ${url}\nchmod +x ${binary}\n./${binary}`
+    : `wget -O ${binary} ${url}\n${binary} dosyasını yönetici olarak çalıştırın.`;
   return `
     <article class="doc-card">
       <span class="card-icon">${icon(iconName)}</span>
       <h3>${title}</h3>
       <p>${note}</p>
+      <div class="link-row">
+        <a href="${repo}">${repo}</a>
+        <a href="${url}">${url}</a>
+      </div>
+      <p class="section-label">TR</p>
       <ol class="step-list">
-        <li><b>1</b><span>Agent ikilisini indirin.</span></li>
-        <li><b>2</b><span>Portu ve opsiyonel güvenlik anahtarını belirleyin.</span></li>
-        <li><b>3</b><span>Ana uygulamadan IP, port ve token ile bağlanın.</span></li>
+        ${stepsTr.map((step, index) => `<li><b>${index + 1}</b><span>${step}</span></li>`).join("")}
       </ol>
-      <div class="code-box">${linux ? `wget -O ${binary} ${url}\nchmod +x ${binary}\n./${binary}` : `${url}\n${binary} dosyasını yönetici olarak çalıştırın.`}</div>
+      <p class="section-label" style="margin-top:18px">EN</p>
+      <ol class="step-list">
+        ${stepsEn.map((step, index) => `<li><b>${index + 1}</b><span>${step}</span></li>`).join("")}
+      </ol>
+      <div class="code-box">${commands}</div>
     </article>
   `;
 }
@@ -461,16 +508,22 @@ function agentDoc(title, binary, url, note, iconName) {
 function analysisPage() {
   return `
     <section class="page">
-      ${pageTitle("Analiz", "İmaj görüntüleme ve inceleme akışları için başlangıç ekranı.", "search")}
+      ${pageTitle("İmaj Görüntüleme", "Seçilen disk imajını salt-okunur olarak bağlar ve içeriğini klasör ağacında gösterir.", "search")}
       <div class="workflow-panel">
         <p class="section-label">İmaj Görüntüleme</p>
-        ${field("İmaj Yolu", '<input class="input" placeholder=".img, .dd, .raw, .iso ..." />')}
+        <p class="field-hint">Linux'ta <code>udisksctl</code> kullanılır; bağlama işlemi başarısızsa durum bilgisinde sebebi görürsünüz.</p>
+        ${field("İmaj Dosyası", '<input class="input" placeholder=".img, .dd, .raw, .iso ..." />')}
         <div class="button-row">
-          <button class="primary-button" data-action="open-image">${icon("folder")} İmaj Seç</button>
-          <button class="secondary-button" data-action="mount-preview">${icon("search")} Ön İnceleme</button>
+          <button class="secondary-button" data-action="open-image">${icon("folder")} Dosya Seç</button>
+          <button class="primary-button" data-action="mount-readonly">${icon("disk")} Salt-Okunur Bağla</button>
+          <button class="danger-button" data-action="unmount-image">${icon("stop")} Bağlantıyı Kaldır</button>
         </div>
         <div class="section-divider"></div>
-        <div class="log-box">İmaj seçildiğinde metadata, boyut, hash ve zaman bilgileri burada gösterilecek.</div>
+        <div class="side-info">
+          <span class="metric-icon">${icon("info")}</span>
+          <span><strong>Durum</strong><small>İmaj seçilmedi</small></span>
+        </div>
+        <div class="log-box">Klasör ağacı ve bağlama çıktısı burada görüntülenecek.</div>
       </div>
     </section>
   `;
@@ -479,12 +532,12 @@ function analysisPage() {
 function otherPage() {
   return `
     <section class="page">
-      ${pageTitle("Diğer", "Hash, kanıt kasası, rapor ve günlük modülleri.", "tiles")}
+      ${pageTitle("Diğer", "Hash işlemleri, kanıt kasası, rapor üretimi ve canlı günlük modülleri.", "tiles")}
       <div class="other-grid">
         ${simpleCard("Hash İşlemleri", "MD5, SHA1, SHA256 ve SHA512 hesaplama.", "shield", "hash")}
-        ${simpleCard("Kanıt Kasası", "Vaka klasörü, notlar ve çıktı yönetimi.", "scale", "evidence")}
-        ${simpleCard("Raporlar", "TXT ve JSON teknik rapor üretimi.", "report", "reports")}
-        ${simpleCard("Günlük", "Uygulama ve işlem kayıtlarını izleyin.", "clock", "logs")}
+        ${simpleCard("Kanıt Kasası", "Vaka klasörü ve kanıt kasası yönetimi.", "scale", "evidence")}
+        ${simpleCard("Raporlar", "İnceleme notları ve rapor üretimi.", "report", "reports")}
+        ${simpleCard("Günlük", "Canlı günlük ve dosyadan yenileme akışı.", "clock", "logs")}
       </div>
       <div id="other-detail" class="workflow-panel" style="margin-top:16px">${hashPanel()}</div>
     </section>
@@ -506,41 +559,66 @@ function hashPanel() {
   return `
     <p class="section-label">Hash Hesaplayıcı</p>
     ${field("Dosya", '<input class="input" placeholder="/path/to/image.raw" />')}
-    ${field("Beklenen Hash", '<input class="input" placeholder="Karşılaştırılacak hash değeri" />')}
     <div class="button-row">
       <button class="primary-button" data-action="hash">${icon("shield")} Hesapla</button>
-      <button class="secondary-button" data-action="compare">Karşılaştır</button>
     </div>
-    <div class="log-box">MD5: -<br />SHA1: -<br />SHA256: -<br />SHA512: -</div>
+    <div class="hash-grid">
+      ${hashResult("MD5")}
+      ${hashResult("SHA1")}
+      ${hashResult("SHA256")}
+      ${hashResult("SHA512")}
+    </div>
+    <div class="section-divider"></div>
+    <p class="section-label">Hash Karşılaştır</p>
+    ${field("Hash Değeri", '<input class="input" placeholder="Hash degeri girin" />')}
+    <div class="button-row">
+      <button class="secondary-button" data-action="compare">${icon("search")} Karşılaştır</button>
+    </div>
+    <div class="side-info">
+      <span class="metric-icon">${icon("info")}</span>
+      <span><strong>Sonuç</strong><small>Karşılaştırma bekleniyor</small></span>
+    </div>
+  `;
+}
+
+function hashResult(label) {
+  return `
+    <div class="hash-result">
+      <small>${label}</small>
+      <strong>-</strong>
+    </div>
   `;
 }
 
 function settingsPage() {
   return `
     <section class="page">
-      ${pageTitle("Ayarlar", "Tema, dil, varsayılan port, vaka klasörü ve güncelleme yönetimi.", "settings")}
+      ${pageTitle("Ayarlar", "Uygulama teması, dil seçimi ve güncelleme yönetimi.", "settings")}
       <div class="settings-grid">
         <div class="settings-card">
           <h3>Uygulama Ayarları</h3>
-          ${field("Varsayılan Port", '<input class="input" value="4444" />')}
-          ${field("Vaka Klasörü", '<input class="input" value="/home/raodrin/Worm" />')}
-          ${field("Çıktı Klasörü", '<input class="input" value="/home/raodrin/Worm/Ciktilar" />')}
-          ${field("Hash Algoritması", '<select class="select"><option>sha256</option><option>sha512</option><option>sha1</option><option>md5</option></select>')}
           <div class="toggle-row">
-            <span>Koyu Tema</span>
+            <span>Karanlık Tema</span>
             <button class="switch ${state.theme === "dark" ? "on" : ""}" data-action="theme-toggle"></button>
           </div>
+          ${field("Dil", '<select class="select"><option>Türkçe</option><option>English</option></select>')}
           <button class="primary-button" data-action="save-settings">Ayarları Kaydet</button>
+          <div class="status-badge">${icon("info")} Hazır</div>
         </div>
         <div class="settings-card">
           <h3>Güncelleme</h3>
-          <p>Güncelleme sayfası artık Ayarlar içinde yönetilir. Release asset adları sabit kalmalıdır.</p>
-          <div class="code-box">worm-windows-x64.msi<br />worm-linux-x64.AppImage<br />SHA256SUMS</div>
+          <p>Orijinal güncelleme sayfası Ayarlar içine taşındı; kontrol, indirme, kurulum ve release notları burada yönetilir.</p>
+          <div class="settings-meta">
+            <span>Kurulu: v0.1.0</span>
+            <span>Asset: worm-windows-x64.msi / worm-linux-x64.AppImage</span>
+          </div>
+          <div class="progress-bar" style="--value:0%"><span></span><b>0%</b></div>
           <div class="button-row">
             <button class="primary-button" data-action="check-update">${icon("refresh")} Güncellemeyi Kontrol Et</button>
-            <button class="secondary-button" data-action="download-update">İndir ve Doğrula</button>
+            <button class="secondary-button" data-action="download-update">${icon("download")} İndir ve Kur</button>
           </div>
-          <div class="log-box">Son kontrol: Henüz kontrol edilmedi.</div>
+          <div class="status-badge">${icon("info")} Hazır</div>
+          <div class="log-box">Release notları ve indirme durumu burada görüntülenecek.</div>
         </div>
       </div>
     </section>
@@ -550,17 +628,68 @@ function settingsPage() {
 function aboutPage() {
   return `
     <section class="page">
-      ${pageTitle("Hakkında", "Worm, dijital adli bilişim edinim ve doğrulama akışları için Rust tabanlı yeni çekirdeğe taşınmaktadır.", "info")}
-      <div class="doc-card">
-        <h3>Rust Rewrite</h3>
-        <p>C altyapısında Windows ve Linux derleme sorunları yaşandığı için teknik core Rust’a geçirildi. UI Tauri olarak bu frontend üzerinden devam edecek.</p>
-        <div class="status-grid" style="margin-top:18px;grid-template-columns:repeat(3,1fr)">
-          ${metric("Core", "Rust", "chip", "var(--green)")}
-          ${metric("Windows Paket", "MSI", "windows", "var(--blue)")}
-          ${metric("Linux Paket", "AppImage", "linux", "var(--green)")}
+      <div class="about-hero">
+        <span class="about-logo">W</span>
+        <div>
+          <p class="eyebrow">Worm Forensic Tool</p>
+          <h1>Worm Forensic Tool</h1>
+          <span class="status-badge">Sürüm v0.1.0</span>
+          <p>Worm, yetkili adli bilişim süreçlerinde disk ve RAM edinimi, doğrulama ve raporlama adımlarını tek bir merkezde birleştiren bir denetim aracıdır.</p>
         </div>
       </div>
+
+      <h2 class="section-heading">Temel Kabiliyetler</h2>
+      <div class="capability-grid">
+        ${capabilityCard("COLLECT", "Disk ve RAM", "Windows ve Linux için imaj ve bellek edinimi.", "disk", "var(--green)")}
+        ${capabilityCard("PROVE", "Doğrulama", "Hash üretimi, karşılaştırma ve denetlenebilir loglar.", "shield", "var(--blue)")}
+        ${capabilityCard("PACKAGE", "Raporlama", "Vaka notları, kanıt kasası ve rapor çıktıları.", "report", "var(--purple)")}
+      </div>
+
+      <div class="doc-card usage-card">
+        <h3>Kullanım İlkesi</h3>
+        <p>Bu araç yalnızca yetkili adli bilişim süreçlerinde kullanılmalıdır. Edinim, doğrulama ve günlük adımları görünür, denetlenebilir ve raporlanabilir tutulur.</p>
+      </div>
+
+      <h2 class="section-heading">Contributors</h2>
+      <div class="contributor-grid">
+        ${contributorCard("ME", "Melih Emik", [
+          ["GitHub", "https://github.com/favilances"],
+          ["LinkedIn", "https://www.linkedin.com/in/melihemik/"],
+          ["Website", "https://melihemik.com.tr"]
+        ])}
+        ${contributorCard("YT", "Yusuf Tuncel", [
+          ["GitHub", "https://github.com/yetece1"],
+          ["LinkedIn", "https://www.linkedin.com/in/yusuf-tuncel/"]
+        ])}
+        ${contributorCard("MG", "Muhammet Ali Güner", [
+          ["GitHub", "https://github.com/kafkaskrtl"],
+          ["LinkedIn", "https://www.linkedin.com/in/muhammetali-g%C3%BCner/"]
+        ])}
+      </div>
     </section>
+  `;
+}
+
+function capabilityCard(kicker, title, desc, iconName, accent) {
+  return `
+    <article class="doc-card capability-card" style="--accent:${accent}">
+      <span class="card-icon">${icon(iconName)}</span>
+      <p class="eyebrow">${kicker}</p>
+      <h3>${title}</h3>
+      <p>${desc}</p>
+    </article>
+  `;
+}
+
+function contributorCard(initials, name, links) {
+  return `
+    <article class="contributor-card">
+      <span class="avatar">${initials}</span>
+      <h3>${name}</h3>
+      <div class="link-row">
+        ${links.map(([label, url]) => `<a href="${url}">${label}</a>`).join("")}
+      </div>
+    </article>
   `;
 }
 
@@ -618,28 +747,43 @@ function handleAction(button) {
 function detailPanel(tab) {
   if (tab === "evidence") {
     return `
-      <p class="section-label">Kanıt Kasası</p>
+      <p class="section-label">Vaka Yönetimi</p>
       ${field("Vaka Adı", '<input class="input" placeholder="Vaka_2026_001" />')}
-      ${field("Not", '<textarea class="textarea" placeholder="İnceleme notu"></textarea>')}
       <div class="button-row">
         <button class="primary-button" data-action="create-case">${icon("folder")} Vaka Oluştur</button>
-        <button class="secondary-button" data-action="add-note">Not Ekle</button>
+      </div>
+      <div class="status-badge">${icon("info")} Vaka oluşturulmadı</div>
+      <div class="section-divider"></div>
+      <p class="section-label">Dosyalar</p>
+      ${field("Klasör", '<select class="select"><option>Çıktılar / ciktilar</option><option>Disk İmajları / disk_imajlari</option><option>RAM / ram</option><option>Raporlar / raporlar</option><option>Hash / hash</option><option>Notlar / notlar</option><option>Günlükler / gunlukler</option></select>')}
+      ${field("Dosya", '<select class="select"><option>Dosyaları listeleyin...</option></select>')}
+      <div class="button-row">
+        <button class="secondary-button" data-action="list-files">${icon("search")} Dosyaları Listele</button>
       </div>
     `;
   }
   if (tab === "reports") {
     return `
-      <p class="section-label">Raporlar</p>
-      ${field("Başlık", '<input class="input" placeholder="Adli Bilişim Teknik Raporu" />')}
+      <p class="section-label">Rapor Oluştur</p>
+      <p class="field-hint">Rapor oluşturmak için önce vaka oluşturun ve işlem tamamlayın.</p>
+      ${field("Rapor Başlığı", '<input class="input" value="Adli Bilişim Teknik Raporu" />')}
       ${field("Format", '<select class="select"><option>TXT</option><option>JSON</option></select>')}
-      ${field("Açıklama", '<textarea class="textarea" placeholder="Rapor açıklaması"></textarea>')}
-      <button class="primary-button" data-action="create-report">${icon("report")} Rapor Oluştur</button>
+      ${field("Not", '<textarea class="textarea" placeholder="Not veya rapor açıklaması girin"></textarea>')}
+      <div class="button-row">
+        <button class="secondary-button" data-action="add-note">${icon("report")} Not Ekle</button>
+        <button class="primary-button" data-action="create-report">${icon("report")} Rapor Oluştur</button>
+      </div>
+      <div class="status-badge">${icon("info")} Hazır</div>
     `;
   }
   if (tab === "logs") {
     return `
       <p class="section-label">Günlük</p>
+      <p class="field-hint">Canlı günlük burada da görüntülenir.</p>
       <div class="log-box">${state.lastLog.map((line) => `• ${line}`).join("<br />")}</div>
+      <div class="button-row" style="margin-top:12px">
+        <button class="secondary-button" data-action="refresh-log">${icon("refresh")} Dosyadan Günlüğü Yenile</button>
+      </div>
     `;
   }
   return hashPanel();
