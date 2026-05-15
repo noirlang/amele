@@ -1,0 +1,154 @@
+use crate::error::{HataKodu, WormError, WormResult};
+use crate::logging::Logger;
+use chrono::Local;
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvidenceSummary {
+    pub case_name: String,
+    pub case_dir: PathBuf,
+    pub output_count: usize,
+    pub hash_count: usize,
+    pub report_count: usize,
+}
+
+pub struct EvidenceVault {
+    pub case_name: String,
+    pub case_dir: PathBuf,
+    pub logs_dir: PathBuf,
+    pub outputs_dir: PathBuf,
+    pub reports_dir: PathBuf,
+    pub hash_dir: PathBuf,
+    pub notes_dir: PathBuf,
+    pub logger: Option<Logger>,
+    lock: Mutex<()>,
+}
+
+impl EvidenceVault {
+    pub fn create(base_dir: impl AsRef<Path>, case_name: impl AsRef<str>) -> WormResult<Self> {
+        let case_name = case_name.as_ref().to_string();
+        let case_dir = base_dir.as_ref().join(&case_name);
+        let logs_dir = case_dir.join("gunlukler");
+        let outputs_dir = case_dir.join("ciktilar");
+        let reports_dir = case_dir.join("raporlar");
+        let hash_dir = case_dir.join("hash");
+        let notes_dir = case_dir.join("notlar");
+
+        for dir in [
+            &case_dir,
+            &logs_dir,
+            &outputs_dir,
+            &reports_dir,
+            &hash_dir,
+            &notes_dir,
+        ] {
+            fs::create_dir_all(dir).map_err(|err| {
+                WormError::io(
+                    HataKodu::DosyaYazma,
+                    format!("Vaka dizini olusturulamadi: {}", dir.display()),
+                    err,
+                )
+            })?;
+        }
+
+        let logger = Logger::start(&case_name, &logs_dir).ok();
+        if let Some(logger) = &logger {
+            logger.info(format!("Vaka olusturuldu: {case_name}"));
+            logger.info(format!("Vaka klasoru: {}", case_dir.display()));
+        }
+
+        Ok(Self {
+            case_name,
+            case_dir,
+            logs_dir,
+            outputs_dir,
+            reports_dir,
+            hash_dir,
+            notes_dir,
+            logger,
+            lock: Mutex::new(()),
+        })
+    }
+
+    pub fn new_file(&self, subdir: &str, file_name: &str) -> PathBuf {
+        let _guard = self.lock.lock().ok();
+        self.resolve_subdir(subdir).join(file_name)
+    }
+
+    pub fn add_note(&self, note: &str) -> WormResult<PathBuf> {
+        let _guard = self.lock.lock().ok();
+        let now = Local::now();
+        let file_name = format!("not_{}.txt", now.format("%Y%m%d_%H%M%S"));
+        let path = self.notes_dir.join(&file_name);
+        let content = format!(
+            "Vaka: {}\nTarih: {}\n========================================\n\n{}\n",
+            self.case_name,
+            now.format("%Y-%m-%d %H:%M:%S"),
+            note
+        );
+        fs::write(&path, content)
+            .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Not yazilamadi", err))?;
+        if let Some(logger) = &self.logger {
+            logger.info(format!("Not eklendi: {file_name}"));
+        }
+        Ok(path)
+    }
+
+    pub fn list_files(&self, subdir: &str) -> WormResult<Vec<PathBuf>> {
+        let dir = self.resolve_subdir(subdir);
+        let mut files = Vec::new();
+        if !dir.is_dir() {
+            return Ok(files);
+        }
+
+        for entry in fs::read_dir(dir)
+            .map_err(|err| WormError::io(HataKodu::DosyaOkuma, "Dizin okunamadi", err))?
+        {
+            let entry = entry.map_err(|err| {
+                WormError::io(HataKodu::DosyaOkuma, "Dizin girdisi okunamadi", err)
+            })?;
+            files.push(entry.path());
+        }
+        Ok(files)
+    }
+
+    pub fn summary(&self) -> WormResult<EvidenceSummary> {
+        Ok(EvidenceSummary {
+            case_name: self.case_name.clone(),
+            case_dir: self.case_dir.clone(),
+            output_count: self.list_files("ciktilar")?.len(),
+            hash_count: self.list_files("hash")?.len(),
+            report_count: self.list_files("raporlar")?.len(),
+        })
+    }
+
+    fn resolve_subdir(&self, subdir: &str) -> &Path {
+        match subdir {
+            "gunlukler" => &self.logs_dir,
+            "ciktilar" => &self.outputs_dir,
+            "raporlar" => &self.reports_dir,
+            "hash" => &self.hash_dir,
+            "notlar" => &self.notes_dir,
+            _ => &self.case_dir,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn creates_case_tree_and_notes() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = EvidenceVault::create(dir.path(), "case1").unwrap();
+        assert!(vault.outputs_dir.is_dir());
+        let note = vault.add_note("hello").unwrap();
+        assert!(note.is_file());
+        let summary = vault.summary().unwrap();
+        assert_eq!(summary.case_name, "case1");
+    }
+}
