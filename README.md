@@ -1,6 +1,6 @@
 # Worm Rust Rewrite
 
-Rust rewrite of the Worm forensic technical core. The C/Qt UI is intentionally not ported here yet; this crate exposes system modules that a future Tauri UI can call.
+Rust rewrite of the Worm forensic technical core. The C/Qt UI is being replaced by a Tauri-ready frontend shell; the Rust crate exposes system modules that the future Tauri commands can call.
 
 ## Current Scope
 
@@ -12,6 +12,7 @@ Rust rewrite of the Worm forensic technical core. The C/Qt UI is intentionally n
 - Remote disk imaging, remote RAM acquisition control, RAM file download, pause/resume/stop commands.
 - Local AVML/WinPMEM status and acquisition helpers.
 - WireGuard config generation and Linux `wg-quick` start/stop wrapper.
+- Dependency-free Tauri-ready UI prototype under `ui/`.
 
 ## CLI Smoke Commands
 
@@ -37,4 +38,4 @@ cargo run -- wireguard-config <path>
 
 ## UI Status
 
-No Tauri UI is implemented in this stage. UI requirements and future design direction are documented in `AGENTS.md`.
+The first Tauri-ready frontend shell is under `ui/`. It is currently static HTML/CSS/JS and not wired to Rust commands yet. It follows the supplied dark forensic design direction and keeps update controls inside Settings.

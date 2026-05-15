@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Worm Forensic Tool</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="app" class="shell theme-dark">
+      <aside class="sidebar">
+        <div class="brand-row">
+          <button class="brand-mark" data-route="home" aria-label="Worm ana sayfa">W</button>
+          <button class="icon-button menu-button" aria-label="Menü">
+            <span data-icon="menu"></span>
+          </button>
+        </div>
+
+        <nav class="side-nav" aria-label="Ana menü">
+          <button class="nav-item active" data-route="home">
+            <span data-icon="home"></span>
+            <span>Ana Sayfa</span>
+          </button>
+          <button class="nav-item" data-route="windows">
+            <span data-icon="grid"></span>
+            <span>Windows Araçları</span>
+          </button>
+          <button class="nav-item" data-route="linux">
+            <span data-icon="linux"></span>
+            <span>Linux Araçları</span>
+          </button>
+          <button class="nav-item" data-route="agent">
+            <span data-icon="network"></span>
+            <span>Agent</span>
+          </button>
+          <button class="nav-item" data-route="analysis">
+            <span data-icon="search"></span>
+            <span>Analiz</span>
+          </button>
+          <button class="nav-item" data-route="other">
+            <span data-icon="tiles"></span>
+            <span>Diğer</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="mini-status">
+            <span class="pulse"></span>
+            <span>Teknik çekirdek hazır</span>
+          </div>
+          <span class="version">v0.1.0</span>
+        </div>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <div class="window-title">
+            <span>Worm Forensic Tool</span>
+            <span class="spark"></span>
+          </div>
+          <div class="top-actions">
+            <button class="top-action active" data-route="home" aria-label="Ana sayfa">
+              <span data-icon="home"></span>
+            </button>
+            <button class="top-action" data-route="about" aria-label="Hakkında">
+              <span data-icon="info"></span>
+            </button>
+            <button class="top-action" data-route="settings" aria-label="Ayarlar">
+              <span data-icon="settings"></span>
+            </button>
+            <span class="window-separator"></span>
+            <button class="chrome-button" aria-label="Küçült">−</button>
+            <button class="chrome-button" aria-label="Büyüt">□</button>
+            <button class="chrome-button" aria-label="Kapat">×</button>
+          </div>
+        </header>
+
+        <main id="view" class="view" tabindex="-1"></main>
+      </section>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

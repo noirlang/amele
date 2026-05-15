@@ -6,7 +6,7 @@ This repository is the Rust rewrite of the Worm forensic application's technical
 
 - Preserve existing forensic behavior while replacing the C/C++ technical layer with Rust.
 - Keep compatibility with the current `worm-linux` and `worm-win` agents.
-- Do not implement or redesign the UI until the Tauri UI work is explicitly requested.
+- Tauri UI work has started as a static frontend shell under `ui/`; keep the Rust core independent and wire UI actions through Tauri commands later.
 - Keep the Rust core usable from a future Tauri frontend through library modules, not only through CLI code.
 - Commit work in small, meaningful steps.
 
@@ -24,6 +24,7 @@ This repository is the Rust rewrite of the Worm forensic application's technical
 - `src/ram.rs`: local AVML/WinPMEM status and acquisition helpers.
 - `src/wireguard.rs`: WireGuard config creation and Linux `wg-quick` wrapper.
 - `src/main.rs`: temporary technical CLI for smoke testing until Tauri is added.
+- `ui/`: dependency-free Tauri-ready frontend prototype. It is static for now and should later call Rust through Tauri commands.
 
 ## Existing Agent Protocol
 
