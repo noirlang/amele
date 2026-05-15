@@ -1,7 +1,10 @@
 use std::path::PathBuf;
 use worm_rewrite_rust::disk;
 use worm_rewrite_rust::hash::{self, HashAlgorithm};
+use worm_rewrite_rust::ram;
+use worm_rewrite_rust::remote::RemoteConnection;
 use worm_rewrite_rust::settings::AppSettings;
+use worm_rewrite_rust::wireguard::{self, WireGuardConfig};
 
 fn main() {
     let mut args = std::env::args().skip(1);
@@ -11,6 +14,11 @@ fn main() {
         Some("disk-list") => disk_list_command(),
         Some("disk-size") => disk_size_command(args.collect()),
         Some("verify") => verify_command(args.collect()),
+        Some("remote-disks") => remote_disks_command(args.collect()),
+        Some("remote-image") => remote_image_command(args.collect()),
+        Some("remote-tool-check") => remote_tool_check_command(args.collect()),
+        Some("ram-status") => ram_status_command(),
+        Some("wireguard-config") => wireguard_config_command(args.collect()),
         Some("--help") | Some("-h") | None => {
             print_help();
             Ok(())
@@ -34,6 +42,11 @@ fn print_help() {
            disk-list                     Yerel diskleri listele\n\
            disk-size <cihaz|dosya>       Disk veya dosya boyutu al\n\
            verify <imaj> <sha256>        SHA256 imaj dogrulama yap\n\n\
+           remote-disks <ip> <port> [token]\n\
+           remote-image <ip> <port> <disk_id> <cikti_klasoru> [token]\n\
+           remote-tool-check <ip> <port> <winpmem|avml> [token]\n\
+           ram-status                    Yerel AVML/WinPMEM durumunu yazdir\n\
+           wireguard-config <dosya>      Varsayilan WireGuard config uret\n\n\
          Not: UI bu crate'e daha sonra Tauri tarafindan baglanacak."
     );
 }
@@ -86,4 +99,100 @@ fn verify_command(args: Vec<String>) -> Result<(), String> {
     let ok = disk::verify_image(&args[0], &args[1]).map_err(|err| err.to_string())?;
     println!("{}", if ok { "OK" } else { "FAIL" });
     Ok(())
+}
+
+fn remote_disks_command(args: Vec<String>) -> Result<(), String> {
+    if args.len() < 2 {
+        return Err("Kullanim: remote-disks <ip> <port> [token]".to_string());
+    }
+    let port = parse_port(&args[1])?;
+    let token = args.get(2).cloned();
+    let mut connection =
+        RemoteConnection::connect(&args[0], port, token).map_err(|err| err.to_string())?;
+    let disks = connection.list_disks().map_err(|err| err.to_string())?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&disks).map_err(|err| err.to_string())?
+    );
+    Ok(())
+}
+
+fn remote_image_command(args: Vec<String>) -> Result<(), String> {
+    if args.len() < 4 {
+        return Err(
+            "Kullanim: remote-image <ip> <port> <disk_id> <cikti_klasoru> [token]".to_string(),
+        );
+    }
+    let port = parse_port(&args[1])?;
+    let token = args.get(4).cloned();
+    let mut connection =
+        RemoteConnection::connect(&args[0], port, token).map_err(|err| err.to_string())?;
+    let result = connection
+        .acquire_image(&args[2], &args[3], None, |done, total| {
+            if total > 0 {
+                eprintln!("{}%", (done * 100) / total);
+            }
+        })
+        .map_err(|err| err.to_string())?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&result).map_err(|err| err.to_string())?
+    );
+    Ok(())
+}
+
+fn remote_tool_check_command(args: Vec<String>) -> Result<(), String> {
+    if args.len() < 3 {
+        return Err("Kullanim: remote-tool-check <ip> <port> <winpmem|avml> [token]".to_string());
+    }
+    let port = parse_port(&args[1])?;
+    let token = args.get(3).cloned();
+    let mut connection =
+        RemoteConnection::connect(&args[0], port, token).map_err(|err| err.to_string())?;
+    let status = match args[2].as_str() {
+        "winpmem" => connection.check_winpmem(),
+        "avml" => connection.check_avml(),
+        other => return Err(format!("Bilinmeyen arac: {other}")),
+    }
+    .map_err(|err| err.to_string())?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&status).map_err(|err| err.to_string())?
+    );
+    Ok(())
+}
+
+fn ram_status_command() -> Result<(), String> {
+    let status = serde_json::json!({
+        "avml": ram::avml_status(None),
+        "winpmem": ram::winpmem_status(None),
+    });
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&status).map_err(|err| err.to_string())?
+    );
+    Ok(())
+}
+
+fn wireguard_config_command(args: Vec<String>) -> Result<(), String> {
+    let Some(path) = args.first() else {
+        return Err("Kullanim: wireguard-config <dosya>".to_string());
+    };
+    let written = wireguard::create_config(path, &WireGuardConfig::default())
+        .map_err(|err| err.to_string())?;
+    println!("{}", written.display());
+    Ok(())
+}
+
+fn parse_port(value: &str) -> Result<u16, String> {
+    value
+        .parse::<u16>()
+        .map_err(|_| "Port 1 ile 65535 arasinda olmali".to_string())
+        .and_then(|port| {
+            if port == 0 {
+                Err("Port 1 ile 65535 arasinda olmali".to_string())
+            } else {
+                Ok(port)
+            }
+        })
 }
