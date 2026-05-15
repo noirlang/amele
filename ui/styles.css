@@ -211,7 +211,6 @@ button {
 
 .sidebar-footer {
   display: grid;
-  gap: 18px;
   margin-top: auto;
   padding: 18px 12px 4px;
   color: var(--muted);
@@ -367,6 +366,23 @@ button {
     linear-gradient(135deg, rgba(13, 24, 20, 0.9), rgba(6, 12, 17, 0.82)),
     var(--panel);
   box-shadow: var(--shadow);
+}
+
+.home-hero {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  min-height: 400px;
+  padding: 46px;
+}
+
+.home-hero .worm-art {
+  width: min(620px, 100%);
+  min-height: 270px;
+}
+
+.home-hero .hero-actions {
+  justify-content: center;
+  margin-top: 24px;
 }
 
 .hero::after,
@@ -640,6 +656,16 @@ button {
   transition: border-color 180ms var(--ease), transform 180ms var(--ease);
 }
 
+.forensic-card.is-disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+.forensic-card.is-disabled:hover {
+  transform: none;
+  border-color: var(--line);
+}
+
 .forensic-card .meta {
   display: inline-flex;
   margin-top: 18px;
@@ -648,6 +674,23 @@ button {
   border-radius: 999px;
   color: var(--muted);
   font-size: 12px;
+}
+
+.platform-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.platform-note strong {
+  color: var(--text);
 }
 
 .workflow-layout {
@@ -680,6 +723,12 @@ button {
 
 .field label {
   color: var(--muted);
+}
+
+.input-action {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
 }
 
 .input,
@@ -718,6 +767,24 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.button-row button:disabled {
+  opacity: 0.62;
+  cursor: wait;
+}
+
+.vpn-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(101, 229, 138, 0.05);
+}
+
+.vpn-panel[hidden] {
+  display: none;
 }
 
 .progress-bar {
@@ -908,6 +975,80 @@ code {
 
 .settings-grid {
   grid-template-columns: 1fr 1fr;
+}
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 18px;
+}
+
+.settings-header {
+  margin-bottom: 18px;
+}
+
+.settings-header h1 {
+  margin: 0;
+  font-size: clamp(42px, 6vw, 64px);
+  line-height: 0.95;
+  letter-spacing: -0.07em;
+}
+
+.settings-header p {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 17px;
+}
+
+.settings-kicker {
+  display: inline-flex;
+  margin-bottom: 10px;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.settings-card h3 {
+  margin-top: 0;
+}
+
+.settings-primary {
+  align-self: start;
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.settings-row:last-of-type {
+  border-bottom: 0;
+}
+
+.settings-row strong,
+.settings-row small {
+  display: block;
+}
+
+.settings-row small {
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.compact-select {
+  width: 180px;
+}
+
+.compact-log {
+  min-height: 120px;
+  margin-top: 14px;
 }
 
 .toggle-row {
@@ -1116,6 +1257,42 @@ code {
   object-fit: contain;
 }
 
+.toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 50;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 14px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: rgba(8, 16, 20, 0.94);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  transition: opacity 180ms var(--ease), transform 180ms var(--ease);
+}
+
+.theme-light .toast {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast[data-type="error"] {
+  border-color: rgba(255, 95, 104, 0.44);
+  color: #ffd7da;
+}
+
+.theme-light .toast[data-type="error"] {
+  color: #9d1f2b;
+}
+
 .log-box {
   min-height: 190px;
   padding: 14px;
@@ -1145,6 +1322,7 @@ svg {
 
   .workflow-layout,
   .hero,
+  .settings-layout,
   .settings-grid,
   .doc-grid,
   .capability-grid,
@@ -1248,5 +1426,19 @@ svg {
 
   .field {
     grid-template-columns: 1fr;
+  }
+
+  .input-action,
+  .settings-row {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-select {
+    width: 100%;
+  }
+
+  .toast {
+    right: 16px;
+    bottom: 16px;
   }
 }

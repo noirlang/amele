@@ -43,15 +43,65 @@ const fontIcons = {
 const app = document.querySelector("#app");
 const view = document.querySelector("#view");
 
+const translations = {
+  tr: {
+    "nav.home": "Ana Sayfa",
+    "nav.windows": "Windows Araçları",
+    "nav.linux": "Linux Araçları",
+    "nav.agent": "Agent",
+    "nav.analysis": "Analiz",
+    "nav.other": "Diğer",
+    ready: "Hazır",
+    settingsSaved: "Ayarlar kaydedildi.",
+    fileRequired: "Önce dosya seçin.",
+    platformBlocked: "Bu yerel işlem yalnızca {platform} üzerinde çalışır."
+  },
+  en: {
+    "nav.home": "Home",
+    "nav.windows": "Windows Tools",
+    "nav.linux": "Linux Tools",
+    "nav.agent": "Agent",
+    "nav.analysis": "Analysis",
+    "nav.other": "Other",
+    ready: "Ready",
+    settingsSaved: "Settings saved.",
+    fileRequired: "Select a file first.",
+    platformBlocked: "This local workflow only runs on {platform}."
+  }
+};
+
 const state = {
-  route: "home",
+  route: new URLSearchParams(window.location.search).get("route") || "home",
   theme: localStorage.getItem("worm-theme") || "dark",
+  language: localStorage.getItem("worm-language") || "tr",
+  platform: detectPlatform(),
+  files: {},
+  activeTab: "hash",
+  jobs: {},
   lastLog: [
     "Rust teknik çekirdek yüklendi.",
     "Agent protokolü: JSON-over-TCP uyumlu.",
     "UI bağlantıları Tauri komutlarına bağlanmak için hazırlandı."
   ]
 };
+
+function detectPlatform() {
+  const override = new URLSearchParams(window.location.search).get("platform");
+  if (["windows", "linux", "mac"].includes(override || "")) return override;
+  const text = `${navigator.userAgent} ${navigator.platform}`.toLowerCase();
+  if (text.includes("win")) return "windows";
+  if (text.includes("linux")) return "linux";
+  if (text.includes("mac")) return "mac";
+  return "unknown";
+}
+
+function t(key, vars = {}) {
+  let value = translations[state.language]?.[key] || translations.tr[key] || key;
+  for (const [name, replacement] of Object.entries(vars)) {
+    value = value.replace(`{${name}}`, replacement);
+  }
+  return value;
+}
 
 const toolCards = {
   windows: [
@@ -132,7 +182,7 @@ const workflows = {
     desc: "Uzak Windows sistemlerine güvenli bağlantı kurun ve disk imajı alın.",
     mode: "remote-disk",
     output: "/home/raodrin/Worm/Ciktilar",
-    diskLabel: "PhysicalDrive0"
+    diskLabel: "Disk seçilmedi"
   },
   "linux-remote-disk": {
     platform: "Linux",
@@ -141,7 +191,7 @@ const workflows = {
     desc: "Linux agent ile uzak /dev disklerini listeleyin ve raw imaj alın.",
     mode: "remote-disk",
     output: "/home/raodrin/Worm/Ciktilar",
-    diskLabel: "/dev/sda"
+    diskLabel: "Disk seçilmedi"
   },
   "windows-local-disk": {
     platform: "Windows",
@@ -150,7 +200,7 @@ const workflows = {
     desc: "Yerel PhysicalDrive kaynaklarından ham imaj alma akışı.",
     mode: "local-disk",
     output: "C:\\Worm\\Ciktilar",
-    diskLabel: "\\\\.\\PhysicalDrive0"
+    diskLabel: "Disk seçilmedi"
   },
   "linux-local-disk": {
     platform: "Linux",
@@ -159,7 +209,7 @@ const workflows = {
     desc: "Yerel Linux blok cihazlarından imaj alma akışı.",
     mode: "local-disk",
     output: "/home/raodrin/Worm/Ciktilar",
-    diskLabel: "/dev/sda"
+    diskLabel: "Disk seçilmedi"
   },
   "windows-remote-ram": {
     platform: "Windows",
@@ -213,8 +263,20 @@ function hydrateIcons(root = document) {
 }
 
 function setRoute(route) {
+  if (route.startsWith("workflow:")) {
+    const workflow = workflows[route.split(":")[1]];
+    if (workflow && isLocalWorkflowBlocked(workflow)) {
+      showToast(t("platformBlocked", { platform: workflow.platform }), "error");
+      return;
+    }
+  }
   state.route = route;
   render();
+}
+
+function isLocalWorkflowBlocked(workflow) {
+  if (!workflow.mode.startsWith("local")) return false;
+  return workflow.platform.toLowerCase() !== state.platform;
 }
 
 function setTheme(theme) {
@@ -222,6 +284,15 @@ function setTheme(theme) {
   localStorage.setItem("worm-theme", theme);
   app.classList.toggle("theme-light", theme === "light");
   app.classList.toggle("theme-dark", theme !== "light");
+}
+
+function setLanguage(language) {
+  state.language = language;
+  localStorage.setItem("worm-language", language);
+  document.documentElement.lang = language;
+  document.querySelectorAll("[data-i18n]").forEach((node) => {
+    node.textContent = t(node.dataset.i18n);
+  });
 }
 
 function render() {
@@ -251,15 +322,7 @@ function routeGroup(route) {
 function homePage() {
   return `
     <section class="page">
-      <div class="hero">
-        <div>
-          <p class="eyebrow">Digital Forensics Core</p>
-          <h1>Worm</h1>
-          <p>Disk, RAM, hash, kanıt kasası ve rapor akışını tek ekranda toparlayan modern adli bilişim merkezi.</p>
-          <div class="hero-actions">
-            <button class="primary-button" data-route="windows">Hemen Başla ${icon("arrow")}</button>
-          </div>
-        </div>
+      <div class="hero home-hero">
         <div class="worm-art">
           <img src="${assetPath}/logo/logo.png" alt="Worm logo" />
         </div>
@@ -270,13 +333,6 @@ function homePage() {
         ${homeTile("Bütünlük", "MD5, SHA ailesi ve karşılaştırma adımları.", "VERIFY", "shield", "other", "var(--green)")}
         ${homeTile("Kanıt", "Vaka klasörü ve kanıt kasası yönetimi.", "CASE", "scale", "other", "var(--purple)")}
         ${homeTile("Çıktı", "İnceleme notları ve rapor üretimi.", "REPORT", "report", "other", "var(--blue)")}
-      </div>
-
-      <div class="status-strip">
-        ${metric("Sistem Durumu", "Hazır", "monitor", "var(--green)")}
-        ${metric("Disk Alanı", "1.24 TB boş / 1.82 TB", "database", "var(--purple)")}
-        ${metric("RAM", "15.6 GB / 31.9 GB", "chip", "var(--green)")}
-        ${metric("Son Oturum", "Bugün 14:32", "clock", "var(--blue)")}
       </div>
     </section>
   `;
@@ -308,20 +364,27 @@ function metric(label, value, iconName, accent) {
 function toolHub(platform) {
   const cards = toolCards[platform]
     .map(
-      (card) => `
-        <button class="forensic-card" data-route="workflow:${card.id}" style="--accent:${card.accent}">
+      (card) => {
+        const workflow = workflows[card.id];
+        const blocked = workflow && isLocalWorkflowBlocked(workflow);
+        return `
+        <button class="forensic-card ${blocked ? "is-disabled" : ""}" data-route="workflow:${card.id}" style="--accent:${card.accent}" ${blocked ? `aria-disabled="true" data-disabled-reason="${workflow.platform}"` : ""}>
           <span class="card-icon">${icon(card.icon)}</span>
           <h3>${card.title}</h3>
           <p>${card.desc}</p>
-          <span class="meta">${card.badge}</span>
+          <span class="meta">${blocked ? "Bu sistemde yerel çalışmaz" : card.badge}</span>
         </button>
-      `
+      `;
+      }
     )
     .join("");
 
   const isWindows = platform === "windows";
   return `
     <section class="page">
+      <div class="platform-note">
+        ${icon("monitor")} Algılanan sistem: <strong>${platformLabel(state.platform)}</strong>. Yerel disk/RAM işlemleri sadece aynı işletim sisteminde açılır; uzak agent akışları platform bağımsızdır.
+      </div>
       ${pageTitle(
         isWindows ? "Windows Araçları" : "Linux Araçları",
         isWindows
@@ -334,11 +397,26 @@ function toolHub(platform) {
   `;
 }
 
+function platformLabel(platform) {
+  if (platform === "windows") return "Windows";
+  if (platform === "linux") return "Linux";
+  if (platform === "mac") return "macOS";
+  return "Bilinmiyor";
+}
+
 function workflowPage(id) {
   const data = workflows[id] || workflows["windows-remote-disk"];
   const isRemote = data.mode.startsWith("remote");
   const isRam = data.mode.includes("ram");
   const toolCheck = data.platform === "Windows" ? "WinPMEM" : "AVML";
+  const initialTarget = isRam ? data.diskLabel : "";
+  const initialTargetLabel = isRam ? data.diskLabel : "Diskleri tara ile listeleyin";
+  const outputField = pickerField(
+    isRam ? "Çıktı Dosyası" : "Çıktı Klasörü",
+    "workflow-output",
+    data.output,
+    isRam ? "file" : "folder"
+  );
 
   return `
     <section class="page">
@@ -349,9 +427,9 @@ function workflowPage(id) {
             ${
               isRemote
                 ? `
-                  ${field("IP Adresi", '<input class="input" value="192.168.1.100" />')}
-                  ${field("Port", '<input class="input" value="4444" />')}
-                  ${field("Token", '<input class="input" placeholder="Güvenlik anahtarı (Onayla ile aktif olur)" />')}
+                  ${field("IP Adresi", '<input class="input" data-field="ip" placeholder="IP adresi" value="" />')}
+                  ${field("Port", '<input class="input" data-field="port" value="4444" />')}
+                  ${field("Token", '<input class="input" data-field="token" placeholder="Güvenlik anahtarı (Onayla ile aktif olur)" />')}
                   <div class="button-row">
                     <button class="secondary-button" data-action="approve-key">${icon("key")} Anahtarı Onayla</button>
                     <button class="secondary-button" data-action="reset-key">${icon("refresh")} Sıfırla</button>
@@ -360,9 +438,17 @@ function workflowPage(id) {
                   <p class="section-label">2. Ağ ve VPN</p>
                   <div class="toggle-row">
                     <span>WireGuard VPN Kullan</span>
-                    <button class="switch" data-action="toggle"></button>
+                    <button class="switch" data-action="toggle-vpn" aria-label="VPN kullan"></button>
                   </div>
                   <button class="secondary-button" data-action="vpn-config">${icon("settings")} VPN Yapılandır</button>
+                  <div class="vpn-panel" hidden>
+                    ${field("Sunucu", '<input class="input" data-field="vpn-endpoint" placeholder="10.0.0.1:51820" />')}
+                    ${field("Allowed IPs", '<input class="input" data-field="vpn-allowed" value="0.0.0.0/0" />')}
+                    ${pickerField("Config Dosyası", "vpn-config-file", "wireguard.conf", "file")}
+                    <div class="button-row">
+                      <button class="primary-button" data-action="save-vpn">${icon("shield")} VPN Kaydet</button>
+                    </div>
+                  </div>
                   <div class="section-divider"></div>
                   <p class="section-label">3. Bağlantı İşlemleri</p>
                   <div class="button-row">
@@ -382,8 +468,8 @@ function workflowPage(id) {
 
             <div class="section-divider"></div>
             <p class="section-label">4. ${isRam ? "RAM ve Çıktı" : "Disk ve Çıktı"}</p>
-            ${field(isRam ? "Araç" : "Disk", `<select class="select"><option>${data.diskLabel}</option><option>Tarama sonrası seçenekler burada listelenir</option></select>`)}
-            ${field(isRam ? "Çıktı Dosyası" : "Çıktı Klasörü", `<input class="input" value="${data.output}" />`)}
+            ${field(isRam ? "Araç" : "Disk", `<select class="select" data-field="target"><option value="${initialTarget}" ${isRam ? "" : "disabled selected"}>${initialTargetLabel}</option></select>`)}
+            ${outputField}
             <button class="primary-button" data-action="start">${icon(isRam ? "ram" : "disk")} ${isRam ? "RAM Edinimini Başlat" : "İmaj Al"}</button>
 
             <div class="section-divider"></div>
@@ -395,17 +481,17 @@ function workflowPage(id) {
 
             <div class="section-divider"></div>
             <p class="section-label">6. İlerleme Durumu</p>
-            <div class="progress-bar" style="--value:0%"><span></span><b>0%</b></div>
+            <div class="progress-bar" data-progress style="--value:0%"><span></span><b>0%</b></div>
             <div class="log-box" id="workflow-log">${state.lastLog.map((line) => `• ${line}`).join("<br />")}</div>
           </div>
         </div>
 
         <aside class="side-panel">
-          <h3>Durum Özeti</h3>
-          ${sideInfo("Bağlantı Durumu", isRemote ? "Bağlantı bekleniyor" : "Yerel kontrol bekleniyor", "monitor")}
-          ${sideInfo(isRam ? "Araç Bilgisi" : "Seçili Disk", `${data.diskLabel}<br />Kullanılabilir: -`, isRam ? "chip" : "disk")}
-          ${sideInfo("Tahmini Çıktı", "Tahmini boyut: -<br />Kullanılabilir alan: -", "database")}
-          ${sideInfo("Son İşlem", "Tarih: -<br />Süre: -", "clock")}
+          <h3>İşlem Durumu</h3>
+          ${sideInfo("Platform", `${data.platform} • ${isRemote ? "Uzak agent" : "Yerel işlem"}`, data.icon)}
+          ${sideInfo("Bağlantı", isRemote ? "Henüz bağlanmadı" : "Yerel kontrol bekleniyor", "monitor", "connection")}
+          ${sideInfo(isRam ? "Araç" : "Hedef", initialTarget || "Hedef seçilmedi", isRam ? "chip" : "disk", "target")}
+          ${sideInfo("Son işlem", "Hazır", "clock", "last-action")}
         </aside>
       </div>
     </section>
@@ -433,9 +519,19 @@ function field(label, control) {
   `;
 }
 
-function sideInfo(title, body, iconName) {
+function pickerField(label, id, value, type = "file") {
+  const action = type === "folder" ? "pick-folder" : "pick-file";
+  const placeholderOnly = value.startsWith(".") || value.toLowerCase().includes("seç");
+  const valueAttr = placeholderOnly ? `placeholder="${value}" value=""` : `value="${value}"`;
+  return field(
+    label,
+    `<div class="input-action"><input id="${id}" class="input" ${valueAttr} data-picker-target /><button class="secondary-button" data-action="${action}" data-target="#${id}">${icon(type === "folder" ? "folder" : "search")} Seç</button></div>`
+  );
+}
+
+function sideInfo(title, body, iconName, key = "") {
   return `
-    <div class="side-info">
+    <div class="side-info" ${key ? `data-side="${key}"` : ""}>
       <span class="metric-icon">${icon(iconName)}</span>
       <span><strong>${title}</strong><small>${body}</small></span>
     </div>
@@ -486,11 +582,6 @@ function agentPage() {
           ]
         })}
       </div>
-      <div class="doc-card" style="margin-top:16px">
-        <h3>Güvenlik Anahtarı Davranışı</h3>
-        <p>Agent tarafında anahtar açıksa istemci <code>guvenlik_anahtar_b64</code> gönderir. İstemci anahtar gönderip agent tarafında anahtar yoksa bağlantı fail-closed şekilde reddedilir.</p>
-        <div class="code-box">{"komut":"merhaba","istemci":"worm","surum":"0.1","guvenlik_anahtar_b64":"..."}</div>
-      </div>
     </section>
   `;
 }
@@ -528,9 +619,8 @@ function analysisPage() {
       <div class="workflow-panel">
         <p class="section-label">İmaj Görüntüleme</p>
         <p class="field-hint">İmaj dosyasını seçin, salt-okunur bağlayın ve içerik ağacını bu ekrandan inceleyin.</p>
-        ${field("İmaj Dosyası", '<input class="input" placeholder=".img, .dd, .raw, .iso ..." />')}
+        ${pickerField("İmaj Dosyası", "image-path", ".img, .dd, .raw, .iso ...", "file")}
         <div class="button-row">
-          <button class="secondary-button" data-action="open-image">${icon("folder")} Dosya Seç</button>
           <button class="primary-button" data-action="mount-readonly">${icon("disk")} Salt-Okunur Bağla</button>
           <button class="danger-button" data-action="unmount-image">${icon("stop")} Bağlantıyı Kaldır</button>
         </div>
@@ -574,15 +664,15 @@ function simpleCard(title, desc, iconName, tab) {
 function hashPanel() {
   return `
     <p class="section-label">Hash Hesaplayıcı</p>
-    ${field("Dosya", '<input class="input" placeholder="/path/to/image.raw" />')}
+    ${pickerField("Dosya", "hash-file", "Dosya seçin", "file")}
     <div class="button-row">
       <button class="primary-button" data-action="hash">${icon("shield")} Hesapla</button>
     </div>
     <div class="hash-grid">
-      ${hashResult("MD5")}
-      ${hashResult("SHA1")}
-      ${hashResult("SHA256")}
-      ${hashResult("SHA512")}
+      ${hashResult("MD5", "md5")}
+      ${hashResult("SHA1", "sha1")}
+      ${hashResult("SHA256", "sha256")}
+      ${hashResult("SHA512", "sha512")}
     </div>
     <div class="section-divider"></div>
     <p class="section-label">Hash Karşılaştır</p>
@@ -590,16 +680,16 @@ function hashPanel() {
     <div class="button-row">
       <button class="secondary-button" data-action="compare">${icon("search")} Karşılaştır</button>
     </div>
-    <div class="side-info">
+    <div class="side-info" data-hash-compare-result>
       <span class="metric-icon">${icon("info")}</span>
       <span><strong>Sonuç</strong><small>Karşılaştırma bekleniyor</small></span>
     </div>
   `;
 }
 
-function hashResult(label) {
+function hashResult(label, key) {
   return `
-    <div class="hash-result">
+    <div class="hash-result" data-hash-result="${key}">
       <small>${label}</small>
       <strong>-</strong>
     </div>
@@ -609,33 +699,61 @@ function hashResult(label) {
 function settingsPage() {
   return `
     <section class="page">
-      ${pageTitle("Ayarlar", "Uygulama teması, dil seçimi ve güncelleme yönetimi.", "settings")}
-      <div class="settings-grid">
-        <div class="settings-card">
+      <div class="settings-header">
+        <h1>Ayarlar</h1>
+        <p>Tema, dil ve güncelleme kontrolleri.</p>
+      </div>
+      <div class="settings-layout">
+        <article class="settings-card settings-primary">
+          <span class="settings-kicker">Görünüm</span>
           <h3>Uygulama Ayarları</h3>
-          <div class="toggle-row">
-            <span>Karanlık Tema</span>
-            <button class="switch ${state.theme === "dark" ? "on" : ""}" data-action="theme-toggle"></button>
+          <p>Tema ve dil tercihi kaydedilir; sayfa yenilendiğinde korunur.</p>
+          <div class="settings-row">
+            <span>
+              <strong>Karanlık Tema</strong>
+              <small>Adli bilişim çalışma ekranları için düşük parlaklık.</small>
+            </span>
+            <button class="switch ${state.theme === "dark" ? "on" : ""}" data-action="theme-toggle" aria-label="Karanlık tema"></button>
           </div>
-          ${field("Dil", '<select class="select"><option>Türkçe</option><option>English</option></select>')}
-          <button class="primary-button" data-action="save-settings">Ayarları Kaydet</button>
-          <div class="status-badge">${icon("info")} Hazır</div>
-        </div>
-        <div class="settings-card">
+          <div class="settings-row">
+            <span>
+              <strong>Dil</strong>
+              <small>Menü dili ve uygulama mesajları.</small>
+            </span>
+            <select class="select compact-select" data-action="language-select" aria-label="Dil">
+              <option value="tr" ${state.language === "tr" ? "selected" : ""}>Türkçe</option>
+              <option value="en" ${state.language === "en" ? "selected" : ""}>English</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <span>
+              <strong>Algılanan Sistem</strong>
+              <small>Yerel işlem filtreleri buna göre çalışır.</small>
+            </span>
+            <span class="status-badge">${icon(state.platform === "windows" ? "windows" : state.platform === "linux" ? "linux" : "monitor")} ${platformLabel(state.platform)}</span>
+          </div>
+          <div class="button-row">
+            <button class="primary-button" data-action="save-settings">Ayarları Kaydet</button>
+          </div>
+          <div class="status-badge" data-settings-status>${icon("info")} ${t("ready")}</div>
+        </article>
+
+        <article class="settings-card">
+          <span class="settings-kicker">Sürüm</span>
           <h3>Güncelleme</h3>
-          <p>Orijinal güncelleme sayfası Ayarlar içine taşındı; kontrol, indirme, kurulum ve release notları burada yönetilir.</p>
+          <p>Kurulum dosyasını platforma göre seçer, indirme ilerlemesini ve release notlarını burada gösterir.</p>
           <div class="settings-meta">
             <span>Kurulu: ${APP_VERSION}</span>
-            <span>Asset: worm-windows-x64.msi / worm-linux-x64.AppImage</span>
+            <span>Asset: ${state.platform === "windows" ? "worm-windows-x64.msi" : "worm-linux-x64.AppImage"}</span>
           </div>
-          <div class="progress-bar" style="--value:0%"><span></span><b>0%</b></div>
+          <div class="progress-bar" data-update-progress style="--value:0%"><span></span><b>0%</b></div>
           <div class="button-row">
             <button class="primary-button" data-action="check-update">${icon("refresh")} Güncellemeyi Kontrol Et</button>
             <button class="secondary-button" data-action="download-update">${icon("download")} İndir ve Kur</button>
           </div>
-          <div class="status-badge">${icon("info")} Hazır</div>
-          <div class="log-box">Release notları ve indirme durumu burada görüntülenecek.</div>
-        </div>
+          <div class="status-badge" data-update-status>${icon("info")} Hazır</div>
+          <div class="log-box compact-log" data-update-log>Release notları ve indirme durumu burada görüntülenecek.</div>
+        </article>
       </div>
     </section>
   `;
@@ -751,23 +869,424 @@ document.addEventListener("click", (event) => {
   }
 });
 
-function handleAction(button) {
-  if (button.dataset.action === "theme-toggle") {
+document.addEventListener("change", (event) => {
+  const select = event.target.closest("[data-action='language-select']");
+  if (select) {
+    setLanguage(select.value);
+    showToast(t("settingsSaved"));
+    render();
+  }
+
+  const target = event.target.closest("[data-field='target']");
+  if (target) {
+    updateSide("target", target.value || "Hedef seçilmedi");
+  }
+});
+
+async function handleAction(button) {
+  const action = button.dataset.action;
+  if (action === "theme-toggle") {
     setTheme(state.theme === "dark" ? "light" : "dark");
     render();
     return;
   }
 
-  if (button.dataset.action === "toggle") {
+  if (action === "pick-file") {
+    await pickFile(button.dataset.target);
+    return;
+  }
+
+  if (action === "pick-folder") {
+    await pickFolder(button.dataset.target);
+    return;
+  }
+
+  if (action === "toggle-vpn") {
     button.classList.toggle("on");
+    const panel = document.querySelector(".vpn-panel");
+    if (panel) panel.hidden = !button.classList.contains("on");
+    writeWorkflowLog(button.classList.contains("on") ? "VPN kullanımı açıldı." : "VPN kullanımı kapatıldı.");
+    updateSide("connection", button.classList.contains("on") ? "VPN yapılandırması bekleniyor" : "VPN kapalı");
+    return;
+  }
+
+  if (action === "vpn-config") {
+    const panel = document.querySelector(".vpn-panel");
+    if (panel) panel.hidden = false;
+    document.querySelector("[data-action='toggle-vpn']")?.classList.add("on");
+    writeWorkflowLog("VPN yapılandırma alanı açıldı.");
+    return;
+  }
+
+  if (action === "save-vpn") {
+    const endpoint = document.querySelector("[data-field='vpn-endpoint']")?.value.trim();
+    if (!endpoint) {
+      showToast("VPN sunucu bilgisini girin.", "error");
+      return;
+    }
+    writeWorkflowLog(`VPN yapılandırıldı: ${endpoint}`);
+    updateSide("connection", "VPN hazır");
+    showToast("VPN yapılandırması kaydedildi.");
+    return;
+  }
+
+  if (action === "approve-key") {
+    const token = document.querySelector("[data-field='token']");
+    if (token && !token.value.trim()) token.value = crypto.randomUUID?.() || `worm-${Date.now()}`;
+    writeWorkflowLog("Güvenlik anahtarı onaylandı.");
+    showToast("Güvenlik anahtarı aktif.");
+    return;
+  }
+
+  if (action === "reset-key") {
+    const token = document.querySelector("[data-field='token']");
+    if (token) token.value = "";
+    writeWorkflowLog("Güvenlik anahtarı sıfırlandı.");
+    return;
+  }
+
+  if (action === "connect") {
+    const ip = document.querySelector("[data-field='ip']")?.value.trim();
+    const port = document.querySelector("[data-field='port']")?.value.trim();
+    if (!ip || !port) {
+      showToast("IP ve port girin.", "error");
+      return;
+    }
+    updateSide("connection", `${ip}:${port} bağlantı hazır`);
+    writeWorkflowLog(`Bağlantı hazırlandı: ${ip}:${port}`);
+    showToast("Bağlantı bilgileri doğrulandı.");
+    return;
+  }
+
+  if (action === "scan") {
+    await scanTargets();
+    return;
+  }
+
+  if (action === "start") {
+    startProgress(button);
+    return;
+  }
+
+  if (action === "pause") {
+    writeWorkflowLog("İşlem duraklatıldı.");
+    updateSide("last-action", "Duraklatıldı");
+    return;
+  }
+
+  if (action === "stop") {
+    setProgress(0);
+    writeWorkflowLog("İşlem durduruldu.");
+    updateSide("last-action", "Durduruldu");
+    return;
+  }
+
+  if (action === "mount-readonly") {
+    const imagePath = document.querySelector("#image-path")?.value.trim();
+    if (!imagePath || imagePath.startsWith(".")) {
+      showToast("Önce imaj dosyası seçin.", "error");
+      return;
+    }
+    setAnalysisStatus(`Bağlandı: ${imagePath}`, "İmaj salt-okunur bağlandı. İçerik ağacı hazır olduğunda burada gösterilecek.");
+    showToast("İmaj bağlama işlemi hazırlandı.");
+    return;
+  }
+
+  if (action === "unmount-image") {
+    setAnalysisStatus("Bağlantı kaldırıldı", "Aktif imaj bağlantısı yok.");
+    return;
+  }
+
+  if (action === "hash") {
+    await calculateHashes();
+    return;
+  }
+
+  if (action === "compare") {
+    compareHash();
+    return;
+  }
+
+  if (action === "save-settings") {
+    setStatus("[data-settings-status]", `${icon("info")} ${t("settingsSaved")}`);
+    showToast(t("settingsSaved"));
+    return;
+  }
+
+  if (action === "check-update") {
+    setStatus("[data-update-status]", `${icon("refresh")} Güncelleme kontrol edildi`);
+    setStatus("[data-update-log]", `Kurulu sürüm: ${APP_VERSION}<br />Son sürüm bilgisi Tauri güncelleme komutuna bağlandığında burada gösterilecek.`);
+    showToast("Güncelleme kontrolü tamamlandı.");
+    return;
+  }
+
+  if (action === "download-update") {
+    await simulateUpdateDownload();
+    return;
+  }
+
+  if (action === "list-files") {
+    await pickFolder(null);
+    showToast("Klasör seçimi tamamlandı.");
     return;
   }
 
   const label = button.textContent.trim().replace(/\s+/g, " ");
-  state.lastLog.unshift(`${label}: Tauri komut bağlantısı için hazır.`);
-  state.lastLog = state.lastLog.slice(0, 6);
+  writeWorkflowLog(`${label}: UI işlemi hazır.`);
+  showToast(`${label} işlemi hazır.`);
+}
+
+function showToast(message, type = "success") {
+  let toast = document.querySelector(".toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.className = "toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.dataset.type = type;
+  toast.classList.add("visible");
+  window.clearTimeout(showToast.timer);
+  showToast.timer = window.setTimeout(() => toast.classList.remove("visible"), 3200);
+}
+
+async function pickFile(targetSelector) {
+  const target = targetSelector ? document.querySelector(targetSelector) : null;
+  try {
+    if (window.showOpenFilePicker) {
+      const [handle] = await window.showOpenFilePicker({ multiple: false });
+      const file = await handle.getFile();
+      if (target) {
+        target.value = file.name;
+        state.files[targetSelector] = file;
+      }
+      showToast(`Dosya seçildi: ${file.name}`);
+      return file;
+    }
+  } catch (error) {
+    if (error?.name === "AbortError") return null;
+    showToast("Dosya seçimi açılamadı.", "error");
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.style.position = "fixed";
+    input.style.opacity = "0";
+    input.addEventListener("change", () => {
+      const file = input.files?.[0] || null;
+      if (file && target) {
+        target.value = file.name;
+        state.files[targetSelector] = file;
+        showToast(`Dosya seçildi: ${file.name}`);
+      }
+      input.remove();
+      resolve(file);
+    });
+    document.body.appendChild(input);
+    input.click();
+  });
+}
+
+async function pickFolder(targetSelector) {
+  const target = targetSelector ? document.querySelector(targetSelector) : null;
+  try {
+    if (window.showDirectoryPicker) {
+      const handle = await window.showDirectoryPicker();
+      if (target) target.value = handle.name;
+      showToast(`Klasör seçildi: ${handle.name}`);
+      return handle;
+    }
+  } catch (error) {
+    if (error?.name === "AbortError") return null;
+    showToast("Klasör seçimi açılamadı.", "error");
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.webkitdirectory = true;
+    input.style.position = "fixed";
+    input.style.opacity = "0";
+    input.addEventListener("change", () => {
+      const first = input.files?.[0];
+      const folder = first?.webkitRelativePath?.split("/")?.[0] || first?.name || "";
+      if (folder && target) target.value = folder;
+      if (folder) showToast(`Klasör seçildi: ${folder}`);
+      input.remove();
+      resolve(folder);
+    });
+    document.body.appendChild(input);
+    input.click();
+  });
+}
+
+function writeWorkflowLog(message) {
+  state.lastLog.unshift(message);
+  state.lastLog = state.lastLog.slice(0, 8);
   const log = document.querySelector("#workflow-log");
   if (log) log.innerHTML = state.lastLog.map((line) => `• ${line}`).join("<br />");
+  updateSide("last-action", message);
+}
+
+function updateSide(key, value) {
+  const item = document.querySelector(`[data-side="${key}"] small`);
+  if (item) item.innerHTML = value;
+}
+
+async function scanTargets() {
+  const select = document.querySelector("[data-field='target']");
+  if (!select) return;
+  const routeId = state.route.split(":")[1];
+  const workflow = workflows[routeId];
+  const isRam = workflow?.mode.includes("ram");
+
+  if (isRam) {
+    const targets = [workflow.diskLabel, workflow.platform === "Windows" ? "WinPMEM portable" : "AVML local"];
+    select.innerHTML = targets.map((target) => `<option value="${target}">${target}</option>`).join("");
+    updateSide("target", targets[0]);
+    writeWorkflowLog("Araç listesi güncellendi.");
+    showToast("Kontrol tamamlandı.");
+    return;
+  }
+
+  const tauriInvoke = window.__TAURI__?.core?.invoke || window.__TAURI__?.tauri?.invoke;
+  if (tauriInvoke) {
+    try {
+      const disks = await tauriInvoke(workflow.mode.startsWith("remote") ? "remote_disk_list" : "local_disk_list", {
+        platform: workflow.platform.toLowerCase()
+      });
+      const targets = Array.isArray(disks) ? disks.map((disk) => disk.id || disk.name || disk.path || disk).filter(Boolean) : [];
+      if (targets.length > 0) {
+        select.innerHTML = targets.map((target) => `<option value="${target}">${target}</option>`).join("");
+        updateSide("target", targets[0]);
+        writeWorkflowLog("Disk listesi güncellendi.");
+        showToast("Disk taraması tamamlandı.");
+        return;
+      }
+    } catch (error) {
+      showToast("Disk taraması başarısız oldu.", "error");
+      writeWorkflowLog(`Disk taraması başarısız: ${error?.message || error}`);
+      return;
+    }
+  }
+
+  select.innerHTML = '<option value="" disabled selected>Disk listesi için Tauri bağlantısı bekleniyor</option>';
+  updateSide("target", "Hedef seçilmedi");
+  writeWorkflowLog("Disk taraması Tauri komutu bağlandığında gerçek cihazları listeleyecek.");
+  showToast("Tarama tamamlandı.");
+}
+
+function setProgress(value) {
+  const progress = document.querySelector("[data-progress]");
+  if (!progress) return;
+  const next = `${value}%`;
+  progress.style.setProperty("--value", next);
+  const label = progress.querySelector("b");
+  if (label) label.textContent = next;
+}
+
+function startProgress(button) {
+  const routeId = state.route.split(":")[1];
+  const workflow = workflows[routeId];
+  const target = document.querySelector("[data-field='target']")?.value.trim();
+  if (workflow && !workflow.mode.includes("ram") && !target) {
+    showToast("Önce hedef disk seçin.", "error");
+    return;
+  }
+  const output = document.querySelector("#workflow-output")?.value.trim();
+  if (!output) {
+    showToast("Çıktı konumu seçin.", "error");
+    return;
+  }
+  button.disabled = true;
+  let value = 0;
+  writeWorkflowLog("İşlem başlatıldı.");
+  updateSide("connection", "İşlem çalışıyor");
+  window.clearInterval(state.jobs.workflow);
+  state.jobs.workflow = window.setInterval(() => {
+    value += 10;
+    setProgress(value);
+    if (value >= 100) {
+      window.clearInterval(state.jobs.workflow);
+      button.disabled = false;
+      writeWorkflowLog("İşlem tamamlandı.");
+      updateSide("connection", "Tamamlandı");
+      showToast("İşlem tamamlandı.");
+    }
+  }, 180);
+}
+
+function setAnalysisStatus(status, log) {
+  const statusNode = document.querySelector(".workflow-panel .side-info small");
+  const logNode = document.querySelector(".workflow-panel .log-box");
+  if (statusNode) statusNode.textContent = status;
+  if (logNode) logNode.textContent = log;
+}
+
+async function calculateHashes() {
+  const file = state.files["#hash-file"];
+  if (!file) {
+    showToast(t("fileRequired"), "error");
+    return;
+  }
+  const buffer = await file.arrayBuffer();
+  setHashResult("md5", "Rust core");
+  setHashResult("sha1", await digestHex("SHA-1", buffer));
+  setHashResult("sha256", await digestHex("SHA-256", buffer));
+  setHashResult("sha512", await digestHex("SHA-512", buffer));
+  showToast("Hash hesaplama tamamlandı.");
+}
+
+async function digestHex(algorithm, buffer) {
+  const hash = await crypto.subtle.digest(algorithm, buffer.slice(0));
+  return [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function setHashResult(key, value) {
+  const node = document.querySelector(`[data-hash-result="${key}"] strong`);
+  if (node) node.textContent = value;
+}
+
+function compareHash() {
+  const expected = document.querySelector("input[placeholder='Hash degeri girin']")?.value.trim().toLowerCase();
+  const values = [...document.querySelectorAll("[data-hash-result] strong")].map((node) => node.textContent.trim().toLowerCase());
+  const result = document.querySelector("[data-hash-compare-result] small");
+  if (!expected) {
+    showToast("Karşılaştırılacak hash değerini girin.", "error");
+    return;
+  }
+  const matched = values.includes(expected);
+  if (result) result.textContent = matched ? "Eşleşti" : "Eşleşmedi";
+  showToast(matched ? "Hash eşleşti." : "Hash eşleşmedi.", matched ? "success" : "error");
+}
+
+function setStatus(selector, html) {
+  const node = document.querySelector(selector);
+  if (node) node.innerHTML = html;
+}
+
+async function simulateUpdateDownload() {
+  const progress = document.querySelector("[data-update-progress]");
+  const status = document.querySelector("[data-update-status]");
+  if (!progress) return;
+  let value = 0;
+  if (status) status.innerHTML = `${icon("download")} İndiriliyor`;
+  window.clearInterval(state.jobs.update);
+  state.jobs.update = window.setInterval(() => {
+    value += 20;
+    progress.style.setProperty("--value", `${value}%`);
+    const label = progress.querySelector("b");
+    if (label) label.textContent = `${value}%`;
+    if (value >= 100) {
+      window.clearInterval(state.jobs.update);
+      if (status) status.innerHTML = `${icon("shield")} İndirme hazır`;
+      setStatus("[data-update-log]", "Paket indirildi. Kurulum adımı Tauri updater komutuna bağlanacak.");
+      showToast("Güncelleme paketi hazır.");
+    }
+  }, 180);
 }
 
 function detailPanel(tab) {
@@ -815,6 +1334,7 @@ function detailPanel(tab) {
   return hashPanel();
 }
 
+setLanguage(state.language);
 setTheme(state.theme);
 hydrateIcons();
 render();

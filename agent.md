@@ -1,3 +1,3 @@
 # Agent Notes
 
-See `AGENTS.md`. It contains the full AI-agent guide for this Rust rewrite, including module layout, remote agent protocol compatibility, acquisition rules, verification commands, and future Tauri UI direction.
+See `AGENTS.md` for repository contributor guidelines, module layout, verification commands, and compatibility notes for the existing Worm remote agents.
