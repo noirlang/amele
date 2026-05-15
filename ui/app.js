@@ -29,6 +29,17 @@ const icons = {
   arrow: '<path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>'
 };
 
+const APP_VERSION = "v0.0.6";
+const assetPath = "./assets";
+const fontIcons = {
+  windows: "",
+  linux: "",
+  github: "",
+  linkedin: "",
+  website: "",
+  globe: ""
+};
+
 const app = document.querySelector("#app");
 const view = document.querySelector("#view");
 
@@ -189,6 +200,9 @@ const workflows = {
 };
 
 function icon(name) {
+  if (fontIcons[name]) {
+    return `<span class="fa-icon" aria-hidden="true">${fontIcons[name]}</span>`;
+  }
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${icons[name] || icons.info}</svg>`;
 }
 
@@ -246,7 +260,9 @@ function homePage() {
             <button class="primary-button" data-route="windows">Hemen Başla ${icon("arrow")}</button>
           </div>
         </div>
-        <div class="worm-art"><span>WORM</span></div>
+        <div class="worm-art">
+          <img src="${assetPath}/logo/logo.png" alt="Worm logo" />
+        </div>
       </div>
 
       <div class="home-grid">
@@ -511,7 +527,7 @@ function analysisPage() {
       ${pageTitle("İmaj Görüntüleme", "Seçilen disk imajını salt-okunur olarak bağlar ve içeriğini klasör ağacında gösterir.", "search")}
       <div class="workflow-panel">
         <p class="section-label">İmaj Görüntüleme</p>
-        <p class="field-hint">Linux'ta <code>udisksctl</code> kullanılır; bağlama işlemi başarısızsa durum bilgisinde sebebi görürsünüz.</p>
+        <p class="field-hint">İmaj dosyasını seçin, salt-okunur bağlayın ve içerik ağacını bu ekrandan inceleyin.</p>
         ${field("İmaj Dosyası", '<input class="input" placeholder=".img, .dd, .raw, .iso ..." />')}
         <div class="button-row">
           <button class="secondary-button" data-action="open-image">${icon("folder")} Dosya Seç</button>
@@ -609,7 +625,7 @@ function settingsPage() {
           <h3>Güncelleme</h3>
           <p>Orijinal güncelleme sayfası Ayarlar içine taşındı; kontrol, indirme, kurulum ve release notları burada yönetilir.</p>
           <div class="settings-meta">
-            <span>Kurulu: v0.1.0</span>
+            <span>Kurulu: ${APP_VERSION}</span>
             <span>Asset: worm-windows-x64.msi / worm-linux-x64.AppImage</span>
           </div>
           <div class="progress-bar" style="--value:0%"><span></span><b>0%</b></div>
@@ -629,11 +645,11 @@ function aboutPage() {
   return `
     <section class="page">
       <div class="about-hero">
-        <span class="about-logo">W</span>
+        <span class="about-logo"><img src="${assetPath}/logo/logo.png" alt="Worm logo" /></span>
         <div>
           <p class="eyebrow">Worm Forensic Tool</p>
           <h1>Worm Forensic Tool</h1>
-          <span class="status-badge">Sürüm v0.1.0</span>
+          <span class="status-badge">Sürüm ${APP_VERSION}</span>
           <p>Worm, yetkili adli bilişim süreçlerinde disk ve RAM edinimi, doğrulama ve raporlama adımlarını tek bir merkezde birleştiren bir denetim aracıdır.</p>
         </div>
       </div>
@@ -652,19 +668,23 @@ function aboutPage() {
 
       <h2 class="section-heading">Contributors</h2>
       <div class="contributor-grid">
-        ${contributorCard("ME", "Melih Emik", [
+        ${contributorCard("ME", "Melih Emik", "melih-emik.jpg", [
           ["GitHub", "https://github.com/favilances"],
           ["LinkedIn", "https://www.linkedin.com/in/melihemik/"],
           ["Website", "https://melihemik.com.tr"]
         ])}
-        ${contributorCard("YT", "Yusuf Tuncel", [
+        ${contributorCard("YT", "Yusuf Tuncel", "yusuf-tuncel.jpg", [
           ["GitHub", "https://github.com/yetece1"],
           ["LinkedIn", "https://www.linkedin.com/in/yusuf-tuncel/"]
         ])}
-        ${contributorCard("MG", "Muhammet Ali Güner", [
+        ${contributorCard("MG", "Muhammet Ali Güner", "muhammet-ali-guner.jpg", [
           ["GitHub", "https://github.com/kafkaskrtl"],
           ["LinkedIn", "https://www.linkedin.com/in/muhammetali-g%C3%BCner/"]
         ])}
+      </div>
+
+      <div class="company-logo-card">
+        <img src="${assetPath}/logo/sirket.png" alt="Şirket logosu" />
       </div>
     </section>
   `;
@@ -681,16 +701,22 @@ function capabilityCard(kicker, title, desc, iconName, accent) {
   `;
 }
 
-function contributorCard(initials, name, links) {
+function contributorCard(initials, name, photo, links) {
   return `
     <article class="contributor-card">
-      <span class="avatar">${initials}</span>
+      <img class="avatar" src="${assetPath}/contributors/${photo}" alt="${name}" />
       <h3>${name}</h3>
-      <div class="link-row">
-        ${links.map(([label, url]) => `<a href="${url}">${label}</a>`).join("")}
+      <p>Forensic Contributor</p>
+      <div class="social-row" aria-label="${name} bağlantıları">
+        ${links.map(([label, url]) => socialLink(label, url)).join("")}
       </div>
     </article>
   `;
+}
+
+function socialLink(label, url) {
+  const key = label === "LinkedIn" ? "linkedin" : label === "Website" ? "website" : "github";
+  return `<a class="social-button" href="${url}" target="_blank" rel="noreferrer" aria-label="${label}">${icon(key)}</a>`;
 }
 
 const routes = {

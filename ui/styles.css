@@ -28,6 +28,12 @@
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+@font-face {
+  font-family: "FontAwesome";
+  src: url("./assets/fonts/fontawesome-regular.ttf") format("truetype");
+  font-display: block;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -107,6 +113,9 @@ button {
 .brand-mark {
   width: 48px;
   height: 48px;
+  display: grid;
+  place-items: center;
+  padding: 6px;
   border: 1px solid var(--line-strong);
   border-radius: 13px;
   background:
@@ -118,6 +127,12 @@ button {
   font-weight: 800;
   letter-spacing: -0.05em;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 16px 28px rgba(0, 0, 0, 0.28);
+}
+
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .theme-light .brand-mark {
@@ -257,6 +272,10 @@ button {
   letter-spacing: 0.01em;
 }
 
+.topbar-spacer {
+  min-width: 0;
+}
+
 .spark {
   width: 17px;
   height: 17px;
@@ -300,6 +319,10 @@ button {
   min-width: 0;
   overflow: auto;
   padding: 28px;
+}
+
+.view:focus {
+  outline: none;
 }
 
 .view::before {
@@ -435,6 +458,13 @@ button {
     linear-gradient(145deg, #030609, #06130f);
 }
 
+.worm-art img {
+  width: min(76%, 280px);
+  max-height: 280px;
+  object-fit: contain;
+  filter: drop-shadow(0 26px 48px rgba(0, 0, 0, 0.42));
+}
+
 .worm-art span {
   font-family: Georgia, "Times New Roman", serif;
   font-size: clamp(56px, 8vw, 92px);
@@ -552,6 +582,28 @@ button {
   width: 54px;
   height: 54px;
   border-radius: 14px;
+}
+
+.fa-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 1.15em;
+  height: 1.15em;
+  font-family: "FontAwesome";
+  font-size: 22px;
+  font-style: normal;
+  line-height: 1;
+}
+
+.card-icon .fa-icon,
+.tile-icon .fa-icon {
+  font-size: 30px;
+}
+
+.nav-item .fa-icon,
+.top-action .fa-icon,
+.metric-icon .fa-icon {
+  font-size: 20px;
 }
 
 .metric small {
@@ -944,6 +996,7 @@ code {
   place-items: center;
   width: 112px;
   height: 112px;
+  padding: 12px;
   border: 1px solid var(--line-strong);
   border-radius: 28px;
   background:
@@ -953,6 +1006,12 @@ code {
   font-family: Georgia, "Times New Roman", serif;
   font-size: 58px;
   font-weight: 900;
+}
+
+.about-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .capability-grid,
@@ -978,6 +1037,8 @@ code {
 }
 
 .contributor-card {
+  display: grid;
+  justify-items: center;
   padding: 22px;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
@@ -989,6 +1050,13 @@ code {
 .contributor-card h3 {
   margin: 14px 0 0;
   font-size: 21px;
+  text-align: center;
+}
+
+.contributor-card p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  text-align: center;
 }
 
 .contributor-card .link-row {
@@ -996,15 +1064,56 @@ code {
 }
 
 .avatar {
+  width: 88px;
+  height: 88px;
+  border: 1px solid var(--line-strong);
+  border-radius: 22px;
+  background: rgba(101, 229, 138, 0.1);
+  object-fit: cover;
+}
+
+.social-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.social-button {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  text-decoration: none;
+  transition: transform 180ms var(--ease), border-color 180ms var(--ease), background 180ms var(--ease);
+}
+
+.social-button:hover,
+.social-button:focus-visible {
+  transform: translateY(-1px);
+  border-color: var(--line-strong);
+  background: rgba(101, 229, 138, 0.12);
+  color: var(--green);
+}
+
+.company-logo-card {
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
-  border: 1px solid var(--line-strong);
-  border-radius: 16px;
-  background: rgba(101, 229, 138, 0.1);
-  color: var(--green);
-  font-weight: 900;
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.company-logo-card img {
+  width: min(220px, 70vw);
+  max-height: 90px;
+  object-fit: contain;
 }
 
 .log-box {
@@ -1086,6 +1195,11 @@ svg {
 
   .topbar {
     padding: 0 12px;
+  }
+
+  .window-separator,
+  .chrome-button {
+    display: none;
   }
 
   .window-title {
