@@ -666,7 +666,9 @@ mod tests {
 
     #[test]
     fn lists_disks_with_agent_protocol() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let Some(listener) = bind_test_listener() else {
+            return;
+        };
         let port = listener.local_addr().unwrap().port();
         thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
@@ -698,7 +700,9 @@ mod tests {
 
     #[test]
     fn acquires_image_stream_with_agent_protocol() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let Some(listener) = bind_test_listener() else {
+            return;
+        };
         let port = listener.local_addr().unwrap().port();
         thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
@@ -744,5 +748,13 @@ mod tests {
         assert_eq!(result.job_id, "IMG_TEST");
         assert_eq!(std::fs::read(result.target_path).unwrap(), b"disk-data");
         assert_eq!(result.sha256.as_deref(), Some("hash"));
+    }
+
+    fn bind_test_listener() -> Option<TcpListener> {
+        match TcpListener::bind("127.0.0.1:0") {
+            Ok(listener) => Some(listener),
+            Err(err) if err.kind() == std::io::ErrorKind::PermissionDenied => None,
+            Err(err) => panic!("test listener bind failed: {err}"),
+        }
     }
 }
