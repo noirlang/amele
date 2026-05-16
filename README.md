@@ -228,7 +228,7 @@ Hedef release asset adları ana Worm güncelleme mantığıyla uyumlu tutulmalı
 - `worm-linux-x64.AppImage`
 - `SHA256SUMS`
 
-Mevcut CI, Rust binary artifact üretir. MSI/AppImage paketleme işi release hattında ayrıca bağlanacaktır.
+Mevcut CI Linux ve Windows release binary artifact üretir. MSI/AppImage installer paketleme işi release hattında ayrıca bağlanacaktır.
 
 ### GitHub Actions
 
@@ -239,9 +239,10 @@ Push ve pull requestlerde:
 1. Sistem bağımlılıkları kurulur.
 2. Rust stable toolchain hazırlanır.
 3. `cargo fmt --all -- --check` çalışır.
-4. `cargo test --locked` çalışır.
-5. `cargo build --release --locked` çalışır.
-6. Release binary artifact olarak yüklenir.
+4. `node --check ui/app.js` ile UI JavaScript söz dizimi doğrulanır.
+5. `cargo test --locked` çalışır.
+6. `cargo build --release --locked` çalışır.
+7. Linux ve Windows release binary artifact olarak yüklenir.
 
 Actions sayfası:
 
@@ -267,12 +268,10 @@ Worm yalnızca yetkili adli bilişim süreçlerinde kullanılmalıdır. Disk ve 
 
 ### Roadmap
 
-- Tüm UI metinlerinin TR/EN dil dosyasına taşınması.
 - AppImage/MSI paketleme hattının release workflow'a bağlanması.
 - Uzak agent protokol testlerinin daha geniş mock senaryolarla çoğaltılması.
-- Vaka/rapor ekranlarının gerçek backend endpointleriyle tamamlanması.
-- WireGuard yönetim ekranının gerçek start/stop durumlarıyla entegre edilmesi.
-- İmaj görüntüleme ve salt-okunur mount akışının platform bazlı tamamlanması.
+- Windows tarafında yerel pencere kabuğunun GTK/WebKit dışı bir uygulama penceresine taşınması.
+- Salt-okunur imaj mount akışının Linux dışı platformlarda ayrı sürücülerle tamamlanması.
 
 ---
 
@@ -500,7 +499,7 @@ Target release asset names must stay compatible with the main Worm updater conve
 - `worm-linux-x64.AppImage`
 - `SHA256SUMS`
 
-The current CI produces the Rust binary artifact. MSI/AppImage packaging will be connected in the release pipeline.
+The current CI produces Linux and Windows release binary artifacts. MSI/AppImage installer packaging will be connected in the release pipeline.
 
 ### GitHub Actions
 
@@ -511,9 +510,10 @@ On push and pull requests:
 1. System dependencies are installed.
 2. Stable Rust toolchain is prepared.
 3. `cargo fmt --all -- --check` runs.
-4. `cargo test --locked` runs.
-5. `cargo build --release --locked` runs.
-6. Release binary is uploaded as an artifact.
+4. `node --check ui/app.js` validates the UI JavaScript syntax.
+5. `cargo test --locked` runs.
+6. `cargo build --release --locked` runs.
+7. Linux and Windows release binaries are uploaded as artifacts.
 
 Actions page:
 
@@ -539,9 +539,7 @@ Worm should be used only in authorized forensic workflows. Disk and RAM acquisit
 
 ### Roadmap
 
-- Move all UI text into the TR/EN language layer.
 - Connect AppImage/MSI packaging to the release workflow.
 - Expand remote agent protocol tests with more mock scenarios.
-- Complete case/report screens with real backend endpoints.
-- Integrate WireGuard management UI with actual start/stop status.
-- Complete platform-specific image viewing and read-only mount flows.
+- Move the Windows native shell to an application window outside the GTK/WebKit Linux path.
+- Complete read-only image mount drivers for non-Linux platforms.

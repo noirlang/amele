@@ -18,8 +18,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  build:
-    name: Test and build
+  linux-build:
+    name: Linux test and build
     runs-on: ubuntu-24.04
 
     steps:
@@ -39,6 +39,9 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
+      - name: Check UI JavaScript
+        run: node --check ui/app.js
+
       - name: Run tests
         run: cargo test --locked
 
@@ -50,4 +53,30 @@ jobs:
         with:
           name: worm-rewrite-rust-linux-x64
           path: target/release/worm-rewrite-rust
+          if-no-files-found: error
+
+  windows-build:
+    name: Windows test and build
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Run tests
+        run: cargo test --locked
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Upload release binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: worm-rewrite-rust-windows-x64
+          path: target/release/worm-rewrite-rust.exe
           if-no-files-found: error

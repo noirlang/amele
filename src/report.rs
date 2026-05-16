@@ -125,10 +125,10 @@ pub fn create_report(
         }
     }
 
-    if let Some(vault) = vault {
-        if let Some(logger) = &vault.logger {
-            logger.info(format!("Rapor olusturuldu: {}", target.display()));
-        }
+    if let Some(vault) = vault
+        && let Some(logger) = &vault.logger
+    {
+        logger.info(format!("Rapor olusturuldu: {}", target.display()));
     }
 
     Ok(target.to_path_buf())

@@ -1,12 +1,16 @@
 use crate::disk;
 use crate::disk::{DiskAcquisitionControl, DiskAcquisitionTask};
+use crate::evidence::EvidenceVault;
 use crate::hash::{self, HashAlgorithm};
 use crate::ram;
 use crate::remote::RemoteConnection;
+use crate::report::{self, ReportFormat, ReportInfo};
 use crate::settings::AppSettings;
+use crate::wireguard::{self, WireGuardConfig, WireGuardManager};
 use chrono::Local;
 use serde::Deserialize;
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -20,6 +24,9 @@ use std::thread;
 const UI_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/ui");
 static NEXT_ACQUISITION_JOB_ID: AtomicU64 = AtomicU64::new(1);
 static ACQUISITION_JOBS: OnceLock<Mutex<HashMap<String, AcquisitionJob>>> = OnceLock::new();
+static CURRENT_EVIDENCE_CASE: OnceLock<Mutex<Option<EvidenceCaseState>>> = OnceLock::new();
+static CURRENT_IMAGE_MOUNT: OnceLock<Mutex<Option<ImageMountState>>> = OnceLock::new();
+static WIREGUARD_MANAGER: OnceLock<Mutex<WireGuardManager>> = OnceLock::new();
 
 #[derive(Clone)]
 struct AcquisitionJob {
@@ -30,6 +37,17 @@ struct AcquisitionJob {
     result: Option<Value>,
     error: Option<String>,
     control: ram::CancellationToken,
+}
+
+#[derive(Clone)]
+struct EvidenceCaseState {
+    base_dir: PathBuf,
+    case_name: String,
+}
+
+#[derive(Clone)]
+struct ImageMountState {
+    mount_dir: PathBuf,
 }
 
 pub fn run_native() -> Result<(), String> {
@@ -142,10 +160,10 @@ fn handle_stream(stream: TcpStream) -> Result<(), String> {
         if trimmed.is_empty() {
             break;
         }
-        if let Some((name, value)) = trimmed.split_once(':') {
-            if name.eq_ignore_ascii_case("content-length") {
-                content_length = value.trim().parse::<usize>().unwrap_or(0);
-            }
+        if let Some((name, value)) = trimmed.split_once(':')
+            && name.eq_ignore_ascii_case("content-length")
+        {
+            content_length = value.trim().parse::<usize>().unwrap_or(0);
         }
     }
 
@@ -205,6 +223,19 @@ fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
         ("POST", "/api/remote-image") => remote_image_endpoint(body),
         ("POST", "/api/remote-ram") => remote_ram_endpoint(body),
         ("POST", "/api/remote-tool-check") => remote_tool_check_endpoint(body),
+        ("POST", "/api/evidence-create") => evidence_create_endpoint(body),
+        ("POST", "/api/evidence-add-note") => evidence_add_note_endpoint(body),
+        ("POST", "/api/evidence-list-files") => evidence_list_files_endpoint(body),
+        ("GET", "/api/evidence-summary") => evidence_summary_endpoint(),
+        ("POST", "/api/report-create") => report_create_endpoint(body),
+        ("POST", "/api/image-mount-readonly") => image_mount_readonly_endpoint(body),
+        ("POST", "/api/image-unmount") => image_unmount_endpoint(),
+        ("POST", "/api/wireguard-config") => wireguard_config_endpoint(body),
+        ("POST", "/api/wireguard-start") => wireguard_start_endpoint(body),
+        ("POST", "/api/wireguard-stop") => wireguard_stop_endpoint(),
+        ("GET", "/api/wireguard-status") => wireguard_status_endpoint(),
+        ("GET", "/api/update-check") => update_check_endpoint(),
+        ("POST", "/api/update-download") => update_download_endpoint(body),
         ("POST", "/api/pick-file") => pick_path_endpoint(false),
         ("POST", "/api/pick-folder") => pick_path_endpoint(true),
         _ => json_error(404, "api endpoint not found"),
@@ -393,6 +424,731 @@ fn remote_ram_endpoint(body: &[u8]) -> Response {
         "job_id": job_id,
         "status": "running",
     }))
+}
+
+fn evidence_create_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct EvidenceCreateRequest {
+        case_name: String,
+        base_dir: Option<String>,
+    }
+
+    let request: EvidenceCreateRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+
+    let case_name = sanitize_case_name(&request.case_name);
+    if case_name.is_empty() {
+        return json_error(400, "case_name is required");
+    }
+    let base_dir = request
+        .base_dir
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(default_case_base_dir);
+
+    match EvidenceVault::create(&base_dir, &case_name) {
+        Ok(vault) => {
+            let summary = match vault.summary() {
+                Ok(summary) => summary,
+                Err(err) => return json_error(500, err.to_string()),
+            };
+            let state = EvidenceCaseState {
+                base_dir,
+                case_name,
+            };
+            if let Ok(mut current) = current_evidence_case().lock() {
+                *current = Some(state);
+            }
+            json_ok(json!({
+                "case_name": summary.case_name,
+                "case_dir": summary.case_dir,
+                "output_count": summary.output_count,
+                "hash_count": summary.hash_count,
+                "report_count": summary.report_count,
+            }))
+        }
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+fn evidence_add_note_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct EvidenceNoteRequest {
+        note: String,
+    }
+
+    let request: EvidenceNoteRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    if request.note.trim().is_empty() {
+        return json_error(400, "note is required");
+    }
+
+    let vault = match current_evidence_vault() {
+        Ok(vault) => vault,
+        Err(response) => return response,
+    };
+    match vault.add_note(request.note.trim()) {
+        Ok(path) => json_ok(json!({ "path": path })),
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+fn evidence_list_files_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct EvidenceListRequest {
+        subdir: Option<String>,
+    }
+
+    let request: EvidenceListRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let vault = match current_evidence_vault() {
+        Ok(vault) => vault,
+        Err(response) => return response,
+    };
+    let subdir = evidence_subdir(request.subdir.as_deref().unwrap_or_default());
+
+    match vault.list_files(subdir) {
+        Ok(files) => {
+            let files: Vec<Value> = files.into_iter().map(file_entry_json).collect();
+            json_ok(json!({ "subdir": subdir, "files": files }))
+        }
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+fn evidence_summary_endpoint() -> Response {
+    let vault = match current_evidence_vault() {
+        Ok(vault) => vault,
+        Err(response) => return response,
+    };
+    match vault.summary() {
+        Ok(summary) => json_ok(json!({
+            "case_name": summary.case_name,
+            "case_dir": summary.case_dir,
+            "output_count": summary.output_count,
+            "hash_count": summary.hash_count,
+            "report_count": summary.report_count,
+        })),
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+fn report_create_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct ReportCreateRequest {
+        title: Option<String>,
+        description: Option<String>,
+        source: Option<String>,
+        hash_sha256: Option<String>,
+        format: Option<String>,
+    }
+
+    let request: ReportCreateRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let vault = match current_evidence_vault() {
+        Ok(vault) => vault,
+        Err(response) => return response,
+    };
+    let format = match report_format(request.format.as_deref().unwrap_or("txt")) {
+        Some(format) => format,
+        None => return json_error(400, "format must be txt or json"),
+    };
+    let title = request
+        .title
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("Forensic Technical Report");
+    let description = request
+        .description
+        .as_deref()
+        .map(str::trim)
+        .unwrap_or_default();
+    let source = request
+        .source
+        .as_deref()
+        .map(str::trim)
+        .unwrap_or("Worm Forensic Tool");
+    let hash_sha256 = request
+        .hash_sha256
+        .as_deref()
+        .map(str::trim)
+        .unwrap_or_default();
+    let info = ReportInfo {
+        title: title.to_string(),
+        description: description.to_string(),
+        creator: std::env::var("USER")
+            .or_else(|_| std::env::var("USERNAME"))
+            .unwrap_or_else(|_| "worm".to_string()),
+        source: source.to_string(),
+        hash_sha256: hash_sha256.to_string(),
+        date: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+    };
+    let target = vault
+        .reports_dir
+        .join(report::new_report_file_name(&vault.case_name, format));
+
+    match report::create_report(&info, format, &target, Some(&vault)) {
+        Ok(path) => json_ok(json!({ "path": path })),
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct ImageMountRequest {
+        path: String,
+    }
+
+    let request: ImageMountRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let image_path = PathBuf::from(request.path.trim());
+    if image_path.as_os_str().is_empty() {
+        return json_error(400, "path is required");
+    }
+    if !image_path.exists() {
+        return json_error(404, "image file not found");
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        return json_error(400, "read-only image mount is currently supported on Linux");
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let _ = image_unmount_current();
+        let mount_dir = std::env::temp_dir().join(format!(
+            "worm-image-mount-{}",
+            Local::now().format("%Y%m%d%H%M%S")
+        ));
+        if let Err(err) = fs::create_dir_all(&mount_dir) {
+            return json_error(500, err.to_string());
+        }
+        let output = Command::new("mount")
+            .arg("-o")
+            .arg("ro,loop")
+            .arg(&image_path)
+            .arg(&mount_dir)
+            .output();
+
+        match output {
+            Ok(output) if output.status.success() => {
+                let tree = directory_tree_json(&mount_dir, 3, 400);
+                let state = ImageMountState {
+                    mount_dir: mount_dir.clone(),
+                };
+                if let Ok(mut current) = current_image_mount().lock() {
+                    *current = Some(state);
+                }
+                json_ok(json!({
+                    "image_path": image_path,
+                    "mount_dir": mount_dir,
+                    "tree": tree,
+                }))
+            }
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                let _ = fs::remove_dir_all(&mount_dir);
+                json_error(
+                    500,
+                    if stderr.is_empty() {
+                        "mount failed; root privileges may be required".to_string()
+                    } else {
+                        stderr
+                    },
+                )
+            }
+            Err(err) => {
+                let _ = fs::remove_dir_all(&mount_dir);
+                json_error(500, err.to_string())
+            }
+        }
+    }
+}
+
+fn image_unmount_endpoint() -> Response {
+    match image_unmount_current() {
+        Ok(Some(mount_dir)) => json_ok(json!({ "mount_dir": mount_dir })),
+        Ok(None) => json_ok(json!({ "mount_dir": Value::Null })),
+        Err(err) => json_error(500, err),
+    }
+}
+
+fn wireguard_config_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct WireGuardConfigRequest {
+        config_file: String,
+        private_key: Option<String>,
+        public_key: Option<String>,
+        endpoint: String,
+        allowed_ips: Option<String>,
+        address: Option<String>,
+        dns: Option<String>,
+        keepalive: Option<u16>,
+    }
+
+    let request: WireGuardConfigRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    if request.config_file.trim().is_empty() {
+        return json_error(400, "config_file is required");
+    }
+    if request.endpoint.trim().is_empty() {
+        return json_error(400, "endpoint is required");
+    }
+    let config = WireGuardConfig {
+        private_key: request.private_key.as_deref().unwrap_or_default().trim(),
+        public_key: request.public_key.as_deref().unwrap_or_default().trim(),
+        endpoint: request.endpoint.trim(),
+        allowed_ips: request.allowed_ips.as_deref().unwrap_or("0.0.0.0/0").trim(),
+        address: request.address.as_deref().unwrap_or("10.0.0.2/24").trim(),
+        dns: request.dns.as_deref().unwrap_or("1.1.1.1").trim(),
+        keepalive: request.keepalive.unwrap_or(25),
+    };
+
+    match wireguard::create_config(request.config_file.trim(), &config) {
+        Ok(path) => json_ok(json!({ "path": path })),
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+fn wireguard_start_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct WireGuardStartRequest {
+        config_file: String,
+    }
+
+    let request: WireGuardStartRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    if request.config_file.trim().is_empty() {
+        return json_error(400, "config_file is required");
+    }
+    let manager = wireguard_manager();
+    let mut guard = match manager.lock() {
+        Ok(guard) => guard,
+        Err(_) => return json_error(500, "wireguard manager lock failed"),
+    };
+    match guard.start(request.config_file.trim()) {
+        Ok(()) => json_ok(json!({
+            "active": guard.is_active(),
+            "config_file": guard.config_file,
+        })),
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+fn wireguard_stop_endpoint() -> Response {
+    let manager = wireguard_manager();
+    let mut guard = match manager.lock() {
+        Ok(guard) => guard,
+        Err(_) => return json_error(500, "wireguard manager lock failed"),
+    };
+    match guard.stop() {
+        Ok(()) => json_ok(json!({ "active": guard.is_active() })),
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+fn wireguard_status_endpoint() -> Response {
+    let manager = wireguard_manager();
+    let guard = match manager.lock() {
+        Ok(guard) => guard,
+        Err(_) => return json_error(500, "wireguard manager lock failed"),
+    };
+    json_ok(json!({
+        "interface_name": guard.interface_name,
+        "config_file": guard.config_file,
+        "active": guard.active,
+    }))
+}
+
+fn update_check_endpoint() -> Response {
+    let output = Command::new("curl")
+        .arg("-L")
+        .arg("--fail")
+        .arg("--silent")
+        .arg("--show-error")
+        .arg("https://api.github.com/repos/noirlang/worm/releases/latest")
+        .output();
+    let output = match output {
+        Ok(output) if output.status.success() => output,
+        Ok(output) => {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            return json_error(
+                500,
+                if stderr.is_empty() {
+                    "release check failed".to_string()
+                } else {
+                    stderr
+                },
+            );
+        }
+        Err(err) => return json_error(500, err.to_string()),
+    };
+
+    let release: Value = match serde_json::from_slice(&output.stdout) {
+        Ok(release) => release,
+        Err(err) => return json_error(500, err.to_string()),
+    };
+    let assets = release
+        .get("assets")
+        .and_then(Value::as_array)
+        .map(|assets| {
+            assets
+                .iter()
+                .map(|asset| {
+                    json!({
+                        "name": asset.get("name").and_then(Value::as_str).unwrap_or_default(),
+                        "download_url": asset.get("browser_download_url").and_then(Value::as_str).unwrap_or_default(),
+                        "size": asset.get("size").and_then(Value::as_u64).unwrap_or_default(),
+                        "digest": asset.get("digest").and_then(Value::as_str).unwrap_or_default(),
+                    })
+                })
+                .collect::<Vec<Value>>()
+        })
+        .unwrap_or_default();
+    let platform_asset = preferred_update_asset(&assets);
+
+    json_ok(json!({
+        "current_version": env!("CARGO_PKG_VERSION"),
+        "tag_name": release.get("tag_name").and_then(Value::as_str).unwrap_or_default(),
+        "name": release.get("name").and_then(Value::as_str).unwrap_or_default(),
+        "html_url": release.get("html_url").and_then(Value::as_str).unwrap_or_default(),
+        "body": release.get("body").and_then(Value::as_str).unwrap_or_default(),
+        "assets": assets,
+        "platform_asset": platform_asset,
+    }))
+}
+
+fn update_download_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct UpdateDownloadRequest {
+        url: String,
+        name: Option<String>,
+        output_dir: Option<String>,
+        expected_sha256: Option<String>,
+    }
+
+    let request: UpdateDownloadRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let url = request.url.trim();
+    if url.is_empty() {
+        return json_error(400, "url is required");
+    }
+    let output_dir = request
+        .output_dir
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(default_download_dir);
+    if let Err(err) = fs::create_dir_all(&output_dir) {
+        return json_error(500, err.to_string());
+    }
+    let name = request
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(sanitize_download_name)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "worm-update.bin".to_string());
+    let target = output_dir.join(name);
+    let output = Command::new("curl")
+        .arg("-L")
+        .arg("--fail")
+        .arg("--silent")
+        .arg("--show-error")
+        .arg("-o")
+        .arg(&target)
+        .arg(url)
+        .output();
+
+    match output {
+        Ok(output) if output.status.success() => {}
+        Ok(output) => {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let _ = fs::remove_file(&target);
+            return json_error(
+                500,
+                if stderr.is_empty() {
+                    "download failed".to_string()
+                } else {
+                    stderr
+                },
+            );
+        }
+        Err(err) => return json_error(500, err.to_string()),
+    }
+
+    let sha256 = match sha256_file(&target) {
+        Ok(value) => value,
+        Err(err) => return json_error(500, err),
+    };
+    if let Some(expected) = request.expected_sha256 {
+        let expected = expected
+            .trim()
+            .strip_prefix("sha256:")
+            .unwrap_or_else(|| expected.trim())
+            .to_ascii_lowercase();
+        if !expected.is_empty() && expected != sha256 {
+            let _ = fs::remove_file(&target);
+            return json_error(500, "downloaded file sha256 mismatch");
+        }
+    }
+    let size = fs::metadata(&target)
+        .map(|meta| meta.len())
+        .unwrap_or_default();
+
+    json_ok(json!({
+        "path": target,
+        "size": size,
+        "sha256": sha256,
+    }))
+}
+
+fn current_evidence_case() -> &'static Mutex<Option<EvidenceCaseState>> {
+    CURRENT_EVIDENCE_CASE.get_or_init(|| Mutex::new(None))
+}
+
+fn current_image_mount() -> &'static Mutex<Option<ImageMountState>> {
+    CURRENT_IMAGE_MOUNT.get_or_init(|| Mutex::new(None))
+}
+
+fn wireguard_manager() -> &'static Mutex<WireGuardManager> {
+    WIREGUARD_MANAGER.get_or_init(|| Mutex::new(WireGuardManager::new()))
+}
+
+fn current_evidence_vault() -> Result<EvidenceVault, Response> {
+    let state = current_evidence_case()
+        .lock()
+        .ok()
+        .and_then(|current| current.clone())
+        .ok_or_else(|| json_error(400, "case is not created"))?;
+    EvidenceVault::create(&state.base_dir, &state.case_name)
+        .map_err(|err| json_error(500, err.to_string()))
+}
+
+fn sanitize_case_name(value: &str) -> String {
+    let sanitized = sanitize_file_stem(value);
+    if sanitized.is_empty() {
+        String::new()
+    } else {
+        sanitized
+    }
+}
+
+fn default_case_base_dir() -> PathBuf {
+    home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("Worm")
+        .join("Cases")
+}
+
+fn default_download_dir() -> PathBuf {
+    home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("Downloads")
+}
+
+fn home_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+}
+
+fn evidence_subdir(value: &str) -> &'static str {
+    match value {
+        "gunlukler" | "logs" => "gunlukler",
+        "raporlar" | "reports" => "raporlar",
+        "hash" => "hash",
+        "notlar" | "notes" => "notlar",
+        "disk_imajlari" | "ram" | "ciktilar" | "outputs" | "images" => "ciktilar",
+        _ => "ciktilar",
+    }
+}
+
+fn file_entry_json(path: PathBuf) -> Value {
+    let metadata = fs::metadata(&path).ok();
+    json!({
+        "name": path.file_name().and_then(|name| name.to_str()).unwrap_or_default(),
+        "path": path,
+        "is_dir": metadata.as_ref().map(|meta| meta.is_dir()).unwrap_or(false),
+        "size": metadata.as_ref().map(|meta| meta.len()).unwrap_or_default(),
+    })
+}
+
+fn report_format(value: &str) -> Option<ReportFormat> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "txt" => Some(ReportFormat::Txt),
+        "json" => Some(ReportFormat::Json),
+        _ => None,
+    }
+}
+
+fn image_unmount_current() -> Result<Option<PathBuf>, String> {
+    let state = current_image_mount()
+        .lock()
+        .ok()
+        .and_then(|mut current| current.take());
+    let Some(state) = state else {
+        return Ok(None);
+    };
+
+    #[cfg(target_os = "linux")]
+    {
+        let output = Command::new("umount").arg(&state.mount_dir).output();
+        match output {
+            Ok(output) if output.status.success() => {}
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                return Err(if stderr.is_empty() {
+                    "unmount failed".to_string()
+                } else {
+                    stderr
+                });
+            }
+            Err(err) => return Err(err.to_string()),
+        }
+    }
+
+    let _ = fs::remove_dir_all(&state.mount_dir);
+    Ok(Some(state.mount_dir))
+}
+
+fn directory_tree_json(root: &Path, max_depth: usize, max_entries: usize) -> Value {
+    let mut used = 0_usize;
+    directory_tree_json_inner(root, root, 0, max_depth, max_entries, &mut used)
+}
+
+fn directory_tree_json_inner(
+    root: &Path,
+    path: &Path,
+    depth: usize,
+    max_depth: usize,
+    max_entries: usize,
+    used: &mut usize,
+) -> Value {
+    *used += 1;
+    let metadata = fs::metadata(path).ok();
+    let is_dir = metadata.as_ref().map(|meta| meta.is_dir()).unwrap_or(false);
+    let mut node = serde_json::Map::new();
+    let display_name = if path == root {
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("/")
+            .to_string()
+    } else {
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default()
+            .to_string()
+    };
+    node.insert("name".to_string(), Value::String(display_name));
+    node.insert(
+        "path".to_string(),
+        Value::String(path.to_string_lossy().to_string()),
+    );
+    node.insert("is_dir".to_string(), Value::Bool(is_dir));
+    node.insert(
+        "size".to_string(),
+        Value::Number(metadata.map(|meta| meta.len()).unwrap_or_default().into()),
+    );
+
+    if is_dir && depth < max_depth && *used < max_entries {
+        let mut children = Vec::new();
+        if let Ok(entries) = fs::read_dir(path) {
+            for entry in entries.flatten().take(max_entries.saturating_sub(*used)) {
+                if *used >= max_entries {
+                    break;
+                }
+                children.push(directory_tree_json_inner(
+                    root,
+                    &entry.path(),
+                    depth + 1,
+                    max_depth,
+                    max_entries,
+                    used,
+                ));
+            }
+        }
+        node.insert("children".to_string(), Value::Array(children));
+    }
+
+    Value::Object(node)
+}
+
+fn preferred_update_asset(assets: &[Value]) -> Value {
+    let candidates: &[&str] = if cfg!(target_os = "windows") {
+        &["windows", ".msi", ".exe"]
+    } else if cfg!(target_os = "linux") {
+        &["linux", "appimage", ".tar.gz"]
+    } else {
+        &[]
+    };
+
+    assets
+        .iter()
+        .find(|asset| {
+            let name = asset
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_ascii_lowercase();
+            candidates
+                .iter()
+                .any(|candidate| name.contains(&candidate.to_ascii_lowercase()))
+        })
+        .cloned()
+        .or_else(|| assets.first().cloned())
+        .unwrap_or(Value::Null)
+}
+
+fn sanitize_download_name(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '.' | '-' | '_') {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('_')
+        .to_string()
+}
+
+fn sha256_file(path: &Path) -> Result<String, String> {
+    let mut file = fs::File::open(path).map_err(|err| err.to_string())?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0_u8; 1024 * 64];
+    loop {
+        let read = file.read(&mut buffer).map_err(|err| err.to_string())?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
 }
 
 #[derive(Deserialize)]
@@ -703,52 +1459,52 @@ fn update_acquisition_progress(job_id: &str, done: u64, total: u64) {
 }
 
 fn update_acquisition_progress_message(job_id: &str, done: u64, total: u64, label: &str) {
-    if let Ok(mut jobs) = acquisition_jobs().lock() {
-        if let Some(job) = jobs.get_mut(job_id) {
-            job.status = "running".to_string();
-            job.done = done;
-            job.total = total;
-            job.message = if total > 0 {
-                format!("{label}: {}%", progress_percent(done, total))
-            } else {
-                label.to_string()
-            };
-        }
+    if let Ok(mut jobs) = acquisition_jobs().lock()
+        && let Some(job) = jobs.get_mut(job_id)
+    {
+        job.status = "running".to_string();
+        job.done = done;
+        job.total = total;
+        job.message = if total > 0 {
+            format!("{label}: {}%", progress_percent(done, total))
+        } else {
+            label.to_string()
+        };
     }
 }
 
 fn update_acquisition_message(job_id: &str, message: &str) {
-    if let Ok(mut jobs) = acquisition_jobs().lock() {
-        if let Some(job) = jobs.get_mut(job_id) {
-            job.message = message.to_string();
-        }
+    if let Ok(mut jobs) = acquisition_jobs().lock()
+        && let Some(job) = jobs.get_mut(job_id)
+    {
+        job.message = message.to_string();
     }
 }
 
 fn finish_acquisition_job_with_message(job_id: &str, result: Value, message: &str) {
-    if let Ok(mut jobs) = acquisition_jobs().lock() {
-        if let Some(job) = jobs.get_mut(job_id) {
-            job.status = "completed".to_string();
-            if job.total == 0 {
-                job.total = 1;
-                job.done = 1;
-            } else {
-                job.done = job.total;
-            }
-            job.message = message.to_string();
-            job.result = Some(result);
-            job.error = None;
+    if let Ok(mut jobs) = acquisition_jobs().lock()
+        && let Some(job) = jobs.get_mut(job_id)
+    {
+        job.status = "completed".to_string();
+        if job.total == 0 {
+            job.total = 1;
+            job.done = 1;
+        } else {
+            job.done = job.total;
         }
+        job.message = message.to_string();
+        job.result = Some(result);
+        job.error = None;
     }
 }
 
 fn fail_acquisition_job_with_message(job_id: &str, error: String, message: &str) {
-    if let Ok(mut jobs) = acquisition_jobs().lock() {
-        if let Some(job) = jobs.get_mut(job_id) {
-            job.status = "failed".to_string();
-            job.message = message.to_string();
-            job.error = Some(error);
-        }
+    if let Ok(mut jobs) = acquisition_jobs().lock()
+        && let Some(job) = jobs.get_mut(job_id)
+    {
+        job.status = "failed".to_string();
+        job.message = message.to_string();
+        job.error = Some(error);
     }
 }
 
@@ -786,11 +1542,10 @@ fn get_acquisition_job(job_id: &str) -> Option<AcquisitionJob> {
 }
 
 fn progress_percent(done: u64, total: u64) -> u64 {
-    if total == 0 {
-        0
-    } else {
-        ((done.saturating_mul(100)) / total).min(100)
-    }
+    done.saturating_mul(100)
+        .checked_div(total)
+        .unwrap_or(0)
+        .min(100)
 }
 
 fn acquisition_target_path(source: &str, output: &str, prefix: &str) -> PathBuf {
@@ -1088,5 +1843,56 @@ fn hex_value(byte: u8) -> Option<u8> {
         b'a'..=b'f' => Some(byte - b'a' + 10),
         b'A'..=b'F' => Some(byte - b'A' + 10),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn response_json(response: Response) -> Value {
+        assert_eq!(response.status, 200);
+        serde_json::from_slice(&response.body).unwrap()
+    }
+
+    #[test]
+    fn evidence_note_and_report_endpoints_write_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let create = response_json(evidence_create_endpoint(
+            json!({
+                "case_name": "case_endpoint",
+                "base_dir": dir.path(),
+            })
+            .to_string()
+            .as_bytes(),
+        ));
+        assert!(Path::new(create["case_dir"].as_str().unwrap()).is_dir());
+
+        let note = response_json(evidence_add_note_endpoint(
+            json!({ "note": "endpoint note" }).to_string().as_bytes(),
+        ));
+        assert!(Path::new(note["path"].as_str().unwrap()).is_file());
+
+        let report = response_json(report_create_endpoint(
+            json!({
+                "title": "Endpoint Report",
+                "description": "Created by endpoint smoke test.",
+                "format": "json",
+            })
+            .to_string()
+            .as_bytes(),
+        ));
+        assert!(Path::new(report["path"].as_str().unwrap()).is_file());
+    }
+
+    #[test]
+    fn directory_tree_json_returns_limited_children() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(dir.path().join("a")).unwrap();
+        fs::write(dir.path().join("a").join("b.txt"), b"hello").unwrap();
+
+        let tree = directory_tree_json(dir.path(), 2, 10);
+        assert!(tree["is_dir"].as_bool().unwrap());
+        assert_eq!(tree["children"].as_array().unwrap().len(), 1);
     }
 }

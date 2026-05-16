@@ -145,10 +145,10 @@ impl JobQueue {
     pub fn push(&self, job: Job) -> SharedJob {
         let shared = Arc::new(Mutex::new(job));
         if let Ok(mut queue) = self.queue.lock() {
-            if let Some(logger) = &self.logger {
-                if let Ok(job) = shared.lock() {
-                    logger.info(format!("Is eklendi: {} (ID: {})", job.description, job.id));
-                }
+            if let Some(logger) = &self.logger
+                && let Ok(job) = shared.lock()
+            {
+                logger.info(format!("Is eklendi: {} (ID: {})", job.description, job.id));
             }
             queue.push_back(shared.clone());
             self.condvar.notify_one();

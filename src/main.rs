@@ -134,8 +134,8 @@ fn remote_image_command(args: Vec<String>) -> Result<(), String> {
         RemoteConnection::connect(&args[0], port, token).map_err(|err| err.to_string())?;
     let result = connection
         .acquire_image(&args[2], &args[3], None, |done, total| {
-            if total > 0 {
-                eprintln!("{}%", (done * 100) / total);
+            if let Some(percent) = done.saturating_mul(100).checked_div(total) {
+                eprintln!("{}%", percent);
             }
         })
         .map_err(|err| err.to_string())?;

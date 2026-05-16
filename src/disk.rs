@@ -361,16 +361,16 @@ fn list_disks_impl() -> WormResult<Vec<DiskInfo>> {
 
     let mut disks = Vec::new();
     for candidate in candidates {
-        if let Ok(size) = disk_size(&candidate) {
-            if size > 0 {
-                let accessible = OpenOptions::new().read(true).open(&candidate).is_ok();
-                disks.push(DiskInfo {
-                    device: candidate,
-                    total_size: size,
-                    used_size: size,
-                    accessible,
-                });
-            }
+        if let Ok(size) = disk_size(&candidate)
+            && size > 0
+        {
+            let accessible = OpenOptions::new().read(true).open(&candidate).is_ok();
+            disks.push(DiskInfo {
+                device: candidate,
+                total_size: size,
+                used_size: size,
+                accessible,
+            });
         }
     }
     Ok(disks)

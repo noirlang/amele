@@ -103,8 +103,16 @@ const translations = {
     "workflow.useVpn": "WireGuard VPN Kullan",
     "workflow.configureVpn": "VPN Yapılandır",
     "workflow.server": "Sunucu",
+    "workflow.allowedIps": "İzinli IP'ler",
+    "workflow.vpnPrivateKey": "Private Key",
+    "workflow.vpnPublicKey": "Server Public Key",
+    "workflow.vpnAddress": "Adres",
+    "workflow.vpnDns": "DNS",
+    "workflow.vpnKeepalive": "Keepalive",
     "workflow.configFile": "Config Dosyası",
     "workflow.saveVpn": "VPN Kaydet",
+    "workflow.startVpn": "VPN Başlat",
+    "workflow.stopVpn": "VPN Durdur",
     "workflow.connectionOps": "3. Bağlantı İşlemleri",
     "workflow.connect": "Bağlan",
     "workflow.scanDisks": "Diskleri Tara",
@@ -198,9 +206,13 @@ const translations = {
     "vpn.off": "VPN kapalı",
     "vpn.opened": "VPN yapılandırma alanı açıldı.",
     "vpn.endpointRequired": "VPN sunucu bilgisini girin.",
+    "vpn.configRequired": "Önce VPN config dosyasını seçin.",
     "vpn.configured": "VPN yapılandırıldı: {endpoint}",
     "vpn.ready": "VPN hazır",
     "vpn.saved": "VPN yapılandırması kaydedildi.",
+    "vpn.started": "VPN başlatıldı.",
+    "vpn.stopped": "VPN durduruldu.",
+    "vpn.failed": "VPN işlemi başarısız: {message}",
     "key.required": "Onaylamak için güvenlik anahtarı girin.",
     "key.approved": "Güvenlik anahtarı onaylandı.",
     "key.active": "Güvenlik anahtarı aktif.",
@@ -215,11 +227,14 @@ const translations = {
     "analysis.noImage": "İmaj seçilmedi",
     "analysis.outputWaiting": "Klasör ağacı ve bağlama çıktısı burada görüntülenecek.",
     "analysis.imageRequired": "Önce imaj dosyası seçin.",
+    "analysis.mounting": "İmaj bağlanıyor...",
     "analysis.mounted": "Bağlandı: {path}",
-    "analysis.mountedLog": "İmaj salt-okunur bağlandı. İçerik ağacı hazır olduğunda burada gösterilecek.",
+    "analysis.mountedLog": "İmaj salt-okunur bağlandı. İçerik ağacı aşağıda gösteriliyor.",
     "analysis.mountPrepared": "İmaj bağlama işlemi hazırlandı.",
+    "analysis.mountFailed": "İmaj bağlanamadı: {message}",
     "analysis.unmounted": "Bağlantı kaldırıldı",
     "analysis.noActiveMount": "Aktif imaj bağlantısı yok.",
+    "analysis.unmountFailed": "Bağlantı kaldırılamadı: {message}",
     "other.title": "Diğer",
     "other.desc": "Hash işlemleri, kanıt kasası, rapor üretimi ve canlı günlük modülleri.",
     "other.hash.title": "Hash İşlemleri",
@@ -264,15 +279,20 @@ const translations = {
     "settings.updateDesc": "Kurulum dosyasını platforma göre seçer, indirme ilerlemesini ve release notlarını burada gösterir.",
     "settings.installed": "Kurulu",
     "settings.checkUpdate": "Güncellemeyi Kontrol Et",
-    "settings.downloadInstall": "İndir ve Kur",
+    "settings.downloadInstall": "Paketi İndir",
     "settings.releaseNotes": "Release notları ve indirme durumu burada görüntülenecek.",
     "settings.updateChecked": "Güncelleme kontrol edildi",
-    "settings.updateLog": "Kurulu sürüm: {version}<br />Son sürüm bilgisi paketleyici güncelleme komutuna bağlandığında burada gösterilecek.",
+    "settings.updateLog": "Kurulu sürüm: {version}<br />Son sürüm bilgisi burada gösterilecek.",
     "settings.updateDone": "Güncelleme kontrolü tamamlandı.",
+    "settings.updateFailed": "Güncelleme kontrolü başarısız: {message}",
+    "settings.latestVersion": "Son sürüm: {version}",
+    "settings.noAsset": "Bu platform için indirme paketi bulunamadı.",
     "settings.downloading": "İndiriliyor",
     "settings.downloadReady": "İndirme hazır",
-    "settings.packageReadyLog": "Paket indirildi. Kurulum adımı paketleyici güncelleme komutuna bağlanacak.",
     "settings.packageReady": "Güncelleme paketi hazır.",
+    "settings.downloadFailed": "İndirme başarısız: {message}",
+    "settings.downloaded": "İndirildi: {path}",
+    "settings.sha256": "SHA256: {hash}",
     "about.version": "Sürüm {version}",
     "about.desc": "Worm, yetkili adli bilişim süreçlerinde disk ve RAM edinimi, doğrulama ve raporlama adımlarını tek bir merkezde birleştiren bir denetim aracıdır.",
     "about.capabilities": "Temel Kabiliyetler",
@@ -296,8 +316,12 @@ const translations = {
     "agent.connect": "Ana uygulamadaki IP/Port ile bağlantı kurun.",
     "case.management": "Vaka Yönetimi",
     "case.name": "Vaka Adı",
+    "case.baseDir": "Vaka Kök Klasörü",
     "case.create": "Vaka Oluştur",
     "case.notCreated": "Vaka oluşturulmadı",
+    "case.required": "Önce vaka oluşturun.",
+    "case.created": "Vaka oluşturuldu: {path}",
+    "case.createFailed": "Vaka oluşturulamadı: {message}",
     "case.files": "Dosyalar",
     "case.folder": "Klasör",
     "case.file": "Dosya",
@@ -310,6 +334,9 @@ const translations = {
     "case.logs": "Günlükler / gunlukler",
     "case.listFilesPlaceholder": "Dosyaları listeleyin...",
     "case.listFiles": "Dosyaları Listele",
+    "case.filesListed": "{count} dosya listelendi.",
+    "case.empty": "Bu klasör boş.",
+    "case.listFailed": "Dosyalar listelenemedi: {message}",
     "report.createTitle": "Rapor Oluştur",
     "report.hint": "Rapor oluşturmak için önce vaka oluşturun ve işlem tamamlayın.",
     "report.title": "Rapor Başlığı",
@@ -318,6 +345,11 @@ const translations = {
     "report.note": "Not",
     "report.notePlaceholder": "Not veya rapor açıklaması girin",
     "report.addNote": "Not Ekle",
+    "report.noteRequired": "Not alanı boş olamaz.",
+    "report.noteAdded": "Not eklendi: {path}",
+    "report.noteFailed": "Not eklenemedi: {message}",
+    "report.created": "Rapor oluşturuldu: {path}",
+    "report.failed": "Rapor oluşturulamadı: {message}",
     "log.live": "Canlı günlük burada da görüntülenir.",
     "log.refreshFromFile": "Dosyadan Günlüğü Yenile"
   },
@@ -375,8 +407,16 @@ const translations = {
     "workflow.useVpn": "Use WireGuard VPN",
     "workflow.configureVpn": "Configure VPN",
     "workflow.server": "Server",
+    "workflow.allowedIps": "Allowed IPs",
+    "workflow.vpnPrivateKey": "Private Key",
+    "workflow.vpnPublicKey": "Server Public Key",
+    "workflow.vpnAddress": "Address",
+    "workflow.vpnDns": "DNS",
+    "workflow.vpnKeepalive": "Keepalive",
     "workflow.configFile": "Config File",
     "workflow.saveVpn": "Save VPN",
+    "workflow.startVpn": "Start VPN",
+    "workflow.stopVpn": "Stop VPN",
     "workflow.connectionOps": "3. Connection Actions",
     "workflow.connect": "Connect",
     "workflow.scanDisks": "Scan Disks",
@@ -470,9 +510,13 @@ const translations = {
     "vpn.off": "VPN off",
     "vpn.opened": "VPN configuration panel opened.",
     "vpn.endpointRequired": "Enter the VPN server.",
+    "vpn.configRequired": "Select the VPN config file first.",
     "vpn.configured": "VPN configured: {endpoint}",
     "vpn.ready": "VPN ready",
     "vpn.saved": "VPN configuration saved.",
+    "vpn.started": "VPN started.",
+    "vpn.stopped": "VPN stopped.",
+    "vpn.failed": "VPN action failed: {message}",
     "key.required": "Enter the security key to approve it.",
     "key.approved": "Security key approved.",
     "key.active": "Security key active.",
@@ -487,11 +531,14 @@ const translations = {
     "analysis.noImage": "No image selected",
     "analysis.outputWaiting": "Folder tree and mount output will appear here.",
     "analysis.imageRequired": "Select an image file first.",
+    "analysis.mounting": "Mounting image...",
     "analysis.mounted": "Mounted: {path}",
-    "analysis.mountedLog": "Image mounted read-only. The content tree will appear here when ready.",
+    "analysis.mountedLog": "Image mounted read-only. The content tree is shown below.",
     "analysis.mountPrepared": "Image mount prepared.",
+    "analysis.mountFailed": "Image could not be mounted: {message}",
     "analysis.unmounted": "Mount removed",
     "analysis.noActiveMount": "No active image mount.",
+    "analysis.unmountFailed": "Mount could not be removed: {message}",
     "other.title": "Other",
     "other.desc": "Hash operations, evidence vault, report generation, and live log modules.",
     "other.hash.title": "Hash Operations",
@@ -536,15 +583,20 @@ const translations = {
     "settings.updateDesc": "Selects the installer for the platform and shows download progress and release notes here.",
     "settings.installed": "Installed",
     "settings.checkUpdate": "Check for Updates",
-    "settings.downloadInstall": "Download and Install",
+    "settings.downloadInstall": "Download Package",
     "settings.releaseNotes": "Release notes and download status will appear here.",
     "settings.updateChecked": "Update checked",
-    "settings.updateLog": "Installed version: {version}<br />Latest version information will appear here when the updater command is connected.",
+    "settings.updateLog": "Installed version: {version}<br />Latest version information will appear here.",
     "settings.updateDone": "Update check completed.",
+    "settings.updateFailed": "Update check failed: {message}",
+    "settings.latestVersion": "Latest version: {version}",
+    "settings.noAsset": "No download package was found for this platform.",
     "settings.downloading": "Downloading",
     "settings.downloadReady": "Download ready",
-    "settings.packageReadyLog": "Package downloaded. Installation will be connected to the updater command.",
     "settings.packageReady": "Update package ready.",
+    "settings.downloadFailed": "Download failed: {message}",
+    "settings.downloaded": "Downloaded: {path}",
+    "settings.sha256": "SHA256: {hash}",
     "about.version": "Version {version}",
     "about.desc": "Worm is an audit tool that brings disk/RAM acquisition, verification, and reporting steps into one place for authorized forensic workflows.",
     "about.capabilities": "Core Capabilities",
@@ -568,8 +620,12 @@ const translations = {
     "agent.connect": "Connect using the IP/Port from the main application.",
     "case.management": "Case Management",
     "case.name": "Case Name",
+    "case.baseDir": "Case Root Folder",
     "case.create": "Create Case",
     "case.notCreated": "No case created",
+    "case.required": "Create a case first.",
+    "case.created": "Case created: {path}",
+    "case.createFailed": "Case could not be created: {message}",
     "case.files": "Files",
     "case.folder": "Folder",
     "case.file": "File",
@@ -582,6 +638,9 @@ const translations = {
     "case.logs": "Logs / gunlukler",
     "case.listFilesPlaceholder": "List files...",
     "case.listFiles": "List Files",
+    "case.filesListed": "{count} files listed.",
+    "case.empty": "This folder is empty.",
+    "case.listFailed": "Files could not be listed: {message}",
     "report.createTitle": "Create Report",
     "report.hint": "Create a case and finish an operation before generating a report.",
     "report.title": "Report Title",
@@ -590,6 +649,11 @@ const translations = {
     "report.note": "Note",
     "report.notePlaceholder": "Enter a note or report description",
     "report.addNote": "Add Note",
+    "report.noteRequired": "Note cannot be empty.",
+    "report.noteAdded": "Note added: {path}",
+    "report.noteFailed": "Note could not be added: {message}",
+    "report.created": "Report created: {path}",
+    "report.failed": "Report could not be created: {message}",
     "log.live": "Live log is also shown here.",
     "log.refreshFromFile": "Refresh Log From File"
   }
@@ -621,6 +685,9 @@ const state = {
   approvedSecurityKey: "",
   remoteConnections: {},
   activeAcquisition: null,
+  activeCase: null,
+  imageMount: null,
+  latestUpdate: null,
   jobs: {},
   lastLog: initialLogMessages(preferredLanguage)
 };
@@ -988,10 +1055,17 @@ function workflowPage(id) {
                   <button class="secondary-button" data-action="vpn-config">${icon("settings")} ${t("workflow.configureVpn")}</button>
                   <div class="vpn-panel" hidden>
                     ${field(t("workflow.server"), '<input class="input" data-field="vpn-endpoint" placeholder="10.0.0.1:51820" />')}
-                    ${field("Allowed IPs", '<input class="input" data-field="vpn-allowed" value="0.0.0.0/0" />')}
+                    ${field(t("workflow.vpnPrivateKey"), '<input class="input" data-field="vpn-private-key" placeholder="YOUR_PRIVATE_KEY" />')}
+                    ${field(t("workflow.vpnPublicKey"), '<input class="input" data-field="vpn-public-key" placeholder="SERVER_PUBLIC_KEY" />')}
+                    ${field(t("workflow.allowedIps"), '<input class="input" data-field="vpn-allowed" value="0.0.0.0/0" />')}
+                    ${field(t("workflow.vpnAddress"), '<input class="input" data-field="vpn-address" value="10.0.0.2/24" />')}
+                    ${field(t("workflow.vpnDns"), '<input class="input" data-field="vpn-dns" value="1.1.1.1" />')}
+                    ${field(t("workflow.vpnKeepalive"), '<input class="input" data-field="vpn-keepalive" value="25" />')}
                     ${pickerField(t("workflow.configFile"), "vpn-config-file", "wireguard.conf", "file")}
                     <div class="button-row">
                       <button class="primary-button" data-action="save-vpn">${icon("shield")} ${t("workflow.saveVpn")}</button>
+                      <button class="secondary-button" data-action="start-vpn">${icon("play")} ${t("workflow.startVpn")}</button>
+                      <button class="danger-button" data-action="stop-vpn">${icon("stop")} ${t("workflow.stopVpn")}</button>
                     </div>
                   </div>
                   <div class="section-divider"></div>
@@ -1169,9 +1243,9 @@ function analysisPage() {
         <div class="section-divider"></div>
         <div class="side-info">
           <span class="metric-icon">${icon("info")}</span>
-          <span><strong>${t("analysis.status")}</strong><small>${t("analysis.noImage")}</small></span>
+          <span><strong>${t("analysis.status")}</strong><small data-analysis-status>${state.imageMount?.mountDir || t("analysis.noImage")}</small></span>
         </div>
-        <div class="log-box">${t("analysis.outputWaiting")}</div>
+        <div class="log-box" data-analysis-log>${t("analysis.outputWaiting")}</div>
       </div>
     </section>
   `;
@@ -1423,6 +1497,23 @@ function connectionPayload() {
   };
 }
 
+function vpnPayload() {
+  const endpoint = document.querySelector("[data-field='vpn-endpoint']")?.value.trim() || "";
+  const configFile = document.querySelector("#vpn-config-file")?.value.trim() || "";
+  if (!endpoint) throw new Error(t("vpn.endpointRequired"));
+  if (!configFile) throw new Error(t("vpn.configRequired"));
+  return {
+    config_file: configFile,
+    private_key: document.querySelector("[data-field='vpn-private-key']")?.value.trim() || "",
+    public_key: document.querySelector("[data-field='vpn-public-key']")?.value.trim() || "",
+    endpoint,
+    allowed_ips: document.querySelector("[data-field='vpn-allowed']")?.value.trim() || "0.0.0.0/0",
+    address: document.querySelector("[data-field='vpn-address']")?.value.trim() || "10.0.0.2/24",
+    dns: document.querySelector("[data-field='vpn-dns']")?.value.trim() || "1.1.1.1",
+    keepalive: Number(document.querySelector("[data-field='vpn-keepalive']")?.value.trim() || 25)
+  };
+}
+
 function currentWorkflowId() {
   return state.route.startsWith("workflow:") ? state.route.split(":")[1] : "";
 }
@@ -1473,6 +1564,15 @@ function formatBytes(bytes) {
     unit += 1;
   }
   return `${size.toFixed(size >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 document.addEventListener("click", (event) => {
@@ -1546,14 +1646,54 @@ async function handleAction(button) {
   }
 
   if (action === "save-vpn") {
-    const endpoint = document.querySelector("[data-field='vpn-endpoint']")?.value.trim();
-    if (!endpoint) {
-      showToast(t("vpn.endpointRequired"), "error");
+    try {
+      const payload = vpnPayload();
+      const result = await apiRequest("/api/wireguard-config", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      writeWorkflowLog(t("vpn.configured", { endpoint: payload.endpoint }));
+      updateSide("connection", t("vpn.ready"));
+      showToast(t("vpn.saved"));
+      if (result.path) document.querySelector("#vpn-config-file").value = result.path;
+    } catch (error) {
+      showToast(t("vpn.failed", { message: error.message }), "error");
+      writeWorkflowLog(t("vpn.failed", { message: error.message }));
+    }
+    return;
+  }
+
+  if (action === "start-vpn") {
+    const configFile = document.querySelector("#vpn-config-file")?.value.trim();
+    if (!configFile) {
+      showToast(t("vpn.configRequired"), "error");
       return;
     }
-    writeWorkflowLog(t("vpn.configured", { endpoint }));
-    updateSide("connection", t("vpn.ready"));
-    showToast(t("vpn.saved"));
+    try {
+      await apiRequest("/api/wireguard-start", {
+        method: "POST",
+        body: JSON.stringify({ config_file: configFile })
+      });
+      writeWorkflowLog(t("vpn.started"));
+      updateSide("connection", t("vpn.ready"));
+      showToast(t("vpn.started"));
+    } catch (error) {
+      showToast(t("vpn.failed", { message: error.message }), "error");
+      writeWorkflowLog(t("vpn.failed", { message: error.message }));
+    }
+    return;
+  }
+
+  if (action === "stop-vpn") {
+    try {
+      await apiRequest("/api/wireguard-stop", { method: "POST" });
+      writeWorkflowLog(t("vpn.stopped"));
+      updateSide("connection", t("vpn.off"));
+      showToast(t("vpn.stopped"));
+    } catch (error) {
+      showToast(t("vpn.failed", { message: error.message }), "error");
+      writeWorkflowLog(t("vpn.failed", { message: error.message }));
+    }
     return;
   }
 
@@ -1673,13 +1813,37 @@ async function handleAction(button) {
       showToast(t("analysis.imageRequired"), "error");
       return;
     }
-    setAnalysisStatus(t("analysis.mounted", { path: imagePath }), t("analysis.mountedLog"));
-    showToast(t("analysis.mountPrepared"));
+    setAnalysisStatus(t("analysis.mounting"), t("analysis.mounting"));
+    try {
+      const result = await apiRequest("/api/image-mount-readonly", {
+        method: "POST",
+        body: JSON.stringify({ path: imagePath })
+      });
+      state.imageMount = {
+        imagePath: result.image_path,
+        mountDir: result.mount_dir
+      };
+      setAnalysisStatus(
+        t("analysis.mounted", { path: result.mount_dir }),
+        renderTree(result.tree)
+      );
+      showToast(t("analysis.mountPrepared"));
+    } catch (error) {
+      setAnalysisStatus(t("analysis.noImage"), t("analysis.mountFailed", { message: error.message }));
+      showToast(t("analysis.mountFailed", { message: error.message }), "error");
+    }
     return;
   }
 
   if (action === "unmount-image") {
-    setAnalysisStatus(t("analysis.unmounted"), t("analysis.noActiveMount"));
+    try {
+      await apiRequest("/api/image-unmount", { method: "POST" });
+      state.imageMount = null;
+      setAnalysisStatus(t("analysis.unmounted"), t("analysis.noActiveMount"));
+      showToast(t("analysis.unmounted"));
+    } catch (error) {
+      showToast(t("analysis.unmountFailed", { message: error.message }), "error");
+    }
     return;
   }
 
@@ -1700,20 +1864,44 @@ async function handleAction(button) {
   }
 
   if (action === "check-update") {
-    setStatus("[data-update-status]", `${icon("refresh")} ${t("settings.updateChecked")}`);
-    setStatus("[data-update-log]", t("settings.updateLog", { version: APP_VERSION }));
-    showToast(t("settings.updateDone"));
+    try {
+      setStatus("[data-update-status]", `${icon("refresh")} ${t("settings.updateChecked")}`);
+      const result = await apiRequest("/api/update-check");
+      state.latestUpdate = result;
+      const asset = result.platform_asset || {};
+      const assetLine = asset.name ? `<br />Asset: ${escapeHtml(asset.name)} (${formatBytes(asset.size)})` : `<br />${t("settings.noAsset")}`;
+      setStatus("[data-update-status]", `${icon("info")} ${t("settings.latestVersion", { version: result.tag_name || result.name || "-" })}`);
+      setStatus("[data-update-log]", `${escapeHtml(result.body || t("settings.releaseNotes")).replaceAll("\n", "<br />")}${assetLine}`);
+      showToast(t("settings.updateDone"));
+    } catch (error) {
+      setStatus("[data-update-status]", `${icon("info")} ${t("settings.updateFailed", { message: escapeHtml(error.message) })}`);
+      showToast(t("settings.updateFailed", { message: error.message }), "error");
+    }
     return;
   }
 
   if (action === "download-update") {
-    await simulateUpdateDownload();
+    await downloadUpdatePackage();
     return;
   }
 
   if (action === "list-files") {
-    await pickFolder(null);
-    showToast(t("scan.completed"));
+    await listEvidenceFiles();
+    return;
+  }
+
+  if (action === "create-case") {
+    await createEvidenceCase();
+    return;
+  }
+
+  if (action === "add-note") {
+    await addEvidenceNote();
+    return;
+  }
+
+  if (action === "create-report") {
+    await createEvidenceReport();
     return;
   }
 
@@ -2145,10 +2333,22 @@ async function startAcquisition(button) {
 }
 
 function setAnalysisStatus(status, log) {
-  const statusNode = document.querySelector(".workflow-panel .side-info small");
-  const logNode = document.querySelector(".workflow-panel .log-box");
+  const statusNode = document.querySelector("[data-analysis-status]");
+  const logNode = document.querySelector("[data-analysis-log]");
   if (statusNode) statusNode.textContent = status;
-  if (logNode) logNode.textContent = log;
+  if (logNode) logNode.innerHTML = log;
+}
+
+function renderTree(node, depth = 0) {
+  if (!node) return escapeHtml(t("analysis.outputWaiting"));
+  const indent = "&nbsp;".repeat(depth * 2);
+  const marker = node.is_dir ? "▸" : "•";
+  const size = node.is_dir ? "" : ` <small>${formatBytes(node.size)}</small>`;
+  const current = `${indent}${marker} ${escapeHtml(node.name || node.path || "")}${size}`;
+  const children = Array.isArray(node.children)
+    ? node.children.map((child) => renderTree(child, depth + 1)).join("<br />")
+    : "";
+  return children ? `${current}<br />${children}` : current;
 }
 
 async function calculateHashes() {
@@ -2215,40 +2415,154 @@ function setStatus(selector, html) {
   if (node) node.innerHTML = html;
 }
 
-async function simulateUpdateDownload() {
+async function createEvidenceCase() {
+  const caseName = document.querySelector("#case-name")?.value.trim();
+  const baseDir = document.querySelector("#case-base")?.value.trim();
+  if (!caseName) {
+    showToast(t("case.required"), "error");
+    return;
+  }
+  try {
+    const result = await apiRequest("/api/evidence-create", {
+      method: "POST",
+      body: JSON.stringify({ case_name: caseName, base_dir: baseDir || null })
+    });
+    state.activeCase = result;
+    setStatus("[data-case-status]", `${icon("info")} ${t("case.created", { path: escapeHtml(result.case_dir) })}`);
+    showToast(t("case.created", { path: result.case_dir }));
+  } catch (error) {
+    setStatus("[data-case-status]", `${icon("info")} ${t("case.createFailed", { message: escapeHtml(error.message) })}`);
+    showToast(t("case.createFailed", { message: error.message }), "error");
+  }
+}
+
+async function listEvidenceFiles() {
+  if (!state.activeCase) {
+    showToast(t("case.required"), "error");
+    return;
+  }
+  const subdir = document.querySelector("#case-folder")?.value || "ciktilar";
+  try {
+    const result = await apiRequest("/api/evidence-list-files", {
+      method: "POST",
+      body: JSON.stringify({ subdir })
+    });
+    const files = result.files || [];
+    const select = document.querySelector("#case-file-list");
+    if (select) {
+      select.innerHTML = files.length
+        ? files.map((file) => `<option value="${escapeHtml(file.path)}">${escapeHtml(file.name)} · ${formatBytes(file.size)}</option>`).join("")
+        : `<option>${t("case.empty")}</option>`;
+    }
+    setStatus("[data-case-status]", `${icon("info")} ${t("case.filesListed", { count: String(files.length) })}`);
+    showToast(t("case.filesListed", { count: String(files.length) }));
+  } catch (error) {
+    showToast(t("case.listFailed", { message: error.message }), "error");
+  }
+}
+
+async function addEvidenceNote() {
+  if (!state.activeCase) {
+    showToast(t("case.required"), "error");
+    return;
+  }
+  const note = document.querySelector("#report-note")?.value.trim();
+  if (!note) {
+    showToast(t("report.noteRequired"), "error");
+    return;
+  }
+  try {
+    const result = await apiRequest("/api/evidence-add-note", {
+      method: "POST",
+      body: JSON.stringify({ note })
+    });
+    setStatus("[data-report-status]", `${icon("info")} ${t("report.noteAdded", { path: escapeHtml(result.path) })}`);
+    showToast(t("report.noteAdded", { path: result.path }));
+  } catch (error) {
+    setStatus("[data-report-status]", `${icon("info")} ${t("report.noteFailed", { message: escapeHtml(error.message) })}`);
+    showToast(t("report.noteFailed", { message: error.message }), "error");
+  }
+}
+
+async function createEvidenceReport() {
+  if (!state.activeCase) {
+    showToast(t("case.required"), "error");
+    return;
+  }
+  const title = document.querySelector("#report-title")?.value.trim() || t("report.defaultTitle");
+  const format = document.querySelector("#report-format")?.value || "txt";
+  const description = document.querySelector("#report-note")?.value.trim() || "";
+  try {
+    const result = await apiRequest("/api/report-create", {
+      method: "POST",
+      body: JSON.stringify({ title, description, format })
+    });
+    setStatus("[data-report-status]", `${icon("info")} ${t("report.created", { path: escapeHtml(result.path) })}`);
+    showToast(t("report.created", { path: result.path }));
+  } catch (error) {
+    setStatus("[data-report-status]", `${icon("info")} ${t("report.failed", { message: escapeHtml(error.message) })}`);
+    showToast(t("report.failed", { message: error.message }), "error");
+  }
+}
+
+async function downloadUpdatePackage() {
   const progress = document.querySelector("[data-update-progress]");
   const status = document.querySelector("[data-update-status]");
-  if (!progress) return;
-  let value = 0;
-  if (status) status.innerHTML = `${icon("download")} ${t("settings.downloading")}`;
-  window.clearInterval(state.jobs.update);
-  state.jobs.update = window.setInterval(() => {
-    value += 20;
-    progress.style.setProperty("--value", `${value}%`);
+  const update = state.latestUpdate || await apiRequest("/api/update-check");
+  state.latestUpdate = update;
+  const asset = update.platform_asset || {};
+  if (!asset.download_url) {
+    showToast(t("settings.noAsset"), "error");
+    return;
+  }
+  if (progress) {
+    progress.style.setProperty("--value", "35%");
     const label = progress.querySelector("b");
-    if (label) label.textContent = `${value}%`;
-    if (value >= 100) {
-      window.clearInterval(state.jobs.update);
-      if (status) status.innerHTML = `${icon("shield")} ${t("settings.downloadReady")}`;
-      setStatus("[data-update-log]", t("settings.packageReadyLog"));
-      showToast(t("settings.packageReady"));
+    if (label) label.textContent = "35%";
+  }
+  if (status) status.innerHTML = `${icon("download")} ${t("settings.downloading")}`;
+  try {
+    const result = await apiRequest("/api/update-download", {
+      method: "POST",
+      body: JSON.stringify({
+        url: asset.download_url,
+        name: asset.name,
+        expected_sha256: asset.digest || ""
+      })
+    });
+    if (progress) {
+      progress.style.setProperty("--value", "100%");
+      const label = progress.querySelector("b");
+      if (label) label.textContent = "100%";
     }
-  }, 180);
+    if (status) status.innerHTML = `${icon("shield")} ${t("settings.downloadReady")}`;
+    setStatus("[data-update-log]", `${t("settings.downloaded", { path: escapeHtml(result.path) })}<br />${t("settings.sha256", { hash: escapeHtml(result.sha256) })}`);
+    showToast(t("settings.packageReady"));
+  } catch (error) {
+    if (progress) {
+      progress.style.setProperty("--value", "0%");
+      const label = progress.querySelector("b");
+      if (label) label.textContent = "0%";
+    }
+    if (status) status.innerHTML = `${icon("info")} ${t("settings.downloadFailed", { message: escapeHtml(error.message) })}`;
+    showToast(t("settings.downloadFailed", { message: error.message }), "error");
+  }
 }
 
 function detailPanel(tab) {
   if (tab === "evidence") {
     return `
       <p class="section-label">${t("case.management")}</p>
-      ${field(t("case.name"), '<input class="input" placeholder="Vaka_2026_001" />')}
+      ${field(t("case.name"), '<input id="case-name" class="input" placeholder="Case_2026_001" />')}
+      ${pickerField(t("case.baseDir"), "case-base", t("select"), "folder")}
       <div class="button-row">
         <button class="primary-button" data-action="create-case">${icon("folder")} ${t("case.create")}</button>
       </div>
-      <div class="status-badge">${icon("info")} ${t("case.notCreated")}</div>
+      <div class="status-badge" data-case-status>${icon("info")} ${state.activeCase ? t("case.created", { path: state.activeCase.case_dir }) : t("case.notCreated")}</div>
       <div class="section-divider"></div>
       <p class="section-label">${t("case.files")}</p>
-      ${field(t("case.folder"), `<select class="select"><option>${t("case.outputs")}</option><option>${t("case.diskImages")}</option><option>${t("case.ram")}</option><option>${t("case.reports")}</option><option>${t("case.hash")}</option><option>${t("case.notes")}</option><option>${t("case.logs")}</option></select>`)}
-      ${field(t("case.file"), `<select class="select"><option>${t("case.listFilesPlaceholder")}</option></select>`)}
+      ${field(t("case.folder"), `<select id="case-folder" class="select"><option value="ciktilar">${t("case.outputs")}</option><option value="disk_imajlari">${t("case.diskImages")}</option><option value="ram">${t("case.ram")}</option><option value="raporlar">${t("case.reports")}</option><option value="hash">${t("case.hash")}</option><option value="notlar">${t("case.notes")}</option><option value="gunlukler">${t("case.logs")}</option></select>`)}
+      ${field(t("case.file"), `<select id="case-file-list" class="select"><option>${t("case.listFilesPlaceholder")}</option></select>`)}
       <div class="button-row">
         <button class="secondary-button" data-action="list-files">${icon("search")} ${t("case.listFiles")}</button>
       </div>
@@ -2258,14 +2572,14 @@ function detailPanel(tab) {
     return `
       <p class="section-label">${t("report.createTitle")}</p>
       <p class="field-hint">${t("report.hint")}</p>
-      ${field(t("report.title"), `<input class="input" value="${t("report.defaultTitle")}" />`)}
-      ${field(t("report.format"), '<select class="select"><option>TXT</option><option>JSON</option></select>')}
-      ${field(t("report.note"), `<textarea class="textarea" placeholder="${t("report.notePlaceholder")}"></textarea>`)}
+      ${field(t("report.title"), `<input id="report-title" class="input" value="${t("report.defaultTitle")}" />`)}
+      ${field(t("report.format"), '<select id="report-format" class="select"><option value="txt">TXT</option><option value="json">JSON</option></select>')}
+      ${field(t("report.note"), `<textarea id="report-note" class="textarea" placeholder="${t("report.notePlaceholder")}"></textarea>`)}
       <div class="button-row">
         <button class="secondary-button" data-action="add-note">${icon("report")} ${t("report.addNote")}</button>
         <button class="primary-button" data-action="create-report">${icon("report")} ${t("report.createTitle")}</button>
       </div>
-      <div class="status-badge">${icon("info")} ${t("ready")}</div>
+      <div class="status-badge" data-report-status>${icon("info")} ${t("ready")}</div>
     `;
   }
   if (tab === "logs") {

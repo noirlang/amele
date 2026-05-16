@@ -167,10 +167,10 @@ where
         let _ = candidate;
         let _ = cancellation;
         let _ = &mut progress;
-        return Err(WormError::new(
+        Err(WormError::new(
             HataKodu::YetkisizErisim,
             "WinPMEM sadece Windows uzerinde desteklenir",
-        ));
+        ))
     }
 
     #[cfg(windows)]
@@ -366,10 +366,10 @@ fn resume_child(child: &Child) {
 }
 
 pub fn find_avml(candidate: Option<&Path>) -> Option<PathBuf> {
-    if let Some(path) = candidate {
-        if path.exists() {
-            return Some(path.to_path_buf());
-        }
+    if let Some(path) = candidate
+        && path.exists()
+    {
+        return Some(path.to_path_buf());
     }
 
     find_in_path("avml").or_else(|| {
@@ -382,10 +382,10 @@ pub fn find_avml(candidate: Option<&Path>) -> Option<PathBuf> {
 
 pub fn find_winpmem(candidate: Option<&Path>) -> Option<PathBuf> {
     const WINPMEM_NAME: &str = "go-winpmem_amd64_1.0-rc2_signed.exe";
-    if let Some(path) = candidate {
-        if path.exists() {
-            return Some(path.to_path_buf());
-        }
+    if let Some(path) = candidate
+        && path.exists()
+    {
+        return Some(path.to_path_buf());
     }
 
     find_in_path(WINPMEM_NAME).or_else(|| {
