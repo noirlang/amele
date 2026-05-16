@@ -25,6 +25,7 @@ const icons = {
   key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9"/><path d="m15 4 3 3"/><path d="m13 6 3 3"/>',
   refresh: '<path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/><path d="M3 12A9 9 0 0 1 18.5 5.8L21 8"/><path d="M21 3v5h-5"/>',
   pause: '<path d="M8 5v14"/><path d="M16 5v14"/>',
+  play: '<path d="M8 5v14l11-7Z"/>',
   stop: '<rect x="6" y="6" width="12" height="12"/>',
   arrow: '<path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>'
 };
@@ -482,6 +483,7 @@ function workflowPage(id) {
             <p class="section-label">5. İşlem Kontrolleri</p>
             <div class="button-row">
               <button class="secondary-button" data-action="pause">${icon("pause")} Duraklat</button>
+              <button class="secondary-button" data-action="resume">${icon("play")} Devam</button>
               <button class="danger-button" data-action="stop">${icon("stop")} Durdur</button>
             </div>
 
@@ -1113,6 +1115,15 @@ async function handleAction(button) {
     return;
   }
 
+  if (action === "resume") {
+    try {
+      await sendAcquisitionControl("resume");
+    } catch (error) {
+      showToast(`Devam komutu gönderilemedi: ${error.message}`, "error");
+    }
+    return;
+  }
+
   if (action === "stop") {
     try {
       await sendAcquisitionControl("stop");
@@ -1474,7 +1485,7 @@ async function waitForAcquisitionJob(jobId) {
       return job.result || {};
     }
     if (job.status === "failed") {
-      throw new Error(job.error || job.message || "İmaj alma başarısız");
+      throw new Error(job.error || job.message || "Edinim başarısız");
     }
 
     await new Promise((resolve) => window.setTimeout(resolve, 500));
@@ -1484,27 +1495,27 @@ async function waitForAcquisitionJob(jobId) {
 async function sendAcquisitionControl(action) {
   const active = state.activeAcquisition;
   if (!active || !active.jobId || !active.workflowId) {
-    showToast("Aktif uzak imaj işi yok.", "error");
+    showToast("Aktif edinim işi yok.", "error");
     return;
   }
   const workflow = workflows[active.workflowId];
-  if (!workflow?.mode.startsWith("remote")) {
-    showToast("Bu işlem yalnızca uzak agent işi için kullanılabilir.", "error");
-    return;
+  const body = {
+    job_id: active.jobId,
+    action
+  };
+  if (workflow?.mode.startsWith("remote")) {
+    Object.assign(body, active.payload || {});
   }
 
   await apiRequest("/api/acquisition-control", {
     method: "POST",
-    body: JSON.stringify({
-      ...active.payload,
-      job_id: active.jobId,
-      action
-    })
+    body: JSON.stringify(body)
   });
   const label = action === "stop" ? "Durdurma" : action === "pause" ? "Duraklatma" : "Devam";
-  writeWorkflowLog(`${label} komutu agent'a gönderildi.`);
-  updateSide("last-action", `${label} komutu gönderildi`);
-  showToast(`${label} komutu gönderildi.`);
+  const target = workflow?.mode.startsWith("remote") ? "agent'a gönderildi" : "uygulandı";
+  writeWorkflowLog(`${label} komutu ${target}.`);
+  updateSide("last-action", `${label} komutu ${target}`);
+  showToast(`${label} komutu ${target}.`);
 }
 
 async function startAcquisition(button) {
@@ -1520,13 +1531,6 @@ async function startAcquisition(button) {
     }
     if (!requireActiveConnection(workflow, payload)) return;
   }
-  if (workflow?.mode.includes("ram")) {
-    setProgress(0);
-    writeWorkflowLog("RAM edinimi bu ekranda henüz gerçek backend işlemine bağlanmadı.");
-    updateSide("last-action", "RAM edinimi bağlı değil");
-    showToast("RAM edinimi için gerçek backend akışı henüz bağlanmadı.", "error");
-    return;
-  }
   const target = document.querySelector("[data-field='target']")?.value.trim();
   if (workflow && !workflow.mode.includes("ram") && !target) {
     showToast("Önce hedef disk seçin.", "error");
@@ -1540,26 +1544,39 @@ async function startAcquisition(button) {
   button.disabled = true;
   window.clearInterval(state.jobs.workflow);
   setProgress(0, "0%");
-  writeWorkflowLog("İmaj alma başlatıldı.");
-  updateSide("last-action", "İmaj alma çalışıyor");
+  const isRam = workflow?.mode.includes("ram");
+  const operation = isRam ? "RAM edinimi" : "İmaj alma";
+  writeWorkflowLog(`${operation} başlatıldı.`);
+  updateSide("last-action", `${operation} çalışıyor`);
   if (workflow?.mode.startsWith("remote")) updateSide("connection", "İşlem çalışıyor");
 
   try {
     const start = workflow?.mode.startsWith("remote")
-      ? await apiRequest("/api/remote-image", {
+      ? await apiRequest(isRam ? "/api/remote-ram" : "/api/remote-image", {
           method: "POST",
-          body: JSON.stringify({
-            ...payload,
-            disk_id: target,
-            output
-          })
+          body: JSON.stringify(isRam
+            ? {
+                ...payload,
+                output
+              }
+            : {
+                ...payload,
+                disk_id: target,
+                output
+              })
         })
-      : await apiRequest("/api/local-image", {
+      : await apiRequest(isRam ? "/api/local-ram" : "/api/local-image", {
           method: "POST",
-          body: JSON.stringify({
-            source: target,
-            output
-          })
+          body: JSON.stringify(isRam
+            ? {
+                output,
+                tool: workflow.platform === "Windows" ? "winpmem" : "avml",
+                tool_path: target
+              }
+            : {
+                source: target,
+                output
+              })
         });
     if (!start.job_id) throw new Error("Backend job id döndürmedi");
     state.activeAcquisition = {
@@ -1571,20 +1588,20 @@ async function startAcquisition(button) {
 
     setProgress(100);
     const targetPath = result.target_path || result.target || output;
-    writeWorkflowLog(`İmaj alma tamamlandı: ${targetPath}`);
-    updateSide("last-action", "İmaj alma tamamlandı");
+    writeWorkflowLog(`${operation} tamamlandı: ${targetPath}`);
+    updateSide("last-action", `${operation} tamamlandı`);
     if (workflow?.mode.startsWith("remote") && payload) {
       updateSide("connection", `Bağlandı - ${payload.ip}`);
     }
-    showToast("İmaj alma tamamlandı.");
+    showToast(`${operation} tamamlandı.`);
   } catch (error) {
     setProgress(0);
-    writeWorkflowLog(`İmaj alma başarısız: ${error.message}`);
-    updateSide("last-action", "İmaj alma başarısız");
+    writeWorkflowLog(`${operation} başarısız: ${error.message}`);
+    updateSide("last-action", `${operation} başarısız`);
     if (workflow?.mode.startsWith("remote")) {
-      updateSide("connection", "İmaj alma başarısız");
+      updateSide("connection", `${operation} başarısız`);
     }
-    showToast(`İmaj alma başarısız: ${error.message}`, "error");
+    showToast(`${operation} başarısız: ${error.message}`, "error");
   } finally {
     state.activeAcquisition = null;
     button.disabled = false;

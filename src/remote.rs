@@ -389,6 +389,7 @@ impl RemoteConnection {
         &mut self,
         remote_file: &str,
         local_path: impl AsRef<Path>,
+        job_id: Option<&str>,
         mut progress: F,
     ) -> WormResult<RemoteTransferResult>
     where
@@ -401,10 +402,14 @@ impl RemoteConnection {
             })?;
         }
 
-        self.send_json(&json!({
+        let mut request = json!({
             "komut": "ram_dosya_indir",
             "dosya": remote_file,
-        }))?;
+        });
+        if let Some(job_id) = job_id {
+            request["is_id"] = Value::String(job_id.to_string());
+        }
+        self.send_json(&request)?;
 
         let start = self.read_json_line()?;
         if !is_ok(&start) {

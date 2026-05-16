@@ -1,5 +1,5 @@
 use crate::disk;
-use crate::disk::DiskAcquisitionTask;
+use crate::disk::{DiskAcquisitionControl, DiskAcquisitionTask};
 use crate::hash::{self, HashAlgorithm};
 use crate::ram;
 use crate::remote::RemoteConnection;
@@ -29,6 +29,7 @@ struct AcquisitionJob {
     message: String,
     result: Option<Value>,
     error: Option<String>,
+    control: ram::CancellationToken,
 }
 
 pub fn run_native() -> Result<(), String> {
@@ -199,8 +200,10 @@ fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
         ("POST", "/api/connect") => connect_endpoint(body),
         ("POST", "/api/hash") => hash_endpoint(body),
         ("POST", "/api/local-image") => local_image_endpoint(body),
+        ("POST", "/api/local-ram") => local_ram_endpoint(body),
         ("POST", "/api/remote-disks") => remote_disks_endpoint(body),
         ("POST", "/api/remote-image") => remote_image_endpoint(body),
+        ("POST", "/api/remote-ram") => remote_ram_endpoint(body),
         ("POST", "/api/remote-tool-check") => remote_tool_check_endpoint(body),
         ("POST", "/api/pick-file") => pick_path_endpoint(false),
         ("POST", "/api/pick-folder") => pick_path_endpoint(true),
@@ -302,9 +305,9 @@ fn local_image_endpoint(body: &[u8]) -> Response {
         return json_error(400, "output is required");
     }
 
-    let job_id = create_acquisition_job("Yerel imaj alma başlatıldı");
+    let (job_id, control) = create_acquisition_job("Yerel imaj alma başlatıldı");
     let thread_job_id = job_id.clone();
-    thread::spawn(move || run_local_image_job(thread_job_id, request));
+    thread::spawn(move || run_local_image_job(thread_job_id, request, control));
 
     json_ok(json!({
         "job_id": job_id,
@@ -331,9 +334,60 @@ fn remote_image_endpoint(body: &[u8]) -> Response {
         return json_error(400, "output is required");
     }
 
-    let job_id = create_acquisition_job("Uzak imaj alma başlatıldı");
+    let (job_id, _control) = create_acquisition_job("Uzak imaj alma başlatıldı");
     let thread_job_id = job_id.clone();
     thread::spawn(move || run_remote_image_job(thread_job_id, request));
+
+    json_ok(json!({
+        "job_id": job_id,
+        "status": "running",
+    }))
+}
+
+fn local_ram_endpoint(body: &[u8]) -> Response {
+    let request: LocalRamRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+
+    if request.output.trim().is_empty() {
+        return json_error(400, "output is required");
+    }
+
+    let tool = request.tool.as_deref().unwrap_or_default();
+    if !matches!(tool, "avml" | "winpmem") {
+        return json_error(400, "tool must be avml or winpmem");
+    }
+
+    let (job_id, control) = create_acquisition_job("Yerel RAM edinimi başlatıldı");
+    let thread_job_id = job_id.clone();
+    thread::spawn(move || run_local_ram_job(thread_job_id, request, control));
+
+    json_ok(json!({
+        "job_id": job_id,
+        "status": "running",
+    }))
+}
+
+fn remote_ram_endpoint(body: &[u8]) -> Response {
+    let request: RemoteRamRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+
+    if request.ip.trim().is_empty() {
+        return json_error(400, "ip is required");
+    }
+    if request.port == 0 {
+        return json_error(400, "port is required");
+    }
+    if request.output.trim().is_empty() {
+        return json_error(400, "output is required");
+    }
+
+    let (job_id, _control) = create_acquisition_job("Uzak RAM edinimi başlatıldı");
+    let thread_job_id = job_id.clone();
+    thread::spawn(move || run_remote_ram_job(thread_job_id, request));
 
     json_ok(json!({
         "job_id": job_id,
@@ -356,13 +410,44 @@ struct RemoteImageRequest {
     output: String,
 }
 
-fn run_local_image_job(job_id: String, request: LocalImageRequest) {
+#[derive(Deserialize)]
+struct LocalRamRequest {
+    output: String,
+    tool: Option<String>,
+    tool_path: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct RemoteRamRequest {
+    ip: String,
+    port: u16,
+    token: Option<String>,
+    output: String,
+}
+
+fn run_local_image_job(
+    job_id: String,
+    request: LocalImageRequest,
+    control: ram::CancellationToken,
+) {
     let target = acquisition_target_path(&request.source, &request.output, "local");
     let task = DiskAcquisitionTask::new(&request.source, &target);
-    match disk::run_disk_acquisition(&task, |done, total| {
-        update_acquisition_progress(&job_id, done, total);
-    }) {
-        Ok(result) => finish_acquisition_job(
+    match disk::run_disk_acquisition_with_control(
+        &task,
+        |done, total| {
+            update_acquisition_progress_message(&job_id, done, total, "İmaj alma sürüyor");
+        },
+        || {
+            if control.is_cancelled() {
+                DiskAcquisitionControl::Cancel
+            } else if control.is_paused() {
+                DiskAcquisitionControl::Pause
+            } else {
+                DiskAcquisitionControl::Continue
+            }
+        },
+    ) {
+        Ok(result) => finish_acquisition_job_with_message(
             &job_id,
             json!({
                 "message": "Imaj alma tamamlandi",
@@ -371,8 +456,11 @@ fn run_local_image_job(job_id: String, request: LocalImageRequest) {
                 "total_bytes": result.total_bytes,
                 "sha256": result.sha256,
             }),
+            "Imaj alma tamamlandi",
         ),
-        Err(err) => fail_acquisition_job(&job_id, err.to_string()),
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err.to_string(), "Imaj alma basarisiz")
+        }
     }
 }
 
@@ -386,7 +474,7 @@ fn run_remote_image_job(job_id: String, request: RemoteImageRequest) {
                 Some(&remote_job_id),
                 |done, total| update_acquisition_progress(&job_id, done, total),
             ) {
-                Ok(result) => finish_acquisition_job(
+                Ok(result) => finish_acquisition_job_with_message(
                     &job_id,
                     json!({
                         "message": result.message,
@@ -396,11 +484,113 @@ fn run_remote_image_job(job_id: String, request: RemoteImageRequest) {
                         "sha256": result.sha256,
                         "md5": result.md5,
                     }),
+                    "Imaj alma tamamlandi",
                 ),
-                Err(err) => fail_acquisition_job(&job_id, err.to_string()),
+                Err(err) => fail_acquisition_job_with_message(
+                    &job_id,
+                    err.to_string(),
+                    "Imaj alma basarisiz",
+                ),
             }
         }
-        Err(err) => fail_acquisition_job(&job_id, err.to_string()),
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err.to_string(), "Imaj alma basarisiz")
+        }
+    }
+}
+
+fn run_local_ram_job(job_id: String, request: LocalRamRequest, control: ram::CancellationToken) {
+    let output = PathBuf::from(&request.output);
+    let candidate = request
+        .tool_path
+        .as_deref()
+        .map(Path::new)
+        .filter(|path| path.exists());
+    let tool = request.tool.as_deref().unwrap_or_default();
+
+    let result = match tool {
+        "avml" => ram::acquire_with_avml(&output, candidate, &control, |done, total| {
+            update_acquisition_progress_message(&job_id, done, total, "RAM edinimi sürüyor");
+        }),
+        "winpmem" => ram::acquire_with_winpmem(&output, candidate, &control, |done, total| {
+            update_acquisition_progress_message(&job_id, done, total, "RAM edinimi sürüyor");
+        }),
+        _ => Err(crate::error::WormError::new(
+            crate::error::HataKodu::Genel,
+            "Desteklenmeyen RAM araci",
+        )),
+    };
+
+    match result {
+        Ok(result) => finish_acquisition_job_with_message(
+            &job_id,
+            json!({
+                "message": "RAM edinimi tamamlandi",
+                "target_path": result.output_file,
+                "bytes_written": result.bytes_written,
+            }),
+            "RAM edinimi tamamlandi",
+        ),
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err.to_string(), "RAM edinimi basarisiz")
+        }
+    }
+}
+
+fn run_remote_ram_job(job_id: String, request: RemoteRamRequest) {
+    let remote_file = ram_remote_file_name(&request.output);
+    let target_path = PathBuf::from(&request.output);
+
+    match RemoteConnection::connect(&request.ip, request.port, request.token.clone()) {
+        Ok(mut connection) => {
+            let remote_job_id = job_id.clone();
+            match connection.start_remote_ram(&remote_file, Some(&remote_job_id), |done, total| {
+                update_acquisition_progress_message(&job_id, done, total, "RAM edinimi sürüyor");
+            }) {
+                Ok(ram_result) => {
+                    update_acquisition_message(&job_id, "RAM dosyası indiriliyor");
+                    match connection.download_ram_file(
+                        &remote_file,
+                        &target_path,
+                        Some(&remote_job_id),
+                        |done, total| {
+                            update_acquisition_progress_message(
+                                &job_id,
+                                done,
+                                total,
+                                "RAM dosyası indiriliyor",
+                            );
+                        },
+                    ) {
+                        Ok(download) => finish_acquisition_job_with_message(
+                            &job_id,
+                            json!({
+                                "message": download.message,
+                                "remote_job_id": ram_result.job_id,
+                                "target_path": download.target_path,
+                                "bytes_transferred": download.bytes_transferred,
+                                "remote_bytes": ram_result.total_size,
+                                "sha256": download.sha256.or(ram_result.sha256),
+                            }),
+                            "RAM edinimi tamamlandi",
+                        ),
+                        Err(err) => fail_acquisition_job_with_message(
+                            &job_id,
+                            err.to_string(),
+                            "RAM dosyası indirilemedi",
+                        ),
+                    }
+                }
+                Err(err) => fail_acquisition_job_with_message(
+                    &job_id,
+                    err.to_string(),
+                    "RAM edinimi basarisiz",
+                ),
+            }
+        }
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err.to_string(), "RAM edinimi basarisiz")
+        }
     }
 }
 
@@ -432,8 +622,8 @@ fn acquisition_status_endpoint(body: &[u8]) -> Response {
 fn acquisition_control_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct ControlRequest {
-        ip: String,
-        port: u16,
+        ip: Option<String>,
+        port: Option<u16>,
         token: Option<String>,
         job_id: String,
         action: String,
@@ -444,12 +634,6 @@ fn acquisition_control_endpoint(body: &[u8]) -> Response {
         Err(err) => return json_error(400, err.to_string()),
     };
 
-    if request.ip.trim().is_empty() {
-        return json_error(400, "ip is required");
-    }
-    if request.port == 0 {
-        return json_error(400, "port is required");
-    }
     if request.job_id.trim().is_empty() {
         return json_error(400, "job_id is required");
     }
@@ -457,25 +641,37 @@ fn acquisition_control_endpoint(body: &[u8]) -> Response {
         return json_error(400, "action must be pause, resume, or stop");
     }
 
-    match RemoteConnection::connect(&request.ip, request.port, request.token) {
-        Ok(connection) => match connection.control_job(&request.job_id, &request.action) {
-            Ok(message) => {
-                if request.action == "stop" {
-                    update_acquisition_message(&request.job_id, "Durdurma komutu gönderildi");
-                } else if request.action == "pause" {
-                    update_acquisition_message(&request.job_id, "Duraklatma komutu gönderildi");
-                } else {
-                    update_acquisition_message(&request.job_id, "Devam komutu gönderildi");
+    let ip = request.ip.unwrap_or_default();
+    let remote_control = !ip.trim().is_empty();
+
+    if remote_control {
+        let port = request.port.unwrap_or_default();
+        if port == 0 {
+            return json_error(400, "port is required");
+        }
+        match RemoteConnection::connect(&ip, port, request.token) {
+            Ok(connection) => match connection.control_job(&request.job_id, &request.action) {
+                Ok(message) => {
+                    apply_local_acquisition_control(&request.job_id, &request.action);
+                    json_ok(json!({
+                        "job_id": request.job_id,
+                        "action": request.action,
+                        "message": message,
+                    }))
                 }
-                json_ok(json!({
-                    "job_id": request.job_id,
-                    "action": request.action,
-                    "message": message,
-                }))
-            }
+                Err(err) => json_error(500, err.to_string()),
+            },
             Err(err) => json_error(500, err.to_string()),
-        },
-        Err(err) => json_error(500, err.to_string()),
+        }
+    } else {
+        match apply_local_acquisition_control(&request.job_id, &request.action) {
+            Some(message) => json_ok(json!({
+                "job_id": request.job_id,
+                "action": request.action,
+                "message": message,
+            })),
+            None => json_error(404, "acquisition job not found"),
+        }
     }
 }
 
@@ -483,9 +679,10 @@ fn acquisition_jobs() -> &'static Mutex<HashMap<String, AcquisitionJob>> {
     ACQUISITION_JOBS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn create_acquisition_job(message: &str) -> String {
+fn create_acquisition_job(message: &str) -> (String, ram::CancellationToken) {
     let id = NEXT_ACQUISITION_JOB_ID.fetch_add(1, Ordering::SeqCst);
     let job_id = format!("acq-{id}");
+    let control = ram::CancellationToken::default();
     let job = AcquisitionJob {
         status: "running".to_string(),
         done: 0,
@@ -493,23 +690,28 @@ fn create_acquisition_job(message: &str) -> String {
         message: message.to_string(),
         result: None,
         error: None,
+        control: control.clone(),
     };
     if let Ok(mut jobs) = acquisition_jobs().lock() {
         jobs.insert(job_id.clone(), job);
     }
-    job_id
+    (job_id, control)
 }
 
 fn update_acquisition_progress(job_id: &str, done: u64, total: u64) {
+    update_acquisition_progress_message(job_id, done, total, "Imaj alma sürüyor");
+}
+
+fn update_acquisition_progress_message(job_id: &str, done: u64, total: u64, label: &str) {
     if let Ok(mut jobs) = acquisition_jobs().lock() {
         if let Some(job) = jobs.get_mut(job_id) {
             job.status = "running".to_string();
             job.done = done;
             job.total = total;
             job.message = if total > 0 {
-                format!("Imaj alma sürüyor: {}%", progress_percent(done, total))
+                format!("{label}: {}%", progress_percent(done, total))
             } else {
-                "Imaj alma sürüyor".to_string()
+                label.to_string()
             };
         }
     }
@@ -523,7 +725,7 @@ fn update_acquisition_message(job_id: &str, message: &str) {
     }
 }
 
-fn finish_acquisition_job(job_id: &str, result: Value) {
+fn finish_acquisition_job_with_message(job_id: &str, result: Value, message: &str) {
     if let Ok(mut jobs) = acquisition_jobs().lock() {
         if let Some(job) = jobs.get_mut(job_id) {
             job.status = "completed".to_string();
@@ -533,20 +735,46 @@ fn finish_acquisition_job(job_id: &str, result: Value) {
             } else {
                 job.done = job.total;
             }
-            job.message = "Imaj alma tamamlandi".to_string();
+            job.message = message.to_string();
             job.result = Some(result);
             job.error = None;
         }
     }
 }
 
-fn fail_acquisition_job(job_id: &str, error: String) {
+fn fail_acquisition_job_with_message(job_id: &str, error: String, message: &str) {
     if let Ok(mut jobs) = acquisition_jobs().lock() {
         if let Some(job) = jobs.get_mut(job_id) {
             job.status = "failed".to_string();
-            job.message = "Imaj alma basarisiz".to_string();
+            job.message = message.to_string();
             job.error = Some(error);
         }
+    }
+}
+
+fn apply_local_acquisition_control(job_id: &str, action: &str) -> Option<String> {
+    let mut jobs = acquisition_jobs().lock().ok()?;
+    let job = jobs.get_mut(job_id)?;
+    match action {
+        "pause" => {
+            job.control.pause();
+            job.status = "paused".to_string();
+            job.message = "Duraklatma komutu uygulandı".to_string();
+            Some("Duraklatma komutu uygulandi".to_string())
+        }
+        "resume" => {
+            job.control.resume();
+            job.status = "running".to_string();
+            job.message = "Devam komutu uygulandı".to_string();
+            Some("Devam komutu uygulandi".to_string())
+        }
+        "stop" => {
+            job.control.cancel();
+            disk::cancel_disk_acquisition();
+            job.message = "Durdurma komutu uygulandı".to_string();
+            Some("Durdurma komutu uygulandi".to_string())
+        }
+        _ => None,
     }
 }
 
@@ -587,6 +815,15 @@ fn acquisition_target_path(source: &str, output: &str, prefix: &str) -> PathBuf 
         Local::now().format("%Y%m%d_%H%M%S")
     );
     output.join(file_name)
+}
+
+fn ram_remote_file_name(output: &str) -> String {
+    Path::new(output)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| "memory_dump.raw".to_string())
 }
 
 fn sanitize_file_stem(value: &str) -> String {

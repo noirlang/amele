@@ -7,6 +7,8 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
+use std::time::Duration;
 
 pub const DEFAULT_READ_CHUNK: usize = 4 * 1024 * 1024;
 
@@ -64,13 +66,37 @@ pub fn list_disks() -> WormResult<Vec<DiskInfo>> {
 
 pub fn run_disk_acquisition<F>(
     task: &DiskAcquisitionTask,
-    mut progress: F,
+    progress: F,
 ) -> WormResult<DiskAcquisitionResult>
 where
     F: FnMut(u64, u64),
 {
     DISK_ACQUISITION_CANCELLED.store(false, Ordering::SeqCst);
+    run_disk_acquisition_with_control(task, progress, || {
+        if DISK_ACQUISITION_CANCELLED.load(Ordering::SeqCst) {
+            DiskAcquisitionControl::Cancel
+        } else {
+            DiskAcquisitionControl::Continue
+        }
+    })
+}
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiskAcquisitionControl {
+    Continue,
+    Pause,
+    Cancel,
+}
+
+pub fn run_disk_acquisition_with_control<F, C>(
+    task: &DiskAcquisitionTask,
+    mut progress: F,
+    mut control: C,
+) -> WormResult<DiskAcquisitionResult>
+where
+    F: FnMut(u64, u64),
+    C: FnMut() -> DiskAcquisitionControl,
+{
     let source_size = disk_size(&task.source)?;
     if source_size == 0 {
         return Err(WormError::new(
@@ -112,10 +138,19 @@ where
     let mut copied = 0_u64;
     let mut sha256 = task.calculate_hash.then(Sha256::new);
     let mut success = false;
+    let mut cancelled = false;
 
     while copied < total {
-        if DISK_ACQUISITION_CANCELLED.load(Ordering::SeqCst) {
-            break;
+        match control() {
+            DiskAcquisitionControl::Continue => {}
+            DiskAcquisitionControl::Pause => {
+                thread::sleep(Duration::from_millis(200));
+                continue;
+            }
+            DiskAcquisitionControl::Cancel => {
+                cancelled = true;
+                break;
+            }
         }
 
         let to_read = (total - copied).min(chunk_size as u64) as usize;
@@ -167,7 +202,7 @@ where
     drop(target);
 
     let mut hash_value = None;
-    if copied == total && !DISK_ACQUISITION_CANCELLED.load(Ordering::SeqCst) {
+    if copied == total && !cancelled {
         if let Some(ctx) = sha256 {
             let hash = to_hex(&ctx.finalize());
             write_sha256_sidecar(&task.target, &hash)?;
@@ -187,7 +222,7 @@ where
     } else {
         let partial = mark_partial(&task.target)?;
         Err(WormError::new(
-            if DISK_ACQUISITION_CANCELLED.load(Ordering::SeqCst) {
+            if cancelled {
                 HataKodu::Genel
             } else {
                 HataKodu::DiskOkuma

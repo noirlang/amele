@@ -4,9 +4,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
+
+const CONTROL_RUNNING: u8 = 0;
+const CONTROL_PAUSED: u8 = 1;
+const CONTROL_CANCELLED: u8 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RamToolStatus {
@@ -23,18 +27,38 @@ pub struct RamAcquisitionResult {
     pub bytes_written: u64,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct CancellationToken {
-    cancelled: Arc<AtomicBool>,
+    state: Arc<AtomicU8>,
+}
+
+impl Default for CancellationToken {
+    fn default() -> Self {
+        Self {
+            state: Arc::new(AtomicU8::new(CONTROL_RUNNING)),
+        }
+    }
 }
 
 impl CancellationToken {
     pub fn cancel(&self) {
-        self.cancelled.store(true, Ordering::SeqCst);
+        self.state.store(CONTROL_CANCELLED, Ordering::SeqCst);
+    }
+
+    pub fn pause(&self) {
+        self.state.store(CONTROL_PAUSED, Ordering::SeqCst);
+    }
+
+    pub fn resume(&self) {
+        self.state.store(CONTROL_RUNNING, Ordering::SeqCst);
     }
 
     pub fn is_cancelled(&self) -> bool {
-        self.cancelled.load(Ordering::SeqCst)
+        self.state.load(Ordering::SeqCst) == CONTROL_CANCELLED
+    }
+
+    pub fn is_paused(&self) -> bool {
+        self.state.load(Ordering::SeqCst) == CONTROL_PAUSED
     }
 }
 
@@ -239,11 +263,29 @@ where
     F: FnMut(u64, u64),
 {
     let started = Instant::now();
+    let mut child_paused = false;
     loop {
         if cancellation.is_cancelled() {
+            if child_paused {
+                resume_child(child);
+            }
             let _ = child.kill();
             let _ = child.wait();
             return Err(WormError::new(HataKodu::Genel, "RAM edinimi iptal edildi"));
+        }
+
+        if cancellation.is_paused() {
+            if !child_paused {
+                pause_child(child);
+                child_paused = true;
+            }
+            thread::sleep(Duration::from_millis(200));
+            continue;
+        }
+
+        if child_paused {
+            resume_child(child);
+            child_paused = false;
         }
 
         if let Ok(Some(status)) = child.try_wait() {
@@ -274,6 +316,52 @@ where
         }
 
         thread::sleep(Duration::from_secs(1));
+    }
+}
+
+fn pause_child(child: &Child) {
+    #[cfg(unix)]
+    unsafe {
+        libc::kill(child.id() as i32, libc::SIGSTOP);
+    }
+
+    #[cfg(windows)]
+    {
+        let _ = Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                &format!(
+                    "Suspend-Process -Id {} -ErrorAction SilentlyContinue",
+                    child.id()
+                ),
+            ])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+}
+
+fn resume_child(child: &Child) {
+    #[cfg(unix)]
+    unsafe {
+        libc::kill(child.id() as i32, libc::SIGCONT);
+    }
+
+    #[cfg(windows)]
+    {
+        let _ = Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                &format!(
+                    "Resume-Process -Id {} -ErrorAction SilentlyContinue",
+                    child.id()
+                ),
+            ])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
     }
 }
 
