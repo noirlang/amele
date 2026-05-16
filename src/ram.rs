@@ -81,7 +81,7 @@ pub fn acquire_with_avml<F>(
     output_file: impl AsRef<Path>,
     candidate: Option<&Path>,
     cancellation: &CancellationToken,
-    mut progress: F,
+    progress: F,
 ) -> WormResult<RamAcquisitionResult>
 where
     F: FnMut(u64, u64),
@@ -92,14 +92,15 @@ where
         let _ = candidate;
         let _ = cancellation;
         let _ = progress;
-        return Err(WormError::new(
+        Err(WormError::new(
             HataKodu::YetkisizErisim,
             "AVML Windows uzerinde kullanilmaz",
-        ));
+        ))
     }
 
     #[cfg(not(windows))]
     {
+        let mut progress = progress;
         if !is_root_or_admin() {
             return Err(WormError::new(
                 HataKodu::YetkisizErisim,
@@ -156,7 +157,7 @@ pub fn acquire_with_winpmem<F>(
     output_file: impl AsRef<Path>,
     candidate: Option<&Path>,
     cancellation: &CancellationToken,
-    mut progress: F,
+    progress: F,
 ) -> WormResult<RamAcquisitionResult>
 where
     F: FnMut(u64, u64),
@@ -166,7 +167,7 @@ where
         let _ = output_file;
         let _ = candidate;
         let _ = cancellation;
-        let _ = &mut progress;
+        let _ = progress;
         Err(WormError::new(
             HataKodu::YetkisizErisim,
             "WinPMEM sadece Windows uzerinde desteklenir",
@@ -175,6 +176,7 @@ where
 
     #[cfg(windows)]
     {
+        let mut progress = progress;
         if !is_root_or_admin() {
             return Err(WormError::new(
                 HataKodu::YetkisizErisim,
@@ -426,7 +428,7 @@ pub fn physical_ram_size() -> u64 {
 
     #[cfg(windows)]
     {
-        use windows_sys::Win32::System::Memory::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
+        use windows_sys::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
         let mut info = MEMORYSTATUSEX {
             dwLength: std::mem::size_of::<MEMORYSTATUSEX>() as u32,
             dwMemoryLoad: 0,
@@ -471,7 +473,7 @@ pub fn is_root_or_admin() -> bool {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "linux"))]
 mod tests {
     use super::*;
 

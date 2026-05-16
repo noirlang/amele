@@ -2,6 +2,7 @@ use crate::error::{HataKodu, WormError, WormResult};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+#[cfg(not(windows))]
 use std::process::Command;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

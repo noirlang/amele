@@ -3,7 +3,9 @@ use crate::hash::{to_hex, write_sha256_sidecar};
 use digest::Digest;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
-use std::fs::{self, File, OpenOptions};
+#[cfg(unix)]
+use std::fs::OpenOptions;
+use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -285,10 +287,10 @@ fn disk_size_impl(path: &Path) -> WormResult<u64> {
 #[cfg(windows)]
 fn disk_size_impl(path: &Path) -> WormResult<u64> {
     use std::os::windows::ffi::OsStrExt;
-    use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
+    use windows_sys::Win32::Foundation::{CloseHandle, GENERIC_READ, INVALID_HANDLE_VALUE};
     use windows_sys::Win32::Storage::FileSystem::{
         CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_FLAG_SEQUENTIAL_SCAN, FILE_SHARE_READ,
-        FILE_SHARE_WRITE, GENERIC_READ, OPEN_EXISTING,
+        FILE_SHARE_WRITE, OPEN_EXISTING,
     };
     use windows_sys::Win32::System::IO::DeviceIoControl;
 
@@ -311,7 +313,7 @@ fn disk_size_impl(path: &Path) -> WormResult<u64> {
             std::ptr::null_mut(),
             OPEN_EXISTING,
             FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN,
-            0,
+            std::ptr::null_mut(),
         )
     };
 
