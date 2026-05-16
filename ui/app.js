@@ -46,6 +46,7 @@ const fontIcons = {
 
 const app = document.querySelector("#app");
 const view = document.querySelector("#view");
+const preferredLanguage = localStorage.getItem("worm-language") || "tr";
 
 const translations = {
   tr: {
@@ -58,7 +59,267 @@ const translations = {
     ready: "Hazır",
     settingsSaved: "Ayarlar kaydedildi.",
     fileRequired: "Önce dosya seçin.",
-    platformBlocked: "Bu yerel işlem yalnızca {platform} üzerinde çalışır."
+    platformBlocked: "Bu yerel işlem yalnızca {platform} üzerinde çalışır.",
+    unknown: "Bilinmiyor",
+    select: "Seç",
+    open: "Aç",
+    localUnsupported: "Bu sistemde yerel çalışmaz",
+    remoteAgent: "Uzak agent",
+    localOperation: "Yerel işlem",
+    targetNotSelected: "Hedef seçilmedi",
+    localCheckWaiting: "Yerel kontrol bekleniyor",
+    notConnected: "Henüz bağlanmadı",
+    lastActionReady: "Hazır",
+    diskNotSelected: "Disk seçilmedi",
+    scanDisksFirst: "Diskleri tara ile listeleyin",
+    imageAcquisition: "İmaj alma",
+    ramAcquisition: "RAM edinimi",
+    acquisitionFailed: "Edinim başarısız",
+    "log.appReady": "Uygulama tam modda açıldı.",
+    "log.previewMode": "Önizleme modunda yerel işlemler kullanılamaz.",
+    "log.agentProtocol": "Agent protokolü hazır.",
+    "log.workflowsReady": "Disk ve RAM işlemleri hazır.",
+    "home.acquire.title": "Edinim",
+    "home.acquire.desc": "Windows ve Linux için disk/RAM toplama akışları.",
+    "home.integrity.title": "Bütünlük",
+    "home.integrity.desc": "MD5, SHA ailesi ve karşılaştırma adımları.",
+    "home.evidence.title": "Kanıt",
+    "home.evidence.desc": "Vaka klasörü ve kanıt kasası yönetimi.",
+    "home.output.title": "Çıktı",
+    "home.output.desc": "İnceleme notları ve rapor üretimi.",
+    "hub.detected": "Algılanan sistem: {platform}. Yerel disk/RAM işlemleri sadece aynı işletim sisteminde açılır; uzak agent akışları platform bağımsızdır.",
+    "hub.windows.title": "Windows Araçları",
+    "hub.windows.desc": "Windows yerel/uzak disk ve RAM edinim akışlarını seçin.",
+    "hub.linux.title": "Linux Araçları",
+    "hub.linux.desc": "Linux yerel/uzak disk ve RAM edinim akışlarını seçin.",
+    "workflow.ip": "IP Adresi",
+    "workflow.ipPlaceholder": "IP adresi",
+    "workflow.port": "Port",
+    "workflow.token": "Token",
+    "workflow.tokenPlaceholder": "Güvenlik anahtarı (Onayla ile aktif olur)",
+    "workflow.approveKey": "Anahtarı Onayla",
+    "workflow.reset": "Sıfırla",
+    "workflow.networkVpn": "2. Ağ ve VPN",
+    "workflow.useVpn": "WireGuard VPN Kullan",
+    "workflow.configureVpn": "VPN Yapılandır",
+    "workflow.server": "Sunucu",
+    "workflow.configFile": "Config Dosyası",
+    "workflow.saveVpn": "VPN Kaydet",
+    "workflow.connectionOps": "3. Bağlantı İşlemleri",
+    "workflow.connect": "Bağlan",
+    "workflow.scanDisks": "Diskleri Tara",
+    "workflow.check": "Kontrol",
+    "workflow.checkTool": "{tool} Kontrol",
+    "workflow.localCheck": "1. Yerel Kontrol",
+    "workflow.localHint": "{platform} yerel akışında yönetici/root yetkisi gerekebilir. İşlem başlamadan önce araç ve erişim kontrolü yapılır.",
+    "workflow.checkToolAction": "{tool} Kontrol Et",
+    "workflow.scanLocalDisks": "Yerel Diskleri Tara",
+    "workflow.downloadWinpmem": "WinPMEM İndir",
+    "workflow.ramOutput": "RAM ve Çıktı",
+    "workflow.diskOutput": "Disk ve Çıktı",
+    "workflow.outputFile": "Çıktı Dosyası",
+    "workflow.outputFolder": "Çıktı Klasörü",
+    "workflow.tool": "Araç",
+    "workflow.disk": "Disk",
+    "workflow.startRam": "RAM Edinimini Başlat",
+    "workflow.startImage": "İmaj Al",
+    "workflow.controls": "5. İşlem Kontrolleri",
+    "workflow.pause": "Duraklat",
+    "workflow.resume": "Devam",
+    "workflow.stop": "Durdur",
+    "workflow.progress": "6. İlerleme Durumu",
+    "workflow.status": "İşlem Durumu",
+    "workflow.platform": "Platform",
+    "workflow.connection": "Bağlantı",
+    "workflow.target": "Hedef",
+    "workflow.lastAction": "Son işlem",
+    "workflow.operationRunning": "{operation} çalışıyor",
+    "workflow.operationStarted": "{operation} başlatıldı.",
+    "workflow.operationCompleted": "{operation} tamamlandı",
+    "workflow.operationCompletedPath": "{operation} tamamlandı: {path}",
+    "workflow.operationFailed": "{operation} başarısız",
+    "workflow.operationFailedDetail": "{operation} başarısız: {message}",
+    "workflow.outputRequired": "Çıktı konumu seçin.",
+    "workflow.diskRequired": "Önce hedef disk seçin.",
+    "workflow.jobIdMissing": "İş kimliği alınamadı.",
+    "workflow.activeJobMissing": "Aktif edinim işi yok.",
+    "workflow.pauseFailed": "Duraklatma gönderilemedi: {message}",
+    "workflow.resumeFailed": "Devam komutu gönderilemedi: {message}",
+    "workflow.stopFailed": "Durdurma gönderilemedi: {message}",
+    "workflow.controlApplied": "{label} komutu uygulandı.",
+    "workflow.controlSent": "{label} komutu agent'a gönderildi.",
+    "workflow.pauseLabel": "Duraklatma",
+    "workflow.resumeLabel": "Devam",
+    "workflow.stopLabel": "Durdurma",
+    "workflow.selectFile": "Dosya seçildi: {path}",
+    "workflow.filePickerFailed": "Dosya seçimi açılamadı: {message}",
+    "workflow.filePickerFailedShort": "Dosya seçimi açılamadı.",
+    "workflow.selectFolder": "Klasör seçildi: {path}",
+    "workflow.folderPickerFailed": "Klasör seçimi açılamadı: {message}",
+    "workflow.folderPickerFailedShort": "Klasör seçimi açılamadı.",
+    "connection.keyApproveFirst": "Güvenlik anahtarını kullanmak için önce Anahtarı Onayla butonuna basın.",
+    "connection.keyChanged": "Güvenlik anahtarı değişti. Yeniden Anahtarı Onayla yapın veya Sıfırla kullanın.",
+    "connection.connectFirst": "Önce bağlanın.",
+    "connection.none": "Bağlantı yok",
+    "connection.required": "Önce geçerli agent bağlantısı kurulmalı.",
+    "connection.ipPortRequired": "IP ve port girin.",
+    "connection.invalidPort": "Geçersiz port.",
+    "connection.remoteOnly": "Bu akış uzak bağlantı kullanmıyor.",
+    "connection.connecting": "Bağlanıyor... (Zaman aşımı: 10sn)",
+    "connection.starting": "Bağlantı başlatılıyor: {host}",
+    "connection.connected": "Bağlandı - {ip}",
+    "connection.connectedLog": "Uzak sunucuya bağlandı: {ip}",
+    "connection.success": "Bağlantı başarılı. Disk/RAM kontrolünü şimdi çalıştırabilirsiniz.",
+    "connection.failed": "Bağlantı başarısız.",
+    "connection.failedLog": "Bağlantı başarısız: {ip} - {message}",
+    "connection.cannotConnect": "Sunucuya bağlanılamadı: {message}",
+    "connection.checked": "{host} kontrol edildi",
+    "connection.alive": "{host} bağlı",
+    "connection.toolFailed": "Ajanla kontrol başarısız",
+    "connection.disksFailed": "Diskler alınamadı - bağlantı kopmuş olabilir",
+    "scan.toolDoneLog": "{target} kontrolü: {message}",
+    "scan.done": "Kontrol tamamlandı.",
+    "scan.failed": "Kontrol başarısız: {message}",
+    "scan.ramFailedLog": "RAM kontrolü başarısız: {message}",
+    "scan.toolListUpdated": "Araç listesi güncellendi.",
+    "scan.noDisk": "Disk bulunamadı",
+    "scan.accessDenied": "erişim yok",
+    "scan.noDiskLog": "Disk bulunamadı veya erişim izni yok.",
+    "scan.diskDoneLog": "Disk listesi güncellendi.",
+    "scan.diskDone": "Disk taraması tamamlandı.",
+    "scan.diskFailed": "Disk taraması başarısız: {message}",
+    "scan.diskFailedShort": "Disk taraması başarısız oldu.",
+    "scan.waiting": "Disk listesi için uygulama modu bekleniyor",
+    "scan.appModeRequired": "Disk taraması uygulama modunda çalışır.",
+    "scan.completed": "Tarama tamamlandı.",
+    "vpn.enabled": "VPN kullanımı açıldı.",
+    "vpn.disabled": "VPN kullanımı kapatıldı.",
+    "vpn.waiting": "VPN yapılandırması bekleniyor",
+    "vpn.off": "VPN kapalı",
+    "vpn.opened": "VPN yapılandırma alanı açıldı.",
+    "vpn.endpointRequired": "VPN sunucu bilgisini girin.",
+    "vpn.configured": "VPN yapılandırıldı: {endpoint}",
+    "vpn.ready": "VPN hazır",
+    "vpn.saved": "VPN yapılandırması kaydedildi.",
+    "key.required": "Onaylamak için güvenlik anahtarı girin.",
+    "key.approved": "Güvenlik anahtarı onaylandı.",
+    "key.active": "Güvenlik anahtarı aktif.",
+    "key.reset": "Güvenlik anahtarı sıfırlandı.",
+    "analysis.title": "İmaj Görüntüleme",
+    "analysis.desc": "Seçilen disk imajını salt-okunur olarak bağlar ve içeriğini klasör ağacında gösterir.",
+    "analysis.hint": "İmaj dosyasını seçin, salt-okunur bağlayın ve içerik ağacını bu ekrandan inceleyin.",
+    "analysis.imageFile": "İmaj Dosyası",
+    "analysis.mount": "Salt-Okunur Bağla",
+    "analysis.unmount": "Bağlantıyı Kaldır",
+    "analysis.status": "Durum",
+    "analysis.noImage": "İmaj seçilmedi",
+    "analysis.outputWaiting": "Klasör ağacı ve bağlama çıktısı burada görüntülenecek.",
+    "analysis.imageRequired": "Önce imaj dosyası seçin.",
+    "analysis.mounted": "Bağlandı: {path}",
+    "analysis.mountedLog": "İmaj salt-okunur bağlandı. İçerik ağacı hazır olduğunda burada gösterilecek.",
+    "analysis.mountPrepared": "İmaj bağlama işlemi hazırlandı.",
+    "analysis.unmounted": "Bağlantı kaldırıldı",
+    "analysis.noActiveMount": "Aktif imaj bağlantısı yok.",
+    "other.title": "Diğer",
+    "other.desc": "Hash işlemleri, kanıt kasası, rapor üretimi ve canlı günlük modülleri.",
+    "other.hash.title": "Hash İşlemleri",
+    "other.hash.desc": "MD5, SHA1, SHA256 ve SHA512 hesaplama.",
+    "other.evidence.title": "Kanıt Kasası",
+    "other.evidence.desc": "Vaka klasörü ve kanıt kasası yönetimi.",
+    "other.reports.title": "Raporlar",
+    "other.reports.desc": "İnceleme notları ve rapor üretimi.",
+    "other.logs.title": "Günlük",
+    "other.logs.desc": "Canlı günlük ve dosyadan yenileme akışı.",
+    "hash.calculator": "Hash Hesaplayıcı",
+    "hash.file": "Dosya",
+    "hash.selectFile": "Dosya seçin",
+    "hash.calculate": "Hesapla",
+    "hash.compare": "Hash Karşılaştır",
+    "hash.value": "Hash Değeri",
+    "hash.placeholder": "Hash değeri girin",
+    "hash.result": "Sonuç",
+    "hash.waiting": "Karşılaştırma bekleniyor",
+    "hash.done": "Hash hesaplama tamamlandı.",
+    "hash.failed": "Hash hesaplama başarısız: {message}",
+    "hash.fullAppRequired": "Uygulama modu gerekli",
+    "hash.compareRequired": "Karşılaştırılacak hash değerini girin.",
+    "hash.matched": "Eşleşti",
+    "hash.notMatched": "Eşleşmedi",
+    "hash.matchedToast": "Hash eşleşti.",
+    "hash.notMatchedToast": "Hash eşleşmedi.",
+    "settings.title": "Ayarlar",
+    "settings.desc": "Tema, dil ve güncelleme kontrolleri.",
+    "settings.appearance": "Görünüm",
+    "settings.appSettings": "Uygulama Ayarları",
+    "settings.persisted": "Tema ve dil tercihi kaydedilir; sayfa yenilendiğinde korunur.",
+    "settings.darkTheme": "Karanlık Tema",
+    "settings.darkHint": "Adli bilişim çalışma ekranları için düşük parlaklık.",
+    "settings.language": "Dil",
+    "settings.languageHint": "Menü dili ve uygulama mesajları.",
+    "settings.detectedSystem": "Algılanan Sistem",
+    "settings.detectedHint": "Yerel işlem filtreleri buna göre çalışır.",
+    "settings.save": "Ayarları Kaydet",
+    "settings.version": "Sürüm",
+    "settings.update": "Güncelleme",
+    "settings.updateDesc": "Kurulum dosyasını platforma göre seçer, indirme ilerlemesini ve release notlarını burada gösterir.",
+    "settings.installed": "Kurulu",
+    "settings.checkUpdate": "Güncellemeyi Kontrol Et",
+    "settings.downloadInstall": "İndir ve Kur",
+    "settings.releaseNotes": "Release notları ve indirme durumu burada görüntülenecek.",
+    "settings.updateChecked": "Güncelleme kontrol edildi",
+    "settings.updateLog": "Kurulu sürüm: {version}<br />Son sürüm bilgisi paketleyici güncelleme komutuna bağlandığında burada gösterilecek.",
+    "settings.updateDone": "Güncelleme kontrolü tamamlandı.",
+    "settings.downloading": "İndiriliyor",
+    "settings.downloadReady": "İndirme hazır",
+    "settings.packageReadyLog": "Paket indirildi. Kurulum adımı paketleyici güncelleme komutuna bağlanacak.",
+    "settings.packageReady": "Güncelleme paketi hazır.",
+    "about.version": "Sürüm {version}",
+    "about.desc": "Worm, yetkili adli bilişim süreçlerinde disk ve RAM edinimi, doğrulama ve raporlama adımlarını tek bir merkezde birleştiren bir denetim aracıdır.",
+    "about.capabilities": "Temel Kabiliyetler",
+    "about.collect.title": "Disk ve RAM",
+    "about.collect.desc": "Windows ve Linux için imaj ve bellek edinimi.",
+    "about.prove.title": "Doğrulama",
+    "about.prove.desc": "Hash üretimi, karşılaştırma ve denetlenebilir loglar.",
+    "about.package.title": "Raporlama",
+    "about.package.desc": "Vaka notları, kanıt kasası ve rapor çıktıları.",
+    "about.usage": "Kullanım İlkesi",
+    "about.usageDesc": "Bu araç yalnızca yetkili adli bilişim süreçlerinde kullanılmalıdır. Edinim, doğrulama ve günlük adımları görünür, denetlenebilir ve raporlanabilir tutulur.",
+    "agent.desc": "Windows ve Linux agent kullanım özetleri.",
+    "agent.windowsNote": "Windows Agent kullanım özeti. Dosyayı Windows üzerinde yönetici olarak çalıştırın ve ana uygulamadaki IP/Port bilgisiyle eşleştirin.",
+    "agent.linuxNote": "Linux Agent kullanım özeti. Çalıştırılabilir izin verin, agentı başlatın ve ana uygulamadaki IP/Port ile bağlanın.",
+    "agent.downloadWin": "Agent indirin: wget -O worm-win.exe https://worm.noirlang.tr/worm-win.exe",
+    "agent.runWin": "Windows'ta worm-win.exe dosyasını yönetici olarak çalıştırın.",
+    "agent.match": "Ana uygulamadaki IP/Port bilgisi ile eşleştirin.",
+    "agent.downloadLinux": "Agent indirin: wget -O worm-linux https://worm.noirlang.tr/worm-linux",
+    "agent.chmod": "Yetki verin: chmod +x worm-linux",
+    "agent.runLinux": "Çalıştırın: ./worm-linux",
+    "agent.connect": "Ana uygulamadaki IP/Port ile bağlantı kurun.",
+    "case.management": "Vaka Yönetimi",
+    "case.name": "Vaka Adı",
+    "case.create": "Vaka Oluştur",
+    "case.notCreated": "Vaka oluşturulmadı",
+    "case.files": "Dosyalar",
+    "case.folder": "Klasör",
+    "case.file": "Dosya",
+    "case.outputs": "Çıktılar / ciktilar",
+    "case.diskImages": "Disk İmajları / disk_imajlari",
+    "case.ram": "RAM / ram",
+    "case.reports": "Raporlar / raporlar",
+    "case.hash": "Hash / hash",
+    "case.notes": "Notlar / notlar",
+    "case.logs": "Günlükler / gunlukler",
+    "case.listFilesPlaceholder": "Dosyaları listeleyin...",
+    "case.listFiles": "Dosyaları Listele",
+    "report.createTitle": "Rapor Oluştur",
+    "report.hint": "Rapor oluşturmak için önce vaka oluşturun ve işlem tamamlayın.",
+    "report.title": "Rapor Başlığı",
+    "report.defaultTitle": "Adli Bilişim Teknik Raporu",
+    "report.format": "Format",
+    "report.note": "Not",
+    "report.notePlaceholder": "Not veya rapor açıklaması girin",
+    "report.addNote": "Not Ekle",
+    "log.live": "Canlı günlük burada da görüntülenir.",
+    "log.refreshFromFile": "Dosyadan Günlüğü Yenile"
   },
   en: {
     "nav.home": "Home",
@@ -70,14 +331,290 @@ const translations = {
     ready: "Ready",
     settingsSaved: "Settings saved.",
     fileRequired: "Select a file first.",
-    platformBlocked: "This local workflow only runs on {platform}."
+    platformBlocked: "This local workflow only runs on {platform}.",
+    unknown: "Unknown",
+    select: "Select",
+    open: "Open",
+    localUnsupported: "Local workflow is unavailable on this system",
+    remoteAgent: "Remote agent",
+    localOperation: "Local operation",
+    targetNotSelected: "No target selected",
+    localCheckWaiting: "Waiting for local check",
+    notConnected: "Not connected",
+    lastActionReady: "Ready",
+    diskNotSelected: "No disk selected",
+    scanDisksFirst: "Scan disks to list targets",
+    imageAcquisition: "Image acquisition",
+    ramAcquisition: "RAM acquisition",
+    acquisitionFailed: "Acquisition failed",
+    "log.appReady": "Application is running in full mode.",
+    "log.previewMode": "Local operations are unavailable in preview mode.",
+    "log.agentProtocol": "Agent protocol is ready.",
+    "log.workflowsReady": "Disk and RAM workflows are ready.",
+    "home.acquire.title": "Acquisition",
+    "home.acquire.desc": "Disk/RAM collection workflows for Windows and Linux.",
+    "home.integrity.title": "Integrity",
+    "home.integrity.desc": "MD5, SHA family, and comparison steps.",
+    "home.evidence.title": "Evidence",
+    "home.evidence.desc": "Case folder and evidence vault management.",
+    "home.output.title": "Output",
+    "home.output.desc": "Review notes and report generation.",
+    "hub.detected": "Detected system: {platform}. Local disk/RAM workflows open only on the matching operating system; remote agent workflows are platform independent.",
+    "hub.windows.title": "Windows Tools",
+    "hub.windows.desc": "Select local/remote disk and RAM acquisition workflows for Windows.",
+    "hub.linux.title": "Linux Tools",
+    "hub.linux.desc": "Select local/remote disk and RAM acquisition workflows for Linux.",
+    "workflow.ip": "IP Address",
+    "workflow.ipPlaceholder": "IP address",
+    "workflow.port": "Port",
+    "workflow.token": "Token",
+    "workflow.tokenPlaceholder": "Security key (approve to activate)",
+    "workflow.approveKey": "Approve Key",
+    "workflow.reset": "Reset",
+    "workflow.networkVpn": "2. Network and VPN",
+    "workflow.useVpn": "Use WireGuard VPN",
+    "workflow.configureVpn": "Configure VPN",
+    "workflow.server": "Server",
+    "workflow.configFile": "Config File",
+    "workflow.saveVpn": "Save VPN",
+    "workflow.connectionOps": "3. Connection Actions",
+    "workflow.connect": "Connect",
+    "workflow.scanDisks": "Scan Disks",
+    "workflow.check": "Check",
+    "workflow.checkTool": "Check {tool}",
+    "workflow.localCheck": "1. Local Check",
+    "workflow.localHint": "{platform} local workflows may require administrator/root privileges. Tool and access checks run before acquisition starts.",
+    "workflow.checkToolAction": "Check {tool}",
+    "workflow.scanLocalDisks": "Scan Local Disks",
+    "workflow.downloadWinpmem": "Download WinPMEM",
+    "workflow.ramOutput": "RAM and Output",
+    "workflow.diskOutput": "Disk and Output",
+    "workflow.outputFile": "Output File",
+    "workflow.outputFolder": "Output Folder",
+    "workflow.tool": "Tool",
+    "workflow.disk": "Disk",
+    "workflow.startRam": "Start RAM Acquisition",
+    "workflow.startImage": "Acquire Image",
+    "workflow.controls": "5. Operation Controls",
+    "workflow.pause": "Pause",
+    "workflow.resume": "Resume",
+    "workflow.stop": "Stop",
+    "workflow.progress": "6. Progress",
+    "workflow.status": "Operation Status",
+    "workflow.platform": "Platform",
+    "workflow.connection": "Connection",
+    "workflow.target": "Target",
+    "workflow.lastAction": "Last action",
+    "workflow.operationRunning": "{operation} running",
+    "workflow.operationStarted": "{operation} started.",
+    "workflow.operationCompleted": "{operation} completed",
+    "workflow.operationCompletedPath": "{operation} completed: {path}",
+    "workflow.operationFailed": "{operation} failed",
+    "workflow.operationFailedDetail": "{operation} failed: {message}",
+    "workflow.outputRequired": "Select an output location.",
+    "workflow.diskRequired": "Select a target disk first.",
+    "workflow.jobIdMissing": "Could not get job id.",
+    "workflow.activeJobMissing": "No active acquisition job.",
+    "workflow.pauseFailed": "Could not send pause command: {message}",
+    "workflow.resumeFailed": "Could not send resume command: {message}",
+    "workflow.stopFailed": "Could not send stop command: {message}",
+    "workflow.controlApplied": "{label} command applied.",
+    "workflow.controlSent": "{label} command sent to agent.",
+    "workflow.pauseLabel": "Pause",
+    "workflow.resumeLabel": "Resume",
+    "workflow.stopLabel": "Stop",
+    "workflow.selectFile": "File selected: {path}",
+    "workflow.filePickerFailed": "File picker could not be opened: {message}",
+    "workflow.filePickerFailedShort": "File picker could not be opened.",
+    "workflow.selectFolder": "Folder selected: {path}",
+    "workflow.folderPickerFailed": "Folder picker could not be opened: {message}",
+    "workflow.folderPickerFailedShort": "Folder picker could not be opened.",
+    "connection.keyApproveFirst": "Approve the security key before using it.",
+    "connection.keyChanged": "The security key changed. Approve it again or reset it.",
+    "connection.connectFirst": "Connect first.",
+    "connection.none": "No connection",
+    "connection.required": "A valid agent connection is required first.",
+    "connection.ipPortRequired": "Enter IP and port.",
+    "connection.invalidPort": "Invalid port.",
+    "connection.remoteOnly": "This workflow does not use a remote connection.",
+    "connection.connecting": "Connecting... (timeout: 10s)",
+    "connection.starting": "Starting connection: {host}",
+    "connection.connected": "Connected - {ip}",
+    "connection.connectedLog": "Connected to remote server: {ip}",
+    "connection.success": "Connection successful. You can now run disk/RAM checks.",
+    "connection.failed": "Connection failed.",
+    "connection.failedLog": "Connection failed: {ip} - {message}",
+    "connection.cannotConnect": "Could not connect to server: {message}",
+    "connection.checked": "{host} checked",
+    "connection.alive": "{host} connected",
+    "connection.toolFailed": "Agent check failed",
+    "connection.disksFailed": "Could not load disks - connection may be lost",
+    "scan.toolDoneLog": "{target} check: {message}",
+    "scan.done": "Check completed.",
+    "scan.failed": "Check failed: {message}",
+    "scan.ramFailedLog": "RAM check failed: {message}",
+    "scan.toolListUpdated": "Tool list updated.",
+    "scan.noDisk": "No disk found",
+    "scan.accessDenied": "no access",
+    "scan.noDiskLog": "No disk found or access is denied.",
+    "scan.diskDoneLog": "Disk list updated.",
+    "scan.diskDone": "Disk scan completed.",
+    "scan.diskFailed": "Disk scan failed: {message}",
+    "scan.diskFailedShort": "Disk scan failed.",
+    "scan.waiting": "Application mode is required to list disks",
+    "scan.appModeRequired": "Disk scan works in application mode.",
+    "scan.completed": "Scan completed.",
+    "vpn.enabled": "VPN enabled.",
+    "vpn.disabled": "VPN disabled.",
+    "vpn.waiting": "VPN configuration pending",
+    "vpn.off": "VPN off",
+    "vpn.opened": "VPN configuration panel opened.",
+    "vpn.endpointRequired": "Enter the VPN server.",
+    "vpn.configured": "VPN configured: {endpoint}",
+    "vpn.ready": "VPN ready",
+    "vpn.saved": "VPN configuration saved.",
+    "key.required": "Enter the security key to approve it.",
+    "key.approved": "Security key approved.",
+    "key.active": "Security key active.",
+    "key.reset": "Security key reset.",
+    "analysis.title": "Image Viewer",
+    "analysis.desc": "Mounts the selected disk image read-only and shows its contents as a folder tree.",
+    "analysis.hint": "Select an image file, mount it read-only, and inspect the content tree here.",
+    "analysis.imageFile": "Image File",
+    "analysis.mount": "Mount Read-Only",
+    "analysis.unmount": "Remove Mount",
+    "analysis.status": "Status",
+    "analysis.noImage": "No image selected",
+    "analysis.outputWaiting": "Folder tree and mount output will appear here.",
+    "analysis.imageRequired": "Select an image file first.",
+    "analysis.mounted": "Mounted: {path}",
+    "analysis.mountedLog": "Image mounted read-only. The content tree will appear here when ready.",
+    "analysis.mountPrepared": "Image mount prepared.",
+    "analysis.unmounted": "Mount removed",
+    "analysis.noActiveMount": "No active image mount.",
+    "other.title": "Other",
+    "other.desc": "Hash operations, evidence vault, report generation, and live log modules.",
+    "other.hash.title": "Hash Operations",
+    "other.hash.desc": "Calculate MD5, SHA1, SHA256, and SHA512.",
+    "other.evidence.title": "Evidence Vault",
+    "other.evidence.desc": "Case folder and evidence vault management.",
+    "other.reports.title": "Reports",
+    "other.reports.desc": "Review notes and report generation.",
+    "other.logs.title": "Log",
+    "other.logs.desc": "Live log and file refresh flow.",
+    "hash.calculator": "Hash Calculator",
+    "hash.file": "File",
+    "hash.selectFile": "Select a file",
+    "hash.calculate": "Calculate",
+    "hash.compare": "Compare Hash",
+    "hash.value": "Hash Value",
+    "hash.placeholder": "Enter hash value",
+    "hash.result": "Result",
+    "hash.waiting": "Waiting for comparison",
+    "hash.done": "Hash calculation completed.",
+    "hash.failed": "Hash calculation failed: {message}",
+    "hash.fullAppRequired": "Application mode required",
+    "hash.compareRequired": "Enter the hash value to compare.",
+    "hash.matched": "Matched",
+    "hash.notMatched": "Not matched",
+    "hash.matchedToast": "Hash matched.",
+    "hash.notMatchedToast": "Hash did not match.",
+    "settings.title": "Settings",
+    "settings.desc": "Theme, language, and update controls.",
+    "settings.appearance": "Appearance",
+    "settings.appSettings": "Application Settings",
+    "settings.persisted": "Theme and language preferences are saved and restored on reload.",
+    "settings.darkTheme": "Dark Theme",
+    "settings.darkHint": "Lower brightness for forensic work screens.",
+    "settings.language": "Language",
+    "settings.languageHint": "Menu language and application messages.",
+    "settings.detectedSystem": "Detected System",
+    "settings.detectedHint": "Local workflow filters use this value.",
+    "settings.save": "Save Settings",
+    "settings.version": "Version",
+    "settings.update": "Update",
+    "settings.updateDesc": "Selects the installer for the platform and shows download progress and release notes here.",
+    "settings.installed": "Installed",
+    "settings.checkUpdate": "Check for Updates",
+    "settings.downloadInstall": "Download and Install",
+    "settings.releaseNotes": "Release notes and download status will appear here.",
+    "settings.updateChecked": "Update checked",
+    "settings.updateLog": "Installed version: {version}<br />Latest version information will appear here when the updater command is connected.",
+    "settings.updateDone": "Update check completed.",
+    "settings.downloading": "Downloading",
+    "settings.downloadReady": "Download ready",
+    "settings.packageReadyLog": "Package downloaded. Installation will be connected to the updater command.",
+    "settings.packageReady": "Update package ready.",
+    "about.version": "Version {version}",
+    "about.desc": "Worm is an audit tool that brings disk/RAM acquisition, verification, and reporting steps into one place for authorized forensic workflows.",
+    "about.capabilities": "Core Capabilities",
+    "about.collect.title": "Disk and RAM",
+    "about.collect.desc": "Image and memory acquisition for Windows and Linux.",
+    "about.prove.title": "Verification",
+    "about.prove.desc": "Hash generation, comparison, and auditable logs.",
+    "about.package.title": "Reporting",
+    "about.package.desc": "Case notes, evidence vault, and report outputs.",
+    "about.usage": "Use Policy",
+    "about.usageDesc": "This tool should be used only in authorized forensic workflows. Acquisition, verification, and log steps remain visible, auditable, and reportable.",
+    "agent.desc": "Windows and Linux agent usage summaries.",
+    "agent.windowsNote": "Windows Agent summary. Run the file as Administrator on Windows and match it with the IP/Port in the main application.",
+    "agent.linuxNote": "Linux Agent summary. Make it executable, start the agent, and connect from the main application using IP/Port.",
+    "agent.downloadWin": "Download agent: wget -O worm-win.exe https://worm.noirlang.tr/worm-win.exe",
+    "agent.runWin": "Run worm-win.exe as Administrator on Windows.",
+    "agent.match": "Match it with the IP/Port shown in the main application.",
+    "agent.downloadLinux": "Download agent: wget -O worm-linux https://worm.noirlang.tr/worm-linux",
+    "agent.chmod": "Make it executable: chmod +x worm-linux",
+    "agent.runLinux": "Run: ./worm-linux",
+    "agent.connect": "Connect using the IP/Port from the main application.",
+    "case.management": "Case Management",
+    "case.name": "Case Name",
+    "case.create": "Create Case",
+    "case.notCreated": "No case created",
+    "case.files": "Files",
+    "case.folder": "Folder",
+    "case.file": "File",
+    "case.outputs": "Outputs / ciktilar",
+    "case.diskImages": "Disk Images / disk_imajlari",
+    "case.ram": "RAM / ram",
+    "case.reports": "Reports / raporlar",
+    "case.hash": "Hash / hash",
+    "case.notes": "Notes / notlar",
+    "case.logs": "Logs / gunlukler",
+    "case.listFilesPlaceholder": "List files...",
+    "case.listFiles": "List Files",
+    "report.createTitle": "Create Report",
+    "report.hint": "Create a case and finish an operation before generating a report.",
+    "report.title": "Report Title",
+    "report.defaultTitle": "Forensic Technical Report",
+    "report.format": "Format",
+    "report.note": "Note",
+    "report.notePlaceholder": "Enter a note or report description",
+    "report.addNote": "Add Note",
+    "log.live": "Live log is also shown here.",
+    "log.refreshFromFile": "Refresh Log From File"
   }
 };
+
+function translate(language, key, vars = {}) {
+  let value = translations[language]?.[key] || translations.tr[key] || key;
+  for (const [name, replacement] of Object.entries(vars)) {
+    value = value.replaceAll(`{${name}}`, replacement);
+  }
+  return value;
+}
+
+function initialLogMessages(language) {
+  return [
+    translate(language, backendAvailable ? "log.appReady" : "log.previewMode"),
+    translate(language, "log.agentProtocol"),
+    translate(language, "log.workflowsReady")
+  ];
+}
 
 const state = {
   route: new URLSearchParams(window.location.search).get("route") || "home",
   theme: localStorage.getItem("worm-theme") || "dark",
-  language: localStorage.getItem("worm-language") || "tr",
+  language: preferredLanguage,
   platform: detectPlatform(),
   files: {},
   activeTab: "hash",
@@ -85,11 +622,7 @@ const state = {
   remoteConnections: {},
   activeAcquisition: null,
   jobs: {},
-  lastLog: [
-    backendAvailable ? "Rust backend bağlantısı hazır." : "Rust backend için uygulamayı cargo run -- ui ile açın.",
-    "Agent protokolü: JSON-over-TCP uyumlu.",
-    "UI işlemleri Rust çekirdek API uçlarına bağlandı."
-  ]
+  lastLog: initialLogMessages(preferredLanguage)
 };
 
 function detectPlatform() {
@@ -103,9 +636,16 @@ function detectPlatform() {
 }
 
 function t(key, vars = {}) {
-  let value = translations[state.language]?.[key] || translations.tr[key] || key;
-  for (const [name, replacement] of Object.entries(vars)) {
-    value = value.replace(`{${name}}`, replacement);
+  return translate(state.language, key, vars);
+}
+
+function L(tr, en) {
+  return { tr, en };
+}
+
+function localText(value) {
+  if (value && typeof value === "object" && "tr" in value) {
+    return value[state.language] || value.tr;
   }
   return value;
 }
@@ -114,69 +654,69 @@ const toolCards = {
   windows: [
     {
       id: "windows-remote-disk",
-      title: "Uzak Disk İmajı",
-      desc: "Windows agent üzerinden PhysicalDrive imajı alın.",
+      title: L("Uzak Disk İmajı", "Remote Disk Image"),
+      desc: L("Windows agent üzerinden PhysicalDrive imajı alın.", "Acquire a PhysicalDrive image through the Windows agent."),
       icon: "disk",
       accent: "var(--green)",
       badge: "Agent + raw stream"
     },
     {
       id: "windows-local-disk",
-      title: "Yerel Disk İmajı",
-      desc: "Bu makinedeki Windows disklerinden ham imaj üretin.",
+      title: L("Yerel Disk İmajı", "Local Disk Image"),
+      desc: L("Bu makinedeki Windows disklerinden ham imaj üretin.", "Create a raw image from Windows disks on this machine."),
       icon: "windows",
       accent: "var(--blue)",
       badge: "PhysicalDrive"
     },
     {
       id: "windows-remote-ram",
-      title: "Uzak RAM",
-      desc: "WinPMEM ile uzak Windows RAM edinimi başlatın ve indirin.",
+      title: L("Uzak RAM", "Remote RAM"),
+      desc: L("WinPMEM ile uzak Windows RAM edinimi başlatın ve indirin.", "Start and download remote Windows RAM acquisition with WinPMEM."),
       icon: "ram",
       accent: "var(--purple)",
       badge: "WinPMEM remote"
     },
     {
       id: "windows-local-ram",
-      title: "Yerel RAM",
-      desc: "Yerel WinPMEM kontrolü, indirme ve RAM imajı alma.",
+      title: L("Yerel RAM", "Local RAM"),
+      desc: L("Yerel WinPMEM kontrolü, indirme ve RAM imajı alma.", "Check local WinPMEM, download if needed, and acquire RAM."),
       icon: "chip",
       accent: "var(--amber)",
-      badge: "Admin required"
+      badge: L("Yönetici gerekli", "Admin required")
     }
   ],
   linux: [
     {
       id: "linux-remote-disk",
-      title: "Uzak Disk İmajı",
-      desc: "Linux agent üzerinden /dev disklerinden ham imaj alın.",
+      title: L("Uzak Disk İmajı", "Remote Disk Image"),
+      desc: L("Linux agent üzerinden /dev disklerinden ham imaj alın.", "Acquire raw images from /dev disks through the Linux agent."),
       icon: "disk",
       accent: "var(--green)",
       badge: "Agent + /dev"
     },
     {
       id: "linux-local-disk",
-      title: "Yerel Disk İmajı",
-      desc: "Yerel Linux diskleri için root yetkili imaj alma akışı.",
+      title: L("Yerel Disk İmajı", "Local Disk Image"),
+      desc: L("Yerel Linux diskleri için root yetkili imaj alma akışı.", "Root-level acquisition workflow for local Linux disks."),
       icon: "linux",
       accent: "var(--blue)",
       badge: "BLKGETSIZE64"
     },
     {
       id: "linux-remote-ram",
-      title: "Uzak RAM",
-      desc: "AVML ile uzak Linux RAM edinimi ve dosya indirme.",
+      title: L("Uzak RAM", "Remote RAM"),
+      desc: L("AVML ile uzak Linux RAM edinimi ve dosya indirme.", "Acquire remote Linux RAM with AVML and download the dump file."),
       icon: "ram",
       accent: "var(--purple)",
       badge: "AVML remote"
     },
     {
       id: "linux-local-ram",
-      title: "Yerel RAM",
-      desc: "AVML varlık/yetki kontrolü ve yerel RAM dump üretimi.",
+      title: L("Yerel RAM", "Local RAM"),
+      desc: L("AVML varlık/yetki kontrolü ve yerel RAM dump üretimi.", "Check AVML availability/privileges and create a local RAM dump."),
       icon: "chip",
       accent: "var(--amber)",
-      badge: "Root required"
+      badge: L("Root gerekli", "Root required")
     }
   ]
 };
@@ -185,44 +725,44 @@ const workflows = {
   "windows-remote-disk": {
     platform: "Windows",
     icon: "windows",
-    title: "Uzak Windows Sunucu Bağlantısı",
-    desc: "Uzak Windows sistemlerine güvenli bağlantı kurun ve disk imajı alın.",
+    title: L("Uzak Windows Sunucu Bağlantısı", "Remote Windows Server Connection"),
+    desc: L("Uzak Windows sistemlerine güvenli bağlantı kurun ve disk imajı alın.", "Connect securely to remote Windows systems and acquire disk images."),
     mode: "remote-disk",
     output: "/home/raodrin/Worm/Ciktilar",
-    diskLabel: "Disk seçilmedi"
+    diskLabel: L("Disk seçilmedi", "No disk selected")
   },
   "linux-remote-disk": {
     platform: "Linux",
     icon: "linux",
-    title: "Uzak Linux Disk Bağlantısı",
-    desc: "Linux agent ile uzak /dev disklerini listeleyin ve raw imaj alın.",
+    title: L("Uzak Linux Disk Bağlantısı", "Remote Linux Disk Connection"),
+    desc: L("Linux agent ile uzak /dev disklerini listeleyin ve raw imaj alın.", "List remote /dev disks through the Linux agent and acquire raw images."),
     mode: "remote-disk",
     output: "/home/raodrin/Worm/Ciktilar",
-    diskLabel: "Disk seçilmedi"
+    diskLabel: L("Disk seçilmedi", "No disk selected")
   },
   "windows-local-disk": {
     platform: "Windows",
     icon: "windows",
-    title: "Windows Yerel Disk İmajı",
-    desc: "Yerel PhysicalDrive kaynaklarından ham imaj alma akışı.",
+    title: L("Windows Yerel Disk İmajı", "Windows Local Disk Image"),
+    desc: L("Yerel PhysicalDrive kaynaklarından ham imaj alma akışı.", "Raw image acquisition workflow for local PhysicalDrive sources."),
     mode: "local-disk",
     output: "C:\\Worm\\Ciktilar",
-    diskLabel: "Disk seçilmedi"
+    diskLabel: L("Disk seçilmedi", "No disk selected")
   },
   "linux-local-disk": {
     platform: "Linux",
     icon: "linux",
-    title: "Linux Yerel Disk İmajı",
-    desc: "Yerel Linux blok cihazlarından imaj alma akışı.",
+    title: L("Linux Yerel Disk İmajı", "Linux Local Disk Image"),
+    desc: L("Yerel Linux blok cihazlarından imaj alma akışı.", "Image acquisition workflow for local Linux block devices."),
     mode: "local-disk",
     output: "/home/raodrin/Worm/Ciktilar",
-    diskLabel: "Disk seçilmedi"
+    diskLabel: L("Disk seçilmedi", "No disk selected")
   },
   "windows-remote-ram": {
     platform: "Windows",
     icon: "ram",
-    title: "Windows Uzak RAM Edinimi",
-    desc: "WinPMEM durumunu kontrol edin, uzak RAM edinimini başlatın ve dump dosyasını indirin.",
+    title: L("Windows Uzak RAM Edinimi", "Windows Remote RAM Acquisition"),
+    desc: L("WinPMEM durumunu kontrol edin, uzak RAM edinimini başlatın ve dump dosyasını indirin.", "Check WinPMEM, start remote RAM acquisition, and download the dump file."),
     mode: "remote-ram",
     output: "memory_dump.raw",
     diskLabel: "WinPMEM"
@@ -230,8 +770,8 @@ const workflows = {
   "linux-remote-ram": {
     platform: "Linux",
     icon: "ram",
-    title: "Linux Uzak RAM Edinimi",
-    desc: "AVML durumunu kontrol edin, uzak RAM edinimini başlatın ve dump dosyasını indirin.",
+    title: L("Linux Uzak RAM Edinimi", "Linux Remote RAM Acquisition"),
+    desc: L("AVML durumunu kontrol edin, uzak RAM edinimini başlatın ve dump dosyasını indirin.", "Check AVML, start remote RAM acquisition, and download the dump file."),
     mode: "remote-ram",
     output: "memory_dump_linux.raw",
     diskLabel: "AVML"
@@ -239,20 +779,20 @@ const workflows = {
   "windows-local-ram": {
     platform: "Windows",
     icon: "chip",
-    title: "Windows Yerel RAM Edinimi",
-    desc: "Yerel WinPMEM kontrolü, gerekirse indirme ve RAM imajı alma.",
+    title: L("Windows Yerel RAM Edinimi", "Windows Local RAM Acquisition"),
+    desc: L("Yerel WinPMEM kontrolü, gerekirse indirme ve RAM imajı alma.", "Check local WinPMEM, download if needed, and acquire a RAM image."),
     mode: "local-ram",
     output: "memory_dump_local.raw",
-    diskLabel: "WinPMEM local"
+    diskLabel: L("WinPMEM local", "Local WinPMEM")
   },
   "linux-local-ram": {
     platform: "Linux",
     icon: "chip",
-    title: "Linux Yerel RAM Edinimi",
-    desc: "Yerel AVML kontrolü ve root yetkili RAM imajı alma.",
+    title: L("Linux Yerel RAM Edinimi", "Linux Local RAM Acquisition"),
+    desc: L("Yerel AVML kontrolü ve root yetkili RAM imajı alma.", "Check local AVML and acquire RAM with root privileges."),
     mode: "local-ram",
     output: "linux_memory_dump.raw",
-    diskLabel: "AVML local"
+    diskLabel: L("AVML local", "Local AVML")
   }
 };
 
@@ -336,10 +876,10 @@ function homePage() {
       </div>
 
       <div class="home-grid">
-        ${homeTile("Edinim", "Windows ve Linux için disk/RAM toplama akışları.", "ACQUIRE", "disk", "windows", "var(--green)")}
-        ${homeTile("Bütünlük", "MD5, SHA ailesi ve karşılaştırma adımları.", "VERIFY", "shield", "other", "var(--green)")}
-        ${homeTile("Kanıt", "Vaka klasörü ve kanıt kasası yönetimi.", "CASE", "scale", "other", "var(--purple)")}
-        ${homeTile("Çıktı", "İnceleme notları ve rapor üretimi.", "REPORT", "report", "other", "var(--blue)")}
+        ${homeTile(t("home.acquire.title"), t("home.acquire.desc"), "ACQUIRE", "disk", "windows", "var(--green)")}
+        ${homeTile(t("home.integrity.title"), t("home.integrity.desc"), "VERIFY", "shield", "other", "var(--green)")}
+        ${homeTile(t("home.evidence.title"), t("home.evidence.desc"), "CASE", "scale", "other", "var(--purple)")}
+        ${homeTile(t("home.output.title"), t("home.output.desc"), "REPORT", "report", "other", "var(--blue)")}
       </div>
     </section>
   `;
@@ -377,9 +917,9 @@ function toolHub(platform) {
         return `
         <button class="forensic-card ${blocked ? "is-disabled" : ""}" data-route="workflow:${card.id}" style="--accent:${card.accent}" ${blocked ? `aria-disabled="true" data-disabled-reason="${workflow.platform}"` : ""}>
           <span class="card-icon">${icon(card.icon)}</span>
-          <h3>${card.title}</h3>
-          <p>${card.desc}</p>
-          <span class="meta">${blocked ? "Bu sistemde yerel çalışmaz" : card.badge}</span>
+          <h3>${localText(card.title)}</h3>
+          <p>${localText(card.desc)}</p>
+          <span class="meta">${blocked ? t("localUnsupported") : localText(card.badge)}</span>
         </button>
       `;
       }
@@ -390,13 +930,11 @@ function toolHub(platform) {
   return `
     <section class="page">
       <div class="platform-note">
-        ${icon("monitor")} Algılanan sistem: <strong>${platformLabel(state.platform)}</strong>. Yerel disk/RAM işlemleri sadece aynı işletim sisteminde açılır; uzak agent akışları platform bağımsızdır.
+        ${icon("monitor")} ${t("hub.detected", { platform: `<strong>${platformLabel(state.platform)}</strong>` })}
       </div>
       ${pageTitle(
-        isWindows ? "Windows Araçları" : "Linux Araçları",
-        isWindows
-          ? "Windows yerel/uzak disk ve RAM edinim akışlarını seçin."
-          : "Linux yerel/uzak disk ve RAM edinim akışlarını seçin.",
+        t(isWindows ? "hub.windows.title" : "hub.linux.title"),
+        t(isWindows ? "hub.windows.desc" : "hub.linux.desc"),
         isWindows ? "windows" : "linux"
       )}
       <div class="tool-grid">${cards}</div>
@@ -408,7 +946,7 @@ function platformLabel(platform) {
   if (platform === "windows") return "Windows";
   if (platform === "linux") return "Linux";
   if (platform === "mac") return "macOS";
-  return "Bilinmiyor";
+  return t("unknown");
 }
 
 function workflowPage(id) {
@@ -416,10 +954,10 @@ function workflowPage(id) {
   const isRemote = data.mode.startsWith("remote");
   const isRam = data.mode.includes("ram");
   const toolCheck = data.platform === "Windows" ? "WinPMEM" : "AVML";
-  const initialTarget = isRam ? data.diskLabel : "";
-  const initialTargetLabel = isRam ? data.diskLabel : "Diskleri tara ile listeleyin";
+  const initialTarget = isRam ? localText(data.diskLabel) : "";
+  const initialTargetLabel = isRam ? localText(data.diskLabel) : t("scanDisksFirst");
   const outputField = pickerField(
-    isRam ? "Çıktı Dosyası" : "Çıktı Klasörü",
+    isRam ? t("workflow.outputFile") : t("workflow.outputFolder"),
     "workflow-output",
     data.output,
     isRam ? "file" : "folder"
@@ -429,77 +967,77 @@ function workflowPage(id) {
     <section class="page">
       <div class="workflow-layout">
         <div class="workflow-panel">
-          ${pageTitle(data.title, data.desc, data.icon)}
+          ${pageTitle(localText(data.title), localText(data.desc), data.icon)}
           <div class="form-grid">
             ${
               isRemote
                 ? `
-                  ${field("IP Adresi", '<input class="input" data-field="ip" placeholder="IP adresi" value="" />')}
-                  ${field("Port", '<input class="input" data-field="port" value="4444" />')}
-                  ${field("Token", '<input class="input" data-field="token" placeholder="Güvenlik anahtarı (Onayla ile aktif olur)" />')}
+                  ${field(t("workflow.ip"), `<input class="input" data-field="ip" placeholder="${t("workflow.ipPlaceholder")}" value="" />`)}
+                  ${field(t("workflow.port"), '<input class="input" data-field="port" value="4444" />')}
+                  ${field(t("workflow.token"), `<input class="input" data-field="token" placeholder="${t("workflow.tokenPlaceholder")}" />`)}
                   <div class="button-row">
-                    <button class="secondary-button" data-action="approve-key">${icon("key")} Anahtarı Onayla</button>
-                    <button class="secondary-button" data-action="reset-key">${icon("refresh")} Sıfırla</button>
+                    <button class="secondary-button" data-action="approve-key">${icon("key")} ${t("workflow.approveKey")}</button>
+                    <button class="secondary-button" data-action="reset-key">${icon("refresh")} ${t("workflow.reset")}</button>
                   </div>
                   <div class="section-divider"></div>
-                  <p class="section-label">2. Ağ ve VPN</p>
+                  <p class="section-label">${t("workflow.networkVpn")}</p>
                   <div class="toggle-row">
-                    <span>WireGuard VPN Kullan</span>
-                    <button class="switch" data-action="toggle-vpn" aria-label="VPN kullan"></button>
+                    <span>${t("workflow.useVpn")}</span>
+                    <button class="switch" data-action="toggle-vpn" aria-label="${t("workflow.useVpn")}"></button>
                   </div>
-                  <button class="secondary-button" data-action="vpn-config">${icon("settings")} VPN Yapılandır</button>
+                  <button class="secondary-button" data-action="vpn-config">${icon("settings")} ${t("workflow.configureVpn")}</button>
                   <div class="vpn-panel" hidden>
-                    ${field("Sunucu", '<input class="input" data-field="vpn-endpoint" placeholder="10.0.0.1:51820" />')}
+                    ${field(t("workflow.server"), '<input class="input" data-field="vpn-endpoint" placeholder="10.0.0.1:51820" />')}
                     ${field("Allowed IPs", '<input class="input" data-field="vpn-allowed" value="0.0.0.0/0" />')}
-                    ${pickerField("Config Dosyası", "vpn-config-file", "wireguard.conf", "file")}
+                    ${pickerField(t("workflow.configFile"), "vpn-config-file", "wireguard.conf", "file")}
                     <div class="button-row">
-                      <button class="primary-button" data-action="save-vpn">${icon("shield")} VPN Kaydet</button>
+                      <button class="primary-button" data-action="save-vpn">${icon("shield")} ${t("workflow.saveVpn")}</button>
                     </div>
                   </div>
                   <div class="section-divider"></div>
-                  <p class="section-label">3. Bağlantı İşlemleri</p>
+                  <p class="section-label">${t("workflow.connectionOps")}</p>
                   <div class="button-row">
-                    <button class="primary-button" data-action="connect">${icon("network")} Bağlan</button>
-                    <button class="secondary-button" data-action="scan">${icon(isRam ? "chip" : "disk")} ${isRam ? `${toolCheck} Kontrol` : "Diskleri Tara"}</button>
+                    <button class="primary-button" data-action="connect">${icon("network")} ${t("workflow.connect")}</button>
+                    <button class="secondary-button" data-action="scan">${icon(isRam ? "chip" : "disk")} ${isRam ? t("workflow.checkTool", { tool: toolCheck }) : t("workflow.scanDisks")}</button>
                   </div>
                 `
                 : `
-                  <p class="section-label">1. Yerel Kontrol</p>
-                  <p class="field-hint">${data.platform} yerel akışında yönetici/root yetkisi gerekebilir. İşlem başlamadan önce araç ve erişim kontrolü yapılır.</p>
+                  <p class="section-label">${t("workflow.localCheck")}</p>
+                  <p class="field-hint">${t("workflow.localHint", { platform: data.platform })}</p>
                   <div class="button-row">
-                    <button class="primary-button" data-action="scan">${icon(isRam ? "chip" : "disk")} ${isRam ? `${toolCheck} Kontrol Et` : "Yerel Diskleri Tara"}</button>
-                    ${isRam && data.platform === "Windows" ? `<button class="secondary-button" data-action="download">${icon("refresh")} WinPMEM İndir</button>` : ""}
+                    <button class="primary-button" data-action="scan">${icon(isRam ? "chip" : "disk")} ${isRam ? t("workflow.checkToolAction", { tool: toolCheck }) : t("workflow.scanLocalDisks")}</button>
+                    ${isRam && data.platform === "Windows" ? `<button class="secondary-button" data-action="download">${icon("refresh")} ${t("workflow.downloadWinpmem")}</button>` : ""}
                   </div>
                 `
             }
 
             <div class="section-divider"></div>
-            <p class="section-label">4. ${isRam ? "RAM ve Çıktı" : "Disk ve Çıktı"}</p>
-            ${field(isRam ? "Araç" : "Disk", `<select class="select" data-field="target"><option value="${initialTarget}" ${isRam ? "" : "disabled selected"}>${initialTargetLabel}</option></select>`)}
+            <p class="section-label">4. ${isRam ? t("workflow.ramOutput") : t("workflow.diskOutput")}</p>
+            ${field(isRam ? t("workflow.tool") : t("workflow.disk"), `<select class="select" data-field="target"><option value="${initialTarget}" ${isRam ? "" : "disabled selected"}>${initialTargetLabel}</option></select>`)}
             ${outputField}
-            <button class="primary-button" data-action="start">${icon(isRam ? "ram" : "disk")} ${isRam ? "RAM Edinimini Başlat" : "İmaj Al"}</button>
+            <button class="primary-button" data-action="start">${icon(isRam ? "ram" : "disk")} ${isRam ? t("workflow.startRam") : t("workflow.startImage")}</button>
 
             <div class="section-divider"></div>
-            <p class="section-label">5. İşlem Kontrolleri</p>
+            <p class="section-label">${t("workflow.controls")}</p>
             <div class="button-row">
-              <button class="secondary-button" data-action="pause">${icon("pause")} Duraklat</button>
-              <button class="secondary-button" data-action="resume">${icon("play")} Devam</button>
-              <button class="danger-button" data-action="stop">${icon("stop")} Durdur</button>
+              <button class="secondary-button" data-action="pause">${icon("pause")} ${t("workflow.pause")}</button>
+              <button class="secondary-button" data-action="resume">${icon("play")} ${t("workflow.resume")}</button>
+              <button class="danger-button" data-action="stop">${icon("stop")} ${t("workflow.stop")}</button>
             </div>
 
             <div class="section-divider"></div>
-            <p class="section-label">6. İlerleme Durumu</p>
+            <p class="section-label">${t("workflow.progress")}</p>
             <div class="progress-bar" data-progress style="--value:0%"><span></span><b>0%</b></div>
             <div class="log-box" id="workflow-log">${state.lastLog.map((line) => `• ${line}`).join("<br />")}</div>
           </div>
         </div>
 
         <aside class="side-panel">
-          <h3>İşlem Durumu</h3>
-          ${sideInfo("Platform", `${data.platform} • ${isRemote ? "Uzak agent" : "Yerel işlem"}`, data.icon)}
-          ${sideInfo("Bağlantı", isRemote ? "Henüz bağlanmadı" : "Yerel kontrol bekleniyor", "monitor", "connection")}
-          ${sideInfo(isRam ? "Araç" : "Hedef", initialTarget || "Hedef seçilmedi", isRam ? "chip" : "disk", "target")}
-          ${sideInfo("Son işlem", "Hazır", "clock", "last-action")}
+          <h3>${t("workflow.status")}</h3>
+          ${sideInfo(t("workflow.platform"), `${data.platform} • ${isRemote ? t("remoteAgent") : t("localOperation")}`, data.icon)}
+          ${sideInfo(t("workflow.connection"), isRemote ? t("notConnected") : t("localCheckWaiting"), "monitor", "connection")}
+          ${sideInfo(isRam ? t("workflow.tool") : t("workflow.target"), initialTarget || t("targetNotSelected"), isRam ? "chip" : "disk", "target")}
+          ${sideInfo(t("workflow.lastAction"), t("lastActionReady"), "clock", "last-action")}
         </aside>
       </div>
     </section>
@@ -529,11 +1067,11 @@ function field(label, control) {
 
 function pickerField(label, id, value, type = "file") {
   const action = type === "folder" ? "pick-folder" : "pick-file";
-  const placeholderOnly = value.startsWith(".") || value.toLowerCase().includes("seç");
+  const placeholderOnly = value.startsWith(".") || value.toLowerCase().includes("seç") || value.toLowerCase().includes("select");
   const valueAttr = placeholderOnly ? `placeholder="${value}" value=""` : `value="${value}"`;
   return field(
     label,
-    `<div class="input-action"><input id="${id}" class="input" ${valueAttr} data-picker-target /><button class="secondary-button" data-action="${action}" data-target="#${id}">${icon(type === "folder" ? "folder" : "search")} Seç</button></div>`
+    `<div class="input-action"><input id="${id}" class="input" ${valueAttr} data-picker-target /><button class="secondary-button" data-action="${action}" data-target="#${id}">${icon(type === "folder" ? "folder" : "search")} ${t("select")}</button></div>`
   );
 }
 
@@ -549,24 +1087,24 @@ function sideInfo(title, body, iconName, key = "") {
 function agentPage() {
   return `
     <section class="page">
-      ${pageTitle("Agent", "Orijinal Worm agent sayfalarındaki Windows ve Linux kullanım özetleri modern dokümantasyon kartları olarak taşındı.", "network")}
+      ${pageTitle("Agent", t("agent.desc"), "network")}
       <div class="doc-grid">
         ${agentDoc({
           title: "Windows Agent",
           repo: "https://github.com/noirlang/worm-win",
           binary: "worm-win.exe",
           url: "https://worm.noirlang.tr/worm-win.exe",
-          note: "Windows Agent kullanım özeti. Dosyayı Windows üzerinde yönetici olarak çalıştırın ve ana uygulamadaki IP/Port bilgisiyle eşleştirin.",
+          note: t("agent.windowsNote"),
           iconName: "windows",
           stepsTr: [
-            "Agent indirin: wget -O worm-win.exe https://worm.noirlang.tr/worm-win.exe",
-            "Windows'ta worm-win.exe dosyasını yönetici olarak çalıştırın.",
-            "Ana uygulamadaki IP/Port bilgisi ile eşleştirin."
+            t("agent.downloadWin"),
+            t("agent.runWin"),
+            t("agent.match")
           ],
           stepsEn: [
-            "Download agent: wget -O worm-win.exe https://worm.noirlang.tr/worm-win.exe",
-            "Run worm-win.exe as Administrator on Windows.",
-            "Match IP/Port values with the main Worm application."
+            t("agent.downloadWin"),
+            t("agent.runWin"),
+            t("agent.match")
           ]
         })}
         ${agentDoc({
@@ -574,19 +1112,19 @@ function agentPage() {
           repo: "https://github.com/noirlang/worm-linux",
           binary: "worm-linux",
           url: "https://worm.noirlang.tr/worm-linux",
-          note: "Linux Agent kullanım özeti. Çalıştırılabilir izin verin, agentı başlatın ve ana uygulamadaki IP/Port ile bağlanın.",
+          note: t("agent.linuxNote"),
           iconName: "linux",
           stepsTr: [
-            "Agent indirin: wget -O worm-linux https://worm.noirlang.tr/worm-linux",
-            "Yetki verin: chmod +x worm-linux",
-            "Çalıştırın: ./worm-linux",
-            "Ana uygulamadaki IP/Port ile bağlantı kurun."
+            t("agent.downloadLinux"),
+            t("agent.chmod"),
+            t("agent.runLinux"),
+            t("agent.connect")
           ],
           stepsEn: [
-            "Download agent: wget -O worm-linux https://worm.noirlang.tr/worm-linux",
-            "Make it executable: chmod +x worm-linux",
-            "Run: ./worm-linux",
-            "Connect using the same IP/Port from the main Worm app."
+            t("agent.downloadLinux"),
+            t("agent.chmod"),
+            t("agent.runLinux"),
+            t("agent.connect")
           ]
         })}
       </div>
@@ -597,7 +1135,8 @@ function agentPage() {
 function agentDoc({ title, repo, binary, url, note, iconName, stepsTr, stepsEn }) {
   const commands = iconName === "linux"
     ? `wget -O ${binary} ${url}\nchmod +x ${binary}\n./${binary}`
-    : `wget -O ${binary} ${url}\n${binary} dosyasını yönetici olarak çalıştırın.`;
+    : `wget -O ${binary} ${url}\n${state.language === "en" ? `Run ${binary} as Administrator.` : `${binary} dosyasını yönetici olarak çalıştırın.`}`;
+  const steps = state.language === "en" ? stepsEn : stepsTr;
   return `
     <article class="doc-card">
       <span class="card-icon">${icon(iconName)}</span>
@@ -607,13 +1146,8 @@ function agentDoc({ title, repo, binary, url, note, iconName, stepsTr, stepsEn }
         <a href="${repo}">${repo}</a>
         <a href="${url}">${url}</a>
       </div>
-      <p class="section-label">TR</p>
       <ol class="step-list">
-        ${stepsTr.map((step, index) => `<li><b>${index + 1}</b><span>${step}</span></li>`).join("")}
-      </ol>
-      <p class="section-label" style="margin-top:18px">EN</p>
-      <ol class="step-list">
-        ${stepsEn.map((step, index) => `<li><b>${index + 1}</b><span>${step}</span></li>`).join("")}
+        ${steps.map((step, index) => `<li><b>${index + 1}</b><span>${step}</span></li>`).join("")}
       </ol>
       <div class="code-box">${commands}</div>
     </article>
@@ -623,21 +1157,21 @@ function agentDoc({ title, repo, binary, url, note, iconName, stepsTr, stepsEn }
 function analysisPage() {
   return `
     <section class="page">
-      ${pageTitle("İmaj Görüntüleme", "Seçilen disk imajını salt-okunur olarak bağlar ve içeriğini klasör ağacında gösterir.", "search")}
+      ${pageTitle(t("analysis.title"), t("analysis.desc"), "search")}
       <div class="workflow-panel">
-        <p class="section-label">İmaj Görüntüleme</p>
-        <p class="field-hint">İmaj dosyasını seçin, salt-okunur bağlayın ve içerik ağacını bu ekrandan inceleyin.</p>
-        ${pickerField("İmaj Dosyası", "image-path", ".img, .dd, .raw, .iso ...", "file")}
+        <p class="section-label">${t("analysis.title")}</p>
+        <p class="field-hint">${t("analysis.hint")}</p>
+        ${pickerField(t("analysis.imageFile"), "image-path", ".img, .dd, .raw, .iso ...", "file")}
         <div class="button-row">
-          <button class="primary-button" data-action="mount-readonly">${icon("disk")} Salt-Okunur Bağla</button>
-          <button class="danger-button" data-action="unmount-image">${icon("stop")} Bağlantıyı Kaldır</button>
+          <button class="primary-button" data-action="mount-readonly">${icon("disk")} ${t("analysis.mount")}</button>
+          <button class="danger-button" data-action="unmount-image">${icon("stop")} ${t("analysis.unmount")}</button>
         </div>
         <div class="section-divider"></div>
         <div class="side-info">
           <span class="metric-icon">${icon("info")}</span>
-          <span><strong>Durum</strong><small>İmaj seçilmedi</small></span>
+          <span><strong>${t("analysis.status")}</strong><small>${t("analysis.noImage")}</small></span>
         </div>
-        <div class="log-box">Klasör ağacı ve bağlama çıktısı burada görüntülenecek.</div>
+        <div class="log-box">${t("analysis.outputWaiting")}</div>
       </div>
     </section>
   `;
@@ -646,12 +1180,12 @@ function analysisPage() {
 function otherPage() {
   return `
     <section class="page">
-      ${pageTitle("Diğer", "Hash işlemleri, kanıt kasası, rapor üretimi ve canlı günlük modülleri.", "tiles")}
+      ${pageTitle(t("other.title"), t("other.desc"), "tiles")}
       <div class="other-grid">
-        ${simpleCard("Hash İşlemleri", "MD5, SHA1, SHA256 ve SHA512 hesaplama.", "shield", "hash")}
-        ${simpleCard("Kanıt Kasası", "Vaka klasörü ve kanıt kasası yönetimi.", "scale", "evidence")}
-        ${simpleCard("Raporlar", "İnceleme notları ve rapor üretimi.", "report", "reports")}
-        ${simpleCard("Günlük", "Canlı günlük ve dosyadan yenileme akışı.", "clock", "logs")}
+        ${simpleCard(t("other.hash.title"), t("other.hash.desc"), "shield", "hash")}
+        ${simpleCard(t("other.evidence.title"), t("other.evidence.desc"), "scale", "evidence")}
+        ${simpleCard(t("other.reports.title"), t("other.reports.desc"), "report", "reports")}
+        ${simpleCard(t("other.logs.title"), t("other.logs.desc"), "clock", "logs")}
       </div>
       <div id="other-detail" class="workflow-panel" style="margin-top:16px">${hashPanel()}</div>
     </section>
@@ -664,17 +1198,17 @@ function simpleCard(title, desc, iconName, tab) {
       <span class="card-icon">${icon(iconName)}</span>
       <h3>${title}</h3>
       <p>${desc}</p>
-      <span class="meta">Aç</span>
+      <span class="meta">${t("open")}</span>
     </button>
   `;
 }
 
 function hashPanel() {
   return `
-    <p class="section-label">Hash Hesaplayıcı</p>
-    ${pickerField("Dosya", "hash-file", "Dosya seçin", "file")}
+    <p class="section-label">${t("hash.calculator")}</p>
+    ${pickerField(t("hash.file"), "hash-file", t("hash.selectFile"), "file")}
     <div class="button-row">
-      <button class="primary-button" data-action="hash">${icon("shield")} Hesapla</button>
+      <button class="primary-button" data-action="hash">${icon("shield")} ${t("hash.calculate")}</button>
     </div>
     <div class="hash-grid">
       ${hashResult("MD5", "md5")}
@@ -683,14 +1217,14 @@ function hashPanel() {
       ${hashResult("SHA512", "sha512")}
     </div>
     <div class="section-divider"></div>
-    <p class="section-label">Hash Karşılaştır</p>
-    ${field("Hash Değeri", '<input class="input" placeholder="Hash degeri girin" />')}
+    <p class="section-label">${t("hash.compare")}</p>
+    ${field(t("hash.value"), `<input class="input" data-hash-expected placeholder="${t("hash.placeholder")}" />`)}
     <div class="button-row">
-      <button class="secondary-button" data-action="compare">${icon("search")} Karşılaştır</button>
+      <button class="secondary-button" data-action="compare">${icon("search")} ${t("hash.compare")}</button>
     </div>
     <div class="side-info" data-hash-compare-result>
       <span class="metric-icon">${icon("info")}</span>
-      <span><strong>Sonuç</strong><small>Karşılaştırma bekleniyor</small></span>
+      <span><strong>${t("hash.result")}</strong><small>${t("hash.waiting")}</small></span>
     </div>
   `;
 }
@@ -708,59 +1242,59 @@ function settingsPage() {
   return `
     <section class="page">
       <div class="settings-header">
-        <h1>Ayarlar</h1>
-        <p>Tema, dil ve güncelleme kontrolleri.</p>
+        <h1>${t("settings.title")}</h1>
+        <p>${t("settings.desc")}</p>
       </div>
       <div class="settings-layout">
         <article class="settings-card settings-primary">
-          <span class="settings-kicker">Görünüm</span>
-          <h3>Uygulama Ayarları</h3>
-          <p>Tema ve dil tercihi kaydedilir; sayfa yenilendiğinde korunur.</p>
+          <span class="settings-kicker">${t("settings.appearance")}</span>
+          <h3>${t("settings.appSettings")}</h3>
+          <p>${t("settings.persisted")}</p>
           <div class="settings-row">
             <span>
-              <strong>Karanlık Tema</strong>
-              <small>Adli bilişim çalışma ekranları için düşük parlaklık.</small>
+              <strong>${t("settings.darkTheme")}</strong>
+              <small>${t("settings.darkHint")}</small>
             </span>
-            <button class="switch ${state.theme === "dark" ? "on" : ""}" data-action="theme-toggle" aria-label="Karanlık tema"></button>
+            <button class="switch ${state.theme === "dark" ? "on" : ""}" data-action="theme-toggle" aria-label="${t("settings.darkTheme")}"></button>
           </div>
           <div class="settings-row">
             <span>
-              <strong>Dil</strong>
-              <small>Menü dili ve uygulama mesajları.</small>
+              <strong>${t("settings.language")}</strong>
+              <small>${t("settings.languageHint")}</small>
             </span>
-            <select class="select compact-select" data-action="language-select" aria-label="Dil">
+            <select class="select compact-select" data-action="language-select" aria-label="${t("settings.language")}">
               <option value="tr" ${state.language === "tr" ? "selected" : ""}>Türkçe</option>
               <option value="en" ${state.language === "en" ? "selected" : ""}>English</option>
             </select>
           </div>
           <div class="settings-row">
             <span>
-              <strong>Algılanan Sistem</strong>
-              <small>Yerel işlem filtreleri buna göre çalışır.</small>
+              <strong>${t("settings.detectedSystem")}</strong>
+              <small>${t("settings.detectedHint")}</small>
             </span>
             <span class="status-badge">${icon(state.platform === "windows" ? "windows" : state.platform === "linux" ? "linux" : "monitor")} ${platformLabel(state.platform)}</span>
           </div>
           <div class="button-row">
-            <button class="primary-button" data-action="save-settings">Ayarları Kaydet</button>
+            <button class="primary-button" data-action="save-settings">${t("settings.save")}</button>
           </div>
           <div class="status-badge" data-settings-status>${icon("info")} ${t("ready")}</div>
         </article>
 
         <article class="settings-card">
-          <span class="settings-kicker">Sürüm</span>
-          <h3>Güncelleme</h3>
-          <p>Kurulum dosyasını platforma göre seçer, indirme ilerlemesini ve release notlarını burada gösterir.</p>
+          <span class="settings-kicker">${t("settings.version")}</span>
+          <h3>${t("settings.update")}</h3>
+          <p>${t("settings.updateDesc")}</p>
           <div class="settings-meta">
-            <span>Kurulu: ${APP_VERSION}</span>
+            <span>${t("settings.installed")}: ${APP_VERSION}</span>
             <span>Asset: ${state.platform === "windows" ? "worm-windows-x64.msi" : "worm-linux-x64.AppImage"}</span>
           </div>
           <div class="progress-bar" data-update-progress style="--value:0%"><span></span><b>0%</b></div>
           <div class="button-row">
-            <button class="primary-button" data-action="check-update">${icon("refresh")} Güncellemeyi Kontrol Et</button>
-            <button class="secondary-button" data-action="download-update">${icon("download")} İndir ve Kur</button>
+            <button class="primary-button" data-action="check-update">${icon("refresh")} ${t("settings.checkUpdate")}</button>
+            <button class="secondary-button" data-action="download-update">${icon("download")} ${t("settings.downloadInstall")}</button>
           </div>
-          <div class="status-badge" data-update-status>${icon("info")} Hazır</div>
-          <div class="log-box compact-log" data-update-log>Release notları ve indirme durumu burada görüntülenecek.</div>
+          <div class="status-badge" data-update-status>${icon("info")} ${t("ready")}</div>
+          <div class="log-box compact-log" data-update-log>${t("settings.releaseNotes")}</div>
         </article>
       </div>
     </section>
@@ -775,21 +1309,21 @@ function aboutPage() {
         <div>
           <p class="eyebrow">Worm Forensic Tool</p>
           <h1>Worm Forensic Tool</h1>
-          <span class="status-badge">Sürüm ${APP_VERSION}</span>
-          <p>Worm, yetkili adli bilişim süreçlerinde disk ve RAM edinimi, doğrulama ve raporlama adımlarını tek bir merkezde birleştiren bir denetim aracıdır.</p>
+          <span class="status-badge">${t("about.version", { version: APP_VERSION })}</span>
+          <p>${t("about.desc")}</p>
         </div>
       </div>
 
-      <h2 class="section-heading">Temel Kabiliyetler</h2>
+      <h2 class="section-heading">${t("about.capabilities")}</h2>
       <div class="capability-grid">
-        ${capabilityCard("COLLECT", "Disk ve RAM", "Windows ve Linux için imaj ve bellek edinimi.", "disk", "var(--green)")}
-        ${capabilityCard("PROVE", "Doğrulama", "Hash üretimi, karşılaştırma ve denetlenebilir loglar.", "shield", "var(--blue)")}
-        ${capabilityCard("PACKAGE", "Raporlama", "Vaka notları, kanıt kasası ve rapor çıktıları.", "report", "var(--purple)")}
+        ${capabilityCard("COLLECT", t("about.collect.title"), t("about.collect.desc"), "disk", "var(--green)")}
+        ${capabilityCard("PROVE", t("about.prove.title"), t("about.prove.desc"), "shield", "var(--blue)")}
+        ${capabilityCard("PACKAGE", t("about.package.title"), t("about.package.desc"), "report", "var(--purple)")}
       </div>
 
       <div class="doc-card usage-card">
-        <h3>Kullanım İlkesi</h3>
-        <p>Bu araç yalnızca yetkili adli bilişim süreçlerinde kullanılmalıdır. Edinim, doğrulama ve günlük adımları görünür, denetlenebilir ve raporlanabilir tutulur.</p>
+        <h3>${t("about.usage")}</h3>
+        <p>${t("about.usageDesc")}</p>
       </div>
 
       <h2 class="section-heading">Contributors</h2>
@@ -877,10 +1411,10 @@ function backendReady() {
 function connectionPayload() {
   const tokenText = document.querySelector("[data-field='token']")?.value.trim() || "";
   if (tokenText && !state.approvedSecurityKey) {
-    throw new Error("Güvenlik anahtarını kullanmak için önce Anahtarı Onayla butonuna basın.");
+    throw new Error(t("connection.keyApproveFirst"));
   }
   if (tokenText && tokenText !== state.approvedSecurityKey) {
-    throw new Error("Güvenlik anahtarı değişti. Yeniden Anahtarı Onayla yapın veya Sıfırla kullanın.");
+    throw new Error(t("connection.keyChanged"));
   }
   return {
     ip: document.querySelector("[data-field='ip']")?.value.trim() || "",
@@ -920,9 +1454,9 @@ function requireActiveConnection(workflow, payload) {
     && Number(connection.port) === Number(payload.port)
     && (connection.token || "") === (payload.token || "");
   if (!matches) {
-    showToast("Önce bağlanın!", "error");
-    updateSide("connection", "Bağlantı yok");
-    writeWorkflowLog("Önce geçerli agent bağlantısı kurulmalı.");
+    showToast(t("connection.connectFirst"), "error");
+    updateSide("connection", t("connection.none"));
+    writeWorkflowLog(t("connection.required"));
     return false;
   }
   return true;
@@ -972,7 +1506,7 @@ document.addEventListener("change", (event) => {
 
   const target = event.target.closest("[data-field='target']");
   if (target) {
-    updateSide("target", target.value || "Hedef seçilmedi");
+    updateSide("target", target.value || t("targetNotSelected"));
   }
 });
 
@@ -998,8 +1532,8 @@ async function handleAction(button) {
     button.classList.toggle("on");
     const panel = document.querySelector(".vpn-panel");
     if (panel) panel.hidden = !button.classList.contains("on");
-    writeWorkflowLog(button.classList.contains("on") ? "VPN kullanımı açıldı." : "VPN kullanımı kapatıldı.");
-    updateSide("connection", button.classList.contains("on") ? "VPN yapılandırması bekleniyor" : "VPN kapalı");
+    writeWorkflowLog(button.classList.contains("on") ? t("vpn.enabled") : t("vpn.disabled"));
+    updateSide("connection", button.classList.contains("on") ? t("vpn.waiting") : t("vpn.off"));
     return;
   }
 
@@ -1007,19 +1541,19 @@ async function handleAction(button) {
     const panel = document.querySelector(".vpn-panel");
     if (panel) panel.hidden = false;
     document.querySelector("[data-action='toggle-vpn']")?.classList.add("on");
-    writeWorkflowLog("VPN yapılandırma alanı açıldı.");
+    writeWorkflowLog(t("vpn.opened"));
     return;
   }
 
   if (action === "save-vpn") {
     const endpoint = document.querySelector("[data-field='vpn-endpoint']")?.value.trim();
     if (!endpoint) {
-      showToast("VPN sunucu bilgisini girin.", "error");
+      showToast(t("vpn.endpointRequired"), "error");
       return;
     }
-    writeWorkflowLog(`VPN yapılandırıldı: ${endpoint}`);
-    updateSide("connection", "VPN hazır");
-    showToast("VPN yapılandırması kaydedildi.");
+    writeWorkflowLog(t("vpn.configured", { endpoint }));
+    updateSide("connection", t("vpn.ready"));
+    showToast(t("vpn.saved"));
     return;
   }
 
@@ -1027,13 +1561,13 @@ async function handleAction(button) {
     const token = document.querySelector("[data-field='token']");
     const value = token?.value.trim() || "";
     if (!value) {
-      showToast("Onaylamak için güvenlik anahtarı girin.", "error");
+      showToast(t("key.required"), "error");
       return;
     }
     state.approvedSecurityKey = value;
     if (token) token.readOnly = true;
-    writeWorkflowLog("Güvenlik anahtarı onaylandı.");
-    showToast("Güvenlik anahtarı aktif.");
+    writeWorkflowLog(t("key.approved"));
+    showToast(t("key.active"));
     return;
   }
 
@@ -1045,7 +1579,7 @@ async function handleAction(button) {
       token.readOnly = false;
     }
     forgetConnection();
-    writeWorkflowLog("Güvenlik anahtarı sıfırlandı.");
+    writeWorkflowLog(t("key.reset"));
     return;
   }
 
@@ -1060,36 +1594,36 @@ async function handleAction(button) {
       return;
     }
     if (!payload.ip || !payload.port) {
-      showToast("IP ve port girin.", "error");
+      showToast(t("connection.ipPortRequired"), "error");
       return;
     }
     if (payload.port <= 0 || payload.port > 65535) {
-      showToast("Geçersiz port!", "error");
+      showToast(t("connection.invalidPort"), "error");
       return;
     }
     if (!workflow?.mode.startsWith("remote")) {
-      showToast("Bu akış uzak bağlantı kullanmıyor.", "error");
+      showToast(t("connection.remoteOnly"), "error");
       return;
     }
 
     forgetConnection(workflowId);
     button.disabled = true;
-    updateSide("connection", "Bağlanıyor... (Zaman aşımı: 10sn)");
-    writeWorkflowLog(`Bağlantı başlatılıyor: ${payload.ip}:${payload.port}`);
+    updateSide("connection", t("connection.connecting"));
+    writeWorkflowLog(t("connection.starting", { host: `${payload.ip}:${payload.port}` }));
     try {
       const result = await apiRequest("/api/connect", {
         method: "POST",
         body: JSON.stringify(payload)
       });
       rememberConnection(workflowId, payload, result);
-      updateSide("connection", `Bağlandı - ${payload.ip}`);
-      writeWorkflowLog(`Uzak sunucuya bağlandı: ${payload.ip}`);
-      showToast("Bağlantı başarılı. Disk/RAM kontrolünü şimdi çalıştırabilirsiniz.");
+      updateSide("connection", t("connection.connected", { ip: payload.ip }));
+      writeWorkflowLog(t("connection.connectedLog", { ip: payload.ip }));
+      showToast(t("connection.success"));
     } catch (error) {
       forgetConnection(workflowId);
-      updateSide("connection", "Bağlantı başarısız!");
-      writeWorkflowLog(`Bağlantı başarısız: ${payload.ip} - ${error.message}`);
-      showToast(`Sunucuya bağlanılamadı: ${error.message}`, "error");
+      updateSide("connection", t("connection.failed"));
+      writeWorkflowLog(t("connection.failedLog", { ip: payload.ip, message: error.message }));
+      showToast(t("connection.cannotConnect", { message: error.message }), "error");
     } finally {
       button.disabled = false;
     }
@@ -1110,7 +1644,7 @@ async function handleAction(button) {
     try {
       await sendAcquisitionControl("pause");
     } catch (error) {
-      showToast(`Duraklatma gönderilemedi: ${error.message}`, "error");
+      showToast(t("workflow.pauseFailed", { message: error.message }), "error");
     }
     return;
   }
@@ -1119,7 +1653,7 @@ async function handleAction(button) {
     try {
       await sendAcquisitionControl("resume");
     } catch (error) {
-      showToast(`Devam komutu gönderilemedi: ${error.message}`, "error");
+      showToast(t("workflow.resumeFailed", { message: error.message }), "error");
     }
     return;
   }
@@ -1128,7 +1662,7 @@ async function handleAction(button) {
     try {
       await sendAcquisitionControl("stop");
     } catch (error) {
-      showToast(`Durdurma gönderilemedi: ${error.message}`, "error");
+      showToast(t("workflow.stopFailed", { message: error.message }), "error");
     }
     return;
   }
@@ -1136,16 +1670,16 @@ async function handleAction(button) {
   if (action === "mount-readonly") {
     const imagePath = document.querySelector("#image-path")?.value.trim();
     if (!imagePath || imagePath.startsWith(".")) {
-      showToast("Önce imaj dosyası seçin.", "error");
+      showToast(t("analysis.imageRequired"), "error");
       return;
     }
-    setAnalysisStatus(`Bağlandı: ${imagePath}`, "İmaj salt-okunur bağlandı. İçerik ağacı hazır olduğunda burada gösterilecek.");
-    showToast("İmaj bağlama işlemi hazırlandı.");
+    setAnalysisStatus(t("analysis.mounted", { path: imagePath }), t("analysis.mountedLog"));
+    showToast(t("analysis.mountPrepared"));
     return;
   }
 
   if (action === "unmount-image") {
-    setAnalysisStatus("Bağlantı kaldırıldı", "Aktif imaj bağlantısı yok.");
+    setAnalysisStatus(t("analysis.unmounted"), t("analysis.noActiveMount"));
     return;
   }
 
@@ -1166,9 +1700,9 @@ async function handleAction(button) {
   }
 
   if (action === "check-update") {
-    setStatus("[data-update-status]", `${icon("refresh")} Güncelleme kontrol edildi`);
-    setStatus("[data-update-log]", `Kurulu sürüm: ${APP_VERSION}<br />Son sürüm bilgisi paketleyici güncelleme komutuna bağlandığında burada gösterilecek.`);
-    showToast("Güncelleme kontrolü tamamlandı.");
+    setStatus("[data-update-status]", `${icon("refresh")} ${t("settings.updateChecked")}`);
+    setStatus("[data-update-log]", t("settings.updateLog", { version: APP_VERSION }));
+    showToast(t("settings.updateDone"));
     return;
   }
 
@@ -1179,13 +1713,13 @@ async function handleAction(button) {
 
   if (action === "list-files") {
     await pickFolder(null);
-    showToast("Klasör seçimi tamamlandı.");
+    showToast(t("scan.completed"));
     return;
   }
 
   const label = button.textContent.trim().replace(/\s+/g, " ");
-  writeWorkflowLog(`${label}: UI işlemi hazır.`);
-  showToast(`${label} işlemi hazır.`);
+  writeWorkflowLog(`${label}: ${t("ready")}`);
+  showToast(`${label}: ${t("ready")}`);
 }
 
 function showToast(message, type = "success") {
@@ -1211,11 +1745,11 @@ async function pickFile(targetSelector) {
         target.value = result.path;
         delete state.files[targetSelector];
       }
-      showToast(`Dosya seçildi: ${result.path}`);
+      showToast(t("workflow.selectFile", { path: result.path }));
       return result.path;
     } catch (error) {
       if (String(error?.message || "").includes("cancelled")) return null;
-      showToast(`Dosya seçimi açılamadı: ${error.message}`, "error");
+      showToast(t("workflow.filePickerFailed", { message: error.message }), "error");
       return null;
     }
   }
@@ -1228,12 +1762,12 @@ async function pickFile(targetSelector) {
         target.value = file.name;
         state.files[targetSelector] = file;
       }
-      showToast(`Dosya seçildi: ${file.name}`);
+      showToast(t("workflow.selectFile", { path: file.name }));
       return file;
     }
   } catch (error) {
     if (error?.name === "AbortError") return null;
-    showToast("Dosya seçimi açılamadı.", "error");
+    showToast(t("workflow.filePickerFailedShort"), "error");
     return null;
   }
 
@@ -1247,7 +1781,7 @@ async function pickFile(targetSelector) {
       if (file && target) {
         target.value = file.name;
         state.files[targetSelector] = file;
-        showToast(`Dosya seçildi: ${file.name}`);
+        showToast(t("workflow.selectFile", { path: file.name }));
       }
       input.remove();
       resolve(file);
@@ -1263,11 +1797,11 @@ async function pickFolder(targetSelector) {
     try {
       const result = await apiRequest("/api/pick-folder", { method: "POST" });
       if (target) target.value = result.path;
-      showToast(`Klasör seçildi: ${result.path}`);
+      showToast(t("workflow.selectFolder", { path: result.path }));
       return result.path;
     } catch (error) {
       if (String(error?.message || "").includes("cancelled")) return null;
-      showToast(`Klasör seçimi açılamadı: ${error.message}`, "error");
+      showToast(t("workflow.folderPickerFailed", { message: error.message }), "error");
       return null;
     }
   }
@@ -1276,12 +1810,12 @@ async function pickFolder(targetSelector) {
     if (window.showDirectoryPicker) {
       const handle = await window.showDirectoryPicker();
       if (target) target.value = handle.name;
-      showToast(`Klasör seçildi: ${handle.name}`);
+      showToast(t("workflow.selectFolder", { path: handle.name }));
       return handle;
     }
   } catch (error) {
     if (error?.name === "AbortError") return null;
-    showToast("Klasör seçimi açılamadı.", "error");
+    showToast(t("workflow.folderPickerFailedShort"), "error");
     return null;
   }
 
@@ -1295,7 +1829,7 @@ async function pickFolder(targetSelector) {
       const first = input.files?.[0];
       const folder = first?.webkitRelativePath?.split("/")?.[0] || first?.name || "";
       if (folder && target) target.value = folder;
-      if (folder) showToast(`Klasör seçildi: ${folder}`);
+      if (folder) showToast(t("workflow.selectFolder", { path: folder }));
       input.remove();
       resolve(folder);
     });
@@ -1332,7 +1866,7 @@ async function scanTargets() {
         if (workflow.mode.startsWith("remote")) {
           const payload = connectionPayload();
           if (!payload.ip || !payload.port) {
-            showToast("IP ve port girin.", "error");
+            showToast(t("connection.ipPortRequired"), "error");
             return;
           }
           if (!requireActiveConnection(workflow, payload)) return;
@@ -1341,33 +1875,33 @@ async function scanTargets() {
             body: JSON.stringify({ ...payload, tool: toolKey })
           });
           status = result.status;
-          updateSide("connection", `${payload.ip}:${payload.port} kontrol edildi`);
+          updateSide("connection", t("connection.checked", { host: `${payload.ip}:${payload.port}` }));
         } else {
           const result = await apiRequest("/api/ram-status");
           status = result[toolKey];
         }
-        const label = status?.tool_path || status?.message || workflow.diskLabel;
-        const targets = [workflow.diskLabel, label].filter(Boolean);
+        const label = status?.tool_path || status?.message || localText(workflow.diskLabel);
+        const targets = [localText(workflow.diskLabel), label].filter(Boolean);
         select.innerHTML = targets.map((target) => `<option value="${target}">${target}</option>`).join("");
         updateSide("target", targets[0]);
-        writeWorkflowLog(`${workflow.diskLabel} kontrolü: ${status?.message || "tamamlandı"}`);
-        showToast("Kontrol tamamlandı.");
+        writeWorkflowLog(t("scan.toolDoneLog", { target: localText(workflow.diskLabel), message: status?.message || t("ready") }));
+        showToast(t("scan.done"));
       } catch (error) {
         if (workflow?.mode.startsWith("remote")) {
           forgetConnection();
-          updateSide("connection", "Ajanla kontrol başarısız");
+          updateSide("connection", t("connection.toolFailed"));
         }
-        showToast(`Kontrol başarısız: ${error.message}`, "error");
-        writeWorkflowLog(`RAM kontrolü başarısız: ${error.message}`);
+        showToast(t("scan.failed", { message: error.message }), "error");
+        writeWorkflowLog(t("scan.ramFailedLog", { message: error.message }));
       }
       return;
     }
 
-    const fallbackTargets = [workflow.diskLabel, workflow.platform === "Windows" ? "WinPMEM portable" : "AVML local"];
+    const fallbackTargets = [localText(workflow.diskLabel), workflow.platform === "Windows" ? "WinPMEM portable" : "AVML local"];
     select.innerHTML = fallbackTargets.map((target) => `<option value="${target}">${target}</option>`).join("");
     updateSide("target", fallbackTargets[0]);
-    writeWorkflowLog("Araç listesi güncellendi.");
-    showToast("Kontrol tamamlandı.");
+    writeWorkflowLog(t("scan.toolListUpdated"));
+    showToast(t("scan.done"));
     return;
   }
 
@@ -1377,7 +1911,7 @@ async function scanTargets() {
       if (workflow.mode.startsWith("remote")) {
         const payload = connectionPayload();
         if (!payload.ip || !payload.port) {
-          showToast("IP ve port girin.", "error");
+          showToast(t("connection.ipPortRequired"), "error");
           return;
         }
         if (!requireActiveConnection(workflow, payload)) return;
@@ -1386,7 +1920,7 @@ async function scanTargets() {
           body: JSON.stringify(payload)
         });
         disks = result.disks || [];
-        updateSide("connection", `${payload.ip}:${payload.port} bağlı`);
+        updateSide("connection", t("connection.alive", { host: `${payload.ip}:${payload.port}` }));
       } else {
         const result = await apiRequest("/api/disk-list");
         disks = result.disks || [];
@@ -1398,31 +1932,31 @@ async function scanTargets() {
           if (!value) return "";
           const size = disk.boyut || disk.total_size || 0;
           const name = disk.ad || disk.device || disk.name || value;
-          const access = disk.accessible === false ? " erişim yok" : "";
+          const access = disk.accessible === false ? ` ${t("scan.accessDenied")}` : "";
           return `<option value="${value}">${name} · ${formatBytes(size)}${access}</option>`;
         })
         .filter(Boolean);
 
       if (options.length === 0) {
-        select.innerHTML = '<option value="" disabled selected>Disk bulunamadı</option>';
-        updateSide("target", "Hedef seçilmedi");
-        writeWorkflowLog("Rust backend disk bulamadı veya yetki yok.");
-        showToast("Disk bulunamadı.", "error");
+        select.innerHTML = `<option value="" disabled selected>${t("scan.noDisk")}</option>`;
+        updateSide("target", t("targetNotSelected"));
+        writeWorkflowLog(t("scan.noDiskLog"));
+        showToast(t("scan.noDisk"), "error");
         return;
       }
 
       select.innerHTML = options.join("");
       updateSide("target", select.value);
-      writeWorkflowLog("Disk listesi Rust backend üzerinden güncellendi.");
-      showToast("Disk taraması tamamlandı.");
+      writeWorkflowLog(t("scan.diskDoneLog"));
+      showToast(t("scan.diskDone"));
       return;
     } catch (error) {
       if (workflow?.mode.startsWith("remote")) {
         forgetConnection();
-        updateSide("connection", "Diskler alınamadı - bağlantı kopmuş olabilir");
+        updateSide("connection", t("connection.disksFailed"));
       }
-      showToast(`Disk taraması başarısız: ${error.message}`, "error");
-      writeWorkflowLog(`Disk taraması başarısız: ${error.message}`);
+      showToast(t("scan.diskFailed", { message: error.message }), "error");
+      writeWorkflowLog(t("scan.diskFailed", { message: error.message }));
       return;
     }
   }
@@ -1437,21 +1971,21 @@ async function scanTargets() {
       if (targets.length > 0) {
         select.innerHTML = targets.map((target) => `<option value="${target}">${target}</option>`).join("");
         updateSide("target", targets[0]);
-        writeWorkflowLog("Disk listesi güncellendi.");
-        showToast("Disk taraması tamamlandı.");
+        writeWorkflowLog(t("scan.diskDoneLog"));
+        showToast(t("scan.diskDone"));
         return;
       }
     } catch (error) {
-      showToast("Disk taraması başarısız oldu.", "error");
-      writeWorkflowLog(`Disk taraması başarısız: ${error?.message || error}`);
+      showToast(t("scan.diskFailedShort"), "error");
+      writeWorkflowLog(t("scan.diskFailed", { message: error?.message || error }));
       return;
     }
   }
 
-  select.innerHTML = '<option value="" disabled selected>Disk listesi için Rust backend bekleniyor</option>';
-  updateSide("target", "Hedef seçilmedi");
-  writeWorkflowLog("Disk taraması Rust backend ile çalışır; uygulamayı cargo run -- ui ile açın.");
-  showToast("Tarama tamamlandı.");
+  select.innerHTML = `<option value="" disabled selected>${t("scan.waiting")}</option>`;
+  updateSide("target", t("targetNotSelected"));
+  writeWorkflowLog(t("scan.appModeRequired"));
+  showToast(t("scan.completed"));
 }
 
 function setProgress(value, labelText = `${value}%`) {
@@ -1485,7 +2019,7 @@ async function waitForAcquisitionJob(jobId) {
       return job.result || {};
     }
     if (job.status === "failed") {
-      throw new Error(job.error || job.message || "Edinim başarısız");
+      throw new Error(job.error || job.message || t("acquisitionFailed"));
     }
 
     await new Promise((resolve) => window.setTimeout(resolve, 500));
@@ -1495,7 +2029,7 @@ async function waitForAcquisitionJob(jobId) {
 async function sendAcquisitionControl(action) {
   const active = state.activeAcquisition;
   if (!active || !active.jobId || !active.workflowId) {
-    showToast("Aktif edinim işi yok.", "error");
+    showToast(t("workflow.activeJobMissing"), "error");
     return;
   }
   const workflow = workflows[active.workflowId];
@@ -1511,11 +2045,13 @@ async function sendAcquisitionControl(action) {
     method: "POST",
     body: JSON.stringify(body)
   });
-  const label = action === "stop" ? "Durdurma" : action === "pause" ? "Duraklatma" : "Devam";
-  const target = workflow?.mode.startsWith("remote") ? "agent'a gönderildi" : "uygulandı";
-  writeWorkflowLog(`${label} komutu ${target}.`);
-  updateSide("last-action", `${label} komutu ${target}`);
-  showToast(`${label} komutu ${target}.`);
+  const label = action === "stop" ? t("workflow.stopLabel") : action === "pause" ? t("workflow.pauseLabel") : t("workflow.resumeLabel");
+  const message = workflow?.mode.startsWith("remote")
+    ? t("workflow.controlSent", { label })
+    : t("workflow.controlApplied", { label });
+  writeWorkflowLog(message);
+  updateSide("last-action", message);
+  showToast(message);
 }
 
 async function startAcquisition(button) {
@@ -1533,22 +2069,22 @@ async function startAcquisition(button) {
   }
   const target = document.querySelector("[data-field='target']")?.value.trim();
   if (workflow && !workflow.mode.includes("ram") && !target) {
-    showToast("Önce hedef disk seçin.", "error");
+    showToast(t("workflow.diskRequired"), "error");
     return;
   }
   const output = document.querySelector("#workflow-output")?.value.trim();
   if (!output) {
-    showToast("Çıktı konumu seçin.", "error");
+    showToast(t("workflow.outputRequired"), "error");
     return;
   }
   button.disabled = true;
   window.clearInterval(state.jobs.workflow);
   setProgress(0, "0%");
   const isRam = workflow?.mode.includes("ram");
-  const operation = isRam ? "RAM edinimi" : "İmaj alma";
-  writeWorkflowLog(`${operation} başlatıldı.`);
-  updateSide("last-action", `${operation} çalışıyor`);
-  if (workflow?.mode.startsWith("remote")) updateSide("connection", "İşlem çalışıyor");
+  const operation = isRam ? t("ramAcquisition") : t("imageAcquisition");
+  writeWorkflowLog(t("workflow.operationStarted", { operation }));
+  updateSide("last-action", t("workflow.operationRunning", { operation }));
+  if (workflow?.mode.startsWith("remote")) updateSide("connection", t("workflow.operationRunning", { operation }));
 
   try {
     const start = workflow?.mode.startsWith("remote")
@@ -1578,7 +2114,7 @@ async function startAcquisition(button) {
                 output
               })
         });
-    if (!start.job_id) throw new Error("Backend job id döndürmedi");
+    if (!start.job_id) throw new Error(t("workflow.jobIdMissing"));
     state.activeAcquisition = {
       jobId: start.job_id,
       workflowId: routeId,
@@ -1588,20 +2124,20 @@ async function startAcquisition(button) {
 
     setProgress(100);
     const targetPath = result.target_path || result.target || output;
-    writeWorkflowLog(`${operation} tamamlandı: ${targetPath}`);
-    updateSide("last-action", `${operation} tamamlandı`);
+    writeWorkflowLog(t("workflow.operationCompletedPath", { operation, path: targetPath }));
+    updateSide("last-action", t("workflow.operationCompleted", { operation }));
     if (workflow?.mode.startsWith("remote") && payload) {
-      updateSide("connection", `Bağlandı - ${payload.ip}`);
+      updateSide("connection", t("connection.connected", { ip: payload.ip }));
     }
-    showToast(`${operation} tamamlandı.`);
+    showToast(t("workflow.operationCompleted", { operation }));
   } catch (error) {
     setProgress(0);
-    writeWorkflowLog(`${operation} başarısız: ${error.message}`);
-    updateSide("last-action", `${operation} başarısız`);
+    writeWorkflowLog(t("workflow.operationFailedDetail", { operation, message: error.message }));
+    updateSide("last-action", t("workflow.operationFailed", { operation }));
     if (workflow?.mode.startsWith("remote")) {
-      updateSide("connection", `${operation} başarısız`);
+      updateSide("connection", t("workflow.operationFailed", { operation }));
     }
-    showToast(`${operation} başarısız: ${error.message}`, "error");
+    showToast(t("workflow.operationFailedDetail", { operation, message: error.message }), "error");
   } finally {
     state.activeAcquisition = null;
     button.disabled = false;
@@ -1630,10 +2166,10 @@ async function calculateHashes() {
       setHashResult("sha1", hashes.sha1 || "-");
       setHashResult("sha256", hashes.sha256 || "-");
       setHashResult("sha512", hashes.sha512 || "-");
-      showToast("Hash hesaplama Rust backend ile tamamlandı.");
+      showToast(t("hash.done"));
       return;
     } catch (error) {
-      showToast(`Hash hesaplama başarısız: ${error.message}`, "error");
+      showToast(t("hash.failed", { message: error.message }), "error");
       return;
     }
   }
@@ -1644,11 +2180,11 @@ async function calculateHashes() {
     return;
   }
   const buffer = await file.arrayBuffer();
-  setHashResult("md5", "Rust backend gerekli");
+  setHashResult("md5", t("hash.fullAppRequired"));
   setHashResult("sha1", await digestHex("SHA-1", buffer));
   setHashResult("sha256", await digestHex("SHA-256", buffer));
   setHashResult("sha512", await digestHex("SHA-512", buffer));
-  showToast("Hash hesaplama tamamlandı.");
+  showToast(t("hash.done"));
 }
 
 async function digestHex(algorithm, buffer) {
@@ -1662,16 +2198,16 @@ function setHashResult(key, value) {
 }
 
 function compareHash() {
-  const expected = document.querySelector("input[placeholder='Hash degeri girin']")?.value.trim().toLowerCase();
+  const expected = document.querySelector("[data-hash-expected]")?.value.trim().toLowerCase();
   const values = [...document.querySelectorAll("[data-hash-result] strong")].map((node) => node.textContent.trim().toLowerCase());
   const result = document.querySelector("[data-hash-compare-result] small");
   if (!expected) {
-    showToast("Karşılaştırılacak hash değerini girin.", "error");
+    showToast(t("hash.compareRequired"), "error");
     return;
   }
   const matched = values.includes(expected);
-  if (result) result.textContent = matched ? "Eşleşti" : "Eşleşmedi";
-  showToast(matched ? "Hash eşleşti." : "Hash eşleşmedi.", matched ? "success" : "error");
+  if (result) result.textContent = matched ? t("hash.matched") : t("hash.notMatched");
+  showToast(matched ? t("hash.matchedToast") : t("hash.notMatchedToast"), matched ? "success" : "error");
 }
 
 function setStatus(selector, html) {
@@ -1684,7 +2220,7 @@ async function simulateUpdateDownload() {
   const status = document.querySelector("[data-update-status]");
   if (!progress) return;
   let value = 0;
-  if (status) status.innerHTML = `${icon("download")} İndiriliyor`;
+  if (status) status.innerHTML = `${icon("download")} ${t("settings.downloading")}`;
   window.clearInterval(state.jobs.update);
   state.jobs.update = window.setInterval(() => {
     value += 20;
@@ -1693,9 +2229,9 @@ async function simulateUpdateDownload() {
     if (label) label.textContent = `${value}%`;
     if (value >= 100) {
       window.clearInterval(state.jobs.update);
-      if (status) status.innerHTML = `${icon("shield")} İndirme hazır`;
-      setStatus("[data-update-log]", "Paket indirildi. Kurulum adımı paketleyici güncelleme komutuna bağlanacak.");
-      showToast("Güncelleme paketi hazır.");
+      if (status) status.innerHTML = `${icon("shield")} ${t("settings.downloadReady")}`;
+      setStatus("[data-update-log]", t("settings.packageReadyLog"));
+      showToast(t("settings.packageReady"));
     }
   }, 180);
 }
@@ -1703,42 +2239,42 @@ async function simulateUpdateDownload() {
 function detailPanel(tab) {
   if (tab === "evidence") {
     return `
-      <p class="section-label">Vaka Yönetimi</p>
-      ${field("Vaka Adı", '<input class="input" placeholder="Vaka_2026_001" />')}
+      <p class="section-label">${t("case.management")}</p>
+      ${field(t("case.name"), '<input class="input" placeholder="Vaka_2026_001" />')}
       <div class="button-row">
-        <button class="primary-button" data-action="create-case">${icon("folder")} Vaka Oluştur</button>
+        <button class="primary-button" data-action="create-case">${icon("folder")} ${t("case.create")}</button>
       </div>
-      <div class="status-badge">${icon("info")} Vaka oluşturulmadı</div>
+      <div class="status-badge">${icon("info")} ${t("case.notCreated")}</div>
       <div class="section-divider"></div>
-      <p class="section-label">Dosyalar</p>
-      ${field("Klasör", '<select class="select"><option>Çıktılar / ciktilar</option><option>Disk İmajları / disk_imajlari</option><option>RAM / ram</option><option>Raporlar / raporlar</option><option>Hash / hash</option><option>Notlar / notlar</option><option>Günlükler / gunlukler</option></select>')}
-      ${field("Dosya", '<select class="select"><option>Dosyaları listeleyin...</option></select>')}
+      <p class="section-label">${t("case.files")}</p>
+      ${field(t("case.folder"), `<select class="select"><option>${t("case.outputs")}</option><option>${t("case.diskImages")}</option><option>${t("case.ram")}</option><option>${t("case.reports")}</option><option>${t("case.hash")}</option><option>${t("case.notes")}</option><option>${t("case.logs")}</option></select>`)}
+      ${field(t("case.file"), `<select class="select"><option>${t("case.listFilesPlaceholder")}</option></select>`)}
       <div class="button-row">
-        <button class="secondary-button" data-action="list-files">${icon("search")} Dosyaları Listele</button>
+        <button class="secondary-button" data-action="list-files">${icon("search")} ${t("case.listFiles")}</button>
       </div>
     `;
   }
   if (tab === "reports") {
     return `
-      <p class="section-label">Rapor Oluştur</p>
-      <p class="field-hint">Rapor oluşturmak için önce vaka oluşturun ve işlem tamamlayın.</p>
-      ${field("Rapor Başlığı", '<input class="input" value="Adli Bilişim Teknik Raporu" />')}
-      ${field("Format", '<select class="select"><option>TXT</option><option>JSON</option></select>')}
-      ${field("Not", '<textarea class="textarea" placeholder="Not veya rapor açıklaması girin"></textarea>')}
+      <p class="section-label">${t("report.createTitle")}</p>
+      <p class="field-hint">${t("report.hint")}</p>
+      ${field(t("report.title"), `<input class="input" value="${t("report.defaultTitle")}" />`)}
+      ${field(t("report.format"), '<select class="select"><option>TXT</option><option>JSON</option></select>')}
+      ${field(t("report.note"), `<textarea class="textarea" placeholder="${t("report.notePlaceholder")}"></textarea>`)}
       <div class="button-row">
-        <button class="secondary-button" data-action="add-note">${icon("report")} Not Ekle</button>
-        <button class="primary-button" data-action="create-report">${icon("report")} Rapor Oluştur</button>
+        <button class="secondary-button" data-action="add-note">${icon("report")} ${t("report.addNote")}</button>
+        <button class="primary-button" data-action="create-report">${icon("report")} ${t("report.createTitle")}</button>
       </div>
-      <div class="status-badge">${icon("info")} Hazır</div>
+      <div class="status-badge">${icon("info")} ${t("ready")}</div>
     `;
   }
   if (tab === "logs") {
     return `
-      <p class="section-label">Günlük</p>
-      <p class="field-hint">Canlı günlük burada da görüntülenir.</p>
+      <p class="section-label">${t("other.logs.title")}</p>
+      <p class="field-hint">${t("log.live")}</p>
       <div class="log-box">${state.lastLog.map((line) => `• ${line}`).join("<br />")}</div>
       <div class="button-row" style="margin-top:12px">
-        <button class="secondary-button" data-action="refresh-log">${icon("refresh")} Dosyadan Günlüğü Yenile</button>
+        <button class="secondary-button" data-action="refresh-log">${icon("refresh")} ${t("log.refreshFromFile")}</button>
       </div>
     `;
   }
