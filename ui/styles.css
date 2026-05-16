@@ -103,6 +103,50 @@ button {
   background: rgba(251, 253, 252, 0.82);
 }
 
+.native-webview body {
+  background: #071016;
+}
+
+.native-webview .shell,
+.native-webview .sidebar,
+.native-webview .topbar,
+.native-webview .hero,
+.native-webview .worm-art,
+.native-webview .action-tile,
+.native-webview .forensic-card,
+.native-webview .workflow-panel,
+.native-webview .side-panel,
+.native-webview .status-strip,
+.native-webview .doc-card,
+.native-webview .settings-card {
+  background-image: none;
+  box-shadow: none;
+}
+
+.native-webview .topbar {
+  backdrop-filter: none;
+}
+
+.native-webview .view::before,
+.native-webview .hero::after,
+.native-webview .forensic-card::after,
+.native-webview .action-tile::after {
+  display: none;
+}
+
+.native-webview .page {
+  animation: none;
+}
+
+.native-webview .worm-art img {
+  filter: none;
+}
+
+.native-webview .nav-item.active::before,
+.native-webview .pulse {
+  box-shadow: none;
+}
+
 .brand-row {
   display: flex;
   align-items: center;

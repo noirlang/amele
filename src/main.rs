@@ -4,6 +4,7 @@ use worm_rewrite_rust::hash::{self, HashAlgorithm};
 use worm_rewrite_rust::ram;
 use worm_rewrite_rust::remote::RemoteConnection;
 use worm_rewrite_rust::settings::AppSettings;
+use worm_rewrite_rust::ui_server;
 use worm_rewrite_rust::wireguard::{self, WireGuardConfig};
 
 fn main() {
@@ -19,6 +20,8 @@ fn main() {
         Some("remote-tool-check") => remote_tool_check_command(args.collect()),
         Some("ram-status") => ram_status_command(),
         Some("wireguard-config") => wireguard_config_command(args.collect()),
+        Some("ui") => ui_server::run_native(),
+        Some("ui-browser") => ui_server::run_browser(),
         Some("--help") | Some("-h") | None => {
             print_help();
             Ok(())
@@ -47,7 +50,9 @@ fn print_help() {
            remote-tool-check <ip> <port> <winpmem|avml> [token]\n\
            ram-status                    Yerel AVML/WinPMEM durumunu yazdir\n\
            wireguard-config <dosya>      Varsayilan WireGuard config uret\n\n\
-         Not: UI bu crate'e daha sonra Tauri tarafindan baglanacak."
+           ui                            Rust backend'e bagli native uygulama penceresini ac\n\
+           ui-browser                    Debug icin tarayici penceresiyle ac\n\n\
+         Not: ui komutu yerel HTTP backend baslatir ve GTK/WebKit penceresini buraya baglar."
     );
 }
 

@@ -31,6 +31,9 @@ const icons = {
 
 const APP_VERSION = "v0.0.6";
 const assetPath = "./assets";
+const backendAvailable = location.protocol === "http:" || location.protocol === "https:";
+const isNativeWebView = new URLSearchParams(window.location.search).get("native") === "1";
+if (isNativeWebView) document.documentElement.classList.add("native-webview");
 const fontIcons = {
   windows: "",
   linux: "",
@@ -77,11 +80,14 @@ const state = {
   platform: detectPlatform(),
   files: {},
   activeTab: "hash",
+  approvedSecurityKey: "",
+  remoteConnections: {},
+  activeAcquisition: null,
   jobs: {},
   lastLog: [
-    "Rust teknik çekirdek yüklendi.",
+    backendAvailable ? "Rust backend bağlantısı hazır." : "Rust backend için uygulamayı cargo run -- ui ile açın.",
     "Agent protokolü: JSON-over-TCP uyumlu.",
-    "UI bağlantıları Tauri komutlarına bağlanmak için hazırlandı."
+    "UI işlemleri Rust çekirdek API uçlarına bağlandı."
   ]
 };
 
@@ -848,6 +854,91 @@ const routes = {
   about: aboutPage
 };
 
+async function apiRequest(path, options = {}) {
+  const headers = new Headers(options.headers || {});
+  if (options.body && !headers.has("content-type")) {
+    headers.set("content-type", "application/json");
+  }
+  const response = await fetch(path, { ...options, headers });
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!response.ok) {
+    throw new Error(data.error || response.statusText);
+  }
+  return data;
+}
+
+function backendReady() {
+  return backendAvailable;
+}
+
+function connectionPayload() {
+  const tokenText = document.querySelector("[data-field='token']")?.value.trim() || "";
+  if (tokenText && !state.approvedSecurityKey) {
+    throw new Error("Güvenlik anahtarını kullanmak için önce Anahtarı Onayla butonuna basın.");
+  }
+  if (tokenText && tokenText !== state.approvedSecurityKey) {
+    throw new Error("Güvenlik anahtarı değişti. Yeniden Anahtarı Onayla yapın veya Sıfırla kullanın.");
+  }
+  return {
+    ip: document.querySelector("[data-field='ip']")?.value.trim() || "",
+    port: Number(document.querySelector("[data-field='port']")?.value.trim() || 0),
+    token: tokenText ? state.approvedSecurityKey : null
+  };
+}
+
+function currentWorkflowId() {
+  return state.route.startsWith("workflow:") ? state.route.split(":")[1] : "";
+}
+
+function currentWorkflow() {
+  return workflows[currentWorkflowId()];
+}
+
+function rememberConnection(workflowId, payload, details) {
+  state.remoteConnections[workflowId] = {
+    ip: payload.ip,
+    port: payload.port,
+    token: payload.token || "",
+    serverName: details.server_name || "",
+    serverVersion: details.server_version || "",
+    features: details.features || []
+  };
+}
+
+function forgetConnection(workflowId = currentWorkflowId()) {
+  if (workflowId) delete state.remoteConnections[workflowId];
+}
+
+function requireActiveConnection(workflow, payload) {
+  if (!workflow?.mode.startsWith("remote")) return true;
+  const connection = state.remoteConnections[currentWorkflowId()];
+  const matches = connection
+    && connection.ip === payload.ip
+    && Number(connection.port) === Number(payload.port)
+    && (connection.token || "") === (payload.token || "");
+  if (!matches) {
+    showToast("Önce bağlanın!", "error");
+    updateSide("connection", "Bağlantı yok");
+    writeWorkflowLog("Önce geçerli agent bağlantısı kurulmalı.");
+    return false;
+  }
+  return true;
+}
+
+function formatBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (!Number.isFinite(value) || value <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+  let size = value;
+  let unit = 0;
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024;
+    unit += 1;
+  }
+  return `${size.toFixed(size >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
 document.addEventListener("click", (event) => {
   const routeButton = event.target.closest("[data-route]");
   if (routeButton) {
@@ -932,7 +1023,13 @@ async function handleAction(button) {
 
   if (action === "approve-key") {
     const token = document.querySelector("[data-field='token']");
-    if (token && !token.value.trim()) token.value = crypto.randomUUID?.() || `worm-${Date.now()}`;
+    const value = token?.value.trim() || "";
+    if (!value) {
+      showToast("Onaylamak için güvenlik anahtarı girin.", "error");
+      return;
+    }
+    state.approvedSecurityKey = value;
+    if (token) token.readOnly = true;
     writeWorkflowLog("Güvenlik anahtarı onaylandı.");
     showToast("Güvenlik anahtarı aktif.");
     return;
@@ -940,21 +1037,60 @@ async function handleAction(button) {
 
   if (action === "reset-key") {
     const token = document.querySelector("[data-field='token']");
-    if (token) token.value = "";
+    state.approvedSecurityKey = "";
+    if (token) {
+      token.value = "";
+      token.readOnly = false;
+    }
+    forgetConnection();
     writeWorkflowLog("Güvenlik anahtarı sıfırlandı.");
     return;
   }
 
   if (action === "connect") {
-    const ip = document.querySelector("[data-field='ip']")?.value.trim();
-    const port = document.querySelector("[data-field='port']")?.value.trim();
-    if (!ip || !port) {
+    const workflowId = currentWorkflowId();
+    const workflow = currentWorkflow();
+    let payload;
+    try {
+      payload = connectionPayload();
+    } catch (error) {
+      showToast(error.message, "error");
+      return;
+    }
+    if (!payload.ip || !payload.port) {
       showToast("IP ve port girin.", "error");
       return;
     }
-    updateSide("connection", `${ip}:${port} bağlantı hazır`);
-    writeWorkflowLog(`Bağlantı hazırlandı: ${ip}:${port}`);
-    showToast("Bağlantı bilgileri doğrulandı.");
+    if (payload.port <= 0 || payload.port > 65535) {
+      showToast("Geçersiz port!", "error");
+      return;
+    }
+    if (!workflow?.mode.startsWith("remote")) {
+      showToast("Bu akış uzak bağlantı kullanmıyor.", "error");
+      return;
+    }
+
+    forgetConnection(workflowId);
+    button.disabled = true;
+    updateSide("connection", "Bağlanıyor... (Zaman aşımı: 10sn)");
+    writeWorkflowLog(`Bağlantı başlatılıyor: ${payload.ip}:${payload.port}`);
+    try {
+      const result = await apiRequest("/api/connect", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      rememberConnection(workflowId, payload, result);
+      updateSide("connection", `Bağlandı - ${payload.ip}`);
+      writeWorkflowLog(`Uzak sunucuya bağlandı: ${payload.ip}`);
+      showToast("Bağlantı başarılı. Disk/RAM kontrolünü şimdi çalıştırabilirsiniz.");
+    } catch (error) {
+      forgetConnection(workflowId);
+      updateSide("connection", "Bağlantı başarısız!");
+      writeWorkflowLog(`Bağlantı başarısız: ${payload.ip} - ${error.message}`);
+      showToast(`Sunucuya bağlanılamadı: ${error.message}`, "error");
+    } finally {
+      button.disabled = false;
+    }
     return;
   }
 
@@ -964,20 +1100,25 @@ async function handleAction(button) {
   }
 
   if (action === "start") {
-    startProgress(button);
+    await startAcquisition(button);
     return;
   }
 
   if (action === "pause") {
-    writeWorkflowLog("İşlem duraklatıldı.");
-    updateSide("last-action", "Duraklatıldı");
+    try {
+      await sendAcquisitionControl("pause");
+    } catch (error) {
+      showToast(`Duraklatma gönderilemedi: ${error.message}`, "error");
+    }
     return;
   }
 
   if (action === "stop") {
-    setProgress(0);
-    writeWorkflowLog("İşlem durduruldu.");
-    updateSide("last-action", "Durduruldu");
+    try {
+      await sendAcquisitionControl("stop");
+    } catch (error) {
+      showToast(`Durdurma gönderilemedi: ${error.message}`, "error");
+    }
     return;
   }
 
@@ -1015,7 +1156,7 @@ async function handleAction(button) {
 
   if (action === "check-update") {
     setStatus("[data-update-status]", `${icon("refresh")} Güncelleme kontrol edildi`);
-    setStatus("[data-update-log]", `Kurulu sürüm: ${APP_VERSION}<br />Son sürüm bilgisi Tauri güncelleme komutuna bağlandığında burada gösterilecek.`);
+    setStatus("[data-update-log]", `Kurulu sürüm: ${APP_VERSION}<br />Son sürüm bilgisi paketleyici güncelleme komutuna bağlandığında burada gösterilecek.`);
     showToast("Güncelleme kontrolü tamamlandı.");
     return;
   }
@@ -1052,6 +1193,22 @@ function showToast(message, type = "success") {
 
 async function pickFile(targetSelector) {
   const target = targetSelector ? document.querySelector(targetSelector) : null;
+  if (backendReady()) {
+    try {
+      const result = await apiRequest("/api/pick-file", { method: "POST" });
+      if (target) {
+        target.value = result.path;
+        delete state.files[targetSelector];
+      }
+      showToast(`Dosya seçildi: ${result.path}`);
+      return result.path;
+    } catch (error) {
+      if (String(error?.message || "").includes("cancelled")) return null;
+      showToast(`Dosya seçimi açılamadı: ${error.message}`, "error");
+      return null;
+    }
+  }
+
   try {
     if (window.showOpenFilePicker) {
       const [handle] = await window.showOpenFilePicker({ multiple: false });
@@ -1091,6 +1248,19 @@ async function pickFile(targetSelector) {
 
 async function pickFolder(targetSelector) {
   const target = targetSelector ? document.querySelector(targetSelector) : null;
+  if (backendReady()) {
+    try {
+      const result = await apiRequest("/api/pick-folder", { method: "POST" });
+      if (target) target.value = result.path;
+      showToast(`Klasör seçildi: ${result.path}`);
+      return result.path;
+    } catch (error) {
+      if (String(error?.message || "").includes("cancelled")) return null;
+      showToast(`Klasör seçimi açılamadı: ${error.message}`, "error");
+      return null;
+    }
+  }
+
   try {
     if (window.showDirectoryPicker) {
       const handle = await window.showDirectoryPicker();
@@ -1144,12 +1314,106 @@ async function scanTargets() {
   const isRam = workflow?.mode.includes("ram");
 
   if (isRam) {
-    const targets = [workflow.diskLabel, workflow.platform === "Windows" ? "WinPMEM portable" : "AVML local"];
-    select.innerHTML = targets.map((target) => `<option value="${target}">${target}</option>`).join("");
-    updateSide("target", targets[0]);
+    if (backendReady()) {
+      try {
+        const toolKey = workflow.platform === "Windows" ? "winpmem" : "avml";
+        let status;
+        if (workflow.mode.startsWith("remote")) {
+          const payload = connectionPayload();
+          if (!payload.ip || !payload.port) {
+            showToast("IP ve port girin.", "error");
+            return;
+          }
+          if (!requireActiveConnection(workflow, payload)) return;
+          const result = await apiRequest("/api/remote-tool-check", {
+            method: "POST",
+            body: JSON.stringify({ ...payload, tool: toolKey })
+          });
+          status = result.status;
+          updateSide("connection", `${payload.ip}:${payload.port} kontrol edildi`);
+        } else {
+          const result = await apiRequest("/api/ram-status");
+          status = result[toolKey];
+        }
+        const label = status?.tool_path || status?.message || workflow.diskLabel;
+        const targets = [workflow.diskLabel, label].filter(Boolean);
+        select.innerHTML = targets.map((target) => `<option value="${target}">${target}</option>`).join("");
+        updateSide("target", targets[0]);
+        writeWorkflowLog(`${workflow.diskLabel} kontrolü: ${status?.message || "tamamlandı"}`);
+        showToast("Kontrol tamamlandı.");
+      } catch (error) {
+        if (workflow?.mode.startsWith("remote")) {
+          forgetConnection();
+          updateSide("connection", "Ajanla kontrol başarısız");
+        }
+        showToast(`Kontrol başarısız: ${error.message}`, "error");
+        writeWorkflowLog(`RAM kontrolü başarısız: ${error.message}`);
+      }
+      return;
+    }
+
+    const fallbackTargets = [workflow.diskLabel, workflow.platform === "Windows" ? "WinPMEM portable" : "AVML local"];
+    select.innerHTML = fallbackTargets.map((target) => `<option value="${target}">${target}</option>`).join("");
+    updateSide("target", fallbackTargets[0]);
     writeWorkflowLog("Araç listesi güncellendi.");
     showToast("Kontrol tamamlandı.");
     return;
+  }
+
+  if (backendReady()) {
+    try {
+      let disks = [];
+      if (workflow.mode.startsWith("remote")) {
+        const payload = connectionPayload();
+        if (!payload.ip || !payload.port) {
+          showToast("IP ve port girin.", "error");
+          return;
+        }
+        if (!requireActiveConnection(workflow, payload)) return;
+        const result = await apiRequest("/api/remote-disks", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        disks = result.disks || [];
+        updateSide("connection", `${payload.ip}:${payload.port} bağlı`);
+      } else {
+        const result = await apiRequest("/api/disk-list");
+        disks = result.disks || [];
+      }
+
+      const options = disks
+        .map((disk) => {
+          const value = disk.id || disk.device || disk.name || disk.path || "";
+          if (!value) return "";
+          const size = disk.boyut || disk.total_size || 0;
+          const name = disk.ad || disk.device || disk.name || value;
+          const access = disk.accessible === false ? " erişim yok" : "";
+          return `<option value="${value}">${name} · ${formatBytes(size)}${access}</option>`;
+        })
+        .filter(Boolean);
+
+      if (options.length === 0) {
+        select.innerHTML = '<option value="" disabled selected>Disk bulunamadı</option>';
+        updateSide("target", "Hedef seçilmedi");
+        writeWorkflowLog("Rust backend disk bulamadı veya yetki yok.");
+        showToast("Disk bulunamadı.", "error");
+        return;
+      }
+
+      select.innerHTML = options.join("");
+      updateSide("target", select.value);
+      writeWorkflowLog("Disk listesi Rust backend üzerinden güncellendi.");
+      showToast("Disk taraması tamamlandı.");
+      return;
+    } catch (error) {
+      if (workflow?.mode.startsWith("remote")) {
+        forgetConnection();
+        updateSide("connection", "Diskler alınamadı - bağlantı kopmuş olabilir");
+      }
+      showToast(`Disk taraması başarısız: ${error.message}`, "error");
+      writeWorkflowLog(`Disk taraması başarısız: ${error.message}`);
+      return;
+    }
   }
 
   const tauriInvoke = window.__TAURI__?.core?.invoke || window.__TAURI__?.tauri?.invoke;
@@ -1173,24 +1437,96 @@ async function scanTargets() {
     }
   }
 
-  select.innerHTML = '<option value="" disabled selected>Disk listesi için Tauri bağlantısı bekleniyor</option>';
+  select.innerHTML = '<option value="" disabled selected>Disk listesi için Rust backend bekleniyor</option>';
   updateSide("target", "Hedef seçilmedi");
-  writeWorkflowLog("Disk taraması Tauri komutu bağlandığında gerçek cihazları listeleyecek.");
+  writeWorkflowLog("Disk taraması Rust backend ile çalışır; uygulamayı cargo run -- ui ile açın.");
   showToast("Tarama tamamlandı.");
 }
 
-function setProgress(value) {
+function setProgress(value, labelText = `${value}%`) {
   const progress = document.querySelector("[data-progress]");
   if (!progress) return;
   const next = `${value}%`;
   progress.style.setProperty("--value", next);
   const label = progress.querySelector("b");
-  if (label) label.textContent = next;
+  if (label) label.textContent = labelText;
 }
 
-function startProgress(button) {
+function acquisitionPercent(job) {
+  const done = Number(job?.done || 0);
+  const total = Number(job?.total || 0);
+  if (!Number.isFinite(done) || !Number.isFinite(total) || total <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.floor((done * 100) / total)));
+}
+
+async function waitForAcquisitionJob(jobId) {
+  while (true) {
+    const job = await apiRequest("/api/acquisition-status", {
+      method: "POST",
+      body: JSON.stringify({ job_id: jobId })
+    });
+    const percent = acquisitionPercent(job);
+    setProgress(percent, `${percent}%`);
+    if (job.message) updateSide("last-action", job.message);
+
+    if (job.status === "completed") {
+      setProgress(100, "100%");
+      return job.result || {};
+    }
+    if (job.status === "failed") {
+      throw new Error(job.error || job.message || "İmaj alma başarısız");
+    }
+
+    await new Promise((resolve) => window.setTimeout(resolve, 500));
+  }
+}
+
+async function sendAcquisitionControl(action) {
+  const active = state.activeAcquisition;
+  if (!active || !active.jobId || !active.workflowId) {
+    showToast("Aktif uzak imaj işi yok.", "error");
+    return;
+  }
+  const workflow = workflows[active.workflowId];
+  if (!workflow?.mode.startsWith("remote")) {
+    showToast("Bu işlem yalnızca uzak agent işi için kullanılabilir.", "error");
+    return;
+  }
+
+  await apiRequest("/api/acquisition-control", {
+    method: "POST",
+    body: JSON.stringify({
+      ...active.payload,
+      job_id: active.jobId,
+      action
+    })
+  });
+  const label = action === "stop" ? "Durdurma" : action === "pause" ? "Duraklatma" : "Devam";
+  writeWorkflowLog(`${label} komutu agent'a gönderildi.`);
+  updateSide("last-action", `${label} komutu gönderildi`);
+  showToast(`${label} komutu gönderildi.`);
+}
+
+async function startAcquisition(button) {
   const routeId = state.route.split(":")[1];
   const workflow = workflows[routeId];
+  let payload = null;
+  if (workflow?.mode.startsWith("remote")) {
+    try {
+      payload = connectionPayload();
+    } catch (error) {
+      showToast(error.message, "error");
+      return;
+    }
+    if (!requireActiveConnection(workflow, payload)) return;
+  }
+  if (workflow?.mode.includes("ram")) {
+    setProgress(0);
+    writeWorkflowLog("RAM edinimi bu ekranda henüz gerçek backend işlemine bağlanmadı.");
+    updateSide("last-action", "RAM edinimi bağlı değil");
+    showToast("RAM edinimi için gerçek backend akışı henüz bağlanmadı.", "error");
+    return;
+  }
   const target = document.querySelector("[data-field='target']")?.value.trim();
   if (workflow && !workflow.mode.includes("ram") && !target) {
     showToast("Önce hedef disk seçin.", "error");
@@ -1202,21 +1538,57 @@ function startProgress(button) {
     return;
   }
   button.disabled = true;
-  let value = 0;
-  writeWorkflowLog("İşlem başlatıldı.");
-  updateSide("connection", "İşlem çalışıyor");
   window.clearInterval(state.jobs.workflow);
-  state.jobs.workflow = window.setInterval(() => {
-    value += 10;
-    setProgress(value);
-    if (value >= 100) {
-      window.clearInterval(state.jobs.workflow);
-      button.disabled = false;
-      writeWorkflowLog("İşlem tamamlandı.");
-      updateSide("connection", "Tamamlandı");
-      showToast("İşlem tamamlandı.");
+  setProgress(0, "0%");
+  writeWorkflowLog("İmaj alma başlatıldı.");
+  updateSide("last-action", "İmaj alma çalışıyor");
+  if (workflow?.mode.startsWith("remote")) updateSide("connection", "İşlem çalışıyor");
+
+  try {
+    const start = workflow?.mode.startsWith("remote")
+      ? await apiRequest("/api/remote-image", {
+          method: "POST",
+          body: JSON.stringify({
+            ...payload,
+            disk_id: target,
+            output
+          })
+        })
+      : await apiRequest("/api/local-image", {
+          method: "POST",
+          body: JSON.stringify({
+            source: target,
+            output
+          })
+        });
+    if (!start.job_id) throw new Error("Backend job id döndürmedi");
+    state.activeAcquisition = {
+      jobId: start.job_id,
+      workflowId: routeId,
+      payload
+    };
+    const result = await waitForAcquisitionJob(start.job_id);
+
+    setProgress(100);
+    const targetPath = result.target_path || result.target || output;
+    writeWorkflowLog(`İmaj alma tamamlandı: ${targetPath}`);
+    updateSide("last-action", "İmaj alma tamamlandı");
+    if (workflow?.mode.startsWith("remote") && payload) {
+      updateSide("connection", `Bağlandı - ${payload.ip}`);
     }
-  }, 180);
+    showToast("İmaj alma tamamlandı.");
+  } catch (error) {
+    setProgress(0);
+    writeWorkflowLog(`İmaj alma başarısız: ${error.message}`);
+    updateSide("last-action", "İmaj alma başarısız");
+    if (workflow?.mode.startsWith("remote")) {
+      updateSide("connection", "İmaj alma başarısız");
+    }
+    showToast(`İmaj alma başarısız: ${error.message}`, "error");
+  } finally {
+    state.activeAcquisition = null;
+    button.disabled = false;
+  }
 }
 
 function setAnalysisStatus(status, log) {
@@ -1227,13 +1599,35 @@ function setAnalysisStatus(status, log) {
 }
 
 async function calculateHashes() {
+  const inputPath = document.querySelector("#hash-file")?.value.trim();
+  if (backendReady() && inputPath) {
+    try {
+      const hashes = await apiRequest("/api/hash", {
+        method: "POST",
+        body: JSON.stringify({
+          path: inputPath,
+          algorithms: ["md5", "sha1", "sha256", "sha512"]
+        })
+      });
+      setHashResult("md5", hashes.md5 || "-");
+      setHashResult("sha1", hashes.sha1 || "-");
+      setHashResult("sha256", hashes.sha256 || "-");
+      setHashResult("sha512", hashes.sha512 || "-");
+      showToast("Hash hesaplama Rust backend ile tamamlandı.");
+      return;
+    } catch (error) {
+      showToast(`Hash hesaplama başarısız: ${error.message}`, "error");
+      return;
+    }
+  }
+
   const file = state.files["#hash-file"];
   if (!file) {
     showToast(t("fileRequired"), "error");
     return;
   }
   const buffer = await file.arrayBuffer();
-  setHashResult("md5", "Rust core");
+  setHashResult("md5", "Rust backend gerekli");
   setHashResult("sha1", await digestHex("SHA-1", buffer));
   setHashResult("sha256", await digestHex("SHA-256", buffer));
   setHashResult("sha512", await digestHex("SHA-512", buffer));
@@ -1283,7 +1677,7 @@ async function simulateUpdateDownload() {
     if (value >= 100) {
       window.clearInterval(state.jobs.update);
       if (status) status.innerHTML = `${icon("shield")} İndirme hazır`;
-      setStatus("[data-update-log]", "Paket indirildi. Kurulum adımı Tauri updater komutuna bağlanacak.");
+      setStatus("[data-update-log]", "Paket indirildi. Kurulum adımı paketleyici güncelleme komutuna bağlanacak.");
       showToast("Güncelleme paketi hazır.");
     }
   }, 180);

@@ -1,6 +1,6 @@
 # Worm Rust Rewrite
 
-Rust rewrite of the Worm forensic technical core. The C/Qt UI is being replaced by a Tauri-ready frontend shell; the Rust crate exposes system modules that the future Tauri commands can call.
+Rust rewrite of the Worm forensic technical core. The C/Qt UI is being replaced by a dependency-free frontend shell served by the Rust binary for local testing, with a future Tauri packaging path still available.
 
 ## Current Scope
 
@@ -12,7 +12,7 @@ Rust rewrite of the Worm forensic technical core. The C/Qt UI is being replaced 
 - Remote disk imaging, remote RAM acquisition control, RAM file download, pause/resume/stop commands.
 - Local AVML/WinPMEM status and acquisition helpers.
 - WireGuard config generation and Linux `wg-quick` start/stop wrapper.
-- Dependency-free Tauri-ready UI prototype under `ui/`.
+- Dependency-free UI shell under `ui/`, served by `cargo run -- ui` inside a native GTK/WebKit window and wired to selected Rust core APIs.
 
 ## CLI Smoke Commands
 
@@ -28,6 +28,8 @@ cargo run -- remote-disks <ip> <port> [token]
 cargo run -- remote-image <ip> <port> <disk_id> <output_dir> [token]
 cargo run -- remote-tool-check <ip> <port> <winpmem|avml> [token]
 cargo run -- wireguard-config <path>
+cargo run -- ui
+cargo run -- ui-browser
 ```
 
 ## Packaging Direction
@@ -38,4 +40,4 @@ cargo run -- wireguard-config <path>
 
 ## UI Status
 
-The first Tauri-ready frontend shell is under `ui/`. It is currently static HTML/CSS/JS and not wired to Rust commands yet. It follows the supplied dark forensic design direction and keeps update controls inside Settings.
+The frontend shell is under `ui/`. Run `cargo run -- ui` to start the Rust localhost backend and open it in a native GTK/WebKit window. `cargo run -- ui-browser` is available only as a browser-based debug fallback. Disk listing, RAM tool checks, native file/folder picking, remote disk listing, remote RAM tool checks, and hash calculation are wired to Rust APIs.

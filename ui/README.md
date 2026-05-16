@@ -1,8 +1,8 @@
 # Worm UI Prototype
 
-This is a dependency-free Tauri-ready frontend shell. It mirrors the original Qt page coverage while following the modern dark forensic visual direction from the supplied screenshots.
+This is a dependency-free frontend shell. It mirrors the original Qt page coverage while following the modern dark forensic visual direction from the supplied screenshots.
 
-Open `index.html` directly for a static preview, or point a future Tauri `frontendDist` to this directory.
+Run `cargo run -- ui` from the repository root to open it as a native GTK/WebKit application window with the Rust backend. Opening `index.html` directly is only a static preview and will not expose local Rust APIs.
 
 Implemented UX structure:
 
