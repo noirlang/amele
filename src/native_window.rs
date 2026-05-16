@@ -3,17 +3,27 @@ pub fn prepare_environment() {
     linux::prepare_environment();
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
 pub fn prepare_environment() {}
+
+#[cfg(target_os = "windows")]
+pub fn prepare_environment() {
+    windows::prepare_environment();
+}
 
 #[cfg(target_os = "linux")]
 pub fn run(url: &str) -> Result<(), String> {
     linux::run(url)
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "windows")]
+pub fn run(url: &str) -> Result<(), String> {
+    windows::run(url)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
 pub fn run(_url: &str) -> Result<(), String> {
-    Err("Native UI window is currently implemented for Linux only".to_string())
+    Err("Native UI window is supported on Linux and Windows".to_string())
 }
 
 #[cfg(target_os = "linux")]
@@ -107,6 +117,74 @@ mod linux {
     unsafe extern "C" fn on_destroy(_widget: *mut c_void, _data: *mut c_void) {
         unsafe {
             gtk_main_quit();
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+mod windows {
+    use winit::application::ApplicationHandler;
+    use winit::dpi::LogicalSize;
+    use winit::event::WindowEvent;
+    use winit::event_loop::{ActiveEventLoop, EventLoop};
+    use winit::window::{Window, WindowId};
+    use wry::WebViewBuilder;
+
+    pub fn prepare_environment() {
+        if std::env::var_os("WEBVIEW2_USER_DATA_FOLDER").is_none() {
+            let dir = std::env::temp_dir().join("worm-webview2");
+            unsafe {
+                std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", dir);
+            }
+        }
+    }
+
+    pub fn run(url: &str) -> Result<(), String> {
+        let event_loop = EventLoop::new().map_err(|err| err.to_string())?;
+        let mut app = WindowsApp {
+            url: url.to_string(),
+            window: None,
+            webview: None,
+        };
+        event_loop.run_app(&mut app).map_err(|err| err.to_string())
+    }
+
+    struct WindowsApp {
+        url: String,
+        window: Option<Window>,
+        webview: Option<wry::WebView>,
+    }
+
+    impl ApplicationHandler for WindowsApp {
+        fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+            if self.window.is_some() {
+                return;
+            }
+
+            let attributes = Window::default_attributes()
+                .with_title("Worm Forensic Tool")
+                .with_inner_size(LogicalSize::new(1280.0, 820.0));
+            let window = event_loop
+                .create_window(attributes)
+                .expect("Windows native window could not be created");
+            let webview = WebViewBuilder::new()
+                .with_url(&self.url)
+                .build(&window)
+                .expect("WebView2 view could not be created");
+
+            self.webview = Some(webview);
+            self.window = Some(window);
+        }
+
+        fn window_event(
+            &mut self,
+            event_loop: &ActiveEventLoop,
+            _window_id: WindowId,
+            event: WindowEvent,
+        ) {
+            if matches!(event, WindowEvent::CloseRequested) {
+                event_loop.exit();
+            }
         }
     }
 }

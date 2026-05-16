@@ -28,7 +28,7 @@ Bu depo/branch, eski C/Qt uygulamasındaki çalışma mantığını koruyarak Ru
 
 ### Proje Durumu
 
-Rust rewrite aktif geliştirme aşamasındadır. Mevcut yapı, masaüstü pencere içinde çalışan dependency-free web arayüzünü Rust HTTP backend ile aynı binary üzerinden sunar. Uygulama tarayıcı sekmesi gibi değil, GTK/WebKit tabanlı yerel pencere olarak açılır.
+Rust rewrite aktif geliştirme aşamasındadır. Mevcut yapı, masaüstü pencere içinde çalışan dependency-free web arayüzünü Rust HTTP backend ile aynı binary üzerinden sunar. Uygulama tarayıcı sekmesi gibi değil; Linux'ta GTK/WebKit, Windows'ta WebView2 tabanlı yerel pencere olarak açılır.
 
 Çalışan ana başlıklar:
 
@@ -42,6 +42,8 @@ Rust rewrite aktif geliştirme aşamasındadır. Mevcut yapı, masaüstü pencer
 - Hash hesaplama ve hash karşılaştırma.
 - Vaka klasörü, kanıt kasası, not ve rapor modülleri.
 - WireGuard config üretimi ve Linux `wg-quick` wrapper akışı.
+- Linux salt-okunur loop mount ve Windows `Mount-DiskImage` imaj görüntüleme akışı.
+- Güncelleme paketini indirme, SHA256 doğrulama ve installer başlatma.
 - GitHub Actions üzerinden format, test, release build ve artifact doğrulaması.
 
 ### Öne Çıkan Özellikler
@@ -55,8 +57,10 @@ Rust rewrite aktif geliştirme aşamasındadır. Mevcut yapı, masaüstü pencer
 | İş kontrolü | Pause/resume/stop komutlarının yerel ve uzak işlere uygulanması |
 | Hash | MD5, SHA1, SHA256, SHA512 hesaplama |
 | Kanıt | Vaka ağacı, notlar, çıktı klasörleri ve rapor JSON/TXT üretimi |
-| UI | Vanilla HTML/CSS/JS, Rust binary tarafından servis edilen yerel pencere |
-| CI | Ubuntu üzerinde test, release build ve binary artifact üretimi |
+| İmaj görüntüleme | Linux `mount -o ro,loop`, Windows `Mount-DiskImage` salt-okunur mount |
+| Güncelleme | GitHub release kontrolü, paket indirme, SHA256 doğrulama, installer başlatma |
+| UI | Vanilla HTML/CSS/JS, Linux GTK/WebKit ve Windows WebView2 yerel pencere |
+| CI | Ubuntu/Windows üzerinde test, release build ve binary artifact üretimi |
 
 ### Mimari
 
@@ -67,7 +71,7 @@ worm-rewrite-rust/
 │   ├── ram.rs           # AVML / WinPMEM kontrol ve edinim helperları
 │   ├── remote.rs        # worm-linux / worm-win JSON-over-TCP client
 │   ├── ui_server.rs     # Yerel HTTP API ve UI asset servisi
-│   ├── native_window.rs # GTK/WebKit yerel pencere
+│   ├── native_window.rs # Linux GTK/WebKit ve Windows WebView2 yerel pencere
 │   ├── hash.rs          # Hash hesaplama
 │   ├── evidence.rs      # Vaka ve kanıt klasörleri
 │   ├── report.rs        # Rapor çıktıları
@@ -89,7 +93,7 @@ worm-rewrite-rust/
 
 1. `cargo run -- ui` Rust binary'yi başlatır.
 2. Binary `127.0.0.1` üzerinde geçici bir portta yerel HTTP API açar.
-3. Aynı binary GTK/WebKit pencere başlatır.
+3. Aynı binary Linux'ta GTK/WebKit, Windows'ta WebView2 pencere başlatır.
 4. UI yalnızca loopback API'ye istek atar.
 5. Disk/RAM/Hash/Agent işlemleri Rust modüllerine bağlanır.
 6. Uzak edinimlerde Rust client agent ile JSON-over-TCP konuşur.
@@ -110,6 +114,8 @@ Rust toolchain:
 rustup toolchain install stable --component rustfmt
 rustup default stable
 ```
+
+Windows native pencere için Microsoft Edge WebView2 Runtime gerekir. Windows 10/11 sistemlerde genellikle hazır gelir; eksikse Microsoft Evergreen Runtime kurulmalıdır.
 
 ### Derleme
 
@@ -270,8 +276,8 @@ Worm yalnızca yetkili adli bilişim süreçlerinde kullanılmalıdır. Disk ve 
 
 - AppImage/MSI paketleme hattının release workflow'a bağlanması.
 - Uzak agent protokol testlerinin daha geniş mock senaryolarla çoğaltılması.
-- Windows tarafında yerel pencere kabuğunun GTK/WebKit dışı bir uygulama penceresine taşınması.
-- Salt-okunur imaj mount akışının Linux dışı platformlarda ayrı sürücülerle tamamlanması.
+- Windows raw DD/IMG mount için opsiyonel forensic image driver entegrasyonu.
+- macOS yerel pencere ve salt-okunur mount desteği.
 
 ---
 
@@ -299,7 +305,7 @@ This branch preserves the operating model of the older C/Qt application while ad
 
 ### Project Status
 
-The Rust rewrite is under active development. The current build serves a dependency-free web UI from the Rust binary and opens it inside a GTK/WebKit native application window. It is intended to behave like an application window, not a normal browser tab.
+The Rust rewrite is under active development. The current build serves a dependency-free web UI from the Rust binary and opens it inside a native application window: GTK/WebKit on Linux and WebView2 on Windows. It is intended to behave like an application window, not a normal browser tab.
 
 Working areas:
 
@@ -313,6 +319,8 @@ Working areas:
 - Hash calculation and hash comparison.
 - Case folder, evidence vault, notes, and report modules.
 - WireGuard config generation and Linux `wg-quick` wrapper flow.
+- Linux read-only loop mount and Windows `Mount-DiskImage` image viewing flow.
+- Update package download, SHA256 verification, and installer launch.
 - GitHub Actions formatting, tests, release build, and artifact verification.
 
 ### Feature Overview
@@ -326,8 +334,10 @@ Working areas:
 | Job control | Pause/resume/stop commands for local and remote jobs |
 | Hashing | MD5, SHA1, SHA256, SHA512 |
 | Evidence | Case tree, notes, output folders, and JSON/TXT reports |
-| UI | Vanilla HTML/CSS/JS served by the Rust binary in a native window |
-| CI | Ubuntu tests, release build, and binary artifact upload |
+| Image viewing | Linux `mount -o ro,loop`, Windows `Mount-DiskImage` read-only mount |
+| Update | GitHub release check, package download, SHA256 verification, installer launch |
+| UI | Vanilla HTML/CSS/JS served in Linux GTK/WebKit and Windows WebView2 native windows |
+| CI | Ubuntu/Windows tests, release build, and binary artifact upload |
 
 ### Architecture
 
@@ -338,7 +348,7 @@ worm-rewrite-rust/
 │   ├── ram.rs           # AVML / WinPMEM checks and acquisition helpers
 │   ├── remote.rs        # worm-linux / worm-win JSON-over-TCP client
 │   ├── ui_server.rs     # Local HTTP API and UI asset server
-│   ├── native_window.rs # GTK/WebKit native window
+│   ├── native_window.rs # Linux GTK/WebKit and Windows WebView2 native window
 │   ├── hash.rs          # Hash calculation
 │   ├── evidence.rs      # Case and evidence folders
 │   ├── report.rs        # Report output
@@ -360,7 +370,7 @@ worm-rewrite-rust/
 
 1. `cargo run -- ui` starts the Rust binary.
 2. The binary starts a local HTTP API on a temporary `127.0.0.1` port.
-3. The same binary opens a GTK/WebKit application window.
+3. The same binary opens a GTK/WebKit window on Linux and a WebView2 window on Windows.
 4. The UI talks only to the loopback API.
 5. Disk/RAM/hash/agent actions are routed to Rust modules.
 6. Remote acquisition uses the Rust client to talk to the agents over JSON-over-TCP.
@@ -381,6 +391,8 @@ Rust toolchain:
 rustup toolchain install stable --component rustfmt
 rustup default stable
 ```
+
+The Windows native window requires Microsoft Edge WebView2 Runtime. It is usually present on Windows 10/11; install Microsoft Evergreen Runtime if it is missing.
 
 ### Build
 
@@ -541,5 +553,5 @@ Worm should be used only in authorized forensic workflows. Disk and RAM acquisit
 
 - Connect AppImage/MSI packaging to the release workflow.
 - Expand remote agent protocol tests with more mock scenarios.
-- Move the Windows native shell to an application window outside the GTK/WebKit Linux path.
-- Complete read-only image mount drivers for non-Linux platforms.
+- Optional forensic image driver integration for Windows raw DD/IMG mounts.
+- macOS native window and read-only mount support.

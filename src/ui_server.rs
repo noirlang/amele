@@ -47,6 +47,8 @@ struct EvidenceCaseState {
 
 #[derive(Clone)]
 struct ImageMountState {
+    #[cfg(windows)]
+    image_path: PathBuf,
     mount_dir: PathBuf,
 }
 
@@ -236,6 +238,7 @@ fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
         ("GET", "/api/wireguard-status") => wireguard_status_endpoint(),
         ("GET", "/api/update-check") => update_check_endpoint(),
         ("POST", "/api/update-download") => update_download_endpoint(body),
+        ("POST", "/api/update-install") => update_install_endpoint(body),
         ("POST", "/api/pick-file") => pick_path_endpoint(false),
         ("POST", "/api/pick-folder") => pick_path_endpoint(true),
         _ => json_error(404, "api endpoint not found"),
@@ -622,11 +625,6 @@ fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
         return json_error(404, "image file not found");
     }
 
-    #[cfg(not(target_os = "linux"))]
-    {
-        return json_error(400, "read-only image mount is currently supported on Linux");
-    }
-
     #[cfg(target_os = "linux")]
     {
         let _ = image_unmount_current();
@@ -676,6 +674,69 @@ fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
                 json_error(500, err.to_string())
             }
         }
+    }
+
+    #[cfg(windows)]
+    {
+        let _ = image_unmount_current();
+        let output = Command::new("powershell")
+            .arg("-NoProfile")
+            .arg("-ExecutionPolicy")
+            .arg("Bypass")
+            .arg("-Command")
+            .arg(
+                "$ErrorActionPreference='Stop'; \
+                 $image = $args[0]; \
+                 $disk = Mount-DiskImage -ImagePath $image -Access ReadOnly -PassThru; \
+                 Start-Sleep -Milliseconds 500; \
+                 $volume = $disk | Get-Volume | Select-Object -First 1; \
+                 if (-not $volume -or -not $volume.DriveLetter) { \
+                   Dismount-DiskImage -ImagePath $image -ErrorAction SilentlyContinue; \
+                   throw 'Mounted image has no drive letter. Windows supports ISO/VHD/VHDX here; raw DD/IMG needs a forensic image driver.' \
+                 }; \
+                 Write-Output ($volume.DriveLetter + ':\\')",
+            )
+            .arg(&image_path)
+            .output();
+
+        match output {
+            Ok(output) if output.status.success() => {
+                let mount_dir = PathBuf::from(String::from_utf8_lossy(&output.stdout).trim());
+                let tree = directory_tree_json(&mount_dir, 3, 400);
+                let state = ImageMountState {
+                    image_path: image_path.clone(),
+                    mount_dir: mount_dir.clone(),
+                };
+                if let Ok(mut current) = current_image_mount().lock() {
+                    *current = Some(state);
+                }
+                json_ok(json!({
+                    "image_path": image_path,
+                    "mount_dir": mount_dir,
+                    "tree": tree,
+                }))
+            }
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                json_error(
+                    500,
+                    if stderr.is_empty() {
+                        "Windows image mount failed".to_string()
+                    } else {
+                        stderr
+                    },
+                )
+            }
+            Err(err) => json_error(500, err.to_string()),
+        }
+    }
+
+    #[cfg(not(any(target_os = "linux", windows)))]
+    {
+        json_error(
+            400,
+            "read-only image mount is not supported on this platform",
+        )
     }
 }
 
@@ -925,6 +986,30 @@ fn update_download_endpoint(body: &[u8]) -> Response {
     }))
 }
 
+fn update_install_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct UpdateInstallRequest {
+        path: String,
+    }
+
+    let request: UpdateInstallRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = PathBuf::from(request.path.trim());
+    if path.as_os_str().is_empty() {
+        return json_error(400, "path is required");
+    }
+    if !path.is_file() {
+        return json_error(404, "update package not found");
+    }
+
+    match launch_update_installer(&path) {
+        Ok(message) => json_ok(json!({ "path": path, "message": message })),
+        Err(err) => json_error(500, err),
+    }
+}
+
 fn current_evidence_case() -> &'static Mutex<Option<EvidenceCaseState>> {
     CURRENT_EVIDENCE_CASE.get_or_init(|| Mutex::new(None))
 }
@@ -1030,6 +1115,34 @@ fn image_unmount_current() -> Result<Option<PathBuf>, String> {
         }
     }
 
+    #[cfg(windows)]
+    {
+        let output = Command::new("powershell")
+            .arg("-NoProfile")
+            .arg("-ExecutionPolicy")
+            .arg("Bypass")
+            .arg("-Command")
+            .arg(
+                "$ErrorActionPreference='Stop'; \
+                 Dismount-DiskImage -ImagePath $args[0]",
+            )
+            .arg(&state.image_path)
+            .output();
+        match output {
+            Ok(output) if output.status.success() => {}
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                return Err(if stderr.is_empty() {
+                    "Windows image unmount failed".to_string()
+                } else {
+                    stderr
+                });
+            }
+            Err(err) => return Err(err.to_string()),
+        }
+    }
+
+    #[cfg(target_os = "linux")]
     let _ = fs::remove_dir_all(&state.mount_dir);
     Ok(Some(state.mount_dir))
 }
@@ -1149,6 +1262,51 @@ fn sha256_file(path: &Path) -> Result<String, String> {
         hasher.update(&buffer[..read]);
     }
     Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn launch_update_installer(path: &Path) -> Result<String, String> {
+    let extension = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+
+    #[cfg(windows)]
+    {
+        let mut command = if extension == "msi" {
+            let mut command = Command::new("msiexec");
+            command.arg("/i").arg(path).arg("/passive");
+            command
+        } else {
+            Command::new(path)
+        };
+        command
+            .spawn()
+            .map_err(|err| format!("installer could not be started: {err}"))?;
+        return Ok("installer started".to_string());
+    }
+
+    #[cfg(unix)]
+    {
+        if extension == "appimage" {
+            use std::os::unix::fs::PermissionsExt;
+            let mut permissions = fs::metadata(path)
+                .map_err(|err| err.to_string())?
+                .permissions();
+            permissions.set_mode(permissions.mode() | 0o755);
+            fs::set_permissions(path, permissions).map_err(|err| err.to_string())?;
+        }
+        Command::new(path)
+            .spawn()
+            .map_err(|err| format!("installer could not be started: {err}"))?;
+        Ok("installer started".to_string())
+    }
+
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = extension;
+        Err("automatic update install is not supported on this platform".to_string())
+    }
 }
 
 #[derive(Deserialize)]

@@ -279,7 +279,7 @@ const translations = {
     "settings.updateDesc": "Kurulum dosyasını platforma göre seçer, indirme ilerlemesini ve release notlarını burada gösterir.",
     "settings.installed": "Kurulu",
     "settings.checkUpdate": "Güncellemeyi Kontrol Et",
-    "settings.downloadInstall": "Paketi İndir",
+    "settings.downloadInstall": "İndir ve Kur",
     "settings.releaseNotes": "Release notları ve indirme durumu burada görüntülenecek.",
     "settings.updateChecked": "Güncelleme kontrol edildi",
     "settings.updateLog": "Kurulu sürüm: {version}<br />Son sürüm bilgisi burada gösterilecek.",
@@ -293,6 +293,9 @@ const translations = {
     "settings.downloadFailed": "İndirme başarısız: {message}",
     "settings.downloaded": "İndirildi: {path}",
     "settings.sha256": "SHA256: {hash}",
+    "settings.installing": "Kurulum başlatılıyor",
+    "settings.installStarted": "Kurulum başlatıldı.",
+    "settings.installFailed": "Kurulum başlatılamadı: {message}",
     "about.version": "Sürüm {version}",
     "about.desc": "Worm, yetkili adli bilişim süreçlerinde disk ve RAM edinimi, doğrulama ve raporlama adımlarını tek bir merkezde birleştiren bir denetim aracıdır.",
     "about.capabilities": "Temel Kabiliyetler",
@@ -583,7 +586,7 @@ const translations = {
     "settings.updateDesc": "Selects the installer for the platform and shows download progress and release notes here.",
     "settings.installed": "Installed",
     "settings.checkUpdate": "Check for Updates",
-    "settings.downloadInstall": "Download Package",
+    "settings.downloadInstall": "Download and Install",
     "settings.releaseNotes": "Release notes and download status will appear here.",
     "settings.updateChecked": "Update checked",
     "settings.updateLog": "Installed version: {version}<br />Latest version information will appear here.",
@@ -597,6 +600,9 @@ const translations = {
     "settings.downloadFailed": "Download failed: {message}",
     "settings.downloaded": "Downloaded: {path}",
     "settings.sha256": "SHA256: {hash}",
+    "settings.installing": "Starting installer",
+    "settings.installStarted": "Installer started.",
+    "settings.installFailed": "Installer could not be started: {message}",
     "about.version": "Version {version}",
     "about.desc": "Worm is an audit tool that brings disk/RAM acquisition, verification, and reporting steps into one place for authorized forensic workflows.",
     "about.capabilities": "Core Capabilities",
@@ -2531,21 +2537,37 @@ async function downloadUpdatePackage() {
       })
     });
     if (progress) {
+      progress.style.setProperty("--value", "75%");
+      const label = progress.querySelector("b");
+      if (label) label.textContent = "75%";
+    }
+    if (status) status.innerHTML = `${icon("download")} ${t("settings.installing")}`;
+    const install = await apiRequest("/api/update-install", {
+      method: "POST",
+      body: JSON.stringify({ path: result.path })
+    });
+    if (progress) {
       progress.style.setProperty("--value", "100%");
       const label = progress.querySelector("b");
       if (label) label.textContent = "100%";
     }
-    if (status) status.innerHTML = `${icon("shield")} ${t("settings.downloadReady")}`;
-    setStatus("[data-update-log]", `${t("settings.downloaded", { path: escapeHtml(result.path) })}<br />${t("settings.sha256", { hash: escapeHtml(result.sha256) })}`);
-    showToast(t("settings.packageReady"));
+    if (status) status.innerHTML = `${icon("shield")} ${t("settings.installStarted")}`;
+    setStatus(
+      "[data-update-log]",
+      `${t("settings.downloaded", { path: escapeHtml(result.path) })}<br />${t("settings.sha256", { hash: escapeHtml(result.sha256) })}<br />${escapeHtml(install.message || t("settings.installStarted"))}`
+    );
+    showToast(t("settings.installStarted"));
   } catch (error) {
     if (progress) {
       progress.style.setProperty("--value", "0%");
       const label = progress.querySelector("b");
       if (label) label.textContent = "0%";
     }
-    if (status) status.innerHTML = `${icon("info")} ${t("settings.downloadFailed", { message: escapeHtml(error.message) })}`;
-    showToast(t("settings.downloadFailed", { message: error.message }), "error");
+    const failedKey = String(error.message || "").toLowerCase().includes("installer")
+      ? "settings.installFailed"
+      : "settings.downloadFailed";
+    if (status) status.innerHTML = `${icon("info")} ${t(failedKey, { message: escapeHtml(error.message) })}`;
+    showToast(t(failedKey, { message: error.message }), "error");
   }
 }
 
