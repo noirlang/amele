@@ -320,6 +320,12 @@ const translations = {
     "case.management": "Vaka Yönetimi",
     "case.name": "Vaka Adı",
     "case.baseDir": "Vaka Kök Klasörü",
+    "case.location": "Vaka Konumu",
+    "case.fixedLocation": "Vakalar otomatik olarak Worm/Vakalar altında oluşturulur.",
+    "case.select": "Vaka Seç",
+    "case.noCases": "Kayıtlı vaka yok",
+    "case.refresh": "Vakaları Yenile",
+    "case.loaded": "{count} vaka yüklendi.",
     "case.create": "Vaka Oluştur",
     "case.notCreated": "Vaka oluşturulmadı",
     "case.required": "Önce vaka oluşturun.",
@@ -341,7 +347,9 @@ const translations = {
     "case.empty": "Bu klasör boş.",
     "case.listFailed": "Dosyalar listelenemedi: {message}",
     "report.createTitle": "Rapor Oluştur",
-    "report.hint": "Rapor oluşturmak için önce vaka oluşturun ve işlem tamamlayın.",
+    "report.hint": "Vaka seçin; hiç vaka yoksa rapor oluştururken otomatik vaka açılır.",
+    "report.case": "Rapor Vakası",
+    "report.autoCase": "Otomatik açılacak vaka",
     "report.title": "Rapor Başlığı",
     "report.defaultTitle": "Adli Bilişim Teknik Raporu",
     "report.format": "Format",
@@ -627,6 +635,12 @@ const translations = {
     "case.management": "Case Management",
     "case.name": "Case Name",
     "case.baseDir": "Case Root Folder",
+    "case.location": "Case Location",
+    "case.fixedLocation": "Cases are created automatically under Worm/Vakalar.",
+    "case.select": "Select Case",
+    "case.noCases": "No saved cases",
+    "case.refresh": "Refresh Cases",
+    "case.loaded": "{count} cases loaded.",
     "case.create": "Create Case",
     "case.notCreated": "No case created",
     "case.required": "Create a case first.",
@@ -648,7 +662,9 @@ const translations = {
     "case.empty": "This folder is empty.",
     "case.listFailed": "Files could not be listed: {message}",
     "report.createTitle": "Create Report",
-    "report.hint": "Create a case and finish an operation before generating a report.",
+    "report.hint": "Select a case; if none exists, a case is created automatically when the report is generated.",
+    "report.case": "Report Case",
+    "report.autoCase": "Case to create automatically",
     "report.title": "Report Title",
     "report.defaultTitle": "Forensic Technical Report",
     "report.format": "Format",
@@ -692,6 +708,8 @@ const state = {
   remoteConnections: {},
   activeAcquisition: null,
   activeCase: null,
+  cases: [],
+  caseBaseDir: "",
   imageMount: null,
   latestUpdate: null,
   jobs: {},
@@ -928,6 +946,9 @@ function render() {
   }
 
   hydrateIcons(view);
+  if (state.route === "other" && ["evidence", "reports"].includes(state.activeTab)) {
+    loadEvidenceCases();
+  }
   view.focus({ preventScroll: true });
 }
 
@@ -1267,7 +1288,7 @@ function otherPage() {
         ${simpleCard(t("other.reports.title"), t("other.reports.desc"), "report", "reports")}
         ${simpleCard(t("other.logs.title"), t("other.logs.desc"), "clock", "logs")}
       </div>
-      <div id="other-detail" class="workflow-panel" style="margin-top:16px">${hashPanel()}</div>
+      <div id="other-detail" class="workflow-panel" style="margin-top:16px">${detailPanel(state.activeTab)}</div>
     </section>
   `;
 }
@@ -1484,6 +1505,56 @@ async function apiRequest(path, options = {}) {
   return data;
 }
 
+async function loadEvidenceCases({ silent = true } = {}) {
+  if (!backendReady()) return;
+  try {
+    const result = await apiRequest("/api/evidence-cases");
+    state.caseBaseDir = result.base_dir || "";
+    state.cases = Array.isArray(result.cases) ? result.cases : [];
+    if (result.current_case) state.activeCase = result.current_case;
+    updateCaseControls();
+    if (!silent) showToast(t("case.loaded", { count: String(state.cases.length) }));
+  } catch (error) {
+    if (!silent) showToast(t("case.listFailed", { message: error.message }), "error");
+  }
+}
+
+function updateCaseControls() {
+  document.querySelectorAll("[data-case-base]").forEach((node) => {
+    node.textContent = state.caseBaseDir || "~/Worm/Vakalar";
+  });
+
+  document.querySelectorAll("[data-case-select]").forEach((select) => {
+    const selected = select.value || state.activeCase?.case_name || "";
+    select.innerHTML = caseSelectOptions(selected);
+  });
+}
+
+function caseSelectOptions(selected = "") {
+  if (!state.cases.length) {
+    return `<option value="">${t("case.noCases")}</option>`;
+  }
+  return state.cases
+    .map((item) => {
+      const name = escapeHtml(item.case_name || "");
+      const isSelected = item.case_name === selected ? " selected" : "";
+      return `<option value="${name}"${isSelected}>${name}</option>`;
+    })
+    .join("");
+}
+
+function reportCaseName() {
+  const selected = document.querySelector("#report-case")?.value.trim() || "";
+  if (selected && state.cases.length) return selected;
+  return document.querySelector("#report-case-name")?.value.trim() || defaultCaseName();
+}
+
+function defaultCaseName() {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+  return `Case_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
 function backendReady() {
   return backendAvailable;
 }
@@ -1596,9 +1667,11 @@ document.addEventListener("click", (event) => {
 
   const tabButton = event.target.closest("[data-tab]");
   if (tabButton) {
+    state.activeTab = tabButton.dataset.tab;
     const detail = document.querySelector("#other-detail");
-    if (detail) detail.innerHTML = detailPanel(tabButton.dataset.tab);
+    if (detail) detail.innerHTML = detailPanel(state.activeTab);
     hydrateIcons(detail);
+    if (["evidence", "reports"].includes(state.activeTab)) loadEvidenceCases();
   }
 });
 
@@ -1893,6 +1966,11 @@ async function handleAction(button) {
 
   if (action === "list-files") {
     await listEvidenceFiles();
+    return;
+  }
+
+  if (action === "refresh-cases") {
+    await loadEvidenceCases({ silent: false });
     return;
   }
 
@@ -2423,7 +2501,6 @@ function setStatus(selector, html) {
 
 async function createEvidenceCase() {
   const caseName = document.querySelector("#case-name")?.value.trim();
-  const baseDir = document.querySelector("#case-base")?.value.trim();
   if (!caseName) {
     showToast(t("case.required"), "error");
     return;
@@ -2431,9 +2508,10 @@ async function createEvidenceCase() {
   try {
     const result = await apiRequest("/api/evidence-create", {
       method: "POST",
-      body: JSON.stringify({ case_name: caseName, base_dir: baseDir || null })
+      body: JSON.stringify({ case_name: caseName })
     });
     state.activeCase = result;
+    await loadEvidenceCases();
     setStatus("[data-case-status]", `${icon("info")} ${t("case.created", { path: escapeHtml(result.case_dir) })}`);
     showToast(t("case.created", { path: result.case_dir }));
   } catch (error) {
@@ -2468,20 +2546,18 @@ async function listEvidenceFiles() {
 }
 
 async function addEvidenceNote() {
-  if (!state.activeCase) {
-    showToast(t("case.required"), "error");
-    return;
-  }
   const note = document.querySelector("#report-note")?.value.trim();
   if (!note) {
     showToast(t("report.noteRequired"), "error");
     return;
   }
+  const caseName = reportCaseName();
   try {
     const result = await apiRequest("/api/evidence-add-note", {
       method: "POST",
-      body: JSON.stringify({ note })
+      body: JSON.stringify({ note, case_name: caseName })
     });
+    await loadEvidenceCases();
     setStatus("[data-report-status]", `${icon("info")} ${t("report.noteAdded", { path: escapeHtml(result.path) })}`);
     showToast(t("report.noteAdded", { path: result.path }));
   } catch (error) {
@@ -2491,18 +2567,16 @@ async function addEvidenceNote() {
 }
 
 async function createEvidenceReport() {
-  if (!state.activeCase) {
-    showToast(t("case.required"), "error");
-    return;
-  }
+  const caseName = reportCaseName();
   const title = document.querySelector("#report-title")?.value.trim() || t("report.defaultTitle");
   const format = document.querySelector("#report-format")?.value || "txt";
   const description = document.querySelector("#report-note")?.value.trim() || "";
   try {
     const result = await apiRequest("/api/report-create", {
       method: "POST",
-      body: JSON.stringify({ title, description, format })
+      body: JSON.stringify({ case_name: caseName, title, description, format })
     });
+    await loadEvidenceCases();
     setStatus("[data-report-status]", `${icon("info")} ${t("report.created", { path: escapeHtml(result.path) })}`);
     showToast(t("report.created", { path: result.path }));
   } catch (error) {
@@ -2575,10 +2649,15 @@ function detailPanel(tab) {
   if (tab === "evidence") {
     return `
       <p class="section-label">${t("case.management")}</p>
+      <div class="side-info">
+        <span class="metric-icon">${icon("folder")}</span>
+        <span><strong>${t("case.location")}</strong><small data-case-base>${escapeHtml(state.caseBaseDir || "~/Worm/Vakalar")}</small></span>
+      </div>
+      <p class="field-hint">${t("case.fixedLocation")}</p>
       ${field(t("case.name"), '<input id="case-name" class="input" placeholder="Case_2026_001" />')}
-      ${pickerField(t("case.baseDir"), "case-base", t("select"), "folder")}
       <div class="button-row">
         <button class="primary-button" data-action="create-case">${icon("folder")} ${t("case.create")}</button>
+        <button class="secondary-button" data-action="refresh-cases">${icon("refresh")} ${t("case.refresh")}</button>
       </div>
       <div class="status-badge" data-case-status>${icon("info")} ${state.activeCase ? t("case.created", { path: state.activeCase.case_dir }) : t("case.notCreated")}</div>
       <div class="section-divider"></div>
@@ -2591,13 +2670,19 @@ function detailPanel(tab) {
     `;
   }
   if (tab === "reports") {
+    const autoCaseField = state.cases.length
+      ? ""
+      : field(t("report.autoCase"), `<input id="report-case-name" class="input" value="${defaultCaseName()}" />`);
     return `
       <p class="section-label">${t("report.createTitle")}</p>
       <p class="field-hint">${t("report.hint")}</p>
+      ${field(t("report.case"), `<select id="report-case" class="select" data-case-select>${caseSelectOptions(state.activeCase?.case_name)}</select>`)}
+      ${autoCaseField}
       ${field(t("report.title"), `<input id="report-title" class="input" value="${t("report.defaultTitle")}" />`)}
       ${field(t("report.format"), '<select id="report-format" class="select"><option value="txt">TXT</option><option value="json">JSON</option></select>')}
       ${field(t("report.note"), `<textarea id="report-note" class="textarea" placeholder="${t("report.notePlaceholder")}"></textarea>`)}
       <div class="button-row">
+        <button class="secondary-button" data-action="refresh-cases">${icon("refresh")} ${t("case.refresh")}</button>
         <button class="secondary-button" data-action="add-note">${icon("report")} ${t("report.addNote")}</button>
         <button class="primary-button" data-action="create-report">${icon("report")} ${t("report.createTitle")}</button>
       </div>

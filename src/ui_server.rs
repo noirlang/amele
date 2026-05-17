@@ -50,6 +50,8 @@ struct ImageMountState {
     #[cfg(windows)]
     image_path: PathBuf,
     mount_dir: PathBuf,
+    #[cfg(target_os = "linux")]
+    loop_device: Option<PathBuf>,
 }
 
 pub fn run_native() -> Result<(), String> {
@@ -228,6 +230,7 @@ fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
         ("POST", "/api/evidence-create") => evidence_create_endpoint(body),
         ("POST", "/api/evidence-add-note") => evidence_add_note_endpoint(body),
         ("POST", "/api/evidence-list-files") => evidence_list_files_endpoint(body),
+        ("GET", "/api/evidence-cases") => evidence_cases_endpoint(),
         ("GET", "/api/evidence-summary") => evidence_summary_endpoint(),
         ("POST", "/api/report-create") => report_create_endpoint(body),
         ("POST", "/api/image-mount-readonly") => image_mount_readonly_endpoint(body),
@@ -433,7 +436,6 @@ fn evidence_create_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct EvidenceCreateRequest {
         case_name: String,
-        base_dir: Option<String>,
     }
 
     let request: EvidenceCreateRequest = match serde_json::from_slice(body) {
@@ -445,13 +447,7 @@ fn evidence_create_endpoint(body: &[u8]) -> Response {
     if case_name.is_empty() {
         return json_error(400, "case_name is required");
     }
-    let base_dir = request
-        .base_dir
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(PathBuf::from)
-        .unwrap_or_else(default_case_base_dir);
+    let base_dir = default_case_base_dir();
 
     match EvidenceVault::create(&base_dir, &case_name) {
         Ok(vault) => {
@@ -459,16 +455,11 @@ fn evidence_create_endpoint(body: &[u8]) -> Response {
                 Ok(summary) => summary,
                 Err(err) => return json_error(500, err.to_string()),
             };
-            let state = EvidenceCaseState {
-                base_dir,
-                case_name,
-            };
-            if let Ok(mut current) = current_evidence_case().lock() {
-                *current = Some(state);
-            }
+            set_current_evidence_case(base_dir, case_name);
             json_ok(json!({
                 "case_name": summary.case_name,
                 "case_dir": summary.case_dir,
+                "base_dir": default_case_base_dir(),
                 "output_count": summary.output_count,
                 "hash_count": summary.hash_count,
                 "report_count": summary.report_count,
@@ -482,6 +473,7 @@ fn evidence_add_note_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct EvidenceNoteRequest {
         note: String,
+        case_name: Option<String>,
     }
 
     let request: EvidenceNoteRequest = match serde_json::from_slice(body) {
@@ -492,7 +484,7 @@ fn evidence_add_note_endpoint(body: &[u8]) -> Response {
         return json_error(400, "note is required");
     }
 
-    let vault = match current_evidence_vault() {
+    let vault = match report_evidence_vault(request.case_name.as_deref()) {
         Ok(vault) => vault,
         Err(response) => return response,
     };
@@ -544,9 +536,63 @@ fn evidence_summary_endpoint() -> Response {
     }
 }
 
+fn evidence_cases_endpoint() -> Response {
+    let base_dir = default_case_base_dir();
+    if let Err(err) = fs::create_dir_all(&base_dir) {
+        return json_error(500, err.to_string());
+    }
+
+    let mut cases = Vec::new();
+    let entries = match fs::read_dir(&base_dir) {
+        Ok(entries) => entries,
+        Err(err) => return json_error(500, err.to_string()),
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let case_name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default()
+            .to_string();
+        if case_name.is_empty() {
+            continue;
+        }
+        cases.push(case_listing_json(&case_name, &path));
+    }
+    cases.sort_by(|left, right| {
+        left["case_name"]
+            .as_str()
+            .unwrap_or_default()
+            .cmp(right["case_name"].as_str().unwrap_or_default())
+    });
+
+    let current = current_evidence_case()
+        .lock()
+        .ok()
+        .and_then(|state| state.clone())
+        .map(|state| {
+            let case_dir = state.base_dir.join(&state.case_name);
+            json!({
+                "case_name": state.case_name,
+                "case_dir": case_dir,
+                "base_dir": state.base_dir,
+            })
+        });
+
+    json_ok(json!({
+        "base_dir": base_dir,
+        "cases": cases,
+        "current_case": current,
+    }))
+}
+
 fn report_create_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct ReportCreateRequest {
+        case_name: Option<String>,
         title: Option<String>,
         description: Option<String>,
         source: Option<String>,
@@ -558,7 +604,7 @@ fn report_create_endpoint(body: &[u8]) -> Response {
         Ok(request) => request,
         Err(err) => return json_error(400, err.to_string()),
     };
-    let vault = match current_evidence_vault() {
+    let vault = match report_evidence_vault(request.case_name.as_deref()) {
         Ok(vault) => vault,
         Err(response) => return response,
     };
@@ -635,18 +681,13 @@ fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
         if let Err(err) = fs::create_dir_all(&mount_dir) {
             return json_error(500, err.to_string());
         }
-        let output = Command::new("mount")
-            .arg("-o")
-            .arg("ro,loop")
-            .arg(&image_path)
-            .arg(&mount_dir)
-            .output();
 
-        match output {
-            Ok(output) if output.status.success() => {
+        match linux_mount_image_readonly(&image_path, &mount_dir) {
+            Ok(loop_device) => {
                 let tree = directory_tree_json(&mount_dir, 3, 400);
                 let state = ImageMountState {
                     mount_dir: mount_dir.clone(),
+                    loop_device,
                 };
                 if let Ok(mut current) = current_image_mount().lock() {
                     *current = Some(state);
@@ -657,21 +698,9 @@ fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
                     "tree": tree,
                 }))
             }
-            Ok(output) => {
-                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-                let _ = fs::remove_dir_all(&mount_dir);
-                json_error(
-                    500,
-                    if stderr.is_empty() {
-                        "mount failed; root privileges may be required".to_string()
-                    } else {
-                        stderr
-                    },
-                )
-            }
             Err(err) => {
                 let _ = fs::remove_dir_all(&mount_dir);
-                json_error(500, err.to_string())
+                json_error(500, err)
             }
         }
     }
@@ -1032,6 +1061,40 @@ fn current_evidence_vault() -> Result<EvidenceVault, Response> {
         .map_err(|err| json_error(500, err.to_string()))
 }
 
+fn report_evidence_vault(case_name: Option<&str>) -> Result<EvidenceVault, Response> {
+    let explicit_case = case_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(sanitize_case_name)
+        .filter(|value| !value.is_empty());
+
+    let (base_dir, case_name) = if let Some(case_name) = explicit_case {
+        (default_case_base_dir(), case_name)
+    } else if let Some(state) = current_evidence_case()
+        .lock()
+        .ok()
+        .and_then(|current| current.clone())
+    {
+        (state.base_dir, state.case_name)
+    } else {
+        (default_case_base_dir(), default_case_name())
+    };
+
+    let vault = EvidenceVault::create(&base_dir, &case_name)
+        .map_err(|err| json_error(500, err.to_string()))?;
+    set_current_evidence_case(base_dir, case_name);
+    Ok(vault)
+}
+
+fn set_current_evidence_case(base_dir: PathBuf, case_name: String) {
+    if let Ok(mut current) = current_evidence_case().lock() {
+        *current = Some(EvidenceCaseState {
+            base_dir,
+            case_name,
+        });
+    }
+}
+
 fn sanitize_case_name(value: &str) -> String {
     let sanitized = sanitize_file_stem(value);
     if sanitized.is_empty() {
@@ -1042,10 +1105,29 @@ fn sanitize_case_name(value: &str) -> String {
 }
 
 fn default_case_base_dir() -> PathBuf {
+    #[cfg(test)]
+    if let Some(path) = test_case_base_dir()
+        .lock()
+        .ok()
+        .and_then(|current| current.clone())
+    {
+        return path;
+    }
+
     home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("Worm")
-        .join("Cases")
+        .join("Vakalar")
+}
+
+fn default_case_name() -> String {
+    format!("Case_{}", Local::now().format("%Y%m%d_%H%M%S"))
+}
+
+#[cfg(test)]
+fn test_case_base_dir() -> &'static Mutex<Option<PathBuf>> {
+    static TEST_CASE_BASE_DIR: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
+    TEST_CASE_BASE_DIR.get_or_init(|| Mutex::new(None))
 }
 
 fn default_download_dir() -> PathBuf {
@@ -1071,6 +1153,22 @@ fn evidence_subdir(value: &str) -> &'static str {
     }
 }
 
+fn case_listing_json(case_name: &str, case_dir: &Path) -> Value {
+    json!({
+        "case_name": case_name,
+        "case_dir": case_dir,
+        "output_count": count_directory_entries(&case_dir.join("ciktilar")),
+        "hash_count": count_directory_entries(&case_dir.join("hash")),
+        "report_count": count_directory_entries(&case_dir.join("raporlar")),
+    })
+}
+
+fn count_directory_entries(path: &Path) -> usize {
+    fs::read_dir(path)
+        .map(|entries| entries.flatten().count())
+        .unwrap_or_default()
+}
+
 fn file_entry_json(path: PathBuf) -> Value {
     let metadata = fs::metadata(&path).ok();
     json!({
@@ -1086,6 +1184,146 @@ fn report_format(value: &str) -> Option<ReportFormat> {
         "txt" => Some(ReportFormat::Txt),
         "json" => Some(ReportFormat::Json),
         _ => None,
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn linux_mount_image_readonly(
+    image_path: &Path,
+    mount_dir: &Path,
+) -> Result<Option<PathBuf>, String> {
+    let direct_output = Command::new("mount")
+        .arg("-o")
+        .arg("ro,loop")
+        .arg(image_path)
+        .arg(mount_dir)
+        .output();
+
+    match direct_output {
+        Ok(output) if output.status.success() => Ok(None),
+        Ok(output) => {
+            let direct_error = command_error_message(
+                &output,
+                "mount failed; image may contain a partition table or root privileges may be required",
+            );
+            linux_mount_partitioned_image(image_path, mount_dir)
+                .map_err(|err| format!("{direct_error}\npartition scan failed: {err}"))
+        }
+        Err(err) => linux_mount_partitioned_image(image_path, mount_dir)
+            .map_err(|scan_err| format!("{err}; partition scan failed: {scan_err}")),
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn linux_mount_partitioned_image(
+    image_path: &Path,
+    mount_dir: &Path,
+) -> Result<Option<PathBuf>, String> {
+    let setup_output = Command::new("losetup")
+        .arg("--find")
+        .arg("--partscan")
+        .arg("--read-only")
+        .arg("--show")
+        .arg(image_path)
+        .output()
+        .map_err(|err| err.to_string())?;
+
+    if !setup_output.status.success() {
+        return Err(command_error_message(
+            &setup_output,
+            "losetup failed; root privileges may be required",
+        ));
+    }
+
+    let loop_device = PathBuf::from(String::from_utf8_lossy(&setup_output.stdout).trim());
+    if loop_device.as_os_str().is_empty() {
+        return Err("losetup did not return a loop device".to_string());
+    }
+
+    thread::sleep(std::time::Duration::from_millis(250));
+
+    let candidates = linux_loop_mount_candidates(&loop_device);
+    let mut last_error = String::new();
+    for candidate in candidates {
+        let output = Command::new("mount")
+            .arg("-o")
+            .arg("ro")
+            .arg(&candidate)
+            .arg(mount_dir)
+            .output();
+        match output {
+            Ok(output) if output.status.success() => return Ok(Some(loop_device)),
+            Ok(output) => {
+                last_error = format!(
+                    "{}: {}",
+                    candidate.display(),
+                    command_error_message(&output, "mount failed")
+                );
+            }
+            Err(err) => {
+                last_error = format!("{}: {err}", candidate.display());
+            }
+        }
+    }
+
+    let _ = Command::new("losetup").arg("-d").arg(&loop_device).output();
+    if last_error.is_empty() {
+        Err("no mountable filesystem partition was found in the image".to_string())
+    } else {
+        Err(last_error)
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn linux_loop_mount_candidates(loop_device: &Path) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Ok(output) = Command::new("lsblk")
+        .arg("-rnpo")
+        .arg("PATH,TYPE")
+        .arg(loop_device)
+        .output()
+        && output.status.success()
+    {
+        for line in String::from_utf8_lossy(&output.stdout).lines() {
+            let mut parts = line.split_whitespace();
+            let Some(path) = parts.next() else {
+                continue;
+            };
+            let Some(kind) = parts.next() else {
+                continue;
+            };
+            if kind == "part" {
+                candidates.push(PathBuf::from(path));
+            }
+        }
+    }
+
+    if candidates.is_empty()
+        && let Some(name) = loop_device.file_name().and_then(|value| value.to_str())
+    {
+        let sys_block = Path::new("/sys/block").join(name);
+        if let Ok(entries) = fs::read_dir(sys_block) {
+            for entry in entries.flatten() {
+                let partition_name = entry.file_name();
+                let partition_name = partition_name.to_string_lossy();
+                if partition_name.starts_with(name) && partition_name != name {
+                    candidates.push(Path::new("/dev").join(partition_name.as_ref()));
+                }
+            }
+        }
+    }
+
+    candidates.push(loop_device.to_path_buf());
+    candidates
+}
+
+#[cfg(target_os = "linux")]
+fn command_error_message(output: &std::process::Output, fallback: &str) -> String {
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if stderr.is_empty() {
+        fallback.to_string()
+    } else {
+        stderr
     }
 }
 
@@ -1112,6 +1350,22 @@ fn image_unmount_current() -> Result<Option<PathBuf>, String> {
                 });
             }
             Err(err) => return Err(err.to_string()),
+        }
+
+        if let Some(loop_device) = &state.loop_device {
+            let output = Command::new("losetup").arg("-d").arg(loop_device).output();
+            match output {
+                Ok(output) if output.status.success() => {}
+                Ok(output) => {
+                    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                    return Err(if stderr.is_empty() {
+                        "loop device detach failed".to_string()
+                    } else {
+                        stderr
+                    });
+                }
+                Err(err) => return Err(err.to_string()),
+            }
         }
     }
 
@@ -2016,10 +2270,12 @@ mod tests {
     #[test]
     fn evidence_note_and_report_endpoints_write_files() {
         let dir = tempfile::tempdir().unwrap();
+        *test_case_base_dir().lock().unwrap() = Some(dir.path().to_path_buf());
+        *current_evidence_case().lock().unwrap() = None;
+
         let create = response_json(evidence_create_endpoint(
             json!({
                 "case_name": "case_endpoint",
-                "base_dir": dir.path(),
             })
             .to_string()
             .as_bytes(),
@@ -2041,6 +2297,9 @@ mod tests {
             .as_bytes(),
         ));
         assert!(Path::new(report["path"].as_str().unwrap()).is_file());
+
+        *current_evidence_case().lock().unwrap() = None;
+        *test_case_base_dir().lock().unwrap() = None;
     }
 
     #[test]

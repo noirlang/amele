@@ -185,8 +185,7 @@ button {
 }
 
 .icon-button,
-.top-action,
-.chrome-button {
+.top-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -199,8 +198,7 @@ button {
 }
 
 .icon-button:hover,
-.top-action:hover,
-.chrome-button:hover {
+.top-action:hover {
   transform: translateY(-1px);
   border-color: var(--line-strong);
   background: rgba(101, 229, 138, 0.1);
@@ -339,22 +337,6 @@ button {
   background: rgba(101, 229, 138, 0.13);
   color: var(--green);
   border-color: var(--line-strong);
-}
-
-.window-separator {
-  width: 1px;
-  height: 32px;
-  margin: 0 6px;
-  background: var(--line);
-}
-
-.chrome-button {
-  width: 34px;
-  height: 34px;
-  border-color: transparent;
-  background: transparent;
-  color: var(--muted);
-  font-size: 20px;
 }
 
 .view {
@@ -1417,11 +1399,6 @@ svg {
 
   .topbar {
     padding: 0 12px;
-  }
-
-  .window-separator,
-  .chrome-button {
-    display: none;
   }
 
   .window-title {

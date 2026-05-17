@@ -32,7 +32,7 @@ impl Default for AppSettings {
             varsayilan_boyut_mb: DEFAULT_SIZE_MB,
             disk_algilama_araligi_ms: DEFAULT_DETECTION_INTERVAL_MS,
             cikti_klasoru: worm_dir.join("Ciktilar"),
-            vaka_klasoru: worm_dir,
+            vaka_klasoru: worm_dir.join("Vakalar"),
             otomatik_rapor: true,
             karanlik_tema: false,
             dil: "tr".to_string(),

@@ -40,9 +40,9 @@ Rust rewrite aktif geliştirme aşamasındadır. Mevcut yapı, masaüstü pencer
 - Disk/RAM edinimlerinde yüzde ilerleme.
 - Uzak ve yerel işler için duraklat/devam/durdur kontrolü.
 - Hash hesaplama ve hash karşılaştırma.
-- Vaka klasörü, kanıt kasası, not ve rapor modülleri.
+- Sabit `~/Worm/Vakalar` altında vaka klasörü, kanıt kasası, not ve rapor modülleri.
 - WireGuard config üretimi ve Linux `wg-quick` wrapper akışı.
-- Linux salt-okunur loop mount ve Windows `Mount-DiskImage` imaj görüntüleme akışı.
+- Linux salt-okunur loop/partition mount ve Windows `Mount-DiskImage` imaj görüntüleme akışı.
 - Güncelleme paketini indirme, SHA256 doğrulama ve installer başlatma.
 - GitHub Actions üzerinden format, test, release build ve artifact doğrulaması.
 
@@ -56,8 +56,8 @@ Rust rewrite aktif geliştirme aşamasındadır. Mevcut yapı, masaüstü pencer
 | Uzak RAM edinimi | Agent tarafında edinim başlatma, ilerleme izleme, dump indirme |
 | İş kontrolü | Pause/resume/stop komutlarının yerel ve uzak işlere uygulanması |
 | Hash | MD5, SHA1, SHA256, SHA512 hesaplama |
-| Kanıt | Vaka ağacı, notlar, çıktı klasörleri ve rapor JSON/TXT üretimi |
-| İmaj görüntüleme | Linux `mount -o ro,loop`, Windows `Mount-DiskImage` salt-okunur mount |
+| Kanıt | Sabit `~/Worm/Vakalar` altında vaka ağacı, notlar, çıktı klasörleri ve rapor JSON/TXT üretimi |
+| İmaj görüntüleme | Linux `mount -o ro,loop` ve partition'lı imajlar için `losetup --partscan`, Windows `Mount-DiskImage` salt-okunur mount |
 | Güncelleme | GitHub release kontrolü, paket indirme, SHA256 doğrulama, installer başlatma |
 | UI | Vanilla HTML/CSS/JS, Linux GTK/WebKit ve Windows WebView2 yerel pencere |
 | CI | Ubuntu/Windows üzerinde test, release build ve binary artifact üretimi |
@@ -272,7 +272,7 @@ Worm yalnızca yetkili adli bilişim süreçlerinde kullanılmalıdır. Disk ve 
 - AppImage/MSI paketleme hattının release workflow'a bağlanması.
 - Uzak agent protokol testlerinin daha geniş mock senaryolarla çoğaltılması.
 - Windows raw DD/IMG mount için opsiyonel forensic image driver entegrasyonu.
-- macOS yerel pencere ve salt-okunur mount desteği.
+- macOS bu dalda desteklenmez; hedef platformlar Linux ve Windows'tur.
 
 ---
 
@@ -312,9 +312,9 @@ Working areas:
 - Percentage progress for disk/RAM acquisition.
 - Pause/resume/stop controls for local and remote jobs.
 - Hash calculation and hash comparison.
-- Case folder, evidence vault, notes, and report modules.
+- Case folder, evidence vault, notes, and report modules under fixed `~/Worm/Vakalar`.
 - WireGuard config generation and Linux `wg-quick` wrapper flow.
-- Linux read-only loop mount and Windows `Mount-DiskImage` image viewing flow.
+- Linux read-only loop/partition mount and Windows `Mount-DiskImage` image viewing flow.
 - Update package download, SHA256 verification, and installer launch.
 - GitHub Actions formatting, tests, release build, and artifact verification.
 
@@ -328,8 +328,8 @@ Working areas:
 | Remote RAM acquisition | Start acquisition on the agent, track progress, download dump |
 | Job control | Pause/resume/stop commands for local and remote jobs |
 | Hashing | MD5, SHA1, SHA256, SHA512 |
-| Evidence | Case tree, notes, output folders, and JSON/TXT reports |
-| Image viewing | Linux `mount -o ro,loop`, Windows `Mount-DiskImage` read-only mount |
+| Evidence | Case tree, notes, output folders, and JSON/TXT reports under fixed `~/Worm/Vakalar` |
+| Image viewing | Linux `mount -o ro,loop` plus `losetup --partscan` for partitioned images, Windows `Mount-DiskImage` read-only mount |
 | Update | GitHub release check, package download, SHA256 verification, installer launch |
 | UI | Vanilla HTML/CSS/JS served in Linux GTK/WebKit and Windows WebView2 native windows |
 | CI | Ubuntu/Windows tests, release build, and binary artifact upload |
@@ -544,4 +544,4 @@ Worm should be used only in authorized forensic workflows. Disk and RAM acquisit
 - Connect AppImage/MSI packaging to the release workflow.
 - Expand remote agent protocol tests with more mock scenarios.
 - Optional forensic image driver integration for Windows raw DD/IMG mounts.
-- macOS native window and read-only mount support.
+- macOS is not supported in this branch; the target platforms are Linux and Windows.
