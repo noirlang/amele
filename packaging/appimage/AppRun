@@ -4,4 +4,14 @@ APPDIR="$(dirname "$(readlink -f "$0")")"
 export WORM_UI_ROOT="${WORM_UI_ROOT:-$APPDIR/usr/share/worm/ui}"
 export WORM_APP_ICON="${WORM_APP_ICON:-$APPDIR/usr/share/icons/hicolor/256x256/apps/worm.png}"
 
-exec "$APPDIR/usr/bin/worm" ui "$@"
+case "${1:-}" in
+  "" )
+    exec "$APPDIR/usr/bin/worm" ui
+    ;;
+  settings-default|hash|disk-list|disk-list-helper|image-helper|mount-helper|disk-size|verify|remote-disks|remote-image|remote-tool-check|ram-status|wireguard-config|ui|ui-browser )
+    exec "$APPDIR/usr/bin/worm" "$@"
+    ;;
+  * )
+    exec "$APPDIR/usr/bin/worm" ui "$@"
+    ;;
+esac

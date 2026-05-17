@@ -323,6 +323,13 @@ fn disk_list_endpoint() -> Response {
 }
 
 fn should_request_elevated_disk_list(disks: &[disk::DiskInfo]) -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        if !process_is_root() {
+            return true;
+        }
+    }
+
     if !(cfg!(target_os = "linux") || cfg!(windows)) {
         return false;
     }
@@ -1278,7 +1285,7 @@ fn run_elevated_helper_wait(args: &[String]) -> Result<(), String> {
 
 #[cfg(target_os = "linux")]
 fn spawn_elevated_helper(args: &[String]) -> Result<std::process::Child, String> {
-    let exe = std::env::current_exe().map_err(|err| err.to_string())?;
+    let exe = elevated_helper_executable()?;
     Command::new("pkexec")
         .arg(exe)
         .args(args)
@@ -1287,6 +1294,18 @@ fn spawn_elevated_helper(args: &[String]) -> Result<std::process::Child, String>
         .stderr(Stdio::null())
         .spawn()
         .map_err(|err| format!("pkexec baslatilamadi: {err}"))
+}
+
+#[cfg(target_os = "linux")]
+fn elevated_helper_executable() -> Result<PathBuf, String> {
+    if let Some(path) = std::env::var_os("APPIMAGE") {
+        let path = PathBuf::from(path);
+        if path.is_file() {
+            return Ok(path);
+        }
+    }
+
+    std::env::current_exe().map_err(|err| err.to_string())
 }
 
 #[cfg(windows)]
@@ -2910,5 +2929,22 @@ mod tests {
         let tree = directory_tree_json(dir.path(), 2, 10);
         assert!(tree["is_dir"].as_bool().unwrap());
         assert_eq!(tree["children"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn disk_list_requests_elevation_for_linux_user_session() {
+        if process_is_root() {
+            return;
+        }
+
+        let disks = vec![disk::DiskInfo {
+            device: PathBuf::from("/dev/sda"),
+            total_size: 1024,
+            used_size: 1024,
+            accessible: true,
+        }];
+
+        assert!(should_request_elevated_disk_list(&disks));
     }
 }
