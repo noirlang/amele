@@ -5,9 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.youtube.com/watch?v=6PWl4UUZyc0">
-    <img src="https://img.youtube.com/vi/6PWl4UUZyc0/maxresdefault.jpg" alt="Worm Demo" width="700" />
-  </a>
+  <video src="https://github.com/user-attachments/assets/1b57bf23-cf54-4f0e-b3b3-f745d298ba09" width="700" controls></video>
 </p>
 
 [![Worm CI](https://github.com/noirlang/worm/actions/workflows/ci.yml/badge.svg)](https://github.com/noirlang/worm/actions/workflows/ci.yml)
