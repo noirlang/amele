@@ -4,6 +4,10 @@
   <img src="ui/assets/logo/logo.png" alt="Worm Logo" width="120" />
 </p>
 
+<p align="center">
+  <video src="worm.mp4" width="700" controls></video>
+</p>
+
 [![Worm CI](https://github.com/noirlang/worm/actions/workflows/ci.yml/badge.svg)](https://github.com/noirlang/worm/actions/workflows/ci.yml)
 
 ## Türkçe
