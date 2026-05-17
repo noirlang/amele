@@ -1,3 +1,5 @@
+use serde_json::json;
+use std::fs;
 use std::path::PathBuf;
 use worm_rewrite_rust::disk;
 use worm_rewrite_rust::hash::{self, HashAlgorithm};
@@ -13,6 +15,7 @@ fn main() {
         Some("settings-default") => print_default_settings(),
         Some("hash") => hash_command(args.collect()),
         Some("disk-list") => disk_list_command(),
+        Some("disk-list-helper") => disk_list_helper_command(args.collect()),
         Some("disk-size") => disk_size_command(args.collect()),
         Some("verify") => verify_command(args.collect()),
         Some("remote-disks") => remote_disks_command(args.collect()),
@@ -43,6 +46,7 @@ fn print_help() {
            settings-default              Varsayilan ayarlari JSON olarak yazdir\n\
            hash <dosya> [algoritma]      md5/sha1/sha256/sha512 hash hesapla\n\
            disk-list                     Yerel diskleri listele\n\
+           disk-list-helper <json>        Yetkili disk listeleme yardimci komutu\n\
            disk-size <cihaz|dosya>       Disk veya dosya boyutu al\n\
            verify <imaj> <sha256>        SHA256 imaj dogrulama yap\n\n\
            remote-disks <ip> <port> [token]\n\
@@ -86,6 +90,21 @@ fn disk_list_command() -> Result<(), String> {
         serde_json::to_string_pretty(&disks).map_err(|err| err.to_string())?
     );
     Ok(())
+}
+
+fn disk_list_helper_command(args: Vec<String>) -> Result<(), String> {
+    let Some(output) = args.first() else {
+        return Err("Kullanim: disk-list-helper <json-cikti>".to_string());
+    };
+    let payload = match disk::list_disks() {
+        Ok(disks) => json!({ "ok": true, "disks": disks }),
+        Err(err) => json!({ "ok": false, "error": err.to_string() }),
+    };
+    fs::write(
+        output,
+        serde_json::to_vec_pretty(&payload).map_err(|err| err.to_string())?,
+    )
+    .map_err(|err| err.to_string())
 }
 
 fn disk_size_command(args: Vec<String>) -> Result<(), String> {

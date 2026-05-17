@@ -209,10 +209,7 @@ fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
             Ok(value) => json_ok(value),
             Err(err) => json_error(500, err.to_string()),
         },
-        ("GET", "/api/disk-list") => match disk::list_disks() {
-            Ok(disks) => json_ok(json!({ "disks": disks })),
-            Err(err) => json_error(500, err.to_string()),
-        },
+        ("GET", "/api/disk-list") => disk_list_endpoint(),
         ("GET", "/api/ram-status") => json_ok(json!({
             "avml": ram::avml_status(None),
             "winpmem": ram::winpmem_status(None),
@@ -297,6 +294,41 @@ fn connect_endpoint(body: &[u8]) -> Response {
     }
 }
 
+fn disk_list_endpoint() -> Response {
+    match disk::list_disks() {
+        Ok(disks) => {
+            if should_request_elevated_disk_list(&disks) {
+                match elevated_disk_list() {
+                    Ok(elevated_disks) if !elevated_disks.is_empty() => {
+                        json_ok(json!({ "disks": elevated_disks, "elevated": true }))
+                    }
+                    Ok(_) => json_ok(json!({ "disks": disks, "elevated": true })),
+                    Err(err) => json_ok(json!({
+                        "disks": disks,
+                        "elevated": false,
+                        "elevation_error": err,
+                    })),
+                }
+            } else {
+                json_ok(json!({ "disks": disks, "elevated": false }))
+            }
+        }
+        Err(err) => match elevated_disk_list() {
+            Ok(disks) => json_ok(json!({ "disks": disks, "elevated": true })),
+            Err(elevation_err) => {
+                json_error(500, format!("{}; elevation failed: {elevation_err}", err))
+            }
+        },
+    }
+}
+
+fn should_request_elevated_disk_list(disks: &[disk::DiskInfo]) -> bool {
+    if !(cfg!(target_os = "linux") || cfg!(windows)) {
+        return false;
+    }
+    disks.is_empty() || disks.iter().any(|disk| !disk.accessible)
+}
+
 fn hash_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct HashRequest {
@@ -338,7 +370,14 @@ fn local_image_endpoint(body: &[u8]) -> Response {
     if request.source.trim().is_empty() {
         return json_error(400, "source is required");
     }
-    if request.output.trim().is_empty() {
+    if request.output.trim().is_empty()
+        && request
+            .case_name
+            .as_deref()
+            .unwrap_or_default()
+            .trim()
+            .is_empty()
+    {
         return json_error(400, "output is required");
     }
 
@@ -367,7 +406,14 @@ fn remote_image_endpoint(body: &[u8]) -> Response {
     if request.disk_id.trim().is_empty() {
         return json_error(400, "disk_id is required");
     }
-    if request.output.trim().is_empty() {
+    if request.output.trim().is_empty()
+        && request
+            .case_name
+            .as_deref()
+            .unwrap_or_default()
+            .trim()
+            .is_empty()
+    {
         return json_error(400, "output is required");
     }
 
@@ -460,6 +506,7 @@ fn evidence_create_endpoint(body: &[u8]) -> Response {
                 "case_name": summary.case_name,
                 "case_dir": summary.case_dir,
                 "base_dir": default_case_base_dir(),
+                "output_dir": vault.outputs_dir,
                 "output_count": summary.output_count,
                 "hash_count": summary.hash_count,
                 "report_count": summary.report_count,
@@ -579,6 +626,7 @@ fn evidence_cases_endpoint() -> Response {
                 "case_name": state.case_name,
                 "case_dir": case_dir,
                 "base_dir": state.base_dir,
+                "output_dir": case_dir.join("ciktilar"),
             })
         });
 
@@ -1157,6 +1205,7 @@ fn case_listing_json(case_name: &str, case_dir: &Path) -> Value {
     json!({
         "case_name": case_name,
         "case_dir": case_dir,
+        "output_dir": case_dir.join("ciktilar"),
         "output_count": count_directory_entries(&case_dir.join("ciktilar")),
         "hash_count": count_directory_entries(&case_dir.join("hash")),
         "report_count": count_directory_entries(&case_dir.join("raporlar")),
@@ -1167,6 +1216,97 @@ fn count_directory_entries(path: &Path) -> usize {
     fs::read_dir(path)
         .map(|entries| entries.flatten().count())
         .unwrap_or_default()
+}
+
+fn elevated_disk_list() -> Result<Vec<disk::DiskInfo>, String> {
+    let output_path = std::env::temp_dir().join(format!(
+        "worm-disk-list-{}-{}.json",
+        std::process::id(),
+        Local::now().format("%Y%m%d%H%M%S%3f")
+    ));
+
+    let run_result = run_elevated_disk_list_helper(&output_path);
+    if let Err(err) = run_result {
+        let _ = fs::remove_file(&output_path);
+        return Err(err);
+    }
+
+    let content = fs::read_to_string(&output_path).map_err(|err| err.to_string())?;
+    let _ = fs::remove_file(&output_path);
+    let value: Value = serde_json::from_str(&content).map_err(|err| err.to_string())?;
+    if value.get("ok").and_then(Value::as_bool) != Some(true) {
+        return Err(value
+            .get("error")
+            .and_then(Value::as_str)
+            .unwrap_or("elevated disk list failed")
+            .to_string());
+    }
+    serde_json::from_value(
+        value
+            .get("disks")
+            .cloned()
+            .unwrap_or(Value::Array(Vec::new())),
+    )
+    .map_err(|err| err.to_string())
+}
+
+#[cfg(target_os = "linux")]
+fn run_elevated_disk_list_helper(output_path: &Path) -> Result<(), String> {
+    let exe = std::env::current_exe().map_err(|err| err.to_string())?;
+    let output = Command::new("pkexec")
+        .arg(exe)
+        .arg("disk-list-helper")
+        .arg(output_path)
+        .output()
+        .map_err(|err| format!("pkexec baslatilamadi: {err}"))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(if stderr.is_empty() {
+            "yetki yükseltme iptal edildi veya başarısız oldu".to_string()
+        } else {
+            stderr
+        })
+    }
+}
+
+#[cfg(windows)]
+fn run_elevated_disk_list_helper(output_path: &Path) -> Result<(), String> {
+    let exe = std::env::current_exe().map_err(|err| err.to_string())?;
+    let output = Command::new("powershell")
+        .arg("-NoProfile")
+        .arg("-ExecutionPolicy")
+        .arg("Bypass")
+        .arg("-Command")
+        .arg(
+            "$ErrorActionPreference='Stop'; \
+             $exe=$args[0]; \
+             $out=$args[1]; \
+             $process=Start-Process -FilePath $exe -ArgumentList @('disk-list-helper', $out) -Verb RunAs -Wait -PassThru; \
+             exit $process.ExitCode",
+        )
+        .arg(exe)
+        .arg(output_path)
+        .output()
+        .map_err(|err| format!("UAC baslatilamadi: {err}"))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(if stderr.is_empty() {
+            "yetki yükseltme iptal edildi veya başarısız oldu".to_string()
+        } else {
+            stderr
+        })
+    }
+}
+
+#[cfg(not(any(target_os = "linux", windows)))]
+fn run_elevated_disk_list_helper(_output_path: &Path) -> Result<(), String> {
+    Err("yetki yükseltmeli disk listeleme bu platformda desteklenmiyor".to_string())
 }
 
 fn file_entry_json(path: PathBuf) -> Value {
@@ -1567,6 +1707,7 @@ fn launch_update_installer(path: &Path) -> Result<String, String> {
 struct LocalImageRequest {
     source: String,
     output: String,
+    case_name: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -1576,6 +1717,7 @@ struct RemoteImageRequest {
     token: Option<String>,
     disk_id: String,
     output: String,
+    case_name: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -1598,7 +1740,14 @@ fn run_local_image_job(
     request: LocalImageRequest,
     control: ram::CancellationToken,
 ) {
-    let target = acquisition_target_path(&request.source, &request.output, "local");
+    let output = match image_output_dir(&request.output, request.case_name.as_deref()) {
+        Ok(output) => output,
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err, "Imaj alma basarisiz");
+            return;
+        }
+    };
+    let target = acquisition_target_path(&request.source, &output.to_string_lossy(), "local");
     let task = DiskAcquisitionTask::new(&request.source, &target);
     match disk::run_disk_acquisition_with_control(
         &task,
@@ -1636,9 +1785,16 @@ fn run_remote_image_job(job_id: String, request: RemoteImageRequest) {
     match RemoteConnection::connect(&request.ip, request.port, request.token) {
         Ok(mut connection) => {
             let remote_job_id = job_id.clone();
+            let output = match image_output_dir(&request.output, request.case_name.as_deref()) {
+                Ok(output) => output,
+                Err(err) => {
+                    fail_acquisition_job_with_message(&job_id, err, "Imaj alma basarisiz");
+                    return;
+                }
+            };
             match connection.acquire_image(
                 &request.disk_id,
-                &request.output,
+                &output,
                 Some(&remote_job_id),
                 |done, total| update_acquisition_progress(&job_id, done, total),
             ) {
@@ -1958,6 +2114,28 @@ fn progress_percent(done: u64, total: u64) -> u64 {
         .checked_div(total)
         .unwrap_or(0)
         .min(100)
+}
+
+fn image_output_dir(output: &str, case_name: Option<&str>) -> Result<PathBuf, String> {
+    let case_name = case_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(sanitize_case_name)
+        .filter(|value| !value.is_empty());
+
+    if let Some(case_name) = case_name {
+        let base_dir = default_case_base_dir();
+        let vault = EvidenceVault::create(&base_dir, &case_name).map_err(|err| err.to_string())?;
+        set_current_evidence_case(base_dir, case_name);
+        return Ok(vault.outputs_dir);
+    }
+
+    let output = output.trim();
+    if output.is_empty() {
+        Err("output is required".to_string())
+    } else {
+        Ok(PathBuf::from(output))
+    }
 }
 
 fn acquisition_target_path(source: &str, output: &str, prefix: &str) -> PathBuf {
