@@ -3,6 +3,8 @@ use serde_json::{Value, json};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 use worm::disk;
@@ -21,6 +23,7 @@ fn main() {
         Some("disk-list") => disk_list_command(),
         Some("disk-list-helper") => disk_list_helper_command(args.collect()),
         Some("image-helper") => image_helper_command(args.collect()),
+        Some("ram-helper") => ram_helper_command(args.collect()),
         Some("mount-helper") => mount_helper_command(args.collect()),
         Some("disk-size") => disk_size_command(args.collect()),
         Some("verify") => verify_command(args.collect()),
@@ -54,6 +57,7 @@ fn print_help() {
            disk-list                     Yerel diskleri listele\n\
            disk-list-helper <json>        Yetkili disk listeleme yardimci komutu\n\
            image-helper <req> <res> <prg> [ctrl] Yetkili imaj alma yardimci komutu\n\
+           ram-helper <req> <res> <prg> <ctrl> Yetkili RAM alma yardimci komutu\n\
            mount-helper <req> <res>       Yetkili imaj mount yardimci komutu\n\
            disk-size <cihaz|dosya>       Disk veya dosya boyutu al\n\
            verify <imaj> <sha256>        SHA256 imaj dogrulama yap\n\n\
@@ -216,6 +220,112 @@ fn image_helper_control(control_path: Option<&Path>) -> disk::DiskAcquisitionCon
         "cancelled" | "cancel" | "stop" => disk::DiskAcquisitionControl::Cancel,
         "paused" | "pause" => disk::DiskAcquisitionControl::Pause,
         _ => disk::DiskAcquisitionControl::Continue,
+    }
+}
+
+#[derive(Deserialize)]
+struct RamHelperRequest {
+    output_file: PathBuf,
+    tool: String,
+    tool_path: Option<PathBuf>,
+    owner_uid: Option<u32>,
+    owner_gid: Option<u32>,
+}
+
+fn ram_helper_command(args: Vec<String>) -> Result<(), String> {
+    if args.len() != 4 {
+        return Err(
+            "Kullanim: ram-helper <request-json> <result-json> <progress-json> <control-json>"
+                .to_string(),
+        );
+    }
+    let request_path = PathBuf::from(&args[0]);
+    let result_path = PathBuf::from(&args[1]);
+    let progress_path = PathBuf::from(&args[2]);
+    let control_path = PathBuf::from(&args[3]);
+    let request: RamHelperRequest =
+        serde_json::from_slice(&fs::read(&request_path).map_err(|err| err.to_string())?)
+            .map_err(|err| err.to_string())?;
+
+    let token = ram::CancellationToken::default();
+    let watcher_stop = Arc::new(AtomicBool::new(false));
+    let watcher = {
+        let token = token.clone();
+        let watcher_stop = watcher_stop.clone();
+        thread::spawn(move || {
+            while !watcher_stop.load(Ordering::SeqCst) {
+                apply_ram_helper_control(&token, &control_path);
+                thread::sleep(Duration::from_millis(200));
+            }
+        })
+    };
+
+    let candidate = request.tool_path.as_deref();
+    let result = match request.tool.as_str() {
+        "avml" => ram::acquire_with_avml(&request.output_file, candidate, &token, |done, total| {
+            let _ = write_json_file(
+                &progress_path,
+                &json!({
+                    "done": done,
+                    "total": total,
+                    "message": "RAM edinimi suruyor",
+                }),
+            );
+        }),
+        "winpmem" => {
+            ram::acquire_with_winpmem(&request.output_file, candidate, &token, |done, total| {
+                let _ = write_json_file(
+                    &progress_path,
+                    &json!({
+                        "done": done,
+                        "total": total,
+                        "message": "RAM edinimi suruyor",
+                    }),
+                );
+            })
+        }
+        _ => Err(worm::error::WormError::new(
+            worm::error::HataKodu::Genel,
+            "Desteklenmeyen RAM araci",
+        )),
+    };
+
+    watcher_stop.store(true, Ordering::SeqCst);
+    let _ = watcher.join();
+
+    let payload = match result {
+        Ok(result) => {
+            restore_helper_output_owner(&result.output_file, request.owner_uid, request.owner_gid);
+            json!({
+                "ok": true,
+                "target_path": result.output_file,
+                "bytes_written": result.bytes_written,
+            })
+        }
+        Err(err) => json!({
+            "ok": false,
+            "error": err.to_string(),
+        }),
+    };
+    write_json_file(&result_path, &payload)
+}
+
+fn apply_ram_helper_control(token: &ram::CancellationToken, control_path: &Path) {
+    let Some(value) = fs::read(control_path)
+        .ok()
+        .and_then(|payload| serde_json::from_slice::<Value>(&payload).ok())
+    else {
+        return;
+    };
+    match value
+        .get("state")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+    {
+        "cancelled" | "cancel" | "stop" => token.cancel(),
+        "paused" | "pause" => token.pause(),
+        "running" | "resume" => token.resume(),
+        _ => {}
     }
 }
 

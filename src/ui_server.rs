@@ -1976,13 +1976,18 @@ fn run_remote_image_job(job_id: String, request: RemoteImageRequest) {
 }
 
 fn run_local_ram_job(job_id: String, request: LocalRamRequest, control: ram::CancellationToken) {
+    let tool = request.tool.as_deref().unwrap_or_default();
+    if local_ram_requires_elevation(tool) {
+        run_elevated_local_ram_job(&job_id, &request, &control);
+        return;
+    }
+
     let output = PathBuf::from(&request.output);
     let candidate = request
         .tool_path
         .as_deref()
         .map(Path::new)
         .filter(|path| path.exists());
-    let tool = request.tool.as_deref().unwrap_or_default();
 
     let result = match tool {
         "avml" => ram::acquire_with_avml(&output, candidate, &control, |done, total| {
@@ -2008,7 +2013,12 @@ fn run_local_ram_job(job_id: String, request: LocalRamRequest, control: ram::Can
             "RAM edinimi tamamlandi",
         ),
         Err(err) => {
-            fail_acquisition_job_with_message(&job_id, err.to_string(), "RAM edinimi basarisiz")
+            let message = err.to_string();
+            if local_ram_error_can_retry_elevated(&message) {
+                run_elevated_local_ram_job(&job_id, &request, &control);
+            } else {
+                fail_acquisition_job_with_message(&job_id, message, "RAM edinimi basarisiz")
+            }
         }
     }
 }
@@ -2301,6 +2311,180 @@ fn local_image_error_can_retry_elevated(message: &str) -> bool {
         || message.contains("access is denied")
         || message.contains("erişim engellendi")
         || message.contains("os error 13")
+}
+
+fn local_ram_requires_elevation(tool: &str) -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        tool == "avml" && !process_is_root()
+    }
+
+    #[cfg(windows)]
+    {
+        tool == "winpmem" && !ram::is_root_or_admin()
+    }
+
+    #[cfg(not(any(target_os = "linux", windows)))]
+    {
+        let _ = tool;
+        false
+    }
+}
+
+fn local_ram_error_can_retry_elevated(message: &str) -> bool {
+    if !(cfg!(target_os = "linux") || cfg!(windows)) {
+        return false;
+    }
+    let message = message.to_ascii_lowercase();
+    message.contains("root")
+        || message.contains("administrator")
+        || message.contains("permission denied")
+        || message.contains("access is denied")
+        || message.contains("erişim engellendi")
+        || message.contains("yetkisiz")
+        || message.contains("os error 13")
+}
+
+fn run_elevated_local_ram_job(
+    job_id: &str,
+    request: &LocalRamRequest,
+    control: &ram::CancellationToken,
+) {
+    update_acquisition_message(job_id, "Yetki bekleniyor");
+    let stem = helper_file_stem("worm-ram-helper");
+    let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
+    let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
+    let progress_path = std::env::temp_dir().join(format!("{stem}-progress.json"));
+    let control_path = std::env::temp_dir().join(format!("{stem}-control.json"));
+
+    let request_json = json!({
+        "output_file": &request.output,
+        "tool": request.tool.as_deref().unwrap_or_default(),
+        "tool_path": &request.tool_path,
+        "owner_uid": helper_owner_uid(),
+        "owner_gid": helper_owner_gid(),
+    });
+    if let Err(err) = write_json_file(&request_path, &request_json) {
+        fail_acquisition_job_with_message(job_id, err, "RAM edinimi basarisiz");
+        return;
+    }
+    if let Err(err) = write_helper_control_state(&control_path, "running") {
+        cleanup_helper_files(&[&request_path, &result_path, &progress_path, &control_path]);
+        fail_acquisition_job_with_message(job_id, err, "RAM edinimi basarisiz");
+        return;
+    }
+
+    let args = vec![
+        "ram-helper".to_string(),
+        request_path.to_string_lossy().into_owned(),
+        result_path.to_string_lossy().into_owned(),
+        progress_path.to_string_lossy().into_owned(),
+        control_path.to_string_lossy().into_owned(),
+    ];
+    let mut child = match spawn_elevated_helper(&args) {
+        Ok(child) => child,
+        Err(err) => {
+            cleanup_helper_files(&[&request_path, &result_path, &progress_path, &control_path]);
+            fail_acquisition_job_with_message(job_id, err, "RAM edinimi basarisiz");
+            return;
+        }
+    };
+
+    loop {
+        if control.is_cancelled() {
+            let _ = write_helper_control_state(&control_path, "cancelled");
+            update_acquisition_message(job_id, "RAM edinimi iptal ediliyor");
+            let mut exited = false;
+            for _ in 0..30 {
+                match child.try_wait() {
+                    Ok(Some(_)) => {
+                        exited = true;
+                        break;
+                    }
+                    Ok(None) => thread::sleep(std::time::Duration::from_millis(100)),
+                    Err(_) => break,
+                }
+            }
+            if !exited {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+            cleanup_helper_files(&[&request_path, &result_path, &progress_path, &control_path]);
+            fail_acquisition_job_with_message(
+                job_id,
+                "RAM edinimi iptal edildi".to_string(),
+                "RAM edinimi basarisiz",
+            );
+            return;
+        }
+        if control.is_paused() {
+            let _ = write_helper_control_state(&control_path, "paused");
+            update_acquisition_message(job_id, "RAM edinimi duraklatildi");
+        } else {
+            let _ = write_helper_control_state(&control_path, "running");
+        }
+
+        if let Some((done, total, message)) = read_helper_progress(&progress_path) {
+            update_acquisition_progress_message(job_id, done, total, &message);
+        }
+
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                if !status.success() {
+                    let error = read_helper_error(&result_path).unwrap_or_else(|| {
+                        "yetki yükseltme iptal edildi veya başarısız oldu".to_string()
+                    });
+                    cleanup_helper_files(&[
+                        &request_path,
+                        &result_path,
+                        &progress_path,
+                        &control_path,
+                    ]);
+                    fail_acquisition_job_with_message(job_id, error, "RAM edinimi basarisiz");
+                    return;
+                }
+                break;
+            }
+            Ok(None) => thread::sleep(std::time::Duration::from_millis(500)),
+            Err(err) => {
+                cleanup_helper_files(&[&request_path, &result_path, &progress_path, &control_path]);
+                fail_acquisition_job_with_message(job_id, err.to_string(), "RAM edinimi basarisiz");
+                return;
+            }
+        }
+    }
+
+    let result = match read_helper_json(&result_path) {
+        Ok(result) => result,
+        Err(err) => {
+            cleanup_helper_files(&[&request_path, &result_path, &progress_path, &control_path]);
+            fail_acquisition_job_with_message(job_id, err, "RAM edinimi basarisiz");
+            return;
+        }
+    };
+    cleanup_helper_files(&[&request_path, &result_path, &progress_path, &control_path]);
+
+    if result.get("ok").and_then(Value::as_bool) == Some(true) {
+        finish_acquisition_job_with_message(
+            job_id,
+            json!({
+                "message": "RAM edinimi tamamlandi",
+                "target_path": result.get("target_path").cloned().unwrap_or(Value::Null),
+                "bytes_written": result.get("bytes_written").cloned().unwrap_or(Value::Null),
+            }),
+            "RAM edinimi tamamlandi",
+        );
+    } else {
+        fail_acquisition_job_with_message(
+            job_id,
+            result
+                .get("error")
+                .and_then(Value::as_str)
+                .unwrap_or("Yetkili RAM edinimi basarisiz")
+                .to_string(),
+            "RAM edinimi basarisiz",
+        );
+    }
 }
 
 fn run_elevated_local_image_job(
@@ -2946,5 +3130,16 @@ mod tests {
         }];
 
         assert!(should_request_elevated_disk_list(&disks));
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn local_ram_requests_elevation_for_linux_user_session() {
+        if process_is_root() {
+            return;
+        }
+
+        assert!(local_ram_requires_elevation("avml"));
+        assert!(!local_ram_requires_elevation("winpmem"));
     }
 }

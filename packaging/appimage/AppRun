@@ -8,7 +8,7 @@ case "${1:-}" in
   "" )
     exec "$APPDIR/usr/bin/worm" ui
     ;;
-  settings-default|hash|disk-list|disk-list-helper|image-helper|mount-helper|disk-size|verify|remote-disks|remote-image|remote-tool-check|ram-status|wireguard-config|ui|ui-browser )
+  settings-default|hash|disk-list|disk-list-helper|image-helper|ram-helper|mount-helper|disk-size|verify|remote-disks|remote-image|remote-tool-check|ram-status|wireguard-config|ui|ui-browser )
     exec "$APPDIR/usr/bin/worm" "$@"
     ;;
   * )
