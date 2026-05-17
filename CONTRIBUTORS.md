@@ -1,9 +1,5 @@
 # Contributors
 
-Bu dosya kisi listesi tutmaz. Canli katkici listesi GitHub gecmisinden README icinde otomatik gosterilir:
-
-- https://github.com/noirlang/worm/graphs/contributors
-
 ## Nasil Destek Saglanir?
 
 Worm adli bilisim odakli bir arac oldugu icin katkilarin test edilebilir, tekrar uretilebilir ve guvenli olmasi gerekir.

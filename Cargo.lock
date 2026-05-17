@@ -3687,7 +3687,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "worm-rewrite-rust"
+name = "worm"
 version = "0.0.6"
 dependencies = [
  "base64",

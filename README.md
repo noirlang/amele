@@ -1,18 +1,19 @@
-# Worm Rust Rewrite
+# Worm
 
-![Worm Logo](ui/assets/logo/logo.png)
+<p align="center">
+  <img src="ui/assets/logo/logo.png" alt="Worm Logo" width="120" />
+</p>
 
-[![Rust Rewrite CI](https://github.com/noirlang/worm/actions/workflows/ci.yml/badge.svg?branch=rewrite-rust)](https://github.com/noirlang/worm/actions/workflows/ci.yml)
+[![Worm CI](https://github.com/noirlang/worm/actions/workflows/ci.yml/badge.svg)](https://github.com/noirlang/worm/actions/workflows/ci.yml)
 
 ## Türkçe
 
-Worm Rust Rewrite, Worm Forensic Tool'un Rust ile yeniden yazılan masaüstü uygulama ve teknik çekirdek çalışmasıdır. Amaç; disk/RAM edinimi, doğrulama, uzak agent haberleşmesi, vaka çıktıları ve raporlama adımlarını tek, denetlenebilir ve paketlenebilir bir uygulama çatısı altında toplamaktır.
+Worm; disk/RAM imaj alma, hash doğrulama, uzak agent yönetimi, vaka çıktıları ve raporlama için masaüstü adli bilişim aracıdır.
 
-Bu depo/branch, eski C/Qt uygulamasındaki çalışma mantığını koruyarak Rust tarafında daha güvenli hata yönetimi, test edilebilir modüller, yerel pencere deneyimi ve `worm-linux` / `worm-win` agent protokolüyle uyumlu uzak edinim akışları sağlar.
+Uygulama Rust backend ile çalışır, arayüzü yerel pencere içinde açılır ve `worm-linux` / `worm-win` agent protokolüyle uyumludur.
 
 ### Depolar
 
-- Rust rewrite branch: https://github.com/noirlang/worm/tree/rewrite-rust
 - Ana Worm deposu: https://github.com/noirlang/worm
 - Linux Agent: https://github.com/noirlang/worm-linux
 - Windows Agent: https://github.com/noirlang/worm-win
@@ -26,25 +27,11 @@ Bu depo/branch, eski C/Qt uygulamasındaki çalışma mantığını koruyarak Ru
 - Linux binary: `https://worm.noirlang.tr/worm-linux`
 - Windows EXE: `https://worm.noirlang.tr/worm-win.exe`
 
-### Proje Durumu
+### Durum
 
-Rust rewrite aktif geliştirme aşamasındadır. Mevcut yapı, masaüstü pencere içinde çalışan dependency-free web arayüzünü Rust HTTP backend ile aynı binary üzerinden sunar. Uygulama tarayıcı sekmesi gibi değil; Linux'ta GTK/WebKit, Windows'ta WebView2 tabanlı yerel pencere olarak açılır.
+Linux ve Windows hedeflenir. macOS desteği yoktur.
 
-Çalışan ana başlıklar:
-
-- Yerel disk/dosya imaj alma.
-- Uzak Linux/Windows agent üzerinden disk imaj alma.
-- Yerel AVML/WinPMEM durum kontrolü.
-- Yerel AVML/WinPMEM RAM edinimi.
-- Uzak Linux/Windows agent üzerinden RAM edinimi ve dump indirme.
-- Disk/RAM edinimlerinde yüzde ilerleme.
-- Uzak ve yerel işler için duraklat/devam/durdur kontrolü.
-- Hash hesaplama ve hash karşılaştırma.
-- Sabit `~/Worm/Vakalar` altında vaka klasörü, kanıt kasası, not ve rapor modülleri.
-- WireGuard config üretimi ve Linux `wg-quick` wrapper akışı.
-- Linux salt-okunur loop/partition mount ve Windows `Mount-DiskImage` imaj görüntüleme akışı.
-- Güncelleme paketini indirme, SHA256 doğrulama ve installer başlatma.
-- GitHub Actions üzerinden format, test, release build ve artifact doğrulaması.
+Arayüz tarayıcı sekmesi olarak değil, Linux'ta GTK/WebKit ve Windows'ta WebView2 tabanlı yerel pencere olarak açılır.
 
 ### Öne Çıkan Özellikler
 
@@ -65,7 +52,7 @@ Rust rewrite aktif geliştirme aşamasındadır. Mevcut yapı, masaüstü pencer
 ### Mimari
 
 ```text
-worm-rewrite-rust/
+worm/
 ├── src/
 │   ├── disk.rs          # Yerel disk/dosya imaj alma
 │   ├── ram.rs           # AVML / WinPMEM kontrol ve edinim helperları
@@ -87,15 +74,12 @@ worm-rewrite-rust/
 └── .github/workflows/ci.yml
 ```
 
-### Uygulama Akışı
+### UI/API Akışı
 
-1. `cargo run -- ui` Rust binary'yi başlatır.
-2. Binary `127.0.0.1` üzerinde geçici bir portta yerel HTTP API açar.
-3. Aynı binary Linux'ta GTK/WebKit, Windows'ta WebView2 pencere başlatır.
-4. UI yalnızca loopback API'ye istek atar.
-5. Disk/RAM/Hash/Agent işlemleri Rust modüllerine bağlanır.
-6. Uzak edinimlerde Rust client agent ile JSON-over-TCP konuşur.
-7. Büyük veri transferleri binary stream olarak alınır ve yerel dosyaya yazılır.
+1. `cargo run -- ui` uygulamayı yerel pencere olarak başlatır.
+2. Backend `127.0.0.1` üzerinde geçici bir port açar.
+3. UI yalnızca loopback API ile konuşur.
+4. Uzak edinimler `worm-linux` / `worm-win` agentlarına JSON-over-TCP ile bağlanır.
 
 ### Gereksinimler
 
@@ -152,7 +136,7 @@ cargo run -- ui
 Derlenmiş binary ile açma:
 
 ```bash
-./target/release/worm-rewrite-rust ui
+./target/release/worm ui
 ```
 
 Tarayıcı debug modu:
@@ -224,15 +208,15 @@ Temel komutlar:
 - Uzak RAM akışında önce agent dump üretir, ardından aynı iş kimliğiyle dump dosyası indirilir.
 - Yerel RAM edinimi root/administrator yetkisi gerektirebilir.
 
-### Paketleme Yönü
+### Paketleme
 
-Hedef release asset adları ana Worm güncelleme mantığıyla uyumlu tutulmalıdır:
+Release asset adları:
 
 - `worm-windows-x64.msi`
 - `worm-linux-x64.AppImage`
 - `SHA256SUMS`
 
-Mevcut CI Linux ve Windows release binary artifact üretir. MSI/AppImage installer paketleme işi release hattında ayrıca bağlanacaktır.
+CI Linux ve Windows release binary artifact üretir. MSI/AppImage paketleme ayrıca bağlanacaktır.
 
 ### GitHub Actions
 
@@ -250,7 +234,7 @@ Push ve pull requestlerde:
 
 Actions sayfası:
 
-- https://github.com/noirlang/worm/actions/workflows/ci.yml?query=branch%3Arewrite-rust
+- https://github.com/noirlang/worm/actions/workflows/ci.yml
 
 ### Katkıda Bulunanlar
 
@@ -278,13 +262,12 @@ Worm yalnızca yetkili adli bilişim süreçlerinde kullanılmalıdır. Disk ve 
 
 ## English
 
-Worm Rust Rewrite is the Rust-based desktop application and technical core rewrite of Worm Forensic Tool. The goal is to bring disk/RAM acquisition, verification, remote agent communication, case outputs, and reporting into one auditable and packageable application.
+Worm is a desktop forensic tool for disk/RAM imaging, hash verification, remote agent control, case outputs, and reporting.
 
-This branch preserves the operating model of the older C/Qt application while adding safer Rust error handling, testable modules, a native window experience, and remote acquisition flows compatible with the `worm-linux` and `worm-win` agents.
+The application runs on a Rust backend, opens the UI in a native window, and works with the `worm-linux` / `worm-win` agent protocol.
 
 ### Repositories
 
-- Rust rewrite branch: https://github.com/noirlang/worm/tree/rewrite-rust
 - Main Worm repository: https://github.com/noirlang/worm
 - Linux Agent: https://github.com/noirlang/worm-linux
 - Windows Agent: https://github.com/noirlang/worm-win
@@ -298,25 +281,11 @@ This branch preserves the operating model of the older C/Qt application while ad
 - Linux binary: `https://worm.noirlang.tr/worm-linux`
 - Windows EXE: `https://worm.noirlang.tr/worm-win.exe`
 
-### Project Status
+### Status
 
-The Rust rewrite is under active development. The current build serves a dependency-free web UI from the Rust binary and opens it inside a native application window: GTK/WebKit on Linux and WebView2 on Windows. It is intended to behave like an application window, not a normal browser tab.
+Linux and Windows are targeted. macOS is not supported.
 
-Working areas:
-
-- Local disk/file imaging.
-- Remote Linux/Windows agent disk imaging.
-- Local AVML/WinPMEM status checks.
-- Local AVML/WinPMEM RAM acquisition.
-- Remote Linux/Windows agent RAM acquisition and dump download.
-- Percentage progress for disk/RAM acquisition.
-- Pause/resume/stop controls for local and remote jobs.
-- Hash calculation and hash comparison.
-- Case folder, evidence vault, notes, and report modules under fixed `~/Worm/Vakalar`.
-- WireGuard config generation and Linux `wg-quick` wrapper flow.
-- Linux read-only loop/partition mount and Windows `Mount-DiskImage` image viewing flow.
-- Update package download, SHA256 verification, and installer launch.
-- GitHub Actions formatting, tests, release build, and artifact verification.
+The UI opens as a native application window: GTK/WebKit on Linux and WebView2 on Windows.
 
 ### Feature Overview
 
@@ -337,7 +306,7 @@ Working areas:
 ### Architecture
 
 ```text
-worm-rewrite-rust/
+worm/
 ├── src/
 │   ├── disk.rs          # Local disk/file imaging
 │   ├── ram.rs           # AVML / WinPMEM checks and acquisition helpers
@@ -359,15 +328,12 @@ worm-rewrite-rust/
 └── .github/workflows/ci.yml
 ```
 
-### Application Flow
+### UI/API Flow
 
-1. `cargo run -- ui` starts the Rust binary.
-2. The binary starts a local HTTP API on a temporary `127.0.0.1` port.
-3. The same binary opens a GTK/WebKit window on Linux and a WebView2 window on Windows.
-4. The UI talks only to the loopback API.
-5. Disk/RAM/hash/agent actions are routed to Rust modules.
-6. Remote acquisition uses the Rust client to talk to the agents over JSON-over-TCP.
-7. Large transfers are received as binary streams and written to local files.
+1. `cargo run -- ui` starts the native app window.
+2. The backend opens a temporary `127.0.0.1` port.
+3. The UI talks only to the loopback API.
+4. Remote acquisition connects to `worm-linux` / `worm-win` over JSON-over-TCP.
 
 ### Requirements
 
@@ -424,7 +390,7 @@ cargo run -- ui
 Open from the release binary:
 
 ```bash
-./target/release/worm-rewrite-rust ui
+./target/release/worm ui
 ```
 
 Browser debug mode:
@@ -496,15 +462,15 @@ Core commands:
 - Remote RAM first produces a dump on the agent, then downloads it with the same job id.
 - Local RAM acquisition may require root/administrator privileges.
 
-### Packaging Direction
+### Packaging
 
-Target release asset names must stay compatible with the main Worm updater convention:
+Release asset names:
 
 - `worm-windows-x64.msi`
 - `worm-linux-x64.AppImage`
 - `SHA256SUMS`
 
-The current CI produces Linux and Windows release binary artifacts. MSI/AppImage installer packaging will be connected in the release pipeline.
+CI produces Linux and Windows release binary artifacts. MSI/AppImage packaging will be connected separately.
 
 ### GitHub Actions
 
@@ -522,7 +488,7 @@ On push and pull requests:
 
 Actions page:
 
-- https://github.com/noirlang/worm/actions/workflows/ci.yml?query=branch%3Arewrite-rust
+- https://github.com/noirlang/worm/actions/workflows/ci.yml
 
 ### Contributors
 

@@ -1252,30 +1252,47 @@ fn elevated_disk_list() -> Result<Vec<disk::DiskInfo>, String> {
 
 #[cfg(target_os = "linux")]
 fn run_elevated_disk_list_helper(output_path: &Path) -> Result<(), String> {
-    let exe = std::env::current_exe().map_err(|err| err.to_string())?;
-    let output = Command::new("pkexec")
-        .arg(exe)
-        .arg("disk-list-helper")
-        .arg(output_path)
-        .output()
-        .map_err(|err| format!("pkexec baslatilamadi: {err}"))?;
-
-    if output.status.success() {
-        Ok(())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        Err(if stderr.is_empty() {
-            "yetki yükseltme iptal edildi veya başarısız oldu".to_string()
-        } else {
-            stderr
-        })
-    }
+    run_elevated_helper_wait(&[
+        "disk-list-helper".to_string(),
+        output_path.to_string_lossy().into_owned(),
+    ])
 }
 
 #[cfg(windows)]
 fn run_elevated_disk_list_helper(output_path: &Path) -> Result<(), String> {
+    run_elevated_helper_wait(&[
+        "disk-list-helper".to_string(),
+        output_path.to_string_lossy().into_owned(),
+    ])
+}
+
+fn run_elevated_helper_wait(args: &[String]) -> Result<(), String> {
+    let mut child = spawn_elevated_helper(args)?;
+    let status = child.wait().map_err(|err| err.to_string())?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err("yetki yükseltme iptal edildi veya başarısız oldu".to_string())
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn spawn_elevated_helper(args: &[String]) -> Result<std::process::Child, String> {
     let exe = std::env::current_exe().map_err(|err| err.to_string())?;
-    let output = Command::new("powershell")
+    Command::new("pkexec")
+        .arg(exe)
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|err| format!("pkexec baslatilamadi: {err}"))
+}
+
+#[cfg(windows)]
+fn spawn_elevated_helper(args: &[String]) -> Result<std::process::Child, String> {
+    let exe = std::env::current_exe().map_err(|err| err.to_string())?;
+    Command::new("powershell")
         .arg("-NoProfile")
         .arg("-ExecutionPolicy")
         .arg("Bypass")
@@ -1283,25 +1300,23 @@ fn run_elevated_disk_list_helper(output_path: &Path) -> Result<(), String> {
         .arg(
             "$ErrorActionPreference='Stop'; \
              $exe=$args[0]; \
-             $out=$args[1]; \
-             $process=Start-Process -FilePath $exe -ArgumentList @('disk-list-helper', $out) -Verb RunAs -Wait -PassThru; \
+             $argList=@(); \
+             for ($i=1; $i -lt $args.Count; $i++) { $argList += $args[$i] }; \
+             $process=Start-Process -FilePath $exe -ArgumentList $argList -Verb RunAs -Wait -PassThru; \
              exit $process.ExitCode",
         )
         .arg(exe)
-        .arg(output_path)
-        .output()
-        .map_err(|err| format!("UAC baslatilamadi: {err}"))?;
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|err| format!("UAC baslatilamadi: {err}"))
+}
 
-    if output.status.success() {
-        Ok(())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        Err(if stderr.is_empty() {
-            "yetki yükseltme iptal edildi veya başarısız oldu".to_string()
-        } else {
-            stderr
-        })
-    }
+#[cfg(not(any(target_os = "linux", windows)))]
+fn spawn_elevated_helper(_args: &[String]) -> Result<std::process::Child, String> {
+    Err("yetki yükseltme bu platformda desteklenmiyor".to_string())
 }
 
 #[cfg(not(any(target_os = "linux", windows)))]
@@ -1346,11 +1361,114 @@ fn linux_mount_image_readonly(
                 &output,
                 "mount failed; image may contain a partition table or root privileges may be required",
             );
+            if !process_is_root() {
+                return elevated_linux_mount_image_readonly(image_path, mount_dir, &direct_error);
+            }
             linux_mount_partitioned_image(image_path, mount_dir)
                 .map_err(|err| format!("{direct_error}\npartition scan failed: {err}"))
         }
-        Err(err) => linux_mount_partitioned_image(image_path, mount_dir)
-            .map_err(|scan_err| format!("{err}; partition scan failed: {scan_err}")),
+        Err(err) => {
+            if !process_is_root() {
+                return elevated_linux_mount_image_readonly(
+                    image_path,
+                    mount_dir,
+                    &err.to_string(),
+                );
+            }
+            linux_mount_partitioned_image(image_path, mount_dir)
+                .map_err(|scan_err| format!("{err}; partition scan failed: {scan_err}"))
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn elevated_linux_mount_image_readonly(
+    image_path: &Path,
+    mount_dir: &Path,
+    initial_error: &str,
+) -> Result<Option<PathBuf>, String> {
+    let stem = helper_file_stem("worm-mount-helper");
+    let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
+    let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
+    write_json_file(
+        &request_path,
+        &json!({
+            "action": "mount",
+            "image_path": image_path,
+            "mount_dir": mount_dir,
+        }),
+    )?;
+
+    let args = vec![
+        "mount-helper".to_string(),
+        request_path.to_string_lossy().into_owned(),
+        result_path.to_string_lossy().into_owned(),
+    ];
+    let run_result = run_elevated_helper_wait(&args);
+    if let Err(err) = run_result {
+        cleanup_helper_files(&[&request_path, &result_path]);
+        return Err(format!("{initial_error}\nyetki yükseltme başarısız: {err}"));
+    }
+
+    let result = read_helper_json(&result_path);
+    cleanup_helper_files(&[&request_path, &result_path]);
+    let result = result?;
+    if result.get("ok").and_then(Value::as_bool) != Some(true) {
+        return Err(format!(
+            "{initial_error}\nyetkili mount başarısız: {}",
+            result
+                .get("error")
+                .and_then(Value::as_str)
+                .unwrap_or("bilinmeyen hata")
+        ));
+    }
+
+    Ok(result
+        .get("loop_device")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(PathBuf::from))
+}
+
+#[cfg(target_os = "linux")]
+fn elevated_linux_unmount_image(
+    mount_dir: &Path,
+    loop_device: Option<&Path>,
+) -> Result<(), String> {
+    let stem = helper_file_stem("worm-unmount-helper");
+    let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
+    let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
+    write_json_file(
+        &request_path,
+        &json!({
+            "action": "unmount",
+            "mount_dir": mount_dir,
+            "loop_device": loop_device,
+        }),
+    )?;
+
+    let args = vec![
+        "mount-helper".to_string(),
+        request_path.to_string_lossy().into_owned(),
+        result_path.to_string_lossy().into_owned(),
+    ];
+    let run_result = run_elevated_helper_wait(&args);
+    if let Err(err) = run_result {
+        cleanup_helper_files(&[&request_path, &result_path]);
+        return Err(format!("yetki yükseltme başarısız: {err}"));
+    }
+
+    let result = read_helper_json(&result_path);
+    cleanup_helper_files(&[&request_path, &result_path]);
+    let result = result?;
+    if result.get("ok").and_then(Value::as_bool) == Some(true) {
+        Ok(())
+    } else {
+        Err(result
+            .get("error")
+            .and_then(Value::as_str)
+            .unwrap_or("yetkili unmount başarısız")
+            .to_string())
     }
 }
 
@@ -1478,33 +1596,37 @@ fn image_unmount_current() -> Result<Option<PathBuf>, String> {
 
     #[cfg(target_os = "linux")]
     {
-        let output = Command::new("umount").arg(&state.mount_dir).output();
-        match output {
-            Ok(output) if output.status.success() => {}
-            Ok(output) => {
-                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-                return Err(if stderr.is_empty() {
-                    "unmount failed".to_string()
-                } else {
-                    stderr
-                });
-            }
-            Err(err) => return Err(err.to_string()),
-        }
-
-        if let Some(loop_device) = &state.loop_device {
-            let output = Command::new("losetup").arg("-d").arg(loop_device).output();
+        if !process_is_root() {
+            elevated_linux_unmount_image(&state.mount_dir, state.loop_device.as_deref())?;
+        } else {
+            let output = Command::new("umount").arg(&state.mount_dir).output();
             match output {
                 Ok(output) if output.status.success() => {}
                 Ok(output) => {
                     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
                     return Err(if stderr.is_empty() {
-                        "loop device detach failed".to_string()
+                        "unmount failed".to_string()
                     } else {
                         stderr
                     });
                 }
                 Err(err) => return Err(err.to_string()),
+            }
+
+            if let Some(loop_device) = &state.loop_device {
+                let output = Command::new("losetup").arg("-d").arg(loop_device).output();
+                match output {
+                    Ok(output) if output.status.success() => {}
+                    Ok(output) => {
+                        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                        return Err(if stderr.is_empty() {
+                            "loop device detach failed".to_string()
+                        } else {
+                            stderr
+                        });
+                    }
+                    Err(err) => return Err(err.to_string()),
+                }
             }
         }
     }
@@ -1749,6 +1871,12 @@ fn run_local_image_job(
     };
     let target = acquisition_target_path(&request.source, &output.to_string_lossy(), "local");
     let task = DiskAcquisitionTask::new(&request.source, &target);
+
+    if local_image_source_requires_elevation(&task.source) {
+        run_elevated_local_image_job(&job_id, &task, &control);
+        return;
+    }
+
     match disk::run_disk_acquisition_with_control(
         &task,
         |done, total| {
@@ -1776,7 +1904,12 @@ fn run_local_image_job(
             "Imaj alma tamamlandi",
         ),
         Err(err) => {
-            fail_acquisition_job_with_message(&job_id, err.to_string(), "Imaj alma basarisiz")
+            let message = err.to_string();
+            if local_image_error_can_retry_elevated(&message) {
+                run_elevated_local_image_job(&job_id, &task, &control);
+            } else {
+                fail_acquisition_job_with_message(&job_id, message, "Imaj alma basarisiz")
+            }
         }
     }
 }
@@ -2116,6 +2249,184 @@ fn progress_percent(done: u64, total: u64) -> u64 {
         .min(100)
 }
 
+fn local_image_source_requires_elevation(source: &Path) -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::fs::FileTypeExt;
+        fs::metadata(source)
+            .map(|metadata| metadata.file_type().is_block_device() && !process_is_root())
+            .unwrap_or(false)
+    }
+
+    #[cfg(windows)]
+    {
+        return source
+            .to_string_lossy()
+            .to_ascii_lowercase()
+            .starts_with(r"\\.\physicaldrive");
+    }
+
+    #[cfg(not(any(target_os = "linux", windows)))]
+    {
+        let _ = source;
+        false
+    }
+}
+
+fn local_image_error_can_retry_elevated(message: &str) -> bool {
+    if !(cfg!(target_os = "linux") || cfg!(windows)) {
+        return false;
+    }
+    let message = message.to_ascii_lowercase();
+    message.contains("permission denied")
+        || message.contains("access is denied")
+        || message.contains("erişim engellendi")
+        || message.contains("os error 13")
+}
+
+fn run_elevated_local_image_job(
+    job_id: &str,
+    task: &DiskAcquisitionTask,
+    control: &ram::CancellationToken,
+) {
+    update_acquisition_message(job_id, "Yetki bekleniyor");
+    let stem = helper_file_stem("worm-image-helper");
+    let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
+    let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
+    let progress_path = std::env::temp_dir().join(format!("{stem}-progress.json"));
+    let control_path = std::env::temp_dir().join(format!("{stem}-control.json"));
+
+    let request = json!({
+        "source": task.source,
+        "target": task.target,
+        "owner_uid": helper_owner_uid(),
+        "owner_gid": helper_owner_gid(),
+    });
+    if let Err(err) = write_json_file(&request_path, &request) {
+        fail_acquisition_job_with_message(job_id, err, "Imaj alma basarisiz");
+        return;
+    }
+    if let Err(err) = write_helper_control_state(&control_path, "running") {
+        cleanup_helper_files(&[&request_path, &result_path, &progress_path, &control_path]);
+        fail_acquisition_job_with_message(job_id, err, "Imaj alma basarisiz");
+        return;
+    }
+
+    let args = vec![
+        "image-helper".to_string(),
+        request_path.to_string_lossy().into_owned(),
+        result_path.to_string_lossy().into_owned(),
+        progress_path.to_string_lossy().into_owned(),
+        control_path.to_string_lossy().into_owned(),
+    ];
+    let mut child = match spawn_elevated_helper(&args) {
+        Ok(child) => child,
+        Err(err) => {
+            cleanup_helper_files(&[&request_path, &result_path, &progress_path, &control_path]);
+            fail_acquisition_job_with_message(job_id, err, "Imaj alma basarisiz");
+            return;
+        }
+    };
+
+    loop {
+        if control.is_cancelled() {
+            let _ = write_helper_control_state(&control_path, "cancelled");
+            update_acquisition_message(job_id, "Imaj alma iptal ediliyor");
+            let mut exited = false;
+            for _ in 0..30 {
+                match child.try_wait() {
+                    Ok(Some(_)) => {
+                        exited = true;
+                        break;
+                    }
+                    Ok(None) => thread::sleep(std::time::Duration::from_millis(100)),
+                    Err(_) => break,
+                }
+            }
+            if !exited {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+            cleanup_helper_files(&[&request_path, &result_path, &progress_path, &control_path]);
+            fail_acquisition_job_with_message(
+                job_id,
+                "Imaj alma iptal edildi".to_string(),
+                "Imaj alma basarisiz",
+            );
+            return;
+        }
+        if control.is_paused() {
+            let _ = write_helper_control_state(&control_path, "paused");
+            update_acquisition_message(job_id, "Imaj alma duraklatildi");
+        } else {
+            let _ = write_helper_control_state(&control_path, "running");
+        }
+
+        if let Some((done, total, message)) = read_helper_progress(&progress_path) {
+            update_acquisition_progress_message(job_id, done, total, &message);
+        }
+
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                if !status.success() {
+                    let error = read_helper_error(&result_path).unwrap_or_else(|| {
+                        "yetki yükseltme iptal edildi veya başarısız oldu".to_string()
+                    });
+                    cleanup_helper_files(&[
+                        &request_path,
+                        &result_path,
+                        &progress_path,
+                        &control_path,
+                    ]);
+                    fail_acquisition_job_with_message(job_id, error, "Imaj alma basarisiz");
+                    return;
+                }
+                break;
+            }
+            Ok(None) => thread::sleep(std::time::Duration::from_millis(500)),
+            Err(err) => {
+                cleanup_helper_files(&[&request_path, &result_path, &progress_path, &control_path]);
+                fail_acquisition_job_with_message(job_id, err.to_string(), "Imaj alma basarisiz");
+                return;
+            }
+        }
+    }
+
+    let result = match read_helper_json(&result_path) {
+        Ok(result) => result,
+        Err(err) => {
+            cleanup_helper_files(&[&request_path, &result_path, &progress_path, &control_path]);
+            fail_acquisition_job_with_message(job_id, err, "Imaj alma basarisiz");
+            return;
+        }
+    };
+    cleanup_helper_files(&[&request_path, &result_path, &progress_path, &control_path]);
+
+    if result.get("ok").and_then(Value::as_bool) == Some(true) {
+        finish_acquisition_job_with_message(
+            job_id,
+            json!({
+                "message": "Imaj alma tamamlandi",
+                "target_path": result.get("target_path").cloned().unwrap_or(Value::Null),
+                "bytes_copied": result.get("bytes_copied").cloned().unwrap_or(Value::Null),
+                "total_bytes": result.get("total_bytes").cloned().unwrap_or(Value::Null),
+                "sha256": result.get("sha256").cloned().unwrap_or(Value::Null),
+            }),
+            "Imaj alma tamamlandi",
+        );
+    } else {
+        fail_acquisition_job_with_message(
+            job_id,
+            result
+                .get("error")
+                .and_then(Value::as_str)
+                .unwrap_or("Yetkili imaj alma basarisiz")
+                .to_string(),
+            "Imaj alma basarisiz",
+        );
+    }
+}
+
 fn image_output_dir(output: &str, case_name: Option<&str>) -> Result<PathBuf, String> {
     let case_name = case_name
         .map(str::trim)
@@ -2136,6 +2447,95 @@ fn image_output_dir(output: &str, case_name: Option<&str>) -> Result<PathBuf, St
     } else {
         Ok(PathBuf::from(output))
     }
+}
+
+fn helper_file_stem(prefix: &str) -> String {
+    format!(
+        "{}-{}-{}",
+        prefix,
+        std::process::id(),
+        Local::now().format("%Y%m%d%H%M%S%3f")
+    )
+}
+
+fn write_json_file(path: &Path, value: &Value) -> Result<(), String> {
+    fs::write(
+        path,
+        serde_json::to_vec_pretty(value).map_err(|err| err.to_string())?,
+    )
+    .map_err(|err| err.to_string())
+}
+
+fn write_helper_control_state(path: &Path, state: &str) -> Result<(), String> {
+    write_json_file(path, &json!({ "state": state }))
+}
+
+#[cfg(unix)]
+fn helper_owner_uid() -> Option<u32> {
+    Some(unsafe { libc::geteuid() })
+}
+
+#[cfg(not(unix))]
+fn helper_owner_uid() -> Option<u32> {
+    None
+}
+
+#[cfg(unix)]
+fn helper_owner_gid() -> Option<u32> {
+    Some(unsafe { libc::getegid() })
+}
+
+#[cfg(not(unix))]
+fn helper_owner_gid() -> Option<u32> {
+    None
+}
+
+fn read_helper_json(path: &Path) -> Result<Value, String> {
+    serde_json::from_slice(&fs::read(path).map_err(|err| err.to_string())?)
+        .map_err(|err| err.to_string())
+}
+
+fn read_helper_error(path: &Path) -> Option<String> {
+    read_helper_json(path).ok().and_then(|value| {
+        value
+            .get("error")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+    })
+}
+
+fn read_helper_progress(path: &Path) -> Option<(u64, u64, String)> {
+    let value = read_helper_json(path).ok()?;
+    let done = value
+        .get("done")
+        .and_then(Value::as_u64)
+        .unwrap_or_default();
+    let total = value
+        .get("total")
+        .and_then(Value::as_u64)
+        .unwrap_or_default();
+    let message = value
+        .get("message")
+        .and_then(Value::as_str)
+        .unwrap_or("Imaj alma sürüyor")
+        .to_string();
+    Some((done, total, message))
+}
+
+fn cleanup_helper_files(paths: &[&Path]) {
+    for path in paths {
+        let _ = fs::remove_file(path);
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn process_is_root() -> bool {
+    unsafe { libc::geteuid() == 0 }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn process_is_root() -> bool {
+    false
 }
 
 fn acquisition_target_path(source: &str, output: &str, prefix: &str) -> PathBuf {
