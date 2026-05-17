@@ -83,8 +83,6 @@ worm-rewrite-rust/
 │   ├── app.js
 │   ├── styles.css
 │   └── assets/
-├── scripts/
-│   └── update_contributors.py
 ├── CONTRIBUTORS.md
 └── .github/workflows/ci.yml
 ```
@@ -256,17 +254,14 @@ Actions sayfası:
 
 ### Katkıda Bulunanlar
 
-Katkıcı listesi elle yazılmaz. `CONTRIBUTORS.md` dosyası git geçmişinden otomatik üretilir:
+Katkıcılar README içinde GitHub geçmişinden otomatik gösterilir; elle kişi listesi tutulmaz.
 
-```bash
-python3 scripts/update_contributors.py
-```
+<a href="https://github.com/noirlang/worm/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=noirlang/worm" alt="Worm GitHub contributors" />
+</a>
 
-Oluşan dosya:
-
-- [CONTRIBUTORS.md](CONTRIBUTORS.md)
-
-Yeni contributor veya author alias değişikliği olduğunda script çalıştırılıp dosya commitlenmelidir.
+- GitHub contributor grafiği: https://github.com/noirlang/worm/graphs/contributors
+- Destek ve katkı rehberi: [CONTRIBUTORS.md](CONTRIBUTORS.md)
 
 ### Güvenlik Notu
 
@@ -360,8 +355,6 @@ worm-rewrite-rust/
 │   ├── app.js
 │   ├── styles.css
 │   └── assets/
-├── scripts/
-│   └── update_contributors.py
 ├── CONTRIBUTORS.md
 └── .github/workflows/ci.yml
 ```
@@ -533,17 +526,14 @@ Actions page:
 
 ### Contributors
 
-The contributor list is not edited by hand. `CONTRIBUTORS.md` is generated from git history:
+Contributors are rendered from GitHub history in this README; no manual person list is kept.
 
-```bash
-python3 scripts/update_contributors.py
-```
+<a href="https://github.com/noirlang/worm/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=noirlang/worm" alt="Worm GitHub contributors" />
+</a>
 
-Generated file:
-
-- [CONTRIBUTORS.md](CONTRIBUTORS.md)
-
-Run the script and commit the result when contributor history or author aliases change.
+- GitHub contributors graph: https://github.com/noirlang/worm/graphs/contributors
+- Support and contribution guide: [CONTRIBUTORS.md](CONTRIBUTORS.md)
 
 ### Security Note
 
