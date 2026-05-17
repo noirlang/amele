@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Worm Forensic Tool
+Comment=Disk and RAM acquisition for forensic workflows
+Exec=worm
+Icon=worm
+Terminal=false
+Categories=Utility;Security;
+StartupWMClass=Worm Forensic Tool

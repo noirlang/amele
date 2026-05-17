@@ -1,2 +1,5 @@
 /target
+/dist
+.idea
+*.AppImage
 agent.md

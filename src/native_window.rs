@@ -52,6 +52,11 @@ mod linux {
         fn gtk_init(argc: *mut c_int, argv: *mut *mut *mut c_char);
         fn gtk_window_new(window_type: c_int) -> *mut c_void;
         fn gtk_window_set_title(window: *mut c_void, title: *const c_char);
+        fn gtk_window_set_icon_from_file(
+            window: *mut c_void,
+            filename: *const c_char,
+            error: *mut *mut c_void,
+        ) -> c_int;
         fn gtk_window_set_default_size(window: *mut c_void, width: c_int, height: c_int);
         fn gtk_container_add(container: *mut c_void, widget: *mut c_void);
         fn gtk_widget_show_all(widget: *mut c_void);
@@ -96,6 +101,11 @@ mod linux {
             }
 
             gtk_window_set_title(window, title.as_ptr());
+            if let Some(icon_path) = app_icon_path()
+                && let Ok(icon_path) = CString::new(icon_path.to_string_lossy().as_bytes())
+            {
+                gtk_window_set_icon_from_file(window, icon_path.as_ptr(), ptr::null_mut());
+            }
             gtk_window_set_default_size(window, 1280, 820);
             gtk_container_add(window, webview);
             g_signal_connect_data(
@@ -118,6 +128,19 @@ mod linux {
         unsafe {
             gtk_main_quit();
         }
+    }
+
+    fn app_icon_path() -> Option<std::path::PathBuf> {
+        if let Some(path) = std::env::var_os("WORM_APP_ICON") {
+            let path = std::path::PathBuf::from(path);
+            if path.exists() {
+                return Some(path);
+            }
+        }
+
+        let dev_icon =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("ui/assets/logo/icon.png");
+        dev_icon.exists().then_some(dev_icon)
     }
 }
 

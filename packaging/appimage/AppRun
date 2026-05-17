@@ -1,0 +1,7 @@
+#!/bin/sh
+APPDIR="$(dirname "$(readlink -f "$0")")"
+
+export WORM_UI_ROOT="${WORM_UI_ROOT:-$APPDIR/usr/share/worm/ui}"
+export WORM_APP_ICON="${WORM_APP_ICON:-$APPDIR/usr/share/icons/hicolor/256x256/apps/worm.png}"
+
+exec "$APPDIR/usr/bin/worm" ui "$@"

@@ -21,7 +21,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::thread;
 
-const UI_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/ui");
+const DEV_UI_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/ui");
 static NEXT_ACQUISITION_JOB_ID: AtomicU64 = AtomicU64::new(1);
 static ACQUISITION_JOBS: OnceLock<Mutex<HashMap<String, AcquisitionJob>>> = OnceLock::new();
 static CURRENT_EVIDENCE_CASE: OnceLock<Mutex<Option<EvidenceCaseState>>> = OnceLock::new();
@@ -255,7 +255,7 @@ fn serve_static(path: &str, head_only: bool) -> Response {
         return json_error(403, "path traversal rejected");
     }
 
-    let mut file_path = PathBuf::from(UI_ROOT);
+    let mut file_path = ui_root();
     file_path.push(relative);
     if file_path.is_dir() {
         file_path.push("index.html");
@@ -2780,6 +2780,27 @@ fn json_error(status: u16, message: impl Into<String>) -> Response {
         }))
         .unwrap_or_else(|_| b"{\"ok\":false}".to_vec()),
     }
+}
+
+fn ui_root() -> PathBuf {
+    if let Some(path) = std::env::var_os("WORM_UI_ROOT") {
+        let path = PathBuf::from(path);
+        if path.join("index.html").exists() {
+            return path;
+        }
+    }
+
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(bin_dir) = exe.parent()
+        && let Some(prefix) = bin_dir.parent()
+    {
+        let packaged = prefix.join("share").join("worm").join("ui");
+        if packaged.join("index.html").exists() {
+            return packaged;
+        }
+    }
+
+    PathBuf::from(DEV_UI_ROOT)
 }
 
 fn mime_for(path: &Path) -> &'static str {
