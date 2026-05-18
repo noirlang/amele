@@ -1,3 +1,4 @@
+use crate::android;
 use crate::disk;
 use crate::disk::{DiskAcquisitionControl, DiskAcquisitionTask};
 use crate::evidence::EvidenceVault;
@@ -210,6 +211,14 @@ fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
             Err(err) => json_error(500, err.to_string()),
         },
         ("GET", "/api/disk-list") => disk_list_endpoint(),
+        ("GET", "/api/android-adb-status") => match serde_json::to_value(android::adb_status()) {
+            Ok(value) => json_ok(value),
+            Err(err) => json_error(500, err.to_string()),
+        },
+        ("GET", "/api/android-devices") => match android::list_devices() {
+            Ok(devices) => json_ok(json!({ "devices": devices })),
+            Err(err) => json_error(500, err),
+        },
         ("GET", "/api/ram-status") => json_ok(json!({
             "avml": ram::avml_status(None),
             "winpmem": ram::winpmem_status(None),

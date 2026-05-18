@@ -1,3 +1,5 @@
+import { androidPage, handleAndroidAction, syncAndroidDeviceSelection } from "./android.js";
+
 const icons = {
   home: '<path d="m3 11 9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
   grid: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
@@ -97,6 +99,22 @@ const translations = {
     "hub.android.title": "Android Araçları",
     "hub.android.desc": "Mobil adli bilişim araçları için çalışma alanı.",
     "hub.android.empty": "Android modülleri sonraki adımda eklenecek.",
+    "android.appModeRequired": "Android araçları uygulama modunda çalışır.",
+    "android.adb.title": "ADB Kontrol",
+    "android.adb.unknown": "Henüz kontrol edilmedi",
+    "android.adb.installed": "ADB kurulu",
+    "android.adb.missing": "ADB bulunamadı",
+    "android.adb.check": "ADB Kontrol Et",
+    "android.adb.checkHint": "ADB durumunu kontrol edin.",
+    "android.adb.checkFirst": "Önce ADB kontrolü yapın.",
+    "android.adb.checkFailed": "ADB kontrolü başarısız: {message}",
+    "android.devices.title": "Cihazlar",
+    "android.devices.list": "Cihazları Listele",
+    "android.devices.select": "Cihaz Seç",
+    "android.devices.none": "Cihaz bulunamadı",
+    "android.devices.listed": "{count} cihaz listelendi.",
+    "android.devices.selected": "Seçili cihaz: {serial}",
+    "android.devices.listFailed": "Cihaz listesi alınamadı: {message}",
     "workflow.ip": "IP Adresi",
     "workflow.ipPlaceholder": "IP adresi",
     "workflow.port": "Port",
@@ -424,6 +442,22 @@ const translations = {
     "hub.android.title": "Android Tools",
     "hub.android.desc": "Workspace for mobile forensic tools.",
     "hub.android.empty": "Android modules will be added in the next step.",
+    "android.appModeRequired": "Android tools require application mode.",
+    "android.adb.title": "ADB Check",
+    "android.adb.unknown": "Not checked yet",
+    "android.adb.installed": "ADB installed",
+    "android.adb.missing": "ADB not found",
+    "android.adb.check": "Check ADB",
+    "android.adb.checkHint": "Check ADB status.",
+    "android.adb.checkFirst": "Check ADB first.",
+    "android.adb.checkFailed": "ADB check failed: {message}",
+    "android.devices.title": "Devices",
+    "android.devices.list": "List Devices",
+    "android.devices.select": "Select Device",
+    "android.devices.none": "No device found",
+    "android.devices.listed": "{count} devices listed.",
+    "android.devices.selected": "Selected device: {serial}",
+    "android.devices.listFailed": "Device list failed: {message}",
     "workflow.ip": "IP Address",
     "workflow.ipPlaceholder": "IP address",
     "workflow.port": "Port",
@@ -737,6 +771,11 @@ const state = {
   caseBaseDir: "",
   imageMount: null,
   latestUpdate: null,
+  android: {
+    adbStatus: null,
+    devices: [],
+    selectedDevice: ""
+  },
   jobs: {},
   lastLog: initialLogMessages(preferredLanguage)
 };
@@ -1072,20 +1111,6 @@ function platformLabel(platform) {
   if (platform === "android") return "Android";
   if (platform === "mac") return "macOS";
   return t("unknown");
-}
-
-function androidPage() {
-  return `
-    <section class="page">
-      ${pageTitle(t("hub.android.title"), t("hub.android.desc"), "android")}
-      <div class="workflow-panel">
-        <div class="side-info">
-          <span class="metric-icon">${icon("android")}</span>
-          <span><strong>${t("hub.android.title")}</strong><small>${t("hub.android.empty")}</small></span>
-        </div>
-      </div>
-    </section>
-  `;
 }
 
 function workflowPage(id) {
@@ -1555,7 +1580,7 @@ const routes = {
   home: homePage,
   windows: () => toolHub("windows"),
   linux: () => toolHub("linux"),
-  android: androidPage,
+  android: () => androidPage({ t, icon, pageTitle, state, escapeHtml, backendReady }),
   agent: agentPage,
   analysis: analysisPage,
   other: otherPage,
@@ -1804,6 +1829,11 @@ document.addEventListener("change", (event) => {
     toggleCaseCreateInput(caseSelect);
   }
 
+  const androidDeviceSelect = event.target.closest("[data-android-device-select]");
+  if (androidDeviceSelect) {
+    syncAndroidDeviceSelection(androidDeviceSelect, { state, t, showToast });
+  }
+
   if (event.target.closest("#workflow-case-name")) {
     const output = document.querySelector("[data-case-output]");
     const select = document.querySelector("#workflow-case");
@@ -1820,6 +1850,18 @@ document.addEventListener("input", (event) => {
 
 async function handleAction(button) {
   const action = button.dataset.action;
+  if (action?.startsWith("android-")) {
+    const handled = await handleAndroidAction(button, {
+      apiRequest,
+      backendReady,
+      state,
+      t,
+      showToast,
+      render
+    });
+    if (handled) return;
+  }
+
   if (action === "theme-toggle") {
     setTheme(state.theme === "dark" ? "light" : "dark");
     render();
