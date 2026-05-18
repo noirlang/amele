@@ -1,4 +1,4 @@
-import { androidPage, handleAndroidAction, syncAndroidDeviceSelection } from "./android.js";
+import { androidModePage, androidPage, handleAndroidAction, syncAndroidDeviceSelection } from "./android.js";
 
 const icons = {
   home: '<path d="m3 11 9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
@@ -99,6 +99,16 @@ const translations = {
     "hub.android.title": "Android Araçları",
     "hub.android.desc": "Mobil adli bilişim araçları için çalışma alanı.",
     "hub.android.empty": "Android modülleri sonraki adımda eklenecek.",
+    "android.mode.physical.title": "Fiziksel İmaj",
+    "android.mode.physical.desc": "Cihaz bootloader veya EDL modundayken, üretici ya da çipset seviyesindeki erişimle mümkün olan en düşük seviyede imaj alınır.",
+    "android.mode.physical.badge": "Bootloader / EDL",
+    "android.mode.logical.title": "Mantıksal İmaj",
+    "android.mode.logical.desc": "ADB ve USB hata ayıklama açıkken rehber, mesajlar, arama kayıtları, medya dosyaları ve erişilebilir kullanıcı verileri toplanır.",
+    "android.mode.logical.badge": "ADB",
+    "android.mode.filesystem.title": "Dosya Sistemi İmajı",
+    "android.mode.filesystem.desc": "Mantıksal imajdan daha derin, fiziksel imajdan daha yüzeyseldir. Root erişimi veya özel açıklarla protected alanlar dahil dosya sistemi alınır.",
+    "android.mode.filesystem.badge": "Root / exploit",
+    "android.back": "Android Araçları",
     "android.appModeRequired": "Android araçları uygulama modunda çalışır.",
     "android.adb.title": "ADB Kontrol",
     "android.adb.unknown": "Henüz kontrol edilmedi",
@@ -442,6 +452,16 @@ const translations = {
     "hub.android.title": "Android Tools",
     "hub.android.desc": "Workspace for mobile forensic tools.",
     "hub.android.empty": "Android modules will be added in the next step.",
+    "android.mode.physical.title": "Physical Image",
+    "android.mode.physical.desc": "Acquires the lowest-level image available while the device is in bootloader or EDL mode through vendor or chipset-level access.",
+    "android.mode.physical.badge": "Bootloader / EDL",
+    "android.mode.logical.title": "Logical Image",
+    "android.mode.logical.desc": "Collects contacts, messages, call history, media files, and accessible user data through ADB when USB debugging is enabled.",
+    "android.mode.logical.badge": "ADB",
+    "android.mode.filesystem.title": "File System Image",
+    "android.mode.filesystem.desc": "Deeper than a logical image and shallower than a physical image. Uses root access or specific exploits to capture the file system, including protected areas.",
+    "android.mode.filesystem.badge": "Root / exploit",
+    "android.back": "Android Tools",
     "android.appModeRequired": "Android tools require application mode.",
     "android.adb.title": "ADB Check",
     "android.adb.unknown": "Not checked yet",
@@ -1006,6 +1026,16 @@ function render() {
 
   if (state.route.startsWith("workflow:")) {
     view.innerHTML = workflowPage(state.route.split(":")[1]);
+  } else if (state.route.startsWith("android:")) {
+    view.innerHTML = androidModePage({
+      modeId: state.route.split(":")[1],
+      t,
+      icon,
+      pageTitle,
+      state,
+      escapeHtml,
+      backendReady
+    });
   } else {
     view.innerHTML = routes[state.route]?.() || homePage();
   }
@@ -1022,6 +1052,7 @@ function render() {
 }
 
 function routeGroup(route) {
+  if (route.startsWith("android:")) return "android";
   if (!route.startsWith("workflow:")) return route;
   const workflowId = route.split(":")[1] || "";
   if (workflowId.startsWith("windows")) return "windows";

@@ -1,4 +1,18 @@
 export function androidPage({ t, icon, pageTitle, state, escapeHtml, backendReady }) {
+  return `
+    <section class="page">
+      ${pageTitle(t("hub.android.title"), t("hub.android.desc"), "android")}
+      <div class="tool-grid android-mode-grid">
+        ${androidImageModeCard("physical", t("android.mode.physical.title"), t("android.mode.physical.desc"), "disk", "var(--red)", t("android.mode.physical.badge"), icon, escapeHtml)}
+        ${androidImageModeCard("logical", t("android.mode.logical.title"), t("android.mode.logical.desc"), "android", "var(--green)", t("android.mode.logical.badge"), icon, escapeHtml)}
+        ${androidImageModeCard("filesystem", t("android.mode.filesystem.title"), t("android.mode.filesystem.desc"), "folder", "var(--blue)", t("android.mode.filesystem.badge"), icon, escapeHtml)}
+      </div>
+    </section>
+  `;
+}
+
+export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml, backendReady }) {
+  const mode = androidMode(modeId, t);
   const android = state.android || {};
   const status = android.adbStatus || null;
   const installed = Boolean(status?.installed);
@@ -11,7 +25,8 @@ export function androidPage({ t, icon, pageTitle, state, escapeHtml, backendRead
 
   return `
     <section class="page">
-      ${pageTitle(t("hub.android.title"), t("hub.android.desc"), "android")}
+      <button class="secondary-button android-back-button" data-route="android">${icon("grid")} ${t("android.back")}</button>
+      ${pageTitle(mode.title, mode.desc, mode.icon)}
       <div class="workflow-panel">
         <p class="section-label">${t("android.adb.title")}</p>
         <div class="side-info">
@@ -36,6 +51,38 @@ export function androidPage({ t, icon, pageTitle, state, escapeHtml, backendRead
         </div>
       </div>
     </section>
+  `;
+}
+
+function androidMode(modeId, t) {
+  const modes = {
+    physical: {
+      title: t("android.mode.physical.title"),
+      desc: t("android.mode.physical.desc"),
+      icon: "disk"
+    },
+    logical: {
+      title: t("android.mode.logical.title"),
+      desc: t("android.mode.logical.desc"),
+      icon: "android"
+    },
+    filesystem: {
+      title: t("android.mode.filesystem.title"),
+      desc: t("android.mode.filesystem.desc"),
+      icon: "folder"
+    }
+  };
+  return modes[modeId] || modes.logical;
+}
+
+function androidImageModeCard(modeId, title, desc, iconName, accent, badge, icon, escapeHtml) {
+  return `
+    <button class="forensic-card" data-route="android:${modeId}" style="--accent:${accent}">
+      <span class="card-icon">${icon(iconName)}</span>
+      <h3>${escapeHtml(title)}</h3>
+      <p>${escapeHtml(desc)}</p>
+      <span class="meta">${escapeHtml(badge)}</span>
+    </button>
   `;
 }
 
