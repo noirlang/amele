@@ -48,6 +48,16 @@ cp -a "$ROOT_DIR/ui/." "$APPDIR/usr/share/worm/ui/"
 install -m 755 "$ROOT_DIR/packaging/appimage/AppRun" "$APPDIR/AppRun"
 install -m 644 "$ROOT_DIR/packaging/appimage/worm.desktop" "$APPDIR/worm.desktop"
 install -m 644 "$ROOT_DIR/packaging/appimage/worm.desktop" "$APPDIR/usr/share/applications/worm.desktop"
+
+WEBKIT_BUNDLE_DIR="${WEBKIT_BUNDLE_DIR:-/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1}"
+if [[ -d "$WEBKIT_BUNDLE_DIR" ]]; then
+  mkdir -p "$APPDIR/usr/lib/x86_64-linux-gnu"
+  cp -a "$WEBKIT_BUNDLE_DIR" "$APPDIR/usr/lib/x86_64-linux-gnu/"
+else
+  echo "WebKitGTK helper directory not found: $WEBKIT_BUNDLE_DIR" >&2
+  exit 1
+fi
+
 if command -v magick >/dev/null 2>&1; then
   magick "$ROOT_DIR/ui/assets/logo/icon.png" -resize 256x256 "$APPDIR/usr/share/icons/hicolor/256x256/apps/worm.png"
 elif command -v convert >/dev/null 2>&1; then
@@ -60,9 +70,21 @@ install -m 644 "$APPDIR/usr/share/icons/hicolor/256x256/apps/worm.png" "$APPDIR/
 NO_STRIP="${NO_STRIP:-1}" STRIP="${STRIP:-/usr/bin/strip}" OUTPUT="$APPIMAGE" "$LINUXDEPLOY_RUN" \
   --appdir "$APPDIR" \
   --executable "$APPDIR/usr/bin/worm" \
+  --deploy-deps-only "$APPDIR/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1" \
   --desktop-file "$APPDIR/worm.desktop" \
   --icon-file "$APPDIR/worm.png" \
   --custom-apprun "$ROOT_DIR/packaging/appimage/AppRun"
+
+WEBKIT_LIB="$APPDIR/usr/lib/libwebkit2gtk-4.1.so.0"
+if [[ -f "$WEBKIT_LIB" ]]; then
+  perl -0pi -e \
+    's#/usr/lib/x86_64-linux-gnu/webkit2gtk-4\.1/injected-bundle/#usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle/\x00#g; s#/usr/lib/x86_64-linux-gnu/webkit2gtk-4\.1#usr/lib/x86_64-linux-gnu/webkit2gtk-4.1\x00#g' \
+    "$WEBKIT_LIB"
+else
+  echo "WebKitGTK library not found in AppDir: $WEBKIT_LIB" >&2
+  exit 1
+fi
+
 "$APPIMAGETOOL" --runtime-file "$RUNTIME_FILE" "$APPDIR" "$APPIMAGE"
 chmod +x "$APPIMAGE"
 echo "$APPIMAGE"

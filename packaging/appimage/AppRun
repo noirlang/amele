@@ -4,14 +4,29 @@ APPDIR="$(dirname "$(readlink -f "$0")")"
 export WORM_UI_ROOT="${WORM_UI_ROOT:-$APPDIR/usr/share/worm/ui}"
 export WORM_APP_ICON="${WORM_APP_ICON:-$APPDIR/usr/share/icons/hicolor/256x256/apps/worm.png}"
 
+WEBKIT_BUNDLE_DIR="$APPDIR/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1"
+if [ -d "$WEBKIT_BUNDLE_DIR" ]; then
+  export WEBKIT_EXEC_PATH="${WEBKIT_EXEC_PATH:-$WEBKIT_BUNDLE_DIR}"
+  export WEBKIT_INJECTED_BUNDLE_PATH="${WEBKIT_INJECTED_BUNDLE_PATH:-$WEBKIT_BUNDLE_DIR/injected-bundle}"
+fi
+
+run_ui() {
+  cd "$APPDIR" || exit 1
+  exec "$APPDIR/usr/bin/worm" ui "$@"
+}
+
 case "${1:-}" in
   "" )
-    exec "$APPDIR/usr/bin/worm" ui
+    run_ui
     ;;
-  settings-default|hash|disk-list|disk-list-helper|image-helper|ram-helper|mount-helper|disk-size|verify|remote-disks|remote-image|remote-tool-check|ram-status|wireguard-config|ui|ui-browser )
+  ui )
+    shift
+    run_ui "$@"
+    ;;
+  settings-default|hash|disk-list|disk-list-helper|image-helper|ram-helper|mount-helper|disk-size|verify|remote-disks|remote-image|remote-tool-check|ram-status|wireguard-config|ui-browser )
     exec "$APPDIR/usr/bin/worm" "$@"
     ;;
   * )
-    exec "$APPDIR/usr/bin/worm" ui "$@"
+    run_ui "$@"
     ;;
 esac
