@@ -3,6 +3,7 @@ const icons = {
   grid: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
   tiles: '<rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/>',
   linux: '<circle cx="12" cy="6" r="3"/><path d="M8.2 11.2c.6-1.8 1.9-3.2 3.8-3.2s3.2 1.4 3.8 3.2l1.4 4.3c.5 1.5-.6 3-2.2 3H9c-1.6 0-2.7-1.5-2.2-3l1.4-4.3Z"/><path d="M9 18.5 6.5 21"/><path d="M15 18.5l2.5 2.5"/><path d="M10.2 6h.01"/><path d="M13.8 6h.01"/><path d="M10 13h4"/>',
+  android: '<path fill="currentColor" stroke="none" d="M18.4395 5.5586c-.675 1.1664-1.352 2.3318-2.0274 3.498-.0366-.0155-.0742-.0286-.1113-.043-1.8249-.6957-3.484-.8-4.42-.787-1.8551.0185-3.3544.4643-4.2597.8203-.084-.1494-1.7526-3.021-2.0215-3.4864a1.1451 1.1451 0 0 0-.1406-.1914c-.3312-.364-.9054-.4859-1.379-.203-.475.282-.7136.9361-.3886 1.5019 1.9466 3.3696-.0966-.2158 1.9473 3.3593.0172.031-.4946.2642-1.3926 1.0177C2.8987 12.176.452 14.772 0 18.9902h24c-.119-1.1108-.3686-2.099-.7461-3.0683-.7438-1.9118-1.8435-3.2928-2.7402-4.1836a12.1048 12.1048 0 0 0-2.1309-1.6875c.6594-1.122 1.312-2.2559 1.9649-3.3848.2077-.3615.1886-.7956-.0079-1.1191a1.1001 1.1001 0 0 0-.8515-.5332c-.5225-.0536-.9392.3128-1.0488.5449zm-.0391 8.461c.3944.5926.324 1.3306-.1563 1.6503-.4799.3197-1.188.0985-1.582-.4941-.3944-.5927-.324-1.3307.1563-1.6504.4727-.315 1.1812-.1086 1.582.4941zM7.207 13.5273c.4803.3197.5506 1.0577.1563 1.6504-.394.5926-1.1038.8138-1.584.4941-.48-.3197-.5503-1.0577-.1563-1.6504.4008-.6021 1.1087-.8106 1.584-.4941z"/>',
   network: '<circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><path d="M10.5 7.5 6.5 16"/><path d="M13.5 7.5 17.5 16"/><path d="M8 19h8"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/><path d="M8 11h6"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v6"/><path d="M12 7h.01"/>',
@@ -53,6 +54,7 @@ const translations = {
     "nav.home": "Ana Sayfa",
     "nav.windows": "Windows Araçları",
     "nav.linux": "Linux Araçları",
+    "nav.android": "Android Araçları",
     "nav.agent": "Agent",
     "nav.analysis": "Analiz",
     "nav.other": "Diğer",
@@ -92,6 +94,9 @@ const translations = {
     "hub.windows.desc": "Windows yerel/uzak disk ve RAM edinim akışlarını seçin.",
     "hub.linux.title": "Linux Araçları",
     "hub.linux.desc": "Linux yerel/uzak disk ve RAM edinim akışlarını seçin.",
+    "hub.android.title": "Android Araçları",
+    "hub.android.desc": "Mobil adli bilişim araçları için çalışma alanı.",
+    "hub.android.empty": "Android modülleri sonraki adımda eklenecek.",
     "workflow.ip": "IP Adresi",
     "workflow.ipPlaceholder": "IP adresi",
     "workflow.port": "Port",
@@ -376,6 +381,7 @@ const translations = {
     "nav.home": "Home",
     "nav.windows": "Windows Tools",
     "nav.linux": "Linux Tools",
+    "nav.android": "Android Tools",
     "nav.agent": "Agent",
     "nav.analysis": "Analysis",
     "nav.other": "Other",
@@ -415,6 +421,9 @@ const translations = {
     "hub.windows.desc": "Select local/remote disk and RAM acquisition workflows for Windows.",
     "hub.linux.title": "Linux Tools",
     "hub.linux.desc": "Select local/remote disk and RAM acquisition workflows for Linux.",
+    "hub.android.title": "Android Tools",
+    "hub.android.desc": "Workspace for mobile forensic tools.",
+    "hub.android.empty": "Android modules will be added in the next step.",
     "workflow.ip": "IP Address",
     "workflow.ipPlaceholder": "IP address",
     "workflow.port": "Port",
@@ -734,8 +743,9 @@ const state = {
 
 function detectPlatform() {
   const override = new URLSearchParams(window.location.search).get("platform");
-  if (["windows", "linux", "mac"].includes(override || "")) return override;
+  if (["windows", "linux", "android", "mac"].includes(override || "")) return override;
   const text = `${navigator.userAgent} ${navigator.platform}`.toLowerCase();
+  if (text.includes("android")) return "android";
   if (text.includes("win")) return "windows";
   if (text.includes("linux")) return "linux";
   if (text.includes("mac")) return "mac";
@@ -1059,8 +1069,23 @@ function toolHub(platform) {
 function platformLabel(platform) {
   if (platform === "windows") return "Windows";
   if (platform === "linux") return "Linux";
+  if (platform === "android") return "Android";
   if (platform === "mac") return "macOS";
   return t("unknown");
+}
+
+function androidPage() {
+  return `
+    <section class="page">
+      ${pageTitle(t("hub.android.title"), t("hub.android.desc"), "android")}
+      <div class="workflow-panel">
+        <div class="side-info">
+          <span class="metric-icon">${icon("android")}</span>
+          <span><strong>${t("hub.android.title")}</strong><small>${t("hub.android.empty")}</small></span>
+        </div>
+      </div>
+    </section>
+  `;
 }
 
 function workflowPage(id) {
@@ -1530,6 +1555,7 @@ const routes = {
   home: homePage,
   windows: () => toolHub("windows"),
   linux: () => toolHub("linux"),
+  android: androidPage,
   agent: agentPage,
   analysis: analysisPage,
   other: otherPage,
