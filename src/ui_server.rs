@@ -312,6 +312,7 @@ fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
             Ok(devices) => json_ok(json!({ "devices": devices })),
             Err(err) => json_error(500, err),
         },
+        ("POST", "/api/android-logical-image") => android_logical_image_endpoint(body),
         ("GET", "/api/ram-status") => json_ok(json!({
             "avml": ram::avml_status(None),
             "winpmem": ram::winpmem_status(None),
@@ -1501,6 +1502,7 @@ fn evidence_subdir(value: &str) -> &'static str {
         "notlar" | "notes" => "notlar",
         "disk_imajlari" | "ciktilar" | "outputs" | "images" => "ciktilar",
         "ram" => "ram",
+        "android" => "android",
         _ => "ciktilar",
     }
 }
@@ -2599,6 +2601,89 @@ fn fail_acquisition_job_with_message(job_id: &str, error: String, message: &str)
         job.status = "failed".to_string();
         job.message = message.to_string();
         job.error = Some(error);
+    }
+}
+
+fn android_logical_image_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct AndroidLogicalRequest {
+        serial: String,
+        case_name: Option<String>,
+    }
+
+    let request: AndroidLogicalRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let serial = request.serial.trim().to_string();
+    if serial.is_empty() {
+        return json_error(400, "serial is required");
+    }
+
+    let (job_id, control) = create_acquisition_job("Android mantiksal imaj alma baslatildi");
+    let thread_job_id = job_id.clone();
+    thread::spawn(move || {
+        run_android_logical_job(thread_job_id, serial, request.case_name, control)
+    });
+
+    json_ok(json!({
+        "job_id": job_id,
+        "status": "running",
+    }))
+}
+
+fn run_android_logical_job(
+    job_id: String,
+    serial: String,
+    case_name: Option<String>,
+    control: ram::CancellationToken,
+) {
+    let vault = match evidence_vault_for_output(case_name.as_deref()) {
+        Ok(vault) => vault,
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err, "Android imaj alma basarisiz");
+            return;
+        }
+    };
+
+    let android_dir = vault.case_dir.join("android");
+    if let Err(err) = std::fs::create_dir_all(&android_dir) {
+        fail_acquisition_job_with_message(&job_id, err.to_string(), "Android imaj alma basarisiz");
+        return;
+    }
+
+    match android::logical_acquisition(
+        &serial,
+        &android_dir,
+        |done, total, category| {
+            update_acquisition_progress_message(
+                &job_id,
+                done as u64,
+                total as u64,
+                &format!("Toplaniyor: {category}"),
+            );
+        },
+        || control.is_cancelled(),
+    ) {
+        Ok(result) => {
+            let success_count = result.items.iter().filter(|i| i.success).count();
+            let total_count = result.items.len();
+            finish_acquisition_job_with_message(
+                &job_id,
+                json!({
+                    "message": format!("Android mantiksal imaj tamamlandi ({success_count}/{total_count} adim basarili)"),
+                    "output_dir": result.output_dir,
+                    "total_bytes": result.total_bytes,
+                    "sha256": result.sha256,
+                    "items": result.items,
+                    "errors": result.errors,
+                }),
+                "Android mantiksal imaj tamamlandi",
+            );
+        }
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err, "Android imaj alma basarisiz");
+        }
     }
 }
 
