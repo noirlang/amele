@@ -125,6 +125,23 @@ const translations = {
     "android.devices.listed": "{count} cihaz listelendi.",
     "android.devices.selected": "Seçili cihaz: {serial}",
     "android.devices.listFailed": "Cihaz listesi alınamadı: {message}",
+    "android.logical.caseTitle": "Vaka",
+    "android.logical.caseHint": "Android imaj çıktısı seçilen vakanın android klasörüne yazılır. Vaka yoksa yeni vaka adıyla otomatik oluşturulur.",
+    "android.logical.acquisitionTitle": "İmaj Alma",
+    "android.logical.start": "Mantıksal İmaj Al",
+    "android.logical.stop": "Durdur",
+    "android.logical.stopped": "İmaj alma durduruldu.",
+    "android.logical.starting": "İmaj alma başlatılıyor...",
+    "android.logical.progress": "İlerleme",
+    "android.logical.waiting": "İmaj alma bekleniyor.",
+    "android.logical.done": "Mantıksal imaj alma tamamlandı.",
+    "android.logical.failed": "İmaj alma başarısız: {message}",
+    "android.logical.deviceRequired": "Önce cihaz seçin.",
+    "android.side.status": "Durum",
+    "android.side.adb": "ADB",
+    "android.side.device": "Cihaz",
+    "android.side.lastAction": "Son İşlem",
+    "android.side.totalBytes": "Toplam Boyut",
     "workflow.ip": "IP Adresi",
     "workflow.ipPlaceholder": "IP adresi",
     "workflow.port": "Port",
@@ -490,6 +507,23 @@ const translations = {
     "android.devices.listed": "{count} devices listed.",
     "android.devices.selected": "Selected device: {serial}",
     "android.devices.listFailed": "Device list failed: {message}",
+    "android.logical.caseTitle": "Case",
+    "android.logical.caseHint": "Android image output is written to the selected case's android folder. If no case exists, a new one is created automatically.",
+    "android.logical.acquisitionTitle": "Acquisition",
+    "android.logical.start": "Acquire Logical Image",
+    "android.logical.stop": "Stop",
+    "android.logical.stopped": "Acquisition stopped.",
+    "android.logical.starting": "Starting acquisition...",
+    "android.logical.progress": "Progress",
+    "android.logical.waiting": "Waiting for acquisition.",
+    "android.logical.done": "Logical image acquisition completed.",
+    "android.logical.failed": "Acquisition failed: {message}",
+    "android.logical.deviceRequired": "Select a device first.",
+    "android.side.status": "Status",
+    "android.side.adb": "ADB",
+    "android.side.device": "Device",
+    "android.side.lastAction": "Last Action",
+    "android.side.totalBytes": "Total Size",
     "workflow.ip": "IP Address",
     "workflow.ipPlaceholder": "IP address",
     "workflow.port": "Port",
@@ -821,6 +855,7 @@ const state = {
     selectedDevice: ""
   },
   jobs: {},
+  cachedDefaultCaseName: "",
   lastLog: initialLogMessages(preferredLanguage)
 };
 
@@ -1058,7 +1093,9 @@ function render() {
       pageTitle,
       state,
       escapeHtml,
-      backendReady
+      backendReady,
+      casePanel,
+      field
     });
   } else {
     view.innerHTML = routes[state.route]?.() || homePage();
@@ -1072,6 +1109,7 @@ function render() {
     const workflow = workflows[state.route.split(":")[1]];
     if (workflow && workflow.mode.includes("disk")) loadEvidenceCases();
   }
+  if (state.route === "android:logical") loadEvidenceCases();
   view.focus({ preventScroll: true });
 }
 
@@ -1326,7 +1364,7 @@ function casePanel(subdir, hint) {
   return `
     <p class="field-hint">${hint}</p>
     ${field(t("workflow.case"), `<select id="workflow-case" class="select" data-case-select data-allow-new-case="1">${caseSelectOptions(selected, { allowNew: true })}</select>`)}
-    ${field(t("workflow.newCaseName"), `<input id="workflow-case-name" class="input" value="${defaultCaseName()}" />`)}
+    ${field(t("workflow.newCaseName"), `<input id="workflow-case-name" class="input" value="${stableDefaultCaseName()}" />`)}
     <div class="button-row">
       <button class="secondary-button" data-action="refresh-cases">${icon("refresh")} ${t("case.refresh")}</button>
     </div>
@@ -1775,6 +1813,7 @@ async function ensureImageCase() {
     body: JSON.stringify({ case_name: caseName })
   });
   state.activeCase = created;
+  state.cachedDefaultCaseName = "";
   await loadEvidenceCases();
   return created;
 }
@@ -1783,6 +1822,13 @@ function defaultCaseName() {
   const now = new Date();
   const pad = (value) => String(value).padStart(2, "0");
   return `Case_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
+function stableDefaultCaseName() {
+  if (!state.cachedDefaultCaseName) {
+    state.cachedDefaultCaseName = defaultCaseName();
+  }
+  return state.cachedDefaultCaseName;
 }
 
 function timestampForFileName(date = new Date()) {
@@ -1987,7 +2033,13 @@ async function handleAction(button) {
       state,
       t,
       showToast,
-      render
+      render,
+      resolveCase() {
+        const select = document.querySelector("#workflow-case");
+        const selected = select?.value || "";
+        if (selected && selected !== "__new__") return selected;
+        return document.querySelector("#workflow-case-name")?.value.trim() || null;
+      }
     });
     if (handled) return;
   }
