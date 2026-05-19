@@ -3480,6 +3480,14 @@ fn hex_value(byte: u8) -> Option<u8> {
 mod tests {
     use super::*;
 
+    fn test_case_state_guard() -> std::sync::MutexGuard<'static, ()> {
+        static TEST_CASE_STATE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        TEST_CASE_STATE_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     fn response_json(response: Response) -> Value {
         assert_eq!(response.status, 200);
         serde_json::from_slice(&response.body).unwrap()
@@ -3487,6 +3495,7 @@ mod tests {
 
     #[test]
     fn evidence_note_and_report_endpoints_write_files() {
+        let _guard = test_case_state_guard();
         let dir = tempfile::tempdir().unwrap();
         *test_case_base_dir().lock().unwrap() = Some(dir.path().to_path_buf());
         *current_evidence_case().lock().unwrap() = None;
@@ -3596,6 +3605,7 @@ mod tests {
 
     #[test]
     fn ram_output_path_uses_case_ram_directory() {
+        let _guard = test_case_state_guard();
         let dir = tempfile::tempdir().unwrap();
         *test_case_base_dir().lock().unwrap() = Some(dir.path().to_path_buf());
         *current_evidence_case().lock().unwrap() = None;
