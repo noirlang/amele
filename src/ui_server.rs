@@ -23,6 +23,8 @@ use std::sync::{Mutex, OnceLock};
 use std::thread;
 
 const DEV_UI_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/ui");
+#[cfg(windows)]
+const WINPMEM_DOWNLOAD_URL: &str = "https://github.com/Velocidex/WinPmem/releases/download/v4.0.rc1/go-winpmem_amd64_1.0-rc2_signed.exe";
 static NEXT_ACQUISITION_JOB_ID: AtomicU64 = AtomicU64::new(1);
 static ACQUISITION_JOBS: OnceLock<Mutex<HashMap<String, AcquisitionJob>>> = OnceLock::new();
 static CURRENT_EVIDENCE_CASE: OnceLock<Mutex<Option<EvidenceCaseState>>> = OnceLock::new();
@@ -223,6 +225,8 @@ fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
             "avml": ram::avml_status(None),
             "winpmem": ram::winpmem_status(None),
         })),
+        ("POST", "/api/avml-install") => avml_install_endpoint(),
+        ("POST", "/api/winpmem-install") => winpmem_install_endpoint(),
         ("POST", "/api/acquisition-control") => acquisition_control_endpoint(body),
         ("POST", "/api/acquisition-status") => acquisition_status_endpoint(body),
         ("POST", "/api/connect") => connect_endpoint(body),
@@ -1103,6 +1107,195 @@ fn update_install_endpoint(body: &[u8]) -> Response {
     }
 }
 
+fn avml_install_endpoint() -> Response {
+    #[cfg(not(target_os = "linux"))]
+    {
+        return json_error(400, "AVML installation is only supported on Linux");
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let Some(asset_name) = avml_release_asset_name() else {
+            return json_error(
+                400,
+                format!(
+                    "AVML binary is not available for this architecture: {}",
+                    std::env::consts::ARCH
+                ),
+            );
+        };
+        let url =
+            format!("https://github.com/microsoft/avml/releases/latest/download/{asset_name}");
+        let download_dir = std::env::temp_dir().join("worm-avml-install");
+        if let Err(err) = fs::create_dir_all(&download_dir) {
+            return json_error(500, err.to_string());
+        }
+        let download_path = download_dir.join(format!("{asset_name}.download"));
+
+        if let Err(err) = download_file_to_path(&url, &download_path, "AVML download failed") {
+            let _ = fs::remove_file(&download_path);
+            return json_error(500, err);
+        }
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(metadata) = fs::metadata(&download_path) {
+                let mut permissions = metadata.permissions();
+                permissions.set_mode(0o755);
+                let _ = fs::set_permissions(&download_path, permissions);
+            }
+        }
+
+        let sha256 = match sha256_file(&download_path) {
+            Ok(value) => value,
+            Err(err) => {
+                let _ = fs::remove_file(&download_path);
+                return json_error(500, err);
+            }
+        };
+        let stem = helper_file_stem("worm-avml-install");
+        let result_path = download_dir.join(format!("{stem}-result.json"));
+        let args = vec![
+            "avml-install-helper".to_string(),
+            download_path.to_string_lossy().into_owned(),
+            result_path.to_string_lossy().into_owned(),
+        ];
+
+        let run_result = run_elevated_helper_wait(&args);
+        let helper_result = read_helper_json(&result_path).ok();
+        cleanup_helper_files(&[&download_path, &result_path]);
+        if let Err(err) = run_result {
+            let message = helper_result
+                .as_ref()
+                .and_then(|value| value.get("error"))
+                .and_then(Value::as_str)
+                .unwrap_or(&err)
+                .to_string();
+            return json_error(500, message);
+        }
+
+        let helper_result = match helper_result {
+            Some(value) => value,
+            None => return json_error(500, "AVML install helper did not return a result"),
+        };
+        if helper_result.get("ok").and_then(Value::as_bool) != Some(true) {
+            return json_error(
+                500,
+                helper_result
+                    .get("error")
+                    .and_then(Value::as_str)
+                    .unwrap_or("AVML installation failed")
+                    .to_string(),
+            );
+        }
+
+        json_ok(json!({
+            "asset": asset_name,
+            "download_url": url,
+            "sha256": sha256,
+            "path": helper_result.get("path").cloned().unwrap_or(Value::Null),
+            "version": helper_result.get("version").cloned().unwrap_or(Value::Null),
+            "message": helper_result.get("message").cloned().unwrap_or(Value::String("AVML installed".to_string())),
+            "status": ram::avml_status(None),
+        }))
+    }
+}
+
+fn winpmem_install_endpoint() -> Response {
+    #[cfg(not(windows))]
+    {
+        return json_error(400, "WinPMEM installation is only supported on Windows");
+    }
+
+    #[cfg(windows)]
+    {
+        if std::env::consts::ARCH != "x86_64" {
+            return json_error(
+                400,
+                format!(
+                    "WinPMEM binary is not available for this architecture: {}",
+                    std::env::consts::ARCH
+                ),
+            );
+        }
+
+        let download_dir = std::env::temp_dir().join("worm-winpmem-install");
+        if let Err(err) = fs::create_dir_all(&download_dir) {
+            return json_error(500, err.to_string());
+        }
+        let download_path = download_dir.join(ram::WINPMEM_NAME);
+        if let Err(err) = download_file_to_path(
+            WINPMEM_DOWNLOAD_URL,
+            &download_path,
+            "WinPMEM download failed",
+        ) {
+            let _ = fs::remove_file(&download_path);
+            return json_error(500, err);
+        }
+
+        let sha256 = match sha256_file(&download_path) {
+            Ok(value) => value,
+            Err(err) => {
+                let _ = fs::remove_file(&download_path);
+                return json_error(500, err);
+            }
+        };
+        let stem = helper_file_stem("worm-winpmem-install");
+        let result_path = download_dir.join(format!("{stem}-result.json"));
+        let args = vec![
+            "winpmem-install-helper".to_string(),
+            download_path.to_string_lossy().into_owned(),
+            result_path.to_string_lossy().into_owned(),
+        ];
+
+        let run_result = run_elevated_helper_wait(&args);
+        let helper_result = read_helper_json(&result_path).ok();
+        cleanup_helper_files(&[&download_path, &result_path]);
+        if let Err(err) = run_result {
+            let message = helper_result
+                .as_ref()
+                .and_then(|value| value.get("error"))
+                .and_then(Value::as_str)
+                .unwrap_or(&err)
+                .to_string();
+            return json_error(500, message);
+        }
+
+        let helper_result = match helper_result {
+            Some(value) => value,
+            None => return json_error(500, "WinPMEM install helper did not return a result"),
+        };
+        if helper_result.get("ok").and_then(Value::as_bool) != Some(true) {
+            return json_error(
+                500,
+                helper_result
+                    .get("error")
+                    .and_then(Value::as_str)
+                    .unwrap_or("WinPMEM installation failed")
+                    .to_string(),
+            );
+        }
+
+        json_ok(json!({
+            "asset": ram::WINPMEM_NAME,
+            "download_url": WINPMEM_DOWNLOAD_URL,
+            "sha256": sha256,
+            "path": helper_result.get("path").cloned().unwrap_or(Value::Null),
+            "message": helper_result.get("message").cloned().unwrap_or(Value::String("WinPMEM installed".to_string())),
+            "status": ram::winpmem_status(None),
+        }))
+    }
+}
+
+fn avml_release_asset_name() -> Option<&'static str> {
+    match std::env::consts::ARCH {
+        "x86_64" => Some("avml"),
+        "aarch64" => Some("avml-aarch64"),
+        _ => None,
+    }
+}
+
 fn current_evidence_case() -> &'static Mutex<Option<EvidenceCaseState>> {
     CURRENT_EVIDENCE_CASE.get_or_init(|| Mutex::new(None))
 }
@@ -1792,6 +1985,39 @@ fn sanitize_download_name(value: &str) -> String {
         .collect::<String>()
         .trim_matches('_')
         .to_string()
+}
+
+fn download_file_to_path(url: &str, target: &Path, fallback: &str) -> Result<(), String> {
+    #[cfg(windows)]
+    let output = Command::new("powershell")
+        .arg("-NoProfile")
+        .arg("-ExecutionPolicy")
+        .arg("Bypass")
+        .arg("-Command")
+        .arg(
+            "$ProgressPreference='SilentlyContinue'; \
+             Invoke-WebRequest -Uri $args[0] -OutFile $args[1] -UseBasicParsing",
+        )
+        .arg(url)
+        .arg(target)
+        .output();
+
+    #[cfg(not(windows))]
+    let output = Command::new("curl")
+        .arg("-L")
+        .arg("--fail")
+        .arg("--silent")
+        .arg("--show-error")
+        .arg("-o")
+        .arg(target)
+        .arg(url)
+        .output();
+
+    match output {
+        Ok(output) if output.status.success() => Ok(()),
+        Ok(output) => Err(command_error_message(&output, fallback)),
+        Err(err) => Err(err.to_string()),
+    }
 }
 
 fn sha256_file(path: &Path) -> Result<String, String> {

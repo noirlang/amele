@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 const CONTROL_RUNNING: u8 = 0;
 const CONTROL_PAUSED: u8 = 1;
 const CONTROL_CANCELLED: u8 = 2;
+pub const WINPMEM_NAME: &str = "go-winpmem_amd64_1.0-rc2_signed.exe";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RamToolStatus {
@@ -383,7 +384,6 @@ pub fn find_avml(candidate: Option<&Path>) -> Option<PathBuf> {
 }
 
 pub fn find_winpmem(candidate: Option<&Path>) -> Option<PathBuf> {
-    const WINPMEM_NAME: &str = "go-winpmem_amd64_1.0-rc2_signed.exe";
     if let Some(path) = candidate
         && path.exists()
     {

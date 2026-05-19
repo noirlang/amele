@@ -156,6 +156,16 @@ const translations = {
     "workflow.checkToolAction": "{tool} Kontrol Et",
     "workflow.scanLocalDisks": "Yerel Diskleri Tara",
     "workflow.downloadWinpmem": "WinPMEM İndir",
+    "workflow.winpmemInstalling": "WinPMEM indiriliyor ve C:\\Tools altına kuruluyor",
+    "workflow.winpmemInstalled": "WinPMEM kuruldu: {path}",
+    "workflow.winpmemInstallFailed": "WinPMEM kurulamadı: {message}",
+    "workflow.winpmemUnsupported": "WinPMEM otomatik kurulumu sadece Windows yerel RAM akışında çalışır.",
+    "workflow.downloadAvml": "AVML İndir ve Kur",
+    "workflow.avmlInstalling": "AVML indiriliyor ve /usr/bin/avml olarak kuruluyor",
+    "workflow.avmlInstalled": "AVML kuruldu: {path}",
+    "workflow.avmlInstallFailed": "AVML kurulamadı: {message}",
+    "workflow.avmlUnsupported": "AVML otomatik kurulumu sadece Linux yerel RAM akışında çalışır.",
+    "workflow.appModeRequired": "Bu işlem uygulama modunda çalışır.",
     "workflow.ramOutput": "RAM ve Çıktı",
     "workflow.diskOutput": "Disk ve Çıktı",
     "workflow.caseSection": "4. Vaka",
@@ -509,6 +519,16 @@ const translations = {
     "workflow.checkToolAction": "Check {tool}",
     "workflow.scanLocalDisks": "Scan Local Disks",
     "workflow.downloadWinpmem": "Download WinPMEM",
+    "workflow.winpmemInstalling": "Downloading WinPMEM and installing it under C:\\Tools",
+    "workflow.winpmemInstalled": "WinPMEM installed: {path}",
+    "workflow.winpmemInstallFailed": "WinPMEM install failed: {message}",
+    "workflow.winpmemUnsupported": "Automatic WinPMEM install only works in the Windows local RAM workflow.",
+    "workflow.downloadAvml": "Download and Install AVML",
+    "workflow.avmlInstalling": "Downloading AVML and installing it as /usr/bin/avml",
+    "workflow.avmlInstalled": "AVML installed: {path}",
+    "workflow.avmlInstallFailed": "AVML install failed: {message}",
+    "workflow.avmlUnsupported": "Automatic AVML install only works in the Linux local RAM workflow.",
+    "workflow.appModeRequired": "This action requires application mode.",
     "workflow.ramOutput": "RAM and Output",
     "workflow.diskOutput": "Disk and Output",
     "workflow.caseSection": "4. Case",
@@ -1206,6 +1226,7 @@ function workflowPage(id) {
                   <div class="button-row">
                     <button class="primary-button" data-action="scan">${icon(isRam ? "chip" : "disk")} ${isRam ? t("workflow.checkToolAction", { tool: toolCheck }) : t("workflow.scanLocalDisks")}</button>
                     ${isRam && data.platform === "Windows" ? `<button class="secondary-button" data-action="download">${icon("refresh")} ${t("workflow.downloadWinpmem")}</button>` : ""}
+                    ${isRam && data.platform === "Linux" ? `<button class="secondary-button" data-action="install-avml">${icon("download")} ${t("workflow.downloadAvml")}</button>` : ""}
                   </div>
                 `
             }
@@ -2056,6 +2077,16 @@ async function handleAction(button) {
     return;
   }
 
+  if (action === "download") {
+    await installWinpmem(button);
+    return;
+  }
+
+  if (action === "install-avml") {
+    await installAvml(button);
+    return;
+  }
+
   if (action === "start") {
     await startAcquisition(button);
     return;
@@ -2466,6 +2497,86 @@ async function scanTargets() {
   updateSide("target", t("targetNotSelected"));
   writeWorkflowLog(t("scan.appModeRequired"));
   showToast(t("scan.completed"));
+}
+
+async function installAvml(button) {
+  const workflow = currentWorkflow();
+  if (!workflow || workflow.platform !== "Linux" || workflow.mode !== "local-ram") {
+    showToast(t("workflow.avmlUnsupported"), "error");
+    return;
+  }
+  if (!backendReady()) {
+    showToast(t("workflow.appModeRequired"), "error");
+    return;
+  }
+
+  button.disabled = true;
+  writeWorkflowLog(t("workflow.avmlInstalling"));
+  updateSide("last-action", t("workflow.avmlInstalling"));
+  try {
+    const result = await apiRequest("/api/avml-install", { method: "POST" });
+    const status = result.status || {};
+    const path = status.tool_path || result.path || "/usr/bin/avml";
+    const label = status.message || result.message || "AVML ready";
+    const select = document.querySelector("[data-field='target']");
+    if (select) {
+      const localLabel = localText(workflow.diskLabel);
+      select.innerHTML = [
+        `<option value="${escapeHtml(localLabel)}">${escapeHtml(localLabel)}</option>`,
+        `<option value="${escapeHtml(path)}">${escapeHtml(path)}</option>`
+      ].join("");
+      select.value = path;
+    }
+    updateSide("target", escapeHtml(path));
+    writeWorkflowLog(t("scan.toolDoneLog", { target: "AVML", message: escapeHtml(label) }));
+    writeWorkflowLog(t("workflow.avmlInstalled", { path: escapeHtml(path) }));
+    showToast(t("workflow.avmlInstalled", { path }));
+  } catch (error) {
+    writeWorkflowLog(t("workflow.avmlInstallFailed", { message: escapeHtml(error.message) }));
+    showToast(t("workflow.avmlInstallFailed", { message: error.message }), "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function installWinpmem(button) {
+  const workflow = currentWorkflow();
+  if (!workflow || workflow.platform !== "Windows" || workflow.mode !== "local-ram") {
+    showToast(t("workflow.winpmemUnsupported"), "error");
+    return;
+  }
+  if (!backendReady()) {
+    showToast(t("workflow.appModeRequired"), "error");
+    return;
+  }
+
+  button.disabled = true;
+  writeWorkflowLog(t("workflow.winpmemInstalling"));
+  updateSide("last-action", t("workflow.winpmemInstalling"));
+  try {
+    const result = await apiRequest("/api/winpmem-install", { method: "POST" });
+    const status = result.status || {};
+    const path = status.tool_path || result.path || "C:\\Tools\\go-winpmem_amd64_1.0-rc2_signed.exe";
+    const label = status.message || result.message || "WinPMEM ready";
+    const select = document.querySelector("[data-field='target']");
+    if (select) {
+      const localLabel = localText(workflow.diskLabel);
+      select.innerHTML = [
+        `<option value="${escapeHtml(localLabel)}">${escapeHtml(localLabel)}</option>`,
+        `<option value="${escapeHtml(path)}">${escapeHtml(path)}</option>`
+      ].join("");
+      select.value = path;
+    }
+    updateSide("target", escapeHtml(path));
+    writeWorkflowLog(t("scan.toolDoneLog", { target: "WinPMEM", message: escapeHtml(label) }));
+    writeWorkflowLog(t("workflow.winpmemInstalled", { path: escapeHtml(path) }));
+    showToast(t("workflow.winpmemInstalled", { path }));
+  } catch (error) {
+    writeWorkflowLog(t("workflow.winpmemInstallFailed", { message: escapeHtml(error.message) }));
+    showToast(t("workflow.winpmemInstallFailed", { message: error.message }), "error");
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function setProgress(value, labelText = `${value}%`) {
