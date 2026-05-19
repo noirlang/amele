@@ -140,6 +140,97 @@ fn open_window(url: &str) {
     eprintln!("Browser could not be opened automatically. Use: {url}");
 }
 
+fn open_url_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct OpenUrlRequest {
+        url: String,
+    }
+
+    let request: OpenUrlRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+
+    let url = match validate_external_url(&request.url) {
+        Ok(url) => url,
+        Err(err) => return json_error(400, err),
+    };
+
+    match open_external_url(&url) {
+        Ok(()) => json_ok(json!({ "opened": true })),
+        Err(err) => json_error(500, err),
+    }
+}
+
+fn validate_external_url(value: &str) -> Result<String, String> {
+    let url = value.trim();
+    if url.is_empty() {
+        return Err("url is required".to_string());
+    }
+    if url.chars().any(char::is_control) {
+        return Err("url contains invalid characters".to_string());
+    }
+
+    let lower = url.to_ascii_lowercase();
+    if lower.starts_with("https://") || lower.starts_with("http://") || lower.starts_with("mailto:")
+    {
+        Ok(url.to_string())
+    } else {
+        Err("only http, https and mailto links can be opened".to_string())
+    }
+}
+
+fn open_external_url(url: &str) -> Result<(), String> {
+    #[cfg(target_os = "linux")]
+    {
+        let openers: &[(&str, &[&str])] = &[("xdg-open", &[url]), ("gio", &["open", url])];
+        for (program, args) in openers {
+            if Command::new(program)
+                .args(*args)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .is_ok()
+            {
+                return Ok(());
+            }
+        }
+        Err("external link opener could not be started".to_string())
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("rundll32")
+            .arg("url.dll,FileProtocolHandler")
+            .arg(url)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map(|_| ())
+            .map_err(|err| format!("external link opener could not be started: {err}"))
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(url)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map(|_| ())
+            .map_err(|err| format!("external link opener could not be started: {err}"))
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
+    {
+        let _ = url;
+        Err("external links are not supported on this platform".to_string())
+    }
+}
+
 fn handle_stream(stream: TcpStream) -> Result<(), String> {
     let peer = stream.peer_addr().ok();
     if peer.map(|addr| !addr.ip().is_loopback()).unwrap_or(true) {
@@ -252,6 +343,7 @@ fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
         ("GET", "/api/update-check") => update_check_endpoint(),
         ("POST", "/api/update-download") => update_download_endpoint(body),
         ("POST", "/api/update-install") => update_install_endpoint(body),
+        ("POST", "/api/open-url") => open_url_endpoint(body),
         ("POST", "/api/pick-file") => pick_path_endpoint(false),
         ("POST", "/api/pick-folder") => pick_path_endpoint(true),
         _ => json_error(404, "api endpoint not found"),
@@ -3491,6 +3583,30 @@ mod tests {
     fn response_json(response: Response) -> Value {
         assert_eq!(response.status, 200);
         serde_json::from_slice(&response.body).unwrap()
+    }
+
+    #[test]
+    fn external_url_validation_allows_public_links() {
+        assert_eq!(
+            validate_external_url(" https://github.com/favilances ").unwrap(),
+            "https://github.com/favilances"
+        );
+        assert_eq!(
+            validate_external_url("http://example.com").unwrap(),
+            "http://example.com"
+        );
+        assert_eq!(
+            validate_external_url("mailto:test@example.com").unwrap(),
+            "mailto:test@example.com"
+        );
+    }
+
+    #[test]
+    fn external_url_validation_rejects_local_and_script_links() {
+        assert!(validate_external_url("").is_err());
+        assert!(validate_external_url("file:///etc/passwd").is_err());
+        assert!(validate_external_url("javascript:alert(1)").is_err());
+        assert!(validate_external_url("https://example.com/\nnext").is_err());
     }
 
     #[test]

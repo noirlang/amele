@@ -1638,7 +1638,7 @@ function contributorCard(initials, name, photo, links) {
 
 function socialLink(label, url) {
   const key = label === "LinkedIn" ? "linkedin" : label === "Website" ? "website" : "github";
-  return `<a class="social-button" href="${url}" target="_blank" rel="noreferrer" aria-label="${label}">${icon(key)}</a>`;
+  return `<a class="social-button" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${label}">${icon(key)}</a>`;
 }
 
 const routes = {
@@ -1665,6 +1665,28 @@ async function apiRequest(path, options = {}) {
     throw new Error(data.error || response.statusText);
   }
   return data;
+}
+
+function isExternalUrl(url) {
+  try {
+    const parsed = new URL(url, window.location.href);
+    return ["http:", "https:", "mailto:"].includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
+async function openExternalUrl(url) {
+  try {
+    await apiRequest("/api/open-url", {
+      method: "POST",
+      body: JSON.stringify({ url })
+    });
+    return;
+  } catch (error) {
+    console.warn("External link could not be opened by backend", error);
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 async function loadEvidenceCases({ silent = true } = {}) {
@@ -1884,6 +1906,13 @@ function escapeHtml(value) {
 }
 
 document.addEventListener("click", (event) => {
+  const externalLink = event.target.closest("a[href]");
+  if (externalLink && isExternalUrl(externalLink.href)) {
+    event.preventDefault();
+    openExternalUrl(externalLink.href);
+    return;
+  }
+
   const routeButton = event.target.closest("[data-route]");
   if (routeButton) {
     setRoute(routeButton.dataset.route);
