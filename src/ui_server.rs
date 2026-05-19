@@ -1796,7 +1796,6 @@ fn linux_loop_mount_candidates(loop_device: &Path) -> Vec<PathBuf> {
     candidates
 }
 
-#[cfg(target_os = "linux")]
 fn command_error_message(output: &std::process::Output, fallback: &str) -> String {
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
     if stderr.is_empty() {
