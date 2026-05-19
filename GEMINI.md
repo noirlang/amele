@@ -4,7 +4,7 @@ Worm is a desktop forensic tool for disk/RAM imaging, hash verification, remote 
 
 ## Project Overview
 
-- **Purpose:** Forensic acquisition (Disk/RAM), hash calculation, remote agent management.
+- **Purpose:** Forensic acquisition (Disk/RAM/Android), hash calculation, remote agent management.
 - **Backend:** Rust (2024 edition).
 - **Frontend:** Vanilla HTML/CSS/JS (no heavy frameworks).
 - **Architecture:** The binary serves as both a CLI and a UI host. It uses an elevated helper pattern (re-invoking itself via `sudo`/`pkexec`) for privileged operations.
@@ -49,6 +49,7 @@ Requires Microsoft Edge WebView2 Runtime.
     - `src/ui_server.rs`: HTTP API and UI asset serving.
     - `src/native_window.rs`: Native window wrappers.
     - `src/disk.rs`, `src/ram.rs`, `src/remote.rs`: Acquisition and agent protocols.
+    - `src/android.rs`: Android ADB logical acquisition (device info, app list, media, notifications, etc.).
     - `src/hash.rs`, `src/evidence.rs`, `src/report.rs`: Utility and management.
 - **Privileged Helpers:** Commands like `image-helper`, `ram-helper`, etc., are intended to be run with elevated privileges and communicate via JSON files.
 
@@ -70,7 +71,29 @@ Requires Microsoft Edge WebView2 Runtime.
 
 ## Key Files
 - `Cargo.toml`: Project dependencies and configuration.
-- `CLAUDE.md`: Detailed guidance for AI assistants.
+- `GEMINI.md`: Detailed guidance for AI assistants.
 - `AGENTS.md`: Repository guidelines and structure.
 - `src/main.rs`: Entry point for CLI and UI.
+- `src/android.rs`: Android logical acquisition backend (19 collection steps).
 - `ui/app.js`: Main frontend logic.
+- `ui/android.js`: Android UI (mode selection, ADB check, device selection, case selection, acquisition).
+- `docs/android.md`: Android module documentation (collected data, folder structure, limitations).
+
+## Android Module
+
+### Logical Acquisition (Active)
+Root yetkisi olmadan ADB ile erişilebilir verileri toplar. `POST /api/android-logical-image` endpoint'i üzerinden çalışır.
+
+**İş akışı:** ADB Kontrol → Cihaz Seç → Vaka Seç → İmaj Al
+
+**Toplanan veriler (19 adım):**
+- Sistem: `getprop`, paket listesi, logcat, çalışan süreçler, disk kullanımı
+- Dumpsys: battery, wifi, bluetooth, usagestats, account, connectivity, notification
+- Bildirim geçmişi: `dumpsys notification` + etkinse `cmd notification dump_history`
+- Ağ: ip addr, ip route, netstat, ip neigh
+- Ekran görüntüsü: `screencap`
+- Medya: WhatsApp, Telegram, WA Business, Instagram, Messenger, Viber, Google Messages
+- Bugreport + paylaşılan depolama (`/sdcard/`)
+- Manifest: SHA-256 hash'li `manifest.json`
+
+Detaylı bilgi: `docs/android.md`
