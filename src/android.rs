@@ -421,9 +421,9 @@ fn collect_shared_storage(serial: &str, dir: &std::path::Path) -> AcquisitionIte
 fn collect_notification_history(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     let mut content = String::new();
 
-    // 1. Standard dumpsys notification (always available)
-    content.push_str("=== dumpsys notification ===\n");
-    match run_adb_command(serial, &["shell", "dumpsys", "notification"]) {
+    // 1. dumpsys notification --noredact to capture full message text
+    content.push_str("=== dumpsys notification --noredact ===\n");
+    match run_adb_command(serial, &["shell", "dumpsys", "notification", "--noredact"]) {
         Ok(output) => content.push_str(&output),
         Err(err) => content.push_str(&format!("Hata: {err}")),
     }
