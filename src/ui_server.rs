@@ -527,6 +527,7 @@ fn evidence_create_endpoint(body: &[u8]) -> Response {
                 "case_dir": summary.case_dir,
                 "base_dir": default_case_base_dir(),
                 "output_dir": vault.outputs_dir,
+                "ram_dir": vault.ram_dir,
                 "output_count": summary.output_count,
                 "hash_count": summary.hash_count,
                 "report_count": summary.report_count,
@@ -647,6 +648,7 @@ fn evidence_cases_endpoint() -> Response {
                 "case_dir": case_dir,
                 "base_dir": state.base_dir,
                 "output_dir": case_dir.join("ciktilar"),
+                "ram_dir": case_dir.join("ram"),
             })
         });
 
@@ -1405,7 +1407,8 @@ fn evidence_subdir(value: &str) -> &'static str {
         "raporlar" | "reports" => "raporlar",
         "hash" => "hash",
         "notlar" | "notes" => "notlar",
-        "disk_imajlari" | "ram" | "ciktilar" | "outputs" | "images" => "ciktilar",
+        "disk_imajlari" | "ciktilar" | "outputs" | "images" => "ciktilar",
+        "ram" => "ram",
         _ => "ciktilar",
     }
 }
@@ -1415,7 +1418,9 @@ fn case_listing_json(case_name: &str, case_dir: &Path) -> Value {
         "case_name": case_name,
         "case_dir": case_dir,
         "output_dir": case_dir.join("ciktilar"),
+        "ram_dir": case_dir.join("ram"),
         "output_count": count_directory_entries(&case_dir.join("ciktilar")),
+        "ram_count": count_directory_entries(&case_dir.join("ram")),
         "hash_count": count_directory_entries(&case_dir.join("hash")),
         "report_count": count_directory_entries(&case_dir.join("raporlar")),
     })
@@ -2081,6 +2086,7 @@ fn launch_update_installer(path: &Path) -> Result<String, String> {
 #[derive(Deserialize)]
 struct LocalImageRequest {
     source: String,
+    disk_name: Option<String>,
     output: String,
     case_name: Option<String>,
 }
@@ -2091,6 +2097,7 @@ struct RemoteImageRequest {
     port: u16,
     token: Option<String>,
     disk_id: String,
+    disk_name: Option<String>,
     output: String,
     case_name: Option<String>,
 }
@@ -2100,6 +2107,7 @@ struct LocalRamRequest {
     output: String,
     tool: Option<String>,
     tool_path: Option<String>,
+    case_name: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -2108,6 +2116,7 @@ struct RemoteRamRequest {
     port: u16,
     token: Option<String>,
     output: String,
+    case_name: Option<String>,
 }
 
 fn run_local_image_job(
@@ -2122,7 +2131,12 @@ fn run_local_image_job(
             return;
         }
     };
-    let target = acquisition_target_path(&request.source, &output.to_string_lossy(), "local");
+    let target = acquisition_target_path(
+        &request.source,
+        request.disk_name.as_deref(),
+        &output.to_string_lossy(),
+        None,
+    );
     let task = DiskAcquisitionTask::new(&request.source, &target);
 
     if local_image_source_requires_elevation(&task.source) {
@@ -2180,6 +2194,7 @@ fn run_remote_image_job(job_id: String, request: RemoteImageRequest) {
             };
             match connection.acquire_image(
                 &request.disk_id,
+                request.disk_name.as_deref(),
                 &output,
                 Some(&remote_job_id),
                 |done, total| update_acquisition_progress(&job_id, done, total),
@@ -2209,7 +2224,20 @@ fn run_remote_image_job(job_id: String, request: RemoteImageRequest) {
     }
 }
 
-fn run_local_ram_job(job_id: String, request: LocalRamRequest, control: ram::CancellationToken) {
+fn run_local_ram_job(
+    job_id: String,
+    mut request: LocalRamRequest,
+    control: ram::CancellationToken,
+) {
+    let output = match ram_output_path(&request.output, request.case_name.as_deref(), None) {
+        Ok(output) => output,
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err, "RAM edinimi basarisiz");
+            return;
+        }
+    };
+    request.output = output.to_string_lossy().into_owned();
+
     let tool = request.tool.as_deref().unwrap_or_default();
     if local_ram_requires_elevation(tool) {
         run_elevated_local_ram_job(&job_id, &request, &control);
@@ -2258,8 +2286,18 @@ fn run_local_ram_job(job_id: String, request: LocalRamRequest, control: ram::Can
 }
 
 fn run_remote_ram_job(job_id: String, request: RemoteRamRequest) {
-    let remote_file = ram_remote_file_name(&request.output);
-    let target_path = PathBuf::from(&request.output);
+    let target_path = match ram_output_path(
+        &request.output,
+        request.case_name.as_deref(),
+        Some(&request.ip),
+    ) {
+        Ok(output) => output,
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err, "RAM edinimi basarisiz");
+            return;
+        }
+    };
+    let remote_file = ram_remote_file_name(&target_path.to_string_lossy());
 
     match RemoteConnection::connect(&request.ip, request.port, request.token.clone()) {
         Ok(mut connection) => {
@@ -2886,6 +2924,63 @@ fn image_output_dir(output: &str, case_name: Option<&str>) -> Result<PathBuf, St
     }
 }
 
+fn ram_output_path(
+    output: &str,
+    case_name: Option<&str>,
+    remote_ip: Option<&str>,
+) -> Result<PathBuf, String> {
+    let vault = evidence_vault_for_output(case_name)?;
+    let output = output.trim();
+    let requested_file = ram_file_name_from_output(output);
+    let seed_path = requested_file
+        .map(|file_name| vault.ram_dir.join(file_name))
+        .unwrap_or_else(|| vault.ram_dir.clone());
+
+    Ok(canonical_ram_target_path(
+        &seed_path.to_string_lossy(),
+        remote_ip,
+    ))
+}
+
+fn evidence_vault_for_output(case_name: Option<&str>) -> Result<EvidenceVault, String> {
+    let explicit_case = case_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(sanitize_case_name)
+        .filter(|value| !value.is_empty());
+
+    let (base_dir, case_name) = if let Some(case_name) = explicit_case {
+        (default_case_base_dir(), case_name)
+    } else if let Some(state) = current_evidence_case()
+        .lock()
+        .ok()
+        .and_then(|current| current.clone())
+    {
+        (state.base_dir, state.case_name)
+    } else {
+        (default_case_base_dir(), default_case_name())
+    };
+
+    let vault = EvidenceVault::create(&base_dir, &case_name).map_err(|err| err.to_string())?;
+    set_current_evidence_case(base_dir, case_name);
+    Ok(vault)
+}
+
+fn ram_file_name_from_output(output: &str) -> Option<&str> {
+    let path = Path::new(output);
+    let extension = path.extension()?.to_str()?;
+    if !matches!(
+        extension.to_ascii_lowercase().as_str(),
+        "raw" | "mem" | "bin"
+    ) {
+        return None;
+    }
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+}
+
 fn helper_file_stem(prefix: &str) -> String {
     format!(
         "{}-{}-{}",
@@ -2975,7 +3070,12 @@ fn process_is_root() -> bool {
     false
 }
 
-fn acquisition_target_path(source: &str, output: &str, prefix: &str) -> PathBuf {
+fn acquisition_target_path(
+    source: &str,
+    disk_name: Option<&str>,
+    output: &str,
+    remote_ip: Option<&str>,
+) -> PathBuf {
     let output = PathBuf::from(output);
     if output
         .extension()
@@ -2990,13 +3090,43 @@ fn acquisition_target_path(source: &str, output: &str, prefix: &str) -> PathBuf 
         .rsplit(['/', '\\'])
         .find(|part| !part.is_empty())
         .unwrap_or("disk");
-    let file_name = format!(
-        "{}_{}_{}.img",
-        prefix,
-        sanitize_file_stem(source_name),
-        Local::now().format("%Y%m%d_%H%M%S")
-    );
+    let file_name = canonical_image_file_name(remote_ip, source_name, disk_name);
     output.join(file_name)
+}
+
+fn canonical_image_file_name(
+    remote_ip: Option<&str>,
+    disk_id: &str,
+    disk_name: Option<&str>,
+) -> String {
+    let mut parts = Vec::new();
+    if let Some(ip) = remote_ip
+        .map(sanitize_file_stem)
+        .filter(|value| !value.is_empty())
+    {
+        parts.push(ip);
+    }
+
+    let disk_id = sanitize_file_stem(disk_id);
+    parts.push(if disk_id.is_empty() {
+        "disk".to_string()
+    } else {
+        disk_id
+    });
+
+    if let Some(name) = disk_name
+        .map(sanitize_file_stem)
+        .filter(|value| !value.is_empty())
+        && parts.last().map(|last| last != &name).unwrap_or(true)
+    {
+        parts.push(name);
+    }
+
+    format!(
+        "{}_{}.img",
+        parts.join("_"),
+        Local::now().format("%Y%m%d_%H%M%S")
+    )
 }
 
 fn ram_remote_file_name(output: &str) -> String {
@@ -3008,11 +3138,63 @@ fn ram_remote_file_name(output: &str) -> String {
         .unwrap_or_else(|| "memory_dump.raw".to_string())
 }
 
+fn canonical_ram_target_path(output: &str, remote_ip: Option<&str>) -> PathBuf {
+    let output = PathBuf::from(output.trim());
+    let is_file = output
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| matches!(extension, "raw" | "mem" | "bin"))
+        .unwrap_or(false);
+    let file_name = canonical_ram_file_name(
+        remote_ip,
+        is_file
+            .then(|| output.file_name().and_then(|name| name.to_str()))
+            .flatten(),
+    );
+
+    if is_file {
+        output
+            .parent()
+            .map(|parent| parent.join(&file_name))
+            .unwrap_or_else(|| PathBuf::from(file_name))
+    } else {
+        output.join(file_name)
+    }
+}
+
+fn canonical_ram_file_name(remote_ip: Option<&str>, current_name: Option<&str>) -> String {
+    let remote_ip = remote_ip
+        .map(sanitize_file_stem)
+        .filter(|value| !value.is_empty());
+
+    if let Some(name) = current_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        if let Some(ip) = &remote_ip {
+            let expected_prefix = format!("{ip}_ram_");
+            if name.starts_with(&expected_prefix) && name.ends_with(".raw") {
+                return name.to_string();
+            }
+            if name.starts_with("ram_") && name.ends_with(".raw") {
+                return format!("{ip}_{name}");
+            }
+        } else if name.starts_with("ram_") && name.ends_with(".raw") {
+            return name.to_string();
+        }
+    }
+
+    let prefix = remote_ip
+        .map(|ip| format!("{ip}_ram"))
+        .unwrap_or_else(|| "ram".to_string());
+    format!("{}_{}.raw", prefix, Local::now().format("%Y%m%d_%H%M%S"))
+}
+
 fn sanitize_file_stem(value: &str) -> String {
     let sanitized: String = value
         .chars()
         .map(|ch| {
-            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_') {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.') {
                 ch
             } else {
                 '_'
@@ -3375,5 +3557,73 @@ mod tests {
 
         assert!(local_ram_requires_elevation("avml"));
         assert!(!local_ram_requires_elevation("winpmem"));
+    }
+
+    #[test]
+    fn canonical_image_name_uses_disk_id_disk_name_and_date() {
+        let name = canonical_image_file_name(None, "sda", Some("Samsung SSD"));
+
+        assert!(name.starts_with("sda_Samsung_SSD_"));
+        assert!(name.ends_with(".img"));
+        assert!(!name.starts_with("local_"));
+    }
+
+    #[test]
+    fn canonical_ram_name_adds_ip_only_for_remote() {
+        let local = canonical_ram_target_path("/case/ram/memory.raw", None);
+        let remote =
+            canonical_ram_target_path("/case/ram/ram_20260519_120000.raw", Some("192.168.1.178"));
+
+        assert!(
+            local
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("ram_")
+        );
+        assert!(
+            !local
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("192.168.1.178_")
+        );
+        assert_eq!(
+            remote.file_name().unwrap().to_string_lossy(),
+            "192.168.1.178_ram_20260519_120000.raw"
+        );
+    }
+
+    #[test]
+    fn ram_output_path_uses_case_ram_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        *test_case_base_dir().lock().unwrap() = Some(dir.path().to_path_buf());
+        *current_evidence_case().lock().unwrap() = None;
+
+        let local = ram_output_path("ram_20260519_120000.raw", Some("Case A"), None).unwrap();
+        let remote = ram_output_path(
+            "/tmp/ram_20260519_120000.raw",
+            Some("Case A"),
+            Some("192.168.1.178"),
+        )
+        .unwrap();
+
+        assert_eq!(
+            local,
+            dir.path()
+                .join("Case_A")
+                .join("ram")
+                .join("ram_20260519_120000.raw")
+        );
+        assert_eq!(
+            remote,
+            dir.path()
+                .join("Case_A")
+                .join("ram")
+                .join("192.168.1.178_ram_20260519_120000.raw")
+        );
+
+        *current_evidence_case().lock().unwrap() = None;
+        *test_case_base_dir().lock().unwrap() = None;
     }
 }

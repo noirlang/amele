@@ -20,6 +20,7 @@ pub struct EvidenceVault {
     pub case_dir: PathBuf,
     pub logs_dir: PathBuf,
     pub outputs_dir: PathBuf,
+    pub ram_dir: PathBuf,
     pub reports_dir: PathBuf,
     pub hash_dir: PathBuf,
     pub notes_dir: PathBuf,
@@ -33,6 +34,7 @@ impl EvidenceVault {
         let case_dir = base_dir.as_ref().join(&case_name);
         let logs_dir = case_dir.join("gunlukler");
         let outputs_dir = case_dir.join("ciktilar");
+        let ram_dir = case_dir.join("ram");
         let reports_dir = case_dir.join("raporlar");
         let hash_dir = case_dir.join("hash");
         let notes_dir = case_dir.join("notlar");
@@ -41,6 +43,7 @@ impl EvidenceVault {
             &case_dir,
             &logs_dir,
             &outputs_dir,
+            &ram_dir,
             &reports_dir,
             &hash_dir,
             &notes_dir,
@@ -65,6 +68,7 @@ impl EvidenceVault {
             case_dir,
             logs_dir,
             outputs_dir,
+            ram_dir,
             reports_dir,
             hash_dir,
             notes_dir,
@@ -129,6 +133,7 @@ impl EvidenceVault {
         match subdir {
             "gunlukler" => &self.logs_dir,
             "ciktilar" => &self.outputs_dir,
+            "ram" => &self.ram_dir,
             "raporlar" => &self.reports_dir,
             "hash" => &self.hash_dir,
             "notlar" => &self.notes_dir,
@@ -146,6 +151,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let vault = EvidenceVault::create(dir.path(), "case1").unwrap();
         assert!(vault.outputs_dir.is_dir());
+        assert!(vault.ram_dir.is_dir());
         let note = vault.add_note("hello").unwrap();
         assert!(note.is_file());
         let summary = vault.summary().unwrap();

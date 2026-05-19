@@ -140,6 +140,7 @@ impl RemoteConnection {
     pub fn acquire_image<F>(
         &mut self,
         disk_id: &str,
+        disk_name: Option<&str>,
         target_dir: impl AsRef<Path>,
         job_id: Option<&str>,
         mut progress: F,
@@ -150,12 +151,7 @@ impl RemoteConnection {
         fs::create_dir_all(target_dir.as_ref()).map_err(|err| {
             WormError::io(HataKodu::DosyaYazma, "Hedef klasor olusturulamadi", err)
         })?;
-        let file_name = format!(
-            "{}_{}_{}.img",
-            sanitize_name(&self.host),
-            sanitize_name(disk_id),
-            Local::now().format("%Y%m%d_%H%M%S")
-        );
+        let file_name = canonical_image_file_name(Some(&self.host), disk_id, disk_name);
         let target_path = target_dir.as_ref().join(file_name);
         let mut target = File::create(&target_path)
             .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Hedef dosya acilamadi", err))?;
@@ -643,6 +639,7 @@ fn message_from(value: &Value, default: &str) -> String {
 
 fn sanitize_name(value: &str) -> String {
     value
+        .trim()
         .chars()
         .map(|ch| {
             if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.') {
@@ -651,7 +648,44 @@ fn sanitize_name(value: &str) -> String {
                 '_'
             }
         })
-        .collect()
+        .collect::<String>()
+        .trim_matches('_')
+        .to_string()
+}
+
+fn canonical_image_file_name(
+    remote_ip: Option<&str>,
+    disk_id: &str,
+    disk_name: Option<&str>,
+) -> String {
+    let mut parts = Vec::new();
+    if let Some(ip) = remote_ip
+        .map(sanitize_name)
+        .filter(|value| !value.is_empty())
+    {
+        parts.push(ip);
+    }
+
+    let disk_id = sanitize_name(disk_id);
+    parts.push(if disk_id.is_empty() {
+        "disk".to_string()
+    } else {
+        disk_id
+    });
+
+    if let Some(name) = disk_name
+        .map(sanitize_name)
+        .filter(|value| !value.is_empty())
+        && parts.last().map(|last| last != &name).unwrap_or(true)
+    {
+        parts.push(name);
+    }
+
+    format!(
+        "{}_{}.img",
+        parts.join("_"),
+        Local::now().format("%Y%m%d_%H%M%S")
+    )
 }
 
 fn mark_partial(path: &Path) -> WormResult<PathBuf> {
@@ -748,7 +782,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut conn = RemoteConnection::connect("127.0.0.1", port, None).unwrap();
         let result = conn
-            .acquire_image("0", dir.path(), None, |_done, _total| {})
+            .acquire_image("0", None, dir.path(), None, |_done, _total| {})
             .unwrap();
         assert_eq!(result.job_id, "IMG_TEST");
         assert_eq!(std::fs::read(result.target_path).unwrap(), b"disk-data");

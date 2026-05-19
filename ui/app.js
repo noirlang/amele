@@ -171,10 +171,12 @@ const translations = {
     "workflow.caseSection": "4. Vaka",
     "workflow.case": "Vaka",
     "workflow.caseHint": "İmaj çıktısı seçilen vakanın ciktilar klasörüne yazılır. Vaka yoksa yeni vaka adıyla otomatik oluşturulur.",
+    "workflow.ramCaseHint": "RAM çıktısı seçilen vakanın ram klasörüne yazılır. Vaka yoksa yeni vaka adıyla otomatik oluşturulur.",
     "workflow.newCase": "Yeni vaka oluştur",
     "workflow.newCaseName": "Yeni Vaka Adı",
     "workflow.caseOutput": "Vaka çıktı klasörü",
     "workflow.outputFile": "Çıktı Dosyası",
+    "workflow.outputFileName": "Çıktı Dosya Adı",
     "workflow.outputFolder": "Çıktı Klasörü",
     "workflow.tool": "Araç",
     "workflow.disk": "Disk",
@@ -534,10 +536,12 @@ const translations = {
     "workflow.caseSection": "4. Case",
     "workflow.case": "Case",
     "workflow.caseHint": "The image output is written to the selected case's ciktilar folder. If no case exists, a new one is created automatically.",
+    "workflow.ramCaseHint": "The RAM output is written to the selected case's ram folder. If no case exists, a new one is created automatically.",
     "workflow.newCase": "Create new case",
     "workflow.newCaseName": "New Case Name",
     "workflow.caseOutput": "Case output folder",
     "workflow.outputFile": "Output File",
+    "workflow.outputFileName": "Output File Name",
     "workflow.outputFolder": "Output Folder",
     "workflow.tool": "Tool",
     "workflow.disk": "Disk",
@@ -1171,9 +1175,7 @@ function workflowPage(id) {
   const toolCheck = data.platform === "Windows" ? "WinPMEM" : "AVML";
   const initialTarget = isRam ? localText(data.diskLabel) : "";
   const initialTargetLabel = isRam ? localText(data.diskLabel) : t("scanDisksFirst");
-  const outputField = isRam
-    ? pickerField(t("workflow.outputFile"), "workflow-output", data.output, "file")
-    : imageCasePanel();
+  const outputField = isRam ? ramCasePanel() : imageCasePanel();
 
   return `
     <section class="page">
@@ -1308,10 +1310,21 @@ function pickerField(label, id, value, type = "file") {
 }
 
 function imageCasePanel() {
-  const selected = state.activeCase?.case_name || (state.cases.length ? state.cases[0].case_name : "__new__");
-  const output = imageCaseOutputLabel(selected);
+  return casePanel("ciktilar", t("workflow.caseHint"));
+}
+
+function ramCasePanel() {
   return `
-    <p class="field-hint">${t("workflow.caseHint")}</p>
+    ${casePanel("ram", t("workflow.ramCaseHint"))}
+    ${field(t("workflow.outputFileName"), `<input id="workflow-output" class="input" value="${escapeHtml(canonicalRamFileName())}" readonly />`)}
+  `;
+}
+
+function casePanel(subdir, hint) {
+  const selected = state.activeCase?.case_name || (state.cases.length ? state.cases[0].case_name : "__new__");
+  const output = caseOutputLabel(selected, subdir);
+  return `
+    <p class="field-hint">${hint}</p>
     ${field(t("workflow.case"), `<select id="workflow-case" class="select" data-case-select data-allow-new-case="1">${caseSelectOptions(selected, { allowNew: true })}</select>`)}
     ${field(t("workflow.newCaseName"), `<input id="workflow-case-name" class="input" value="${defaultCaseName()}" />`)}
     <div class="button-row">
@@ -1319,7 +1332,7 @@ function imageCasePanel() {
     </div>
     <div class="side-info">
       <span class="metric-icon">${icon("folder")}</span>
-      <span><strong>${t("workflow.caseOutput")}</strong><small data-case-output>${escapeHtml(output)}</small></span>
+      <span><strong>${t("workflow.caseOutput")}</strong><small data-case-output data-case-output-subdir="${subdir}">${escapeHtml(output)}</small></span>
     </div>
   `;
 }
@@ -1701,16 +1714,23 @@ function caseSelectOptions(selected = "", { allowNew = false } = {}) {
 function toggleCaseCreateInput(select) {
   const input = document.querySelector("#workflow-case-name");
   if (input) input.closest(".field").hidden = select.value !== "__new__";
-  const output = document.querySelector("[data-case-output]");
-  if (output) output.textContent = imageCaseOutputLabel(select.value);
+  document.querySelectorAll("[data-case-output]").forEach((output) => {
+    output.textContent = caseOutputLabel(select.value, output.dataset.caseOutputSubdir || "ciktilar");
+  });
 }
 
 function imageCaseOutputLabel(caseName) {
+  return caseOutputLabel(caseName, "ciktilar");
+}
+
+function caseOutputLabel(caseName, subdir = "ciktilar") {
   const selected = state.cases.find((item) => item.case_name === caseName)
     || (state.activeCase?.case_name === caseName ? state.activeCase : null);
-  if (caseName !== "__new__" && selected?.output_dir) return selected.output_dir;
-  if (state.caseBaseDir) return `${state.caseBaseDir}/${document.querySelector("#workflow-case-name")?.value.trim() || defaultCaseName()}/ciktilar`;
-  return "~/Worm/Vakalar/<vaka>/ciktilar";
+  const key = subdir === "ram" ? "ram_dir" : "output_dir";
+  if (caseName !== "__new__" && selected?.[key]) return selected[key];
+  const folder = subdir === "ram" ? "ram" : "ciktilar";
+  if (state.caseBaseDir) return `${state.caseBaseDir}/${document.querySelector("#workflow-case-name")?.value.trim() || defaultCaseName()}/${folder}`;
+  return `~/Worm/Vakalar/<vaka>/${folder}`;
 }
 
 function reportCaseName() {
@@ -1741,6 +1761,29 @@ function defaultCaseName() {
   const now = new Date();
   const pad = (value) => String(value).padStart(2, "0");
   return `Case_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
+function timestampForFileName(date = new Date()) {
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+}
+
+function sanitizeFileStem(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[<>:"/\\|?*\x00-\x1F\s]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function canonicalRamFileName(remoteIp = "", date = new Date()) {
+  const ip = sanitizeFileStem(remoteIp);
+  return `${ip ? `${ip}_` : ""}ram_${timestampForFileName(date)}.raw`;
+}
+
+function selectedTargetName() {
+  const select = document.querySelector("[data-field='target']");
+  const option = select?.selectedOptions?.[0];
+  return option?.dataset.diskName || option?.textContent?.split("·")[0]?.trim() || "";
 }
 
 function backendReady() {
@@ -1887,17 +1930,23 @@ document.addEventListener("change", (event) => {
   }
 
   if (event.target.closest("#workflow-case-name")) {
-    const output = document.querySelector("[data-case-output]");
     const select = document.querySelector("#workflow-case");
-    if (output && select?.value === "__new__") output.textContent = imageCaseOutputLabel("__new__");
+    if (select?.value === "__new__") {
+      document.querySelectorAll("[data-case-output]").forEach((output) => {
+        output.textContent = caseOutputLabel("__new__", output.dataset.caseOutputSubdir || "ciktilar");
+      });
+    }
   }
 });
 
 document.addEventListener("input", (event) => {
   if (!event.target.closest("#workflow-case-name")) return;
-  const output = document.querySelector("[data-case-output]");
   const select = document.querySelector("#workflow-case");
-  if (output && select?.value === "__new__") output.textContent = imageCaseOutputLabel("__new__");
+  if (select?.value === "__new__") {
+    document.querySelectorAll("[data-case-output]").forEach((output) => {
+      output.textContent = caseOutputLabel("__new__", output.dataset.caseOutputSubdir || "ciktilar");
+    });
+  }
 });
 
 async function handleAction(button) {
@@ -2444,7 +2493,7 @@ async function scanTargets() {
           const size = disk.boyut || disk.total_size || 0;
           const name = disk.ad || disk.device || disk.name || value;
           const access = disk.accessible === false ? ` ${t("scan.accessDenied")}` : "";
-          return `<option value="${value}">${name} · ${formatBytes(size)}${access}</option>`;
+          return `<option value="${escapeHtml(value)}" data-disk-name="${escapeHtml(name)}">${escapeHtml(name)} · ${formatBytes(size)}${access}</option>`;
         })
         .filter(Boolean);
 
@@ -2480,7 +2529,7 @@ async function scanTargets() {
       });
       const targets = Array.isArray(disks) ? disks.map((disk) => disk.id || disk.name || disk.path || disk).filter(Boolean) : [];
       if (targets.length > 0) {
-        select.innerHTML = targets.map((target) => `<option value="${target}">${target}</option>`).join("");
+        select.innerHTML = targets.map((target) => `<option value="${escapeHtml(target)}" data-disk-name="${escapeHtml(target)}">${escapeHtml(target)}</option>`).join("");
         updateSide("target", targets[0]);
         writeWorkflowLog(t("scan.diskDoneLog"));
         showToast(t("scan.diskDone"));
@@ -2665,25 +2714,32 @@ async function startAcquisition(button) {
     return;
   }
   let output = document.querySelector("#workflow-output")?.value.trim() || "";
+  const diskName = isRam ? "" : selectedTargetName();
   let caseName = null;
-  if (isRam && !output) {
-    showToast(t("workflow.outputRequired"), "error");
-    return;
-  }
   button.disabled = true;
   window.clearInterval(state.jobs.workflow);
   setProgress(0, "0%");
   const operation = isRam ? t("ramAcquisition") : t("imageAcquisition");
 
   try {
-    if (!isRam) {
-      await loadEvidenceCases();
-      const evidenceCase = await ensureImageCase();
-      caseName = evidenceCase.case_name;
+    await loadEvidenceCases();
+    const evidenceCase = await ensureImageCase();
+    caseName = evidenceCase.case_name;
+    if (isRam) {
+      const remoteIp = workflow?.mode.startsWith("remote") ? payload?.ip : "";
+      const fileName = canonicalRamFileName(remoteIp);
+      const outputInput = document.querySelector("#workflow-output");
+      if (outputInput) outputInput.value = fileName;
+      const ramDir = evidenceCase.ram_dir || `${evidenceCase.case_dir}/ram`;
+      output = `${ramDir}/${fileName}`;
+    } else {
       output = evidenceCase.output_dir || `${evidenceCase.case_dir}/ciktilar`;
-      const outputNode = document.querySelector("[data-case-output]");
-      if (outputNode) outputNode.textContent = output;
     }
+    document.querySelectorAll("[data-case-output]").forEach((outputNode) => {
+      outputNode.textContent = outputNode.dataset.caseOutputSubdir === "ram"
+        ? (evidenceCase.ram_dir || `${evidenceCase.case_dir}/ram`)
+        : (evidenceCase.output_dir || `${evidenceCase.case_dir}/ciktilar`);
+    });
 
     writeWorkflowLog(t("workflow.operationStarted", { operation }));
     updateSide("last-action", t("workflow.operationRunning", { operation }));
@@ -2695,11 +2751,13 @@ async function startAcquisition(button) {
           body: JSON.stringify(isRam
             ? {
                 ...payload,
-                output
+                output,
+                case_name: caseName
               }
             : {
                 ...payload,
                 disk_id: target,
+                disk_name: diskName,
                 output,
                 case_name: caseName
               })
@@ -2710,10 +2768,12 @@ async function startAcquisition(button) {
             ? {
                 output,
                 tool: workflow.platform === "Windows" ? "winpmem" : "avml",
-                tool_path: target
+                tool_path: target,
+                case_name: caseName
             }
             : {
                 source: target,
+                disk_name: diskName,
                 output,
                 case_name: caseName
               })
