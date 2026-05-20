@@ -1,8 +1,11 @@
+import { androidModePage, androidPage, handleAndroidAction, syncAndroidDeviceSelection } from "./android.js";
+
 const icons = {
   home: '<path d="m3 11 9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
   grid: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
   tiles: '<rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/>',
   linux: '<circle cx="12" cy="6" r="3"/><path d="M8.2 11.2c.6-1.8 1.9-3.2 3.8-3.2s3.2 1.4 3.8 3.2l1.4 4.3c.5 1.5-.6 3-2.2 3H9c-1.6 0-2.7-1.5-2.2-3l1.4-4.3Z"/><path d="M9 18.5 6.5 21"/><path d="M15 18.5l2.5 2.5"/><path d="M10.2 6h.01"/><path d="M13.8 6h.01"/><path d="M10 13h4"/>',
+  android: '<path fill="currentColor" stroke="none" d="M18.4395 5.5586c-.675 1.1664-1.352 2.3318-2.0274 3.498-.0366-.0155-.0742-.0286-.1113-.043-1.8249-.6957-3.484-.8-4.42-.787-1.8551.0185-3.3544.4643-4.2597.8203-.084-.1494-1.7526-3.021-2.0215-3.4864a1.1451 1.1451 0 0 0-.1406-.1914c-.3312-.364-.9054-.4859-1.379-.203-.475.282-.7136.9361-.3886 1.5019 1.9466 3.3696-.0966-.2158 1.9473 3.3593.0172.031-.4946.2642-1.3926 1.0177C2.8987 12.176.452 14.772 0 18.9902h24c-.119-1.1108-.3686-2.099-.7461-3.0683-.7438-1.9118-1.8435-3.2928-2.7402-4.1836a12.1048 12.1048 0 0 0-2.1309-1.6875c.6594-1.122 1.312-2.2559 1.9649-3.3848.2077-.3615.1886-.7956-.0079-1.1191a1.1001 1.1001 0 0 0-.8515-.5332c-.5225-.0536-.9392.3128-1.0488.5449zm-.0391 8.461c.3944.5926.324 1.3306-.1563 1.6503-.4799.3197-1.188.0985-1.582-.4941-.3944-.5927-.324-1.3307.1563-1.6504.4727-.315 1.1812-.1086 1.582.4941zM7.207 13.5273c.4803.3197.5506 1.0577.1563 1.6504-.394.5926-1.1038.8138-1.584.4941-.48-.3197-.5503-1.0577-.1563-1.6504.4008-.6021 1.1087-.8106 1.584-.4941z"/>',
   network: '<circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><path d="M10.5 7.5 6.5 16"/><path d="M13.5 7.5 17.5 16"/><path d="M8 19h8"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/><path d="M8 11h6"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v6"/><path d="M12 7h.01"/>',
@@ -30,7 +33,7 @@ const icons = {
   arrow: '<path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>'
 };
 
-const APP_VERSION = "v0.0.6";
+const APP_VERSION = "v0.0.7";
 const assetPath = "./assets";
 const backendAvailable = location.protocol === "http:" || location.protocol === "https:";
 const isNativeWebView = new URLSearchParams(window.location.search).get("native") === "1";
@@ -53,6 +56,7 @@ const translations = {
     "nav.home": "Ana Sayfa",
     "nav.windows": "Windows Araçları",
     "nav.linux": "Linux Araçları",
+    "nav.android": "Android Araçları",
     "nav.agent": "Agent",
     "nav.analysis": "Analiz",
     "nav.other": "Diğer",
@@ -92,6 +96,52 @@ const translations = {
     "hub.windows.desc": "Windows yerel/uzak disk ve RAM edinim akışlarını seçin.",
     "hub.linux.title": "Linux Araçları",
     "hub.linux.desc": "Linux yerel/uzak disk ve RAM edinim akışlarını seçin.",
+    "hub.android.title": "Android Araçları",
+    "hub.android.desc": "Mobil adli bilişim araçları için çalışma alanı.",
+    "hub.android.empty": "Android modülleri sonraki adımda eklenecek.",
+    "android.mode.physical.title": "Fiziksel İmaj",
+    "android.mode.physical.desc": "Cihaz bootloader veya EDL modundayken, üretici ya da çipset seviyesindeki erişimle mümkün olan en düşük seviyede imaj alınır.",
+    "android.mode.physical.badge": "Bootloader / EDL",
+    "android.mode.logical.title": "Mantıksal İmaj",
+    "android.mode.logical.desc": "ADB ve USB hata ayıklama açıkken rehber, mesajlar, arama kayıtları, medya dosyaları ve erişilebilir kullanıcı verileri toplanır.",
+    "android.mode.logical.badge": "ADB",
+    "android.mode.filesystem.title": "Dosya Sistemi İmajı",
+    "android.mode.filesystem.desc": "Mantıksal imajdan daha derin, fiziksel imajdan daha yüzeyseldir. Root erişimi veya özel açıklarla protected alanlar dahil dosya sistemi alınır.",
+    "android.mode.filesystem.badge": "Root / exploit",
+    "android.back": "Android Araçları",
+    "android.appModeRequired": "Android araçları uygulama modunda çalışır.",
+    "android.adb.title": "ADB Kontrol",
+    "android.adb.unknown": "Henüz kontrol edilmedi",
+    "android.adb.installed": "ADB kurulu",
+    "android.adb.missing": "ADB bulunamadı",
+    "android.adb.check": "ADB Kontrol Et",
+    "android.adb.checkHint": "ADB durumunu kontrol edin.",
+    "android.adb.checkFirst": "Önce ADB kontrolü yapın.",
+    "android.adb.checkFailed": "ADB kontrolü başarısız: {message}",
+    "android.devices.title": "Cihazlar",
+    "android.devices.list": "Cihazları Listele",
+    "android.devices.select": "Cihaz Seç",
+    "android.devices.none": "Cihaz bulunamadı",
+    "android.devices.listed": "{count} cihaz listelendi.",
+    "android.devices.selected": "Seçili cihaz: {serial}",
+    "android.devices.listFailed": "Cihaz listesi alınamadı: {message}",
+    "android.logical.caseTitle": "Vaka",
+    "android.logical.caseHint": "Android imaj çıktısı seçilen vakanın android klasörüne yazılır. Vaka yoksa yeni vaka adıyla otomatik oluşturulur.",
+    "android.logical.acquisitionTitle": "İmaj Alma",
+    "android.logical.start": "Mantıksal İmaj Al",
+    "android.logical.stop": "Durdur",
+    "android.logical.stopped": "İmaj alma durduruldu.",
+    "android.logical.starting": "İmaj alma başlatılıyor...",
+    "android.logical.progress": "İlerleme",
+    "android.logical.waiting": "İmaj alma bekleniyor.",
+    "android.logical.done": "Mantıksal imaj alma tamamlandı.",
+    "android.logical.failed": "İmaj alma başarısız: {message}",
+    "android.logical.deviceRequired": "Önce cihaz seçin.",
+    "android.side.status": "Durum",
+    "android.side.adb": "ADB",
+    "android.side.device": "Cihaz",
+    "android.side.lastAction": "Son İşlem",
+    "android.side.totalBytes": "Toplam Boyut",
     "workflow.ip": "IP Adresi",
     "workflow.ipPlaceholder": "IP adresi",
     "workflow.port": "Port",
@@ -123,15 +173,27 @@ const translations = {
     "workflow.checkToolAction": "{tool} Kontrol Et",
     "workflow.scanLocalDisks": "Yerel Diskleri Tara",
     "workflow.downloadWinpmem": "WinPMEM İndir",
+    "workflow.winpmemInstalling": "WinPMEM indiriliyor ve C:\\Tools altına kuruluyor",
+    "workflow.winpmemInstalled": "WinPMEM kuruldu: {path}",
+    "workflow.winpmemInstallFailed": "WinPMEM kurulamadı: {message}",
+    "workflow.winpmemUnsupported": "WinPMEM otomatik kurulumu sadece Windows yerel RAM akışında çalışır.",
+    "workflow.downloadAvml": "AVML İndir ve Kur",
+    "workflow.avmlInstalling": "AVML indiriliyor ve /usr/bin/avml olarak kuruluyor",
+    "workflow.avmlInstalled": "AVML kuruldu: {path}",
+    "workflow.avmlInstallFailed": "AVML kurulamadı: {message}",
+    "workflow.avmlUnsupported": "AVML otomatik kurulumu sadece Linux yerel RAM akışında çalışır.",
+    "workflow.appModeRequired": "Bu işlem uygulama modunda çalışır.",
     "workflow.ramOutput": "RAM ve Çıktı",
     "workflow.diskOutput": "Disk ve Çıktı",
     "workflow.caseSection": "4. Vaka",
     "workflow.case": "Vaka",
     "workflow.caseHint": "İmaj çıktısı seçilen vakanın ciktilar klasörüne yazılır. Vaka yoksa yeni vaka adıyla otomatik oluşturulur.",
+    "workflow.ramCaseHint": "RAM çıktısı seçilen vakanın ram klasörüne yazılır. Vaka yoksa yeni vaka adıyla otomatik oluşturulur.",
     "workflow.newCase": "Yeni vaka oluştur",
     "workflow.newCaseName": "Yeni Vaka Adı",
     "workflow.caseOutput": "Vaka çıktı klasörü",
     "workflow.outputFile": "Çıktı Dosyası",
+    "workflow.outputFileName": "Çıktı Dosya Adı",
     "workflow.outputFolder": "Çıktı Klasörü",
     "workflow.tool": "Araç",
     "workflow.disk": "Disk",
@@ -376,6 +438,7 @@ const translations = {
     "nav.home": "Home",
     "nav.windows": "Windows Tools",
     "nav.linux": "Linux Tools",
+    "nav.android": "Android Tools",
     "nav.agent": "Agent",
     "nav.analysis": "Analysis",
     "nav.other": "Other",
@@ -415,6 +478,52 @@ const translations = {
     "hub.windows.desc": "Select local/remote disk and RAM acquisition workflows for Windows.",
     "hub.linux.title": "Linux Tools",
     "hub.linux.desc": "Select local/remote disk and RAM acquisition workflows for Linux.",
+    "hub.android.title": "Android Tools",
+    "hub.android.desc": "Workspace for mobile forensic tools.",
+    "hub.android.empty": "Android modules will be added in the next step.",
+    "android.mode.physical.title": "Physical Image",
+    "android.mode.physical.desc": "Acquires the lowest-level image available while the device is in bootloader or EDL mode through vendor or chipset-level access.",
+    "android.mode.physical.badge": "Bootloader / EDL",
+    "android.mode.logical.title": "Logical Image",
+    "android.mode.logical.desc": "Collects contacts, messages, call history, media files, and accessible user data through ADB when USB debugging is enabled.",
+    "android.mode.logical.badge": "ADB",
+    "android.mode.filesystem.title": "File System Image",
+    "android.mode.filesystem.desc": "Deeper than a logical image and shallower than a physical image. Uses root access or specific exploits to capture the file system, including protected areas.",
+    "android.mode.filesystem.badge": "Root / exploit",
+    "android.back": "Android Tools",
+    "android.appModeRequired": "Android tools require application mode.",
+    "android.adb.title": "ADB Check",
+    "android.adb.unknown": "Not checked yet",
+    "android.adb.installed": "ADB installed",
+    "android.adb.missing": "ADB not found",
+    "android.adb.check": "Check ADB",
+    "android.adb.checkHint": "Check ADB status.",
+    "android.adb.checkFirst": "Check ADB first.",
+    "android.adb.checkFailed": "ADB check failed: {message}",
+    "android.devices.title": "Devices",
+    "android.devices.list": "List Devices",
+    "android.devices.select": "Select Device",
+    "android.devices.none": "No device found",
+    "android.devices.listed": "{count} devices listed.",
+    "android.devices.selected": "Selected device: {serial}",
+    "android.devices.listFailed": "Device list failed: {message}",
+    "android.logical.caseTitle": "Case",
+    "android.logical.caseHint": "Android image output is written to the selected case's android folder. If no case exists, a new one is created automatically.",
+    "android.logical.acquisitionTitle": "Acquisition",
+    "android.logical.start": "Acquire Logical Image",
+    "android.logical.stop": "Stop",
+    "android.logical.stopped": "Acquisition stopped.",
+    "android.logical.starting": "Starting acquisition...",
+    "android.logical.progress": "Progress",
+    "android.logical.waiting": "Waiting for acquisition.",
+    "android.logical.done": "Logical image acquisition completed.",
+    "android.logical.failed": "Acquisition failed: {message}",
+    "android.logical.deviceRequired": "Select a device first.",
+    "android.side.status": "Status",
+    "android.side.adb": "ADB",
+    "android.side.device": "Device",
+    "android.side.lastAction": "Last Action",
+    "android.side.totalBytes": "Total Size",
     "workflow.ip": "IP Address",
     "workflow.ipPlaceholder": "IP address",
     "workflow.port": "Port",
@@ -446,15 +555,27 @@ const translations = {
     "workflow.checkToolAction": "Check {tool}",
     "workflow.scanLocalDisks": "Scan Local Disks",
     "workflow.downloadWinpmem": "Download WinPMEM",
+    "workflow.winpmemInstalling": "Downloading WinPMEM and installing it under C:\\Tools",
+    "workflow.winpmemInstalled": "WinPMEM installed: {path}",
+    "workflow.winpmemInstallFailed": "WinPMEM install failed: {message}",
+    "workflow.winpmemUnsupported": "Automatic WinPMEM install only works in the Windows local RAM workflow.",
+    "workflow.downloadAvml": "Download and Install AVML",
+    "workflow.avmlInstalling": "Downloading AVML and installing it as /usr/bin/avml",
+    "workflow.avmlInstalled": "AVML installed: {path}",
+    "workflow.avmlInstallFailed": "AVML install failed: {message}",
+    "workflow.avmlUnsupported": "Automatic AVML install only works in the Linux local RAM workflow.",
+    "workflow.appModeRequired": "This action requires application mode.",
     "workflow.ramOutput": "RAM and Output",
     "workflow.diskOutput": "Disk and Output",
     "workflow.caseSection": "4. Case",
     "workflow.case": "Case",
     "workflow.caseHint": "The image output is written to the selected case's ciktilar folder. If no case exists, a new one is created automatically.",
+    "workflow.ramCaseHint": "The RAM output is written to the selected case's ram folder. If no case exists, a new one is created automatically.",
     "workflow.newCase": "Create new case",
     "workflow.newCaseName": "New Case Name",
     "workflow.caseOutput": "Case output folder",
     "workflow.outputFile": "Output File",
+    "workflow.outputFileName": "Output File Name",
     "workflow.outputFolder": "Output Folder",
     "workflow.tool": "Tool",
     "workflow.disk": "Disk",
@@ -728,14 +849,21 @@ const state = {
   caseBaseDir: "",
   imageMount: null,
   latestUpdate: null,
+  android: {
+    adbStatus: null,
+    devices: [],
+    selectedDevice: ""
+  },
   jobs: {},
+  cachedDefaultCaseName: "",
   lastLog: initialLogMessages(preferredLanguage)
 };
 
 function detectPlatform() {
   const override = new URLSearchParams(window.location.search).get("platform");
-  if (["windows", "linux", "mac"].includes(override || "")) return override;
+  if (["windows", "linux", "android", "mac"].includes(override || "")) return override;
   const text = `${navigator.userAgent} ${navigator.platform}`.toLowerCase();
+  if (text.includes("android")) return "android";
   if (text.includes("win")) return "windows";
   if (text.includes("linux")) return "linux";
   if (text.includes("mac")) return "mac";
@@ -957,6 +1085,18 @@ function render() {
 
   if (state.route.startsWith("workflow:")) {
     view.innerHTML = workflowPage(state.route.split(":")[1]);
+  } else if (state.route.startsWith("android:")) {
+    view.innerHTML = androidModePage({
+      modeId: state.route.split(":")[1],
+      t,
+      icon,
+      pageTitle,
+      state,
+      escapeHtml,
+      backendReady,
+      casePanel,
+      field
+    });
   } else {
     view.innerHTML = routes[state.route]?.() || homePage();
   }
@@ -969,10 +1109,12 @@ function render() {
     const workflow = workflows[state.route.split(":")[1]];
     if (workflow && workflow.mode.includes("disk")) loadEvidenceCases();
   }
+  if (state.route === "android:logical") loadEvidenceCases();
   view.focus({ preventScroll: true });
 }
 
 function routeGroup(route) {
+  if (route.startsWith("android:")) return "android";
   if (!route.startsWith("workflow:")) return route;
   const workflowId = route.split(":")[1] || "";
   if (workflowId.startsWith("windows")) return "windows";
@@ -1059,6 +1201,7 @@ function toolHub(platform) {
 function platformLabel(platform) {
   if (platform === "windows") return "Windows";
   if (platform === "linux") return "Linux";
+  if (platform === "android") return "Android";
   if (platform === "mac") return "macOS";
   return t("unknown");
 }
@@ -1070,9 +1213,7 @@ function workflowPage(id) {
   const toolCheck = data.platform === "Windows" ? "WinPMEM" : "AVML";
   const initialTarget = isRam ? localText(data.diskLabel) : "";
   const initialTargetLabel = isRam ? localText(data.diskLabel) : t("scanDisksFirst");
-  const outputField = isRam
-    ? pickerField(t("workflow.outputFile"), "workflow-output", data.output, "file")
-    : imageCasePanel();
+  const outputField = isRam ? ramCasePanel() : imageCasePanel();
 
   return `
     <section class="page">
@@ -1125,6 +1266,7 @@ function workflowPage(id) {
                   <div class="button-row">
                     <button class="primary-button" data-action="scan">${icon(isRam ? "chip" : "disk")} ${isRam ? t("workflow.checkToolAction", { tool: toolCheck }) : t("workflow.scanLocalDisks")}</button>
                     ${isRam && data.platform === "Windows" ? `<button class="secondary-button" data-action="download">${icon("refresh")} ${t("workflow.downloadWinpmem")}</button>` : ""}
+                    ${isRam && data.platform === "Linux" ? `<button class="secondary-button" data-action="install-avml">${icon("download")} ${t("workflow.downloadAvml")}</button>` : ""}
                   </div>
                 `
             }
@@ -1206,18 +1348,29 @@ function pickerField(label, id, value, type = "file") {
 }
 
 function imageCasePanel() {
-  const selected = state.activeCase?.case_name || (state.cases.length ? state.cases[0].case_name : "__new__");
-  const output = imageCaseOutputLabel(selected);
+  return casePanel("ciktilar", t("workflow.caseHint"));
+}
+
+function ramCasePanel() {
   return `
-    <p class="field-hint">${t("workflow.caseHint")}</p>
+    ${casePanel("ram", t("workflow.ramCaseHint"))}
+    ${field(t("workflow.outputFileName"), `<input id="workflow-output" class="input" value="${escapeHtml(canonicalRamFileName())}" readonly />`)}
+  `;
+}
+
+function casePanel(subdir, hint) {
+  const selected = state.activeCase?.case_name || (state.cases.length ? state.cases[0].case_name : "__new__");
+  const output = caseOutputLabel(selected, subdir);
+  return `
+    <p class="field-hint">${hint}</p>
     ${field(t("workflow.case"), `<select id="workflow-case" class="select" data-case-select data-allow-new-case="1">${caseSelectOptions(selected, { allowNew: true })}</select>`)}
-    ${field(t("workflow.newCaseName"), `<input id="workflow-case-name" class="input" value="${defaultCaseName()}" />`)}
+    ${field(t("workflow.newCaseName"), `<input id="workflow-case-name" class="input" value="${stableDefaultCaseName()}" />`)}
     <div class="button-row">
       <button class="secondary-button" data-action="refresh-cases">${icon("refresh")} ${t("case.refresh")}</button>
     </div>
     <div class="side-info">
       <span class="metric-icon">${icon("folder")}</span>
-      <span><strong>${t("workflow.caseOutput")}</strong><small data-case-output>${escapeHtml(output)}</small></span>
+      <span><strong>${t("workflow.caseOutput")}</strong><small data-case-output data-case-output-subdir="${subdir}">${escapeHtml(output)}</small></span>
     </div>
   `;
 }
@@ -1523,13 +1676,14 @@ function contributorCard(initials, name, photo, links) {
 
 function socialLink(label, url) {
   const key = label === "LinkedIn" ? "linkedin" : label === "Website" ? "website" : "github";
-  return `<a class="social-button" href="${url}" target="_blank" rel="noreferrer" aria-label="${label}">${icon(key)}</a>`;
+  return `<a class="social-button" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${label}">${icon(key)}</a>`;
 }
 
 const routes = {
   home: homePage,
   windows: () => toolHub("windows"),
   linux: () => toolHub("linux"),
+  android: () => androidPage({ t, icon, pageTitle, state, escapeHtml, backendReady }),
   agent: agentPage,
   analysis: analysisPage,
   other: otherPage,
@@ -1549,6 +1703,28 @@ async function apiRequest(path, options = {}) {
     throw new Error(data.error || response.statusText);
   }
   return data;
+}
+
+function isExternalUrl(url) {
+  try {
+    const parsed = new URL(url, window.location.href);
+    return ["http:", "https:", "mailto:"].includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
+async function openExternalUrl(url) {
+  try {
+    await apiRequest("/api/open-url", {
+      method: "POST",
+      body: JSON.stringify({ url })
+    });
+    return;
+  } catch (error) {
+    console.warn("External link could not be opened by backend", error);
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 async function loadEvidenceCases({ silent = true } = {}) {
@@ -1598,16 +1774,23 @@ function caseSelectOptions(selected = "", { allowNew = false } = {}) {
 function toggleCaseCreateInput(select) {
   const input = document.querySelector("#workflow-case-name");
   if (input) input.closest(".field").hidden = select.value !== "__new__";
-  const output = document.querySelector("[data-case-output]");
-  if (output) output.textContent = imageCaseOutputLabel(select.value);
+  document.querySelectorAll("[data-case-output]").forEach((output) => {
+    output.textContent = caseOutputLabel(select.value, output.dataset.caseOutputSubdir || "ciktilar");
+  });
 }
 
 function imageCaseOutputLabel(caseName) {
+  return caseOutputLabel(caseName, "ciktilar");
+}
+
+function caseOutputLabel(caseName, subdir = "ciktilar") {
   const selected = state.cases.find((item) => item.case_name === caseName)
     || (state.activeCase?.case_name === caseName ? state.activeCase : null);
-  if (caseName !== "__new__" && selected?.output_dir) return selected.output_dir;
-  if (state.caseBaseDir) return `${state.caseBaseDir}/${document.querySelector("#workflow-case-name")?.value.trim() || defaultCaseName()}/ciktilar`;
-  return "~/Worm/Vakalar/<vaka>/ciktilar";
+  const key = subdir === "ram" ? "ram_dir" : "output_dir";
+  if (caseName !== "__new__" && selected?.[key]) return selected[key];
+  const folder = subdir === "ram" ? "ram" : "ciktilar";
+  if (state.caseBaseDir) return `${state.caseBaseDir}/${document.querySelector("#workflow-case-name")?.value.trim() || defaultCaseName()}/${folder}`;
+  return `~/Worm/Vakalar/<vaka>/${folder}`;
 }
 
 function reportCaseName() {
@@ -1630,6 +1813,7 @@ async function ensureImageCase() {
     body: JSON.stringify({ case_name: caseName })
   });
   state.activeCase = created;
+  state.cachedDefaultCaseName = "";
   await loadEvidenceCases();
   return created;
 }
@@ -1638,6 +1822,36 @@ function defaultCaseName() {
   const now = new Date();
   const pad = (value) => String(value).padStart(2, "0");
   return `Case_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
+function stableDefaultCaseName() {
+  if (!state.cachedDefaultCaseName) {
+    state.cachedDefaultCaseName = defaultCaseName();
+  }
+  return state.cachedDefaultCaseName;
+}
+
+function timestampForFileName(date = new Date()) {
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+}
+
+function sanitizeFileStem(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[<>:"/\\|?*\x00-\x1F\s]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function canonicalRamFileName(remoteIp = "", date = new Date()) {
+  const ip = sanitizeFileStem(remoteIp);
+  return `${ip ? `${ip}_` : ""}ram_${timestampForFileName(date)}.raw`;
+}
+
+function selectedTargetName() {
+  const select = document.querySelector("[data-field='target']");
+  const option = select?.selectedOptions?.[0];
+  return option?.dataset.diskName || option?.textContent?.split("·")[0]?.trim() || "";
 }
 
 function backendReady() {
@@ -1738,6 +1952,13 @@ function escapeHtml(value) {
 }
 
 document.addEventListener("click", (event) => {
+  const externalLink = event.target.closest("a[href]");
+  if (externalLink && isExternalUrl(externalLink.href)) {
+    event.preventDefault();
+    openExternalUrl(externalLink.href);
+    return;
+  }
+
   const routeButton = event.target.closest("[data-route]");
   if (routeButton) {
     setRoute(routeButton.dataset.route);
@@ -1778,22 +1999,51 @@ document.addEventListener("change", (event) => {
     toggleCaseCreateInput(caseSelect);
   }
 
+  const androidDeviceSelect = event.target.closest("[data-android-device-select]");
+  if (androidDeviceSelect) {
+    syncAndroidDeviceSelection(androidDeviceSelect, { state, t, showToast });
+  }
+
   if (event.target.closest("#workflow-case-name")) {
-    const output = document.querySelector("[data-case-output]");
     const select = document.querySelector("#workflow-case");
-    if (output && select?.value === "__new__") output.textContent = imageCaseOutputLabel("__new__");
+    if (select?.value === "__new__") {
+      document.querySelectorAll("[data-case-output]").forEach((output) => {
+        output.textContent = caseOutputLabel("__new__", output.dataset.caseOutputSubdir || "ciktilar");
+      });
+    }
   }
 });
 
 document.addEventListener("input", (event) => {
   if (!event.target.closest("#workflow-case-name")) return;
-  const output = document.querySelector("[data-case-output]");
   const select = document.querySelector("#workflow-case");
-  if (output && select?.value === "__new__") output.textContent = imageCaseOutputLabel("__new__");
+  if (select?.value === "__new__") {
+    document.querySelectorAll("[data-case-output]").forEach((output) => {
+      output.textContent = caseOutputLabel("__new__", output.dataset.caseOutputSubdir || "ciktilar");
+    });
+  }
 });
 
 async function handleAction(button) {
   const action = button.dataset.action;
+  if (action?.startsWith("android-")) {
+    const handled = await handleAndroidAction(button, {
+      apiRequest,
+      backendReady,
+      state,
+      t,
+      showToast,
+      render,
+      resolveCase() {
+        const select = document.querySelector("#workflow-case");
+        const selected = select?.value || "";
+        if (selected && selected !== "__new__") return selected;
+        return document.querySelector("#workflow-case-name")?.value.trim() || null;
+      }
+    });
+    if (handled) return;
+  }
+
   if (action === "theme-toggle") {
     setTheme(state.theme === "dark" ? "light" : "dark");
     render();
@@ -1954,6 +2204,16 @@ async function handleAction(button) {
 
   if (action === "scan") {
     await scanTargets();
+    return;
+  }
+
+  if (action === "download") {
+    await installWinpmem(button);
+    return;
+  }
+
+  if (action === "install-avml") {
+    await installAvml(button);
     return;
   }
 
@@ -2314,7 +2574,7 @@ async function scanTargets() {
           const size = disk.boyut || disk.total_size || 0;
           const name = disk.ad || disk.device || disk.name || value;
           const access = disk.accessible === false ? ` ${t("scan.accessDenied")}` : "";
-          return `<option value="${value}">${name} · ${formatBytes(size)}${access}</option>`;
+          return `<option value="${escapeHtml(value)}" data-disk-name="${escapeHtml(name)}">${escapeHtml(name)} · ${formatBytes(size)}${access}</option>`;
         })
         .filter(Boolean);
 
@@ -2350,7 +2610,7 @@ async function scanTargets() {
       });
       const targets = Array.isArray(disks) ? disks.map((disk) => disk.id || disk.name || disk.path || disk).filter(Boolean) : [];
       if (targets.length > 0) {
-        select.innerHTML = targets.map((target) => `<option value="${target}">${target}</option>`).join("");
+        select.innerHTML = targets.map((target) => `<option value="${escapeHtml(target)}" data-disk-name="${escapeHtml(target)}">${escapeHtml(target)}</option>`).join("");
         updateSide("target", targets[0]);
         writeWorkflowLog(t("scan.diskDoneLog"));
         showToast(t("scan.diskDone"));
@@ -2367,6 +2627,93 @@ async function scanTargets() {
   updateSide("target", t("targetNotSelected"));
   writeWorkflowLog(t("scan.appModeRequired"));
   showToast(t("scan.completed"));
+}
+
+async function installAvml(button) {
+  const workflow = currentWorkflow();
+  if (!workflow || workflow.platform !== "Linux" || workflow.mode !== "local-ram") {
+    showToast(t("workflow.avmlUnsupported"), "error");
+    return;
+  }
+  if (!backendReady()) {
+    showToast(t("workflow.appModeRequired"), "error");
+    return;
+  }
+
+  button.disabled = true;
+  writeWorkflowLog(t("workflow.avmlInstalling"));
+  updateSide("last-action", t("workflow.avmlInstalling"));
+  try {
+    const result = await apiRequest("/api/avml-install", { method: "POST" });
+    const status = result.status || {};
+    const path = status.tool_path || result.path || "/usr/bin/avml";
+    const label = status.message || result.message || "AVML ready";
+    const select = document.querySelector("[data-field='target']");
+    if (select) {
+      const localLabel = localText(workflow.diskLabel);
+      select.innerHTML = [
+        `<option value="${escapeHtml(localLabel)}">${escapeHtml(localLabel)}</option>`,
+        `<option value="${escapeHtml(path)}">${escapeHtml(path)}</option>`
+      ].join("");
+      select.value = path;
+    }
+    updateSide("target", escapeHtml(path));
+    writeWorkflowLog(t("scan.toolDoneLog", { target: "AVML", message: escapeHtml(label) }));
+    writeWorkflowLog(t("workflow.avmlInstalled", { path: escapeHtml(path) }));
+    showToast(t("workflow.avmlInstalled", { path }));
+  } catch (error) {
+    writeWorkflowLog(t("workflow.avmlInstallFailed", { message: escapeHtml(error.message) }));
+    showToast(t("workflow.avmlInstallFailed", { message: error.message }), "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function installWinpmem(button) {
+  const workflow = currentWorkflow();
+  if (!workflow || workflow.platform !== "Windows" || workflow.mode !== "local-ram") {
+    showToast(t("workflow.winpmemUnsupported"), "error");
+    return;
+  }
+  if (!backendReady()) {
+    showToast(t("workflow.appModeRequired"), "error");
+    return;
+  }
+
+  button.disabled = true;
+  writeWorkflowLog(t("workflow.winpmemInstalling"));
+  updateSide("last-action", t("workflow.winpmemInstalling"));
+  setProgress(0, "0%");
+  try {
+    const start = await apiRequest("/api/winpmem-install", { method: "POST" });
+    if (!start.job_id) throw new Error(t("workflow.jobIdMissing"));
+
+    // Wait for the download/install job to finish
+    const result = await waitForAcquisitionJob(start.job_id);
+
+    const status = result.status || {};
+    const path = status.tool_path || result.path || "C:\\Tools\\go-winpmem_amd64_1.0-rc2_signed.exe";
+    const label = status.message || result.message || "WinPMEM ready";
+    const select = document.querySelector("[data-field='target']");
+    if (select) {
+      const localLabel = localText(workflow.diskLabel);
+      select.innerHTML = [
+        `<option value="${escapeHtml(localLabel)}">${escapeHtml(localLabel)}</option>`,
+        `<option value="${escapeHtml(path)}">${escapeHtml(path)}</option>`
+      ].join("");
+      select.value = path;
+    }
+    updateSide("target", escapeHtml(path));
+    writeWorkflowLog(t("scan.toolDoneLog", { target: "WinPMEM", message: escapeHtml(label) }));
+    writeWorkflowLog(t("workflow.winpmemInstalled", { path: escapeHtml(path) }));
+    showToast(t("workflow.winpmemInstalled", { path }));
+  } catch (error) {
+    setProgress(0);
+    writeWorkflowLog(t("workflow.winpmemInstallFailed", { message: escapeHtml(error.message) }));
+    showToast(t("workflow.winpmemInstallFailed", { message: error.message }), "error");
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function setProgress(value, labelText = `${value}%`) {
@@ -2455,25 +2802,32 @@ async function startAcquisition(button) {
     return;
   }
   let output = document.querySelector("#workflow-output")?.value.trim() || "";
+  const diskName = isRam ? "" : selectedTargetName();
   let caseName = null;
-  if (isRam && !output) {
-    showToast(t("workflow.outputRequired"), "error");
-    return;
-  }
   button.disabled = true;
   window.clearInterval(state.jobs.workflow);
   setProgress(0, "0%");
   const operation = isRam ? t("ramAcquisition") : t("imageAcquisition");
 
   try {
-    if (!isRam) {
-      await loadEvidenceCases();
-      const evidenceCase = await ensureImageCase();
-      caseName = evidenceCase.case_name;
+    await loadEvidenceCases();
+    const evidenceCase = await ensureImageCase();
+    caseName = evidenceCase.case_name;
+    if (isRam) {
+      const remoteIp = workflow?.mode.startsWith("remote") ? payload?.ip : "";
+      const fileName = canonicalRamFileName(remoteIp);
+      const outputInput = document.querySelector("#workflow-output");
+      if (outputInput) outputInput.value = fileName;
+      const ramDir = evidenceCase.ram_dir || `${evidenceCase.case_dir}/ram`;
+      output = `${ramDir}/${fileName}`;
+    } else {
       output = evidenceCase.output_dir || `${evidenceCase.case_dir}/ciktilar`;
-      const outputNode = document.querySelector("[data-case-output]");
-      if (outputNode) outputNode.textContent = output;
     }
+    document.querySelectorAll("[data-case-output]").forEach((outputNode) => {
+      outputNode.textContent = outputNode.dataset.caseOutputSubdir === "ram"
+        ? (evidenceCase.ram_dir || `${evidenceCase.case_dir}/ram`)
+        : (evidenceCase.output_dir || `${evidenceCase.case_dir}/ciktilar`);
+    });
 
     writeWorkflowLog(t("workflow.operationStarted", { operation }));
     updateSide("last-action", t("workflow.operationRunning", { operation }));
@@ -2485,11 +2839,13 @@ async function startAcquisition(button) {
           body: JSON.stringify(isRam
             ? {
                 ...payload,
-                output
+                output,
+                case_name: caseName
               }
             : {
                 ...payload,
                 disk_id: target,
+                disk_name: diskName,
                 output,
                 case_name: caseName
               })
@@ -2500,10 +2856,12 @@ async function startAcquisition(button) {
             ? {
                 output,
                 tool: workflow.platform === "Windows" ? "winpmem" : "avml",
-                tool_path: target
+                tool_path: target,
+                case_name: caseName
             }
             : {
                 source: target,
+                disk_name: diskName,
                 output,
                 case_name: caseName
               })

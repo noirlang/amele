@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 const CONTROL_RUNNING: u8 = 0;
 const CONTROL_PAUSED: u8 = 1;
 const CONTROL_CANCELLED: u8 = 2;
+pub const WINPMEM_NAME: &str = "go-winpmem_amd64_1.0-rc2_signed.exe";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RamToolStatus {
@@ -383,7 +384,6 @@ pub fn find_avml(candidate: Option<&Path>) -> Option<PathBuf> {
 }
 
 pub fn find_winpmem(candidate: Option<&Path>) -> Option<PathBuf> {
-    const WINPMEM_NAME: &str = "go-winpmem_amd64_1.0-rc2_signed.exe";
     if let Some(path) = candidate
         && path.exists()
     {
@@ -391,13 +391,17 @@ pub fn find_winpmem(candidate: Option<&Path>) -> Option<PathBuf> {
     }
 
     find_in_path(WINPMEM_NAME).or_else(|| {
-        [
-            PathBuf::from(WINPMEM_NAME),
-            PathBuf::from(r"C:\Forensics\go-winpmem_amd64_1.0-rc2_signed.exe"),
+        let mut candidates = vec![
             PathBuf::from(r"C:\Tools\go-winpmem_amd64_1.0-rc2_signed.exe"),
-        ]
-        .into_iter()
-        .find(|path| path.exists())
+            PathBuf::from(r"C:\Forensics\go-winpmem_amd64_1.0-rc2_signed.exe"),
+        ];
+        // Also check next to the running executable
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(exe_dir) = exe.parent() {
+                candidates.insert(0, exe_dir.join(WINPMEM_NAME));
+            }
+        }
+        candidates.into_iter().find(|path| path.exists())
     })
 }
 

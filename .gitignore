@@ -2,4 +2,7 @@
 /dist
 .idea
 *.AppImage
+*.raw
+*.img
+*.dd
 agent.md

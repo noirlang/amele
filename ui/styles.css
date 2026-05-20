@@ -675,6 +675,15 @@ button {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.android-mode-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 18px;
+}
+
+.android-back-button {
+  margin-bottom: 14px;
+}
+
 .forensic-card {
   min-height: 220px;
   padding: 24px;

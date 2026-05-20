@@ -24,6 +24,8 @@ fn main() {
         Some("disk-list-helper") => disk_list_helper_command(args.collect()),
         Some("image-helper") => image_helper_command(args.collect()),
         Some("ram-helper") => ram_helper_command(args.collect()),
+        Some("avml-install-helper") => avml_install_helper_command(args.collect()),
+        Some("winpmem-install-helper") => winpmem_install_helper_command(args.collect()),
         Some("mount-helper") => mount_helper_command(args.collect()),
         Some("disk-size") => disk_size_command(args.collect()),
         Some("verify") => verify_command(args.collect()),
@@ -58,6 +60,8 @@ fn print_help() {
            disk-list-helper <json>        Yetkili disk listeleme yardimci komutu\n\
            image-helper <req> <res> <prg> [ctrl] Yetkili imaj alma yardimci komutu\n\
            ram-helper <req> <res> <prg> <ctrl> Yetkili RAM alma yardimci komutu\n\
+           avml-install-helper <kaynak> <res> Yetkili AVML kurulum yardimci komutu\n\
+           winpmem-install-helper <kaynak> <res> Yetkili WinPMEM kurulum yardimci komutu\n\
            mount-helper <req> <res>       Yetkili imaj mount yardimci komutu\n\
            disk-size <cihaz|dosya>       Disk veya dosya boyutu al\n\
            verify <imaj> <sha256>        SHA256 imaj dogrulama yap\n\n\
@@ -329,6 +333,111 @@ fn apply_ram_helper_control(token: &ram::CancellationToken, control_path: &Path)
     }
 }
 
+fn avml_install_helper_command(args: Vec<String>) -> Result<(), String> {
+    if args.len() != 2 {
+        return Err("Kullanim: avml-install-helper <kaynak> <result-json>".to_string());
+    }
+    let source = PathBuf::from(&args[0]);
+    let result_path = PathBuf::from(&args[1]);
+    let payload = match install_avml_binary(&source) {
+        Ok(value) => value,
+        Err(err) => json!({
+            "ok": false,
+            "error": err,
+        }),
+    };
+    write_json_file(&result_path, &payload)
+}
+
+#[cfg(target_os = "linux")]
+fn install_avml_binary(source: &Path) -> Result<Value, String> {
+    use std::os::unix::fs::PermissionsExt;
+
+    if !source.is_file() {
+        return Err("Downloaded AVML binary not found".to_string());
+    }
+
+    let target = Path::new("/usr/bin/avml");
+    let temp = Path::new("/usr/bin/.worm-avml.tmp");
+    fs::copy(source, temp).map_err(|err| format!("AVML /usr/bin altina kopyalanamadi: {err}"))?;
+    let mut permissions = fs::metadata(temp)
+        .map_err(|err| err.to_string())?
+        .permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(temp, permissions).map_err(|err| err.to_string())?;
+    let _ = Command::new("chown").arg("root:root").arg(temp).status();
+    fs::rename(temp, target)
+        .map_err(|err| format!("AVML /usr/bin/avml olarak kurulamadi: {err}"))?;
+
+    let version = Command::new(target)
+        .arg("--version")
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+
+    Ok(json!({
+        "ok": true,
+        "path": target,
+        "version": version,
+        "message": "AVML /usr/bin/avml olarak kuruldu",
+    }))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn install_avml_binary(_source: &Path) -> Result<Value, String> {
+    Err("AVML installation is only supported on Linux".to_string())
+}
+
+fn winpmem_install_helper_command(args: Vec<String>) -> Result<(), String> {
+    if args.len() != 2 {
+        return Err("Kullanim: winpmem-install-helper <kaynak> <result-json>".to_string());
+    }
+    let source = PathBuf::from(&args[0]);
+    let result_path = PathBuf::from(&args[1]);
+    let payload = match install_winpmem_binary(&source) {
+        Ok(value) => value,
+        Err(err) => json!({
+            "ok": false,
+            "error": err,
+        }),
+    };
+    write_json_file(&result_path, &payload)
+}
+
+#[cfg(windows)]
+fn install_winpmem_binary(source: &Path) -> Result<Value, String> {
+    if !source.is_file() {
+        return Err("Downloaded WinPMEM binary not found".to_string());
+    }
+
+    let target_dir = Path::new(r"C:\Tools");
+    fs::create_dir_all(target_dir).map_err(|err| format!("C:\\Tools olusturulamadi: {err}"))?;
+    let target = target_dir.join(ram::WINPMEM_NAME);
+    let temp = target_dir.join(".worm-winpmem.tmp");
+    fs::copy(source, &temp)
+        .map_err(|err| format!("WinPMEM C:\\Tools altina kopyalanamadi: {err}"))?;
+    if target.exists() {
+        fs::remove_file(&target)
+            .map_err(|err| format!("Eski WinPMEM dosyasi kaldirilamadi: {err}"))?;
+    }
+    fs::rename(&temp, &target)
+        .map_err(|err| format!("WinPMEM C:\\Tools altina kurulamadi: {err}"))?;
+
+    Ok(json!({
+        "ok": true,
+        "path": target,
+        "message": "WinPMEM C:\\Tools altina kuruldu",
+    }))
+}
+
+#[cfg(not(windows))]
+fn install_winpmem_binary(_source: &Path) -> Result<Value, String> {
+    Err("WinPMEM installation is only supported on Windows".to_string())
+}
+
 #[derive(Deserialize)]
 struct MountHelperRequest {
     action: String,
@@ -569,7 +678,7 @@ fn remote_image_command(args: Vec<String>) -> Result<(), String> {
     let mut connection =
         RemoteConnection::connect(&args[0], port, token).map_err(|err| err.to_string())?;
     let result = connection
-        .acquire_image(&args[2], &args[3], None, |done, total| {
+        .acquire_image(&args[2], None, &args[3], None, |done, total| {
             if let Some(percent) = done.saturating_mul(100).checked_div(total) {
                 eprintln!("{}%", percent);
             }

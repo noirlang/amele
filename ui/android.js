@@ -1,0 +1,346 @@
+export function androidPage({ t, icon, pageTitle, state, escapeHtml, backendReady }) {
+  return `
+    <section class="page">
+      ${pageTitle(t("hub.android.title"), t("hub.android.desc"), "android")}
+      <div class="tool-grid android-mode-grid">
+        ${androidImageModeCard("physical", t("android.mode.physical.title"), t("android.mode.physical.desc"), "disk", "var(--red)", t("android.mode.physical.badge"), icon, escapeHtml)}
+        ${androidImageModeCard("logical", t("android.mode.logical.title"), t("android.mode.logical.desc"), "android", "var(--green)", t("android.mode.logical.badge"), icon, escapeHtml)}
+        ${androidImageModeCard("filesystem", t("android.mode.filesystem.title"), t("android.mode.filesystem.desc"), "folder", "var(--blue)", t("android.mode.filesystem.badge"), icon, escapeHtml)}
+      </div>
+    </section>
+  `;
+}
+
+export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml, backendReady, casePanel, field }) {
+  const mode = androidMode(modeId, t);
+  const android = state.android || {};
+  const status = android.adbStatus || null;
+  const installed = Boolean(status?.installed);
+  const devices = Array.isArray(android.devices) ? android.devices : [];
+  const selected = android.selectedDevice || devices[0]?.serial || "";
+  const statusTitle = status
+    ? installed ? t("android.adb.installed") : t("android.adb.missing")
+    : t("android.adb.unknown");
+  const statusDetail = status?.message || (backendReady() ? t("android.adb.checkHint") : t("android.appModeRequired"));
+
+  const isLogical = modeId === "logical";
+  const job = android.logicalJob || null;
+  const isRunning = job?.status === "running";
+  const isDone = job?.status === "completed";
+  const isFailed = job?.status === "failed";
+  const progressValue = job && job.total > 0 ? Math.round((job.done / job.total) * 100) : 0;
+
+  return `
+    <section class="page">
+      <button class="secondary-button android-back-button" data-route="android">${icon("grid")} ${t("android.back")}</button>
+      ${pageTitle(mode.title, mode.desc, mode.icon)}
+      <div class="workflow-layout">
+        <div class="workflow-panel">
+          <p class="section-label">${t("android.adb.title")}</p>
+          <div class="side-info">
+            <span class="metric-icon">${icon(installed ? "shield" : "android")}</span>
+            <span>
+              <strong>${statusTitle}</strong>
+              <small>${escapeHtml(statusDetail)}</small>
+            </span>
+          </div>
+          <div class="button-row" style="margin-top:12px">
+            <button class="primary-button" data-action="android-adb-check">${icon("android")} ${t("android.adb.check")}</button>
+            ${installed ? `<button class="secondary-button" data-action="android-list-devices">${icon("refresh")} ${t("android.devices.list")}</button>` : ""}
+          </div>
+
+          <div class="section-divider"></div>
+          <p class="section-label">${t("android.devices.title")}</p>
+          <div class="field">
+            <label>${t("android.devices.select")}</label>
+            <select class="select" data-android-device-select ${devices.length ? "" : "disabled"}>
+              ${deviceOptions(devices, selected, t, escapeHtml)}
+            </select>
+          </div>
+
+          ${isLogical ? `
+            <div class="section-divider"></div>
+            <p class="section-label">${t("android.logical.caseTitle")}</p>
+            ${casePanel("android", t("android.logical.caseHint"))}
+
+            <div class="section-divider"></div>
+            <p class="section-label">${t("android.logical.acquisitionTitle")}</p>
+            <div class="button-row">
+              <button class="primary-button" data-action="android-start-logical" ${isRunning ? "disabled" : ""}>${icon("android")} ${t("android.logical.start")}</button>
+              ${isRunning ? `<button class="danger-button" data-action="android-stop-logical">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
+            </div>
+
+            <div class="section-divider"></div>
+            <p class="section-label">${t("android.logical.progress")}</p>
+            <div class="progress-bar" data-progress style="--value:${progressValue}%"><span></span><b>${progressValue}%</b></div>
+            <div class="log-box" id="android-log">${androidLogContent(android, t)}</div>
+          ` : ""}
+        </div>
+
+        <aside class="side-panel">
+          <h3>${t("android.side.status")}</h3>
+          ${sideInfo(t("android.side.adb"), statusTitle, installed ? "shield" : "android", icon)}
+          ${sideInfo(t("android.side.device"), selected || t("android.devices.none"), "android", icon)}
+          ${isLogical && job ? sideInfo(t("android.side.lastAction"), job.message || "—", "clock", icon) : ""}
+          ${isLogical && isDone && job.result ? sideInfo(t("android.side.totalBytes"), formatBytes(job.result.total_bytes || 0), "disk", icon) : ""}
+        </aside>
+      </div>
+    </section>
+  `;
+}
+
+function sideInfo(title, body, iconName, icon) {
+  return `
+    <div class="side-info">
+      <span class="metric-icon">${icon(iconName)}</span>
+      <span><strong>${title}</strong><small>${body}</small></span>
+    </div>
+  `;
+}
+
+function androidLogContent(android, t) {
+  const log = android.logicalLog || [];
+  if (!log.length) return `• ${t("android.logical.waiting")}`;
+  return log.map((line) => `• ${line}`).join("<br />");
+}
+
+function formatBytes(bytes) {
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
+}
+
+function androidMode(modeId, t) {
+  const modes = {
+    physical: {
+      title: t("android.mode.physical.title"),
+      desc: t("android.mode.physical.desc"),
+      icon: "disk"
+    },
+    logical: {
+      title: t("android.mode.logical.title"),
+      desc: t("android.mode.logical.desc"),
+      icon: "android"
+    },
+    filesystem: {
+      title: t("android.mode.filesystem.title"),
+      desc: t("android.mode.filesystem.desc"),
+      icon: "folder"
+    }
+  };
+  return modes[modeId] || modes.logical;
+}
+
+function androidImageModeCard(modeId, title, desc, iconName, accent, badge, icon, escapeHtml) {
+  return `
+    <button class="forensic-card" data-route="android:${modeId}" style="--accent:${accent}">
+      <span class="card-icon">${icon(iconName)}</span>
+      <h3>${escapeHtml(title)}</h3>
+      <p>${escapeHtml(desc)}</p>
+      <span class="meta">${escapeHtml(badge)}</span>
+    </button>
+  `;
+}
+
+export async function handleAndroidAction(button, deps) {
+  const action = button.dataset.action;
+  if (action === "android-adb-check") {
+    await checkAdb(button, deps);
+    return true;
+  }
+  if (action === "android-list-devices") {
+    await listDevices(button, deps);
+    return true;
+  }
+  if (action === "android-start-logical") {
+    await startLogicalAcquisition(button, deps);
+    return true;
+  }
+  if (action === "android-stop-logical") {
+    await stopLogicalAcquisition(button, deps);
+    return true;
+  }
+  return false;
+}
+
+export function syncAndroidDeviceSelection(select, { state, t, showToast }) {
+  if (!state.android) state.android = {};
+  state.android.selectedDevice = select.value;
+  if (select.value) {
+    showToast(t("android.devices.selected", { serial: select.value }));
+  }
+}
+
+async function checkAdb(button, { apiRequest, backendReady, state, t, showToast, render }) {
+  if (!backendReady()) {
+    showToast(t("android.appModeRequired"), "error");
+    return;
+  }
+
+  button.disabled = true;
+  try {
+    const status = await apiRequest("/api/android-adb-status");
+    if (!state.android) state.android = {};
+    state.android.adbStatus = status;
+    if (!status.installed) {
+      state.android.devices = [];
+      state.android.selectedDevice = "";
+    }
+    render();
+    showToast(status.installed ? t("android.adb.installed") : t("android.adb.missing"), status.installed ? "success" : "error");
+  } catch (error) {
+    showToast(t("android.adb.checkFailed", { message: error.message }), "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function listDevices(button, { apiRequest, backendReady, state, t, showToast, render }) {
+  if (!backendReady()) {
+    showToast(t("android.appModeRequired"), "error");
+    return;
+  }
+  if (!state.android?.adbStatus?.installed) {
+    showToast(t("android.adb.checkFirst"), "error");
+    return;
+  }
+
+  button.disabled = true;
+  try {
+    const result = await apiRequest("/api/android-devices");
+    const devices = Array.isArray(result.devices) ? result.devices : [];
+    if (!state.android) state.android = {};
+    state.android.devices = devices;
+    state.android.selectedDevice = devices[0]?.serial || "";
+    render();
+    showToast(devices.length
+      ? t("android.devices.listed", { count: String(devices.length) })
+      : t("android.devices.none"),
+      devices.length ? "success" : "error"
+    );
+  } catch (error) {
+    showToast(t("android.devices.listFailed", { message: error.message }), "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function startLogicalAcquisition(button, { apiRequest, backendReady, state, t, showToast, render, resolveCase }) {
+  if (!backendReady()) {
+    showToast(t("android.appModeRequired"), "error");
+    return;
+  }
+  if (!state.android?.selectedDevice) {
+    showToast(t("android.logical.deviceRequired"), "error");
+    return;
+  }
+
+  const caseName = resolveCase?.() || null;
+  if (!state.android) state.android = {};
+  state.android.logicalLog = [t("android.logical.starting")];
+  state.android.logicalJob = null;
+  render();
+
+  button.disabled = true;
+  try {
+    const body = { serial: state.android.selectedDevice };
+    if (caseName) body.case_name = caseName;
+    const result = await apiRequest("/api/android-logical-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (result.job_id) {
+      state.android.logicalJob = { job_id: result.job_id, status: "running", done: 0, total: 0, message: t("android.logical.starting") };
+      render();
+      pollLogicalJob(result.job_id, { apiRequest, state, t, showToast, render });
+    }
+  } catch (error) {
+    state.android.logicalLog.push(`❌ ${error.message}`);
+    showToast(t("android.logical.failed", { message: error.message }), "error");
+    render();
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function stopLogicalAcquisition(button, { apiRequest, backendReady, state, t, showToast, render }) {
+  if (!state.android?.logicalJob?.job_id) return;
+
+  button.disabled = true;
+  try {
+    await apiRequest("/api/acquisition-control", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_id: state.android.logicalJob.job_id, action: "stop" }),
+    });
+    showToast(t("android.logical.stopped"), "success");
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function pollLogicalJob(jobId, { apiRequest, state, t, showToast, render }) {
+  const interval = setInterval(async () => {
+    try {
+      const result = await apiRequest("/api/acquisition-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: jobId }),
+      });
+      if (!state.android) state.android = {};
+
+      state.android.logicalJob = {
+        job_id: jobId,
+        status: result.status,
+        done: result.done || 0,
+        total: result.total || 0,
+        message: result.message || "",
+        result: result.result || null,
+        error: result.error || null,
+      };
+
+      // Update log
+      if (!state.android.logicalLog) state.android.logicalLog = [];
+      const lastMsg = state.android.logicalLog[state.android.logicalLog.length - 1];
+      if (result.message && result.message !== lastMsg) {
+        state.android.logicalLog.push(result.message);
+      }
+
+      if (result.status === "completed") {
+        clearInterval(interval);
+        state.android.logicalLog.push(`✅ ${t("android.logical.done")}`);
+        showToast(t("android.logical.done"), "success");
+      } else if (result.status === "failed") {
+        clearInterval(interval);
+        state.android.logicalLog.push(`❌ ${result.error || t("android.logical.failed", { message: "" })}`);
+        showToast(t("android.logical.failed", { message: result.error || "" }), "error");
+      }
+
+      render();
+    } catch {
+      // Silently retry on network hiccup
+    }
+  }, 1500);
+}
+
+function deviceOptions(devices, selected, t, escapeHtml) {
+  if (!devices.length) {
+    return `<option value="">${t("android.devices.none")}</option>`;
+  }
+
+  return devices
+    .map((device) => {
+      const serial = device.serial || "";
+      const isSelected = serial === selected ? " selected" : "";
+      const details = [device.state, device.model, device.product]
+        .filter(Boolean)
+        .join(" · ");
+      const label = details ? `${serial} · ${details}` : serial;
+      return `<option value="${escapeHtml(serial)}"${isSelected}>${escapeHtml(label)}</option>`;
+    })
+    .join("");
+}

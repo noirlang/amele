@@ -1,3 +1,4 @@
+use crate::android;
 use crate::disk;
 use crate::disk::{DiskAcquisitionControl, DiskAcquisitionTask};
 use crate::evidence::EvidenceVault;
@@ -22,6 +23,8 @@ use std::sync::{Mutex, OnceLock};
 use std::thread;
 
 const DEV_UI_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/ui");
+#[cfg(windows)]
+const WINPMEM_DOWNLOAD_URL: &str = "https://github.com/Velocidex/WinPmem/releases/download/v4.0.rc1/go-winpmem_amd64_1.0-rc2_signed.exe";
 static NEXT_ACQUISITION_JOB_ID: AtomicU64 = AtomicU64::new(1);
 static ACQUISITION_JOBS: OnceLock<Mutex<HashMap<String, AcquisitionJob>>> = OnceLock::new();
 static CURRENT_EVIDENCE_CASE: OnceLock<Mutex<Option<EvidenceCaseState>>> = OnceLock::new();
@@ -137,6 +140,97 @@ fn open_window(url: &str) {
     eprintln!("Browser could not be opened automatically. Use: {url}");
 }
 
+fn open_url_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct OpenUrlRequest {
+        url: String,
+    }
+
+    let request: OpenUrlRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+
+    let url = match validate_external_url(&request.url) {
+        Ok(url) => url,
+        Err(err) => return json_error(400, err),
+    };
+
+    match open_external_url(&url) {
+        Ok(()) => json_ok(json!({ "opened": true })),
+        Err(err) => json_error(500, err),
+    }
+}
+
+fn validate_external_url(value: &str) -> Result<String, String> {
+    let url = value.trim();
+    if url.is_empty() {
+        return Err("url is required".to_string());
+    }
+    if url.chars().any(char::is_control) {
+        return Err("url contains invalid characters".to_string());
+    }
+
+    let lower = url.to_ascii_lowercase();
+    if lower.starts_with("https://") || lower.starts_with("http://") || lower.starts_with("mailto:")
+    {
+        Ok(url.to_string())
+    } else {
+        Err("only http, https and mailto links can be opened".to_string())
+    }
+}
+
+fn open_external_url(url: &str) -> Result<(), String> {
+    #[cfg(target_os = "linux")]
+    {
+        let openers: &[(&str, &[&str])] = &[("xdg-open", &[url]), ("gio", &["open", url])];
+        for (program, args) in openers {
+            if Command::new(program)
+                .args(*args)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .is_ok()
+            {
+                return Ok(());
+            }
+        }
+        Err("external link opener could not be started".to_string())
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("rundll32")
+            .arg("url.dll,FileProtocolHandler")
+            .arg(url)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map(|_| ())
+            .map_err(|err| format!("external link opener could not be started: {err}"))
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(url)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map(|_| ())
+            .map_err(|err| format!("external link opener could not be started: {err}"))
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
+    {
+        let _ = url;
+        Err("external links are not supported on this platform".to_string())
+    }
+}
+
 fn handle_stream(stream: TcpStream) -> Result<(), String> {
     let peer = stream.peer_addr().ok();
     if peer.map(|addr| !addr.ip().is_loopback()).unwrap_or(true) {
@@ -210,10 +304,21 @@ fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
             Err(err) => json_error(500, err.to_string()),
         },
         ("GET", "/api/disk-list") => disk_list_endpoint(),
+        ("GET", "/api/android-adb-status") => match serde_json::to_value(android::adb_status()) {
+            Ok(value) => json_ok(value),
+            Err(err) => json_error(500, err.to_string()),
+        },
+        ("GET", "/api/android-devices") => match android::list_devices() {
+            Ok(devices) => json_ok(json!({ "devices": devices })),
+            Err(err) => json_error(500, err),
+        },
+        ("POST", "/api/android-logical-image") => android_logical_image_endpoint(body),
         ("GET", "/api/ram-status") => json_ok(json!({
             "avml": ram::avml_status(None),
             "winpmem": ram::winpmem_status(None),
         })),
+        ("POST", "/api/avml-install") => avml_install_endpoint(),
+        ("POST", "/api/winpmem-install") => winpmem_install_endpoint(),
         ("POST", "/api/acquisition-control") => acquisition_control_endpoint(body),
         ("POST", "/api/acquisition-status") => acquisition_status_endpoint(body),
         ("POST", "/api/connect") => connect_endpoint(body),
@@ -239,6 +344,7 @@ fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
         ("GET", "/api/update-check") => update_check_endpoint(),
         ("POST", "/api/update-download") => update_download_endpoint(body),
         ("POST", "/api/update-install") => update_install_endpoint(body),
+        ("POST", "/api/open-url") => open_url_endpoint(body),
         ("POST", "/api/pick-file") => pick_path_endpoint(false),
         ("POST", "/api/pick-folder") => pick_path_endpoint(true),
         _ => json_error(404, "api endpoint not found"),
@@ -514,6 +620,7 @@ fn evidence_create_endpoint(body: &[u8]) -> Response {
                 "case_dir": summary.case_dir,
                 "base_dir": default_case_base_dir(),
                 "output_dir": vault.outputs_dir,
+                "ram_dir": vault.ram_dir,
                 "output_count": summary.output_count,
                 "hash_count": summary.hash_count,
                 "report_count": summary.report_count,
@@ -634,6 +741,7 @@ fn evidence_cases_endpoint() -> Response {
                 "case_dir": case_dir,
                 "base_dir": state.base_dir,
                 "output_dir": case_dir.join("ciktilar"),
+                "ram_dir": case_dir.join("ram"),
             })
         });
 
@@ -1094,6 +1202,260 @@ fn update_install_endpoint(body: &[u8]) -> Response {
     }
 }
 
+fn avml_install_endpoint() -> Response {
+    #[cfg(not(target_os = "linux"))]
+    {
+        return json_error(400, "AVML installation is only supported on Linux");
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let Some(asset_name) = avml_release_asset_name() else {
+            return json_error(
+                400,
+                format!(
+                    "AVML binary is not available for this architecture: {}",
+                    std::env::consts::ARCH
+                ),
+            );
+        };
+        let url =
+            format!("https://github.com/microsoft/avml/releases/latest/download/{asset_name}");
+        let download_dir = std::env::temp_dir().join("worm-avml-install");
+        if let Err(err) = fs::create_dir_all(&download_dir) {
+            return json_error(500, err.to_string());
+        }
+        let download_path = download_dir.join(format!("{asset_name}.download"));
+
+        if let Err(err) = download_file_to_path(&url, &download_path, "AVML download failed") {
+            let _ = fs::remove_file(&download_path);
+            return json_error(500, err);
+        }
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(metadata) = fs::metadata(&download_path) {
+                let mut permissions = metadata.permissions();
+                permissions.set_mode(0o755);
+                let _ = fs::set_permissions(&download_path, permissions);
+            }
+        }
+
+        let sha256 = match sha256_file(&download_path) {
+            Ok(value) => value,
+            Err(err) => {
+                let _ = fs::remove_file(&download_path);
+                return json_error(500, err);
+            }
+        };
+        let stem = helper_file_stem("worm-avml-install");
+        let result_path = download_dir.join(format!("{stem}-result.json"));
+        let args = vec![
+            "avml-install-helper".to_string(),
+            download_path.to_string_lossy().into_owned(),
+            result_path.to_string_lossy().into_owned(),
+        ];
+
+        let run_result = run_elevated_helper_wait(&args);
+        let helper_result = read_helper_json(&result_path).ok();
+        cleanup_helper_files(&[&download_path, &result_path]);
+        if let Err(err) = run_result {
+            let message = helper_result
+                .as_ref()
+                .and_then(|value| value.get("error"))
+                .and_then(Value::as_str)
+                .unwrap_or(&err)
+                .to_string();
+            return json_error(500, message);
+        }
+
+        let helper_result = match helper_result {
+            Some(value) => value,
+            None => return json_error(500, "AVML install helper did not return a result"),
+        };
+        if helper_result.get("ok").and_then(Value::as_bool) != Some(true) {
+            return json_error(
+                500,
+                helper_result
+                    .get("error")
+                    .and_then(Value::as_str)
+                    .unwrap_or("AVML installation failed")
+                    .to_string(),
+            );
+        }
+
+        json_ok(json!({
+            "asset": asset_name,
+            "download_url": url,
+            "sha256": sha256,
+            "path": helper_result.get("path").cloned().unwrap_or(Value::Null),
+            "version": helper_result.get("version").cloned().unwrap_or(Value::Null),
+            "message": helper_result.get("message").cloned().unwrap_or(Value::String("AVML installed".to_string())),
+            "status": ram::avml_status(None),
+        }))
+    }
+}
+
+fn winpmem_install_endpoint() -> Response {
+    #[cfg(not(windows))]
+    {
+        return json_error(400, "WinPMEM installation is only supported on Windows");
+    }
+
+    #[cfg(windows)]
+    {
+        if std::env::consts::ARCH != "x86_64" {
+            return json_error(
+                400,
+                format!(
+                    "WinPMEM binary is not available for this architecture: {}",
+                    std::env::consts::ARCH
+                ),
+            );
+        }
+
+        let (job_id, _control) = create_acquisition_job("WinPMEM indiriliyor");
+        let thread_job_id = job_id.clone();
+        thread::spawn(move || run_winpmem_install_job(thread_job_id));
+
+        json_ok(json!({
+            "job_id": job_id,
+            "status": "running",
+            "message": "WinPMEM indirme başlatıldı",
+        }))
+    }
+}
+
+#[cfg(windows)]
+fn run_winpmem_install_job(job_id: String) {
+    update_acquisition_message(&job_id, "WinPMEM indiriliyor...");
+
+    let download_dir = std::env::temp_dir().join("worm-winpmem-install");
+    if let Err(err) = fs::create_dir_all(&download_dir) {
+        fail_acquisition_job_with_message(&job_id, err.to_string(), "WinPMEM indirme başarısız");
+        return;
+    }
+    let download_path = download_dir.join(ram::WINPMEM_NAME);
+
+    let monitor_job_id = job_id.clone();
+    let monitor_path = download_path.clone();
+    let total_expected_bytes = 3_831_296; // ~3.65 MB
+    let monitor_stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let thread_stop = monitor_stop.clone();
+
+    let monitor_thread = thread::spawn(move || {
+        while !thread_stop.load(std::sync::atomic::Ordering::SeqCst) {
+            if let Ok(metadata) = fs::metadata(&monitor_path) {
+                let size = metadata.len();
+                let pct = (size * 100)
+                    .checked_div(total_expected_bytes)
+                    .unwrap_or(0)
+                    .min(100);
+                update_acquisition_progress_message(
+                    &monitor_job_id,
+                    size,
+                    total_expected_bytes,
+                    &format!("WinPMEM indiriliyor... %{pct}"),
+                );
+            }
+            thread::sleep(std::time::Duration::from_millis(250));
+        }
+    });
+
+    let download_result = download_file_to_path(
+        WINPMEM_DOWNLOAD_URL,
+        &download_path,
+        "WinPMEM download failed",
+    );
+
+    monitor_stop.store(true, std::sync::atomic::Ordering::SeqCst);
+    let _ = monitor_thread.join();
+
+    if let Err(err) = download_result {
+        let _ = fs::remove_file(&download_path);
+        fail_acquisition_job_with_message(&job_id, err, "WinPMEM indirme başarısız");
+        return;
+    }
+
+    update_acquisition_message(&job_id, "WinPMEM SHA256 hesaplanıyor...");
+    let sha256 = match sha256_file(&download_path) {
+        Ok(value) => value,
+        Err(err) => {
+            let _ = fs::remove_file(&download_path);
+            fail_acquisition_job_with_message(&job_id, err, "WinPMEM hash hesaplama başarısız");
+            return;
+        }
+    };
+
+    update_acquisition_message(&job_id, "WinPMEM kurulumu yapılıyor (yetki gerekli)...");
+    let stem = helper_file_stem("worm-winpmem-install");
+    let result_path = download_dir.join(format!("{stem}-result.json"));
+    let args = vec![
+        "winpmem-install-helper".to_string(),
+        download_path.to_string_lossy().into_owned(),
+        result_path.to_string_lossy().into_owned(),
+    ];
+
+    let run_result = run_elevated_helper_wait(&args);
+    let helper_result = read_helper_json(&result_path).ok();
+    cleanup_helper_files(&[&download_path, &result_path]);
+
+    if let Err(err) = run_result {
+        let message = helper_result
+            .as_ref()
+            .and_then(|value| value.get("error"))
+            .and_then(Value::as_str)
+            .unwrap_or(&err)
+            .to_string();
+        fail_acquisition_job_with_message(&job_id, message, "WinPMEM kurulum başarısız");
+        return;
+    }
+
+    let helper_result = match helper_result {
+        Some(value) => value,
+        None => {
+            fail_acquisition_job_with_message(
+                &job_id,
+                "WinPMEM install helper did not return a result".to_string(),
+                "WinPMEM kurulum başarısız",
+            );
+            return;
+        }
+    };
+
+    if helper_result.get("ok").and_then(Value::as_bool) != Some(true) {
+        let message = helper_result
+            .get("error")
+            .and_then(Value::as_str)
+            .unwrap_or("WinPMEM installation failed")
+            .to_string();
+        fail_acquisition_job_with_message(&job_id, message, "WinPMEM kurulum başarısız");
+        return;
+    }
+
+    finish_acquisition_job_with_message(
+        &job_id,
+        json!({
+            "asset": ram::WINPMEM_NAME,
+            "download_url": WINPMEM_DOWNLOAD_URL,
+            "sha256": sha256,
+            "path": helper_result.get("path").cloned().unwrap_or(Value::Null),
+            "message": helper_result.get("message").cloned().unwrap_or(Value::String("WinPMEM installed".to_string())),
+            "status": ram::winpmem_status(None),
+        }),
+        "WinPMEM kuruldu",
+    );
+}
+
+fn avml_release_asset_name() -> Option<&'static str> {
+    match std::env::consts::ARCH {
+        "x86_64" => Some("avml"),
+        "aarch64" => Some("avml-aarch64"),
+        _ => None,
+    }
+}
+
 fn current_evidence_case() -> &'static Mutex<Option<EvidenceCaseState>> {
     CURRENT_EVIDENCE_CASE.get_or_init(|| Mutex::new(None))
 }
@@ -1203,7 +1565,9 @@ fn evidence_subdir(value: &str) -> &'static str {
         "raporlar" | "reports" => "raporlar",
         "hash" => "hash",
         "notlar" | "notes" => "notlar",
-        "disk_imajlari" | "ram" | "ciktilar" | "outputs" | "images" => "ciktilar",
+        "disk_imajlari" | "ciktilar" | "outputs" | "images" => "ciktilar",
+        "ram" => "ram",
+        "android" => "android",
         _ => "ciktilar",
     }
 }
@@ -1213,7 +1577,9 @@ fn case_listing_json(case_name: &str, case_dir: &Path) -> Value {
         "case_name": case_name,
         "case_dir": case_dir,
         "output_dir": case_dir.join("ciktilar"),
+        "ram_dir": case_dir.join("ram"),
         "output_count": count_directory_entries(&case_dir.join("ciktilar")),
+        "ram_count": count_directory_entries(&case_dir.join("ram")),
         "hash_count": count_directory_entries(&case_dir.join("hash")),
         "report_count": count_directory_entries(&case_dir.join("raporlar")),
     })
@@ -1311,24 +1677,37 @@ fn elevated_helper_executable() -> Result<PathBuf, String> {
 #[cfg(windows)]
 fn spawn_elevated_helper(args: &[String]) -> Result<std::process::Child, String> {
     let exe = std::env::current_exe().map_err(|err| err.to_string())?;
+    let exe_str = exe.to_string_lossy().to_string();
+
+    // Build a properly quoted argument string for Start-Process -ArgumentList
+    let quoted_args: Vec<String> = args
+        .iter()
+        .map(|a| {
+            // Escape any single quotes inside the argument, then wrap in single quotes
+            let escaped = a.replace('\'', "''");
+            format!("'{escaped}'")
+        })
+        .collect();
+    let arg_list = quoted_args.join(",");
+
+    // Build the full PowerShell command with the exe and arguments inlined
+    let ps_command = format!(
+        "$ErrorActionPreference='Stop'; \
+         $process = Start-Process -FilePath '{}' -ArgumentList {} -Verb RunAs -Wait -PassThru; \
+         exit $process.ExitCode",
+        exe_str.replace('\'', "''"),
+        arg_list,
+    );
+
     Command::new("powershell")
         .arg("-NoProfile")
         .arg("-ExecutionPolicy")
         .arg("Bypass")
         .arg("-Command")
-        .arg(
-            "$ErrorActionPreference='Stop'; \
-             $exe=$args[0]; \
-             $argList=@(); \
-             for ($i=1; $i -lt $args.Count; $i++) { $argList += $args[$i] }; \
-             $process=Start-Process -FilePath $exe -ArgumentList $argList -Verb RunAs -Wait -PassThru; \
-             exit $process.ExitCode",
-        )
-        .arg(exe)
-        .args(args)
+        .arg(&ps_command)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .spawn()
         .map_err(|err| format!("UAC baslatilamadi: {err}"))
 }
@@ -1594,7 +1973,6 @@ fn linux_loop_mount_candidates(loop_device: &Path) -> Vec<PathBuf> {
     candidates
 }
 
-#[cfg(target_os = "linux")]
 fn command_error_message(output: &std::process::Output, fallback: &str) -> String {
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
     if stderr.is_empty() {
@@ -1785,6 +2163,44 @@ fn sanitize_download_name(value: &str) -> String {
         .to_string()
 }
 
+fn download_file_to_path(url: &str, target: &Path, fallback: &str) -> Result<(), String> {
+    #[cfg(windows)]
+    let output = {
+        let target_str = target.to_string_lossy();
+        let ps_command = format!(
+            "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; \
+             $ProgressPreference = 'SilentlyContinue'; \
+             Invoke-WebRequest -Uri '{}' -OutFile '{}' -UseBasicParsing",
+            url.replace('\'', "''"),
+            target_str.replace('\'', "''"),
+        );
+        Command::new("powershell")
+            .arg("-NoProfile")
+            .arg("-ExecutionPolicy")
+            .arg("Bypass")
+            .arg("-Command")
+            .arg(&ps_command)
+            .output()
+    };
+
+    #[cfg(not(windows))]
+    let output = Command::new("curl")
+        .arg("-L")
+        .arg("--fail")
+        .arg("--silent")
+        .arg("--show-error")
+        .arg("-o")
+        .arg(target)
+        .arg(url)
+        .output();
+
+    match output {
+        Ok(output) if output.status.success() => Ok(()),
+        Ok(output) => Err(command_error_message(&output, fallback)),
+        Err(err) => Err(err.to_string()),
+    }
+}
+
 fn sha256_file(path: &Path) -> Result<String, String> {
     let mut file = fs::File::open(path).map_err(|err| err.to_string())?;
     let mut hasher = Sha256::new();
@@ -1847,6 +2263,7 @@ fn launch_update_installer(path: &Path) -> Result<String, String> {
 #[derive(Deserialize)]
 struct LocalImageRequest {
     source: String,
+    disk_name: Option<String>,
     output: String,
     case_name: Option<String>,
 }
@@ -1857,6 +2274,7 @@ struct RemoteImageRequest {
     port: u16,
     token: Option<String>,
     disk_id: String,
+    disk_name: Option<String>,
     output: String,
     case_name: Option<String>,
 }
@@ -1866,6 +2284,7 @@ struct LocalRamRequest {
     output: String,
     tool: Option<String>,
     tool_path: Option<String>,
+    case_name: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -1874,6 +2293,7 @@ struct RemoteRamRequest {
     port: u16,
     token: Option<String>,
     output: String,
+    case_name: Option<String>,
 }
 
 fn run_local_image_job(
@@ -1888,7 +2308,12 @@ fn run_local_image_job(
             return;
         }
     };
-    let target = acquisition_target_path(&request.source, &output.to_string_lossy(), "local");
+    let target = acquisition_target_path(
+        &request.source,
+        request.disk_name.as_deref(),
+        &output.to_string_lossy(),
+        None,
+    );
     let task = DiskAcquisitionTask::new(&request.source, &target);
 
     if local_image_source_requires_elevation(&task.source) {
@@ -1946,6 +2371,7 @@ fn run_remote_image_job(job_id: String, request: RemoteImageRequest) {
             };
             match connection.acquire_image(
                 &request.disk_id,
+                request.disk_name.as_deref(),
                 &output,
                 Some(&remote_job_id),
                 |done, total| update_acquisition_progress(&job_id, done, total),
@@ -1975,7 +2401,20 @@ fn run_remote_image_job(job_id: String, request: RemoteImageRequest) {
     }
 }
 
-fn run_local_ram_job(job_id: String, request: LocalRamRequest, control: ram::CancellationToken) {
+fn run_local_ram_job(
+    job_id: String,
+    mut request: LocalRamRequest,
+    control: ram::CancellationToken,
+) {
+    let output = match ram_output_path(&request.output, request.case_name.as_deref(), None) {
+        Ok(output) => output,
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err, "RAM edinimi basarisiz");
+            return;
+        }
+    };
+    request.output = output.to_string_lossy().into_owned();
+
     let tool = request.tool.as_deref().unwrap_or_default();
     if local_ram_requires_elevation(tool) {
         run_elevated_local_ram_job(&job_id, &request, &control);
@@ -2024,8 +2463,18 @@ fn run_local_ram_job(job_id: String, request: LocalRamRequest, control: ram::Can
 }
 
 fn run_remote_ram_job(job_id: String, request: RemoteRamRequest) {
-    let remote_file = ram_remote_file_name(&request.output);
-    let target_path = PathBuf::from(&request.output);
+    let target_path = match ram_output_path(
+        &request.output,
+        request.case_name.as_deref(),
+        Some(&request.ip),
+    ) {
+        Ok(output) => output,
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err, "RAM edinimi basarisiz");
+            return;
+        }
+    };
+    let remote_file = ram_remote_file_name(&target_path.to_string_lossy());
 
     match RemoteConnection::connect(&request.ip, request.port, request.token.clone()) {
         Ok(mut connection) => {
@@ -2235,6 +2684,89 @@ fn fail_acquisition_job_with_message(job_id: &str, error: String, message: &str)
         job.status = "failed".to_string();
         job.message = message.to_string();
         job.error = Some(error);
+    }
+}
+
+fn android_logical_image_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct AndroidLogicalRequest {
+        serial: String,
+        case_name: Option<String>,
+    }
+
+    let request: AndroidLogicalRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let serial = request.serial.trim().to_string();
+    if serial.is_empty() {
+        return json_error(400, "serial is required");
+    }
+
+    let (job_id, control) = create_acquisition_job("Android mantiksal imaj alma baslatildi");
+    let thread_job_id = job_id.clone();
+    thread::spawn(move || {
+        run_android_logical_job(thread_job_id, serial, request.case_name, control)
+    });
+
+    json_ok(json!({
+        "job_id": job_id,
+        "status": "running",
+    }))
+}
+
+fn run_android_logical_job(
+    job_id: String,
+    serial: String,
+    case_name: Option<String>,
+    control: ram::CancellationToken,
+) {
+    let vault = match evidence_vault_for_output(case_name.as_deref()) {
+        Ok(vault) => vault,
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err, "Android imaj alma basarisiz");
+            return;
+        }
+    };
+
+    let android_dir = vault.case_dir.join("android");
+    if let Err(err) = std::fs::create_dir_all(&android_dir) {
+        fail_acquisition_job_with_message(&job_id, err.to_string(), "Android imaj alma basarisiz");
+        return;
+    }
+
+    match android::logical_acquisition(
+        &serial,
+        &android_dir,
+        |done, total, category| {
+            update_acquisition_progress_message(
+                &job_id,
+                done as u64,
+                total as u64,
+                &format!("Toplaniyor: {category}"),
+            );
+        },
+        || control.is_cancelled(),
+    ) {
+        Ok(result) => {
+            let success_count = result.items.iter().filter(|i| i.success).count();
+            let total_count = result.items.len();
+            finish_acquisition_job_with_message(
+                &job_id,
+                json!({
+                    "message": format!("Android mantiksal imaj tamamlandi ({success_count}/{total_count} adim basarili)"),
+                    "output_dir": result.output_dir,
+                    "total_bytes": result.total_bytes,
+                    "sha256": result.sha256,
+                    "items": result.items,
+                    "errors": result.errors,
+                }),
+                "Android mantiksal imaj tamamlandi",
+            );
+        }
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err, "Android imaj alma basarisiz");
+        }
     }
 }
 
@@ -2652,6 +3184,63 @@ fn image_output_dir(output: &str, case_name: Option<&str>) -> Result<PathBuf, St
     }
 }
 
+fn ram_output_path(
+    output: &str,
+    case_name: Option<&str>,
+    remote_ip: Option<&str>,
+) -> Result<PathBuf, String> {
+    let vault = evidence_vault_for_output(case_name)?;
+    let output = output.trim();
+    let requested_file = ram_file_name_from_output(output);
+    let seed_path = requested_file
+        .map(|file_name| vault.ram_dir.join(file_name))
+        .unwrap_or_else(|| vault.ram_dir.clone());
+
+    Ok(canonical_ram_target_path(
+        &seed_path.to_string_lossy(),
+        remote_ip,
+    ))
+}
+
+fn evidence_vault_for_output(case_name: Option<&str>) -> Result<EvidenceVault, String> {
+    let explicit_case = case_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(sanitize_case_name)
+        .filter(|value| !value.is_empty());
+
+    let (base_dir, case_name) = if let Some(case_name) = explicit_case {
+        (default_case_base_dir(), case_name)
+    } else if let Some(state) = current_evidence_case()
+        .lock()
+        .ok()
+        .and_then(|current| current.clone())
+    {
+        (state.base_dir, state.case_name)
+    } else {
+        (default_case_base_dir(), default_case_name())
+    };
+
+    let vault = EvidenceVault::create(&base_dir, &case_name).map_err(|err| err.to_string())?;
+    set_current_evidence_case(base_dir, case_name);
+    Ok(vault)
+}
+
+fn ram_file_name_from_output(output: &str) -> Option<&str> {
+    let path = Path::new(output);
+    let extension = path.extension()?.to_str()?;
+    if !matches!(
+        extension.to_ascii_lowercase().as_str(),
+        "raw" | "mem" | "bin"
+    ) {
+        return None;
+    }
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+}
+
 fn helper_file_stem(prefix: &str) -> String {
     format!(
         "{}-{}-{}",
@@ -2736,12 +3325,22 @@ fn process_is_root() -> bool {
     unsafe { libc::geteuid() == 0 }
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(windows)]
+fn process_is_root() -> bool {
+    ram::is_root_or_admin()
+}
+
+#[cfg(not(any(target_os = "linux", windows)))]
 fn process_is_root() -> bool {
     false
 }
 
-fn acquisition_target_path(source: &str, output: &str, prefix: &str) -> PathBuf {
+fn acquisition_target_path(
+    source: &str,
+    disk_name: Option<&str>,
+    output: &str,
+    remote_ip: Option<&str>,
+) -> PathBuf {
     let output = PathBuf::from(output);
     if output
         .extension()
@@ -2756,13 +3355,43 @@ fn acquisition_target_path(source: &str, output: &str, prefix: &str) -> PathBuf 
         .rsplit(['/', '\\'])
         .find(|part| !part.is_empty())
         .unwrap_or("disk");
-    let file_name = format!(
-        "{}_{}_{}.img",
-        prefix,
-        sanitize_file_stem(source_name),
-        Local::now().format("%Y%m%d_%H%M%S")
-    );
+    let file_name = canonical_image_file_name(remote_ip, source_name, disk_name);
     output.join(file_name)
+}
+
+fn canonical_image_file_name(
+    remote_ip: Option<&str>,
+    disk_id: &str,
+    disk_name: Option<&str>,
+) -> String {
+    let mut parts = Vec::new();
+    if let Some(ip) = remote_ip
+        .map(sanitize_file_stem)
+        .filter(|value| !value.is_empty())
+    {
+        parts.push(ip);
+    }
+
+    let disk_id = sanitize_file_stem(disk_id);
+    parts.push(if disk_id.is_empty() {
+        "disk".to_string()
+    } else {
+        disk_id
+    });
+
+    if let Some(name) = disk_name
+        .map(sanitize_file_stem)
+        .filter(|value| !value.is_empty())
+        && parts.last().map(|last| last != &name).unwrap_or(true)
+    {
+        parts.push(name);
+    }
+
+    format!(
+        "{}_{}.img",
+        parts.join("_"),
+        Local::now().format("%Y%m%d_%H%M%S")
+    )
 }
 
 fn ram_remote_file_name(output: &str) -> String {
@@ -2774,11 +3403,63 @@ fn ram_remote_file_name(output: &str) -> String {
         .unwrap_or_else(|| "memory_dump.raw".to_string())
 }
 
+fn canonical_ram_target_path(output: &str, remote_ip: Option<&str>) -> PathBuf {
+    let output = PathBuf::from(output.trim());
+    let is_file = output
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| matches!(extension, "raw" | "mem" | "bin"))
+        .unwrap_or(false);
+    let file_name = canonical_ram_file_name(
+        remote_ip,
+        is_file
+            .then(|| output.file_name().and_then(|name| name.to_str()))
+            .flatten(),
+    );
+
+    if is_file {
+        output
+            .parent()
+            .map(|parent| parent.join(&file_name))
+            .unwrap_or_else(|| PathBuf::from(file_name))
+    } else {
+        output.join(file_name)
+    }
+}
+
+fn canonical_ram_file_name(remote_ip: Option<&str>, current_name: Option<&str>) -> String {
+    let remote_ip = remote_ip
+        .map(sanitize_file_stem)
+        .filter(|value| !value.is_empty());
+
+    if let Some(name) = current_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        if let Some(ip) = &remote_ip {
+            let expected_prefix = format!("{ip}_ram_");
+            if name.starts_with(&expected_prefix) && name.ends_with(".raw") {
+                return name.to_string();
+            }
+            if name.starts_with("ram_") && name.ends_with(".raw") {
+                return format!("{ip}_{name}");
+            }
+        } else if name.starts_with("ram_") && name.ends_with(".raw") {
+            return name.to_string();
+        }
+    }
+
+    let prefix = remote_ip
+        .map(|ip| format!("{ip}_ram"))
+        .unwrap_or_else(|| "ram".to_string());
+    format!("{}_{}.raw", prefix, Local::now().format("%Y%m%d_%H%M%S"))
+}
+
 fn sanitize_file_stem(value: &str) -> String {
     let sanitized: String = value
         .chars()
         .map(|ch| {
-            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_') {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.') {
                 ch
             } else {
                 '_'
@@ -3064,13 +3745,46 @@ fn hex_value(byte: u8) -> Option<u8> {
 mod tests {
     use super::*;
 
+    fn test_case_state_guard() -> std::sync::MutexGuard<'static, ()> {
+        static TEST_CASE_STATE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        TEST_CASE_STATE_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     fn response_json(response: Response) -> Value {
         assert_eq!(response.status, 200);
         serde_json::from_slice(&response.body).unwrap()
     }
 
     #[test]
+    fn external_url_validation_allows_public_links() {
+        assert_eq!(
+            validate_external_url(" https://github.com/favilances ").unwrap(),
+            "https://github.com/favilances"
+        );
+        assert_eq!(
+            validate_external_url("http://example.com").unwrap(),
+            "http://example.com"
+        );
+        assert_eq!(
+            validate_external_url("mailto:test@example.com").unwrap(),
+            "mailto:test@example.com"
+        );
+    }
+
+    #[test]
+    fn external_url_validation_rejects_local_and_script_links() {
+        assert!(validate_external_url("").is_err());
+        assert!(validate_external_url("file:///etc/passwd").is_err());
+        assert!(validate_external_url("javascript:alert(1)").is_err());
+        assert!(validate_external_url("https://example.com/\nnext").is_err());
+    }
+
+    #[test]
     fn evidence_note_and_report_endpoints_write_files() {
+        let _guard = test_case_state_guard();
         let dir = tempfile::tempdir().unwrap();
         *test_case_base_dir().lock().unwrap() = Some(dir.path().to_path_buf());
         *current_evidence_case().lock().unwrap() = None;
@@ -3141,5 +3855,74 @@ mod tests {
 
         assert!(local_ram_requires_elevation("avml"));
         assert!(!local_ram_requires_elevation("winpmem"));
+    }
+
+    #[test]
+    fn canonical_image_name_uses_disk_id_disk_name_and_date() {
+        let name = canonical_image_file_name(None, "sda", Some("Samsung SSD"));
+
+        assert!(name.starts_with("sda_Samsung_SSD_"));
+        assert!(name.ends_with(".img"));
+        assert!(!name.starts_with("local_"));
+    }
+
+    #[test]
+    fn canonical_ram_name_adds_ip_only_for_remote() {
+        let local = canonical_ram_target_path("/case/ram/memory.raw", None);
+        let remote =
+            canonical_ram_target_path("/case/ram/ram_20260519_120000.raw", Some("192.168.1.178"));
+
+        assert!(
+            local
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("ram_")
+        );
+        assert!(
+            !local
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("192.168.1.178_")
+        );
+        assert_eq!(
+            remote.file_name().unwrap().to_string_lossy(),
+            "192.168.1.178_ram_20260519_120000.raw"
+        );
+    }
+
+    #[test]
+    fn ram_output_path_uses_case_ram_directory() {
+        let _guard = test_case_state_guard();
+        let dir = tempfile::tempdir().unwrap();
+        *test_case_base_dir().lock().unwrap() = Some(dir.path().to_path_buf());
+        *current_evidence_case().lock().unwrap() = None;
+
+        let local = ram_output_path("ram_20260519_120000.raw", Some("Case A"), None).unwrap();
+        let remote = ram_output_path(
+            "/tmp/ram_20260519_120000.raw",
+            Some("Case A"),
+            Some("192.168.1.178"),
+        )
+        .unwrap();
+
+        assert_eq!(
+            local,
+            dir.path()
+                .join("Case_A")
+                .join("ram")
+                .join("ram_20260519_120000.raw")
+        );
+        assert_eq!(
+            remote,
+            dir.path()
+                .join("Case_A")
+                .join("ram")
+                .join("192.168.1.178_ram_20260519_120000.raw")
+        );
+
+        *current_evidence_case().lock().unwrap() = None;
+        *test_case_base_dir().lock().unwrap() = None;
     }
 }
