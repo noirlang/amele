@@ -374,10 +374,10 @@ fn collect_dumpsys(
 }
 
 fn collect_bugreport(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
-    let target = dir.to_string_lossy().into_owned();
+    let target_path = dir.join("bugreport.zip");
+    let target = target_path.to_string_lossy().into_owned();
     match run_adb_file_command(serial, &["bugreport", &target]) {
         Ok(()) => {
-            // `adb bugreport <dir>` creates a file named bugreport-*.zip in <dir>.
             // Find it and report its size.
             let mut found: Option<std::path::PathBuf> = None;
             if let Ok(entries) = std::fs::read_dir(dir) {
