@@ -207,13 +207,25 @@ const LOGICAL_STEPS: &[(&str, &str)] = &[
     ("dumpsys_account", "dumpsys_account.txt"),
     ("dumpsys_connectivity", "dumpsys_connectivity.txt"),
     ("dumpsys_notification", "dumpsys_notification.txt"),
+    ("dumpsys_telephony", "dumpsys_telephony.txt"),
+    ("dumpsys_location", "dumpsys_location.txt"),
+    ("dumpsys_netstats", "dumpsys_netstats.txt"),
+    ("dumpsys_activity", "dumpsys_activity.txt"),
+    ("dumpsys_meminfo", "dumpsys_meminfo.txt"),
+    ("dumpsys_appops", "dumpsys_appops.txt"),
+    ("device_settings", "device_settings.txt"),
     ("network_info", "network_info.txt"),
     ("processes", "processes.txt"),
     ("disk_usage", "disk_usage.txt"),
+    ("content_sms", "content_sms.txt"),
+    ("content_calls", "content_calls.txt"),
+    ("content_contacts", "content_contacts.txt"),
     ("screenshot", "screenshot.png"),
     ("whatsapp_media", "whatsapp_media"),
     ("telegram_media", "telegram_media"),
     ("app_media", "app_media"),
+    ("all_app_media", "all_app_media"),
+    ("adb_backup", "adb_backup.ab"),
     ("bugreport", "bugreport.zip"),
     ("shared_storage", "shared_storage"),
 ];
@@ -641,8 +653,29 @@ fn collect_app_media(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
         ("com.whatsapp.w4b", "whatsapp_business"),
         ("com.instagram.android", "instagram"),
         ("com.facebook.orca", "messenger"),
+        ("com.facebook.katana", "facebook"),
         ("com.viber.voip", "viber"),
         ("com.google.android.apps.messaging", "google_messages"),
+        ("com.twitter.android", "x_twitter"),
+        ("com.snapchat.android", "snapchat"),
+        ("com.zhiliaoapp.musically", "tiktok"),
+        ("com.ss.android.ugc.trill", "tiktok_alt"),
+        ("com.discord", "discord"),
+        ("com.linkedin.android", "linkedin"),
+        ("com.pinterest", "pinterest"),
+        ("com.reddit.frontpage", "reddit"),
+        ("com.spotify.music", "spotify"),
+        ("org.thoughtcrime.securesms", "signal"),
+        ("com.skype.raider", "skype"),
+        ("us.zoom.videomeetings", "zoom"),
+        ("com.microsoft.teams", "teams"),
+        ("com.turkcell.bip", "bip"),
+        ("com.wire", "wire"),
+        ("org.telegram.plus", "telegram_plus"),
+        ("com.kakao.talk", "kakaotalk"),
+        ("jp.naver.line.android", "line"),
+        ("com.tencent.mm", "wechat"),
+        ("com.imo.android.imoim", "imo"),
     ];
     let app_media_dir = dir.join("app_media");
     let _ = std::fs::create_dir_all(&app_media_dir);
@@ -668,7 +701,6 @@ fn collect_app_media(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
                     found_any = true;
                     total_size += size;
                 } else {
-                    // remove empty dir
                     let _ = std::fs::remove_dir(&target);
                 }
             }
@@ -684,6 +716,178 @@ fn collect_app_media(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
             None
         } else {
             Some("Hicbir uygulama medyasi bulunamadi".to_string())
+        },
+    }
+}
+
+/// Dynamically scan /sdcard/Android/media/ and pull ALL app directories found.
+/// This catches any app not in the hardcoded list above.
+fn collect_all_app_media(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
+    let all_media_dir = dir.join("all_app_media");
+    let _ = std::fs::create_dir_all(&all_media_dir);
+
+    // List all directories under /sdcard/Android/media/
+    let listing = run_adb_command(serial, &["shell", "ls", "/sdcard/Android/media/"]);
+    let packages: Vec<String> = match listing {
+        Ok(output) => output
+            .lines()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty() && l.contains('.'))
+            .collect(),
+        Err(err) => {
+            return AcquisitionItem {
+                category: "all_app_media".to_string(),
+                file_name: "all_app_media".to_string(),
+                size: 0,
+                success: false,
+                error: Some(format!("Media dizini listelenemedi: {err}")),
+            };
+        }
+    };
+
+    let mut total_size = 0_u64;
+    let mut found_any = false;
+
+    for package in &packages {
+        // Use package name as folder name, replacing dots with underscores for safety
+        let folder_name = package.replace('.', "_");
+        let remote = format!("/sdcard/Android/media/{package}/");
+        let target = all_media_dir.join(&folder_name);
+        let _ = std::fs::create_dir_all(&target);
+        let target_str = target.to_string_lossy().into_owned();
+        match run_adb_file_command(serial, &["pull", &remote, &target_str]) {
+            Ok(()) => {
+                let size = dir_size(&target);
+                if size > 0 {
+                    found_any = true;
+                    total_size += size;
+                }
+            }
+            Err(_) => {
+                let size = dir_size(&target);
+                if size > 0 {
+                    found_any = true;
+                    total_size += size;
+                } else {
+                    let _ = std::fs::remove_dir(&target);
+                }
+            }
+        }
+    }
+
+    AcquisitionItem {
+        category: "all_app_media".to_string(),
+        file_name: "all_app_media".to_string(),
+        size: total_size,
+        success: found_any,
+        error: if found_any {
+            None
+        } else {
+            Some("Hicbir ek uygulama medyasi bulunamadi".to_string())
+        },
+    }
+}
+
+/// Collect device settings (system, secure, global).
+fn collect_device_settings(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
+    let sections = [
+        (
+            "=== settings list system ===",
+            vec!["shell", "settings", "list", "system"],
+        ),
+        (
+            "=== settings list secure ===",
+            vec!["shell", "settings", "list", "secure"],
+        ),
+        (
+            "=== settings list global ===",
+            vec!["shell", "settings", "list", "global"],
+        ),
+    ];
+    let mut content = String::new();
+    for (header, args) in &sections {
+        content.push_str(header);
+        content.push('\n');
+        match run_adb_command(serial, args.as_slice()) {
+            Ok(output) => content.push_str(&output),
+            Err(err) => content.push_str(&format!("Hata: {err}")),
+        }
+        content.push_str("\n\n");
+    }
+    let path = dir.join("device_settings.txt");
+    match std::fs::write(&path, &content) {
+        Ok(()) => AcquisitionItem {
+            category: "device_settings".to_string(),
+            file_name: "device_settings.txt".to_string(),
+            size: content.len() as u64,
+            success: true,
+            error: None,
+        },
+        Err(err) => AcquisitionItem {
+            category: "device_settings".to_string(),
+            file_name: "device_settings.txt".to_string(),
+            size: 0,
+            success: false,
+            error: Some(format!("Dosya yazilamadi: {err}")),
+        },
+    }
+}
+
+/// Try to query a content provider URI.
+/// On modern Android without default-app permissions, this may fail — we attempt anyway.
+fn collect_content_query(
+    serial: &str,
+    category: &str,
+    file_name: &str,
+    uri: &str,
+    dir: &std::path::Path,
+) -> AcquisitionItem {
+    collect_shell_output(
+        serial,
+        category,
+        file_name,
+        &["shell", "content", "query", "--uri", uri],
+        dir,
+    )
+}
+
+/// Attempt adb backup (deprecated on modern Android but still yields data on older devices).
+fn collect_adb_backup(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
+    let target = dir.join("adb_backup.ab");
+    let target_str = target.to_string_lossy().into_owned();
+    // -all: backup all apps, -shared: include shared storage, -nosystem: skip system apps
+    // -f: output file
+    match run_adb_file_command(
+        serial,
+        &["backup", "-all", "-shared", "-nosystem", "-f", &target_str],
+    ) {
+        Ok(()) => {
+            let size = std::fs::metadata(&target).map(|m| m.len()).unwrap_or(0);
+            // Minimum valid backup is ~50 bytes (header only = empty)
+            if size > 100 {
+                AcquisitionItem {
+                    category: "adb_backup".to_string(),
+                    file_name: "adb_backup.ab".to_string(),
+                    size,
+                    success: true,
+                    error: None,
+                }
+            } else {
+                AcquisitionItem {
+                    category: "adb_backup".to_string(),
+                    file_name: "adb_backup.ab".to_string(),
+                    size,
+                    success: false,
+                    error: Some("Backup dosyasi bos veya cihaz tarafindan reddedildi".to_string()),
+                }
+            }
+        }
+        Err(err) => AcquisitionItem {
+            category: "adb_backup".to_string(),
+            file_name: "adb_backup.ab".to_string(),
+            size: 0,
+            success: false,
+            error: Some(err),
         },
     }
 }
@@ -784,13 +988,56 @@ where
                 output_dir,
             ),
             "dumpsys_notification" => collect_notification_history(serial, output_dir),
+            "dumpsys_telephony" => collect_dumpsys(
+                serial,
+                "telephony.registry",
+                "dumpsys_telephony.txt",
+                output_dir,
+            ),
+            "dumpsys_location" => {
+                collect_dumpsys(serial, "location", "dumpsys_location.txt", output_dir)
+            }
+            "dumpsys_netstats" => {
+                collect_dumpsys(serial, "netstats", "dumpsys_netstats.txt", output_dir)
+            }
+            "dumpsys_activity" => {
+                collect_dumpsys(serial, "activity", "dumpsys_activity.txt", output_dir)
+            }
+            "dumpsys_meminfo" => {
+                collect_dumpsys(serial, "meminfo", "dumpsys_meminfo.txt", output_dir)
+            }
+            "dumpsys_appops" => collect_dumpsys(serial, "appops", "dumpsys_appops.txt", output_dir),
+            "device_settings" => collect_device_settings(serial, output_dir),
             "network_info" => collect_network_info(serial, output_dir),
             "processes" => collect_processes(serial, output_dir),
             "disk_usage" => collect_disk_usage(serial, output_dir),
+            "content_sms" => collect_content_query(
+                serial,
+                "content_sms",
+                "content_sms.txt",
+                "content://sms",
+                output_dir,
+            ),
+            "content_calls" => collect_content_query(
+                serial,
+                "content_calls",
+                "content_calls.txt",
+                "content://call_log/calls",
+                output_dir,
+            ),
+            "content_contacts" => collect_content_query(
+                serial,
+                "content_contacts",
+                "content_contacts.txt",
+                "content://contacts/phones",
+                output_dir,
+            ),
             "screenshot" => collect_screenshot(serial, output_dir),
             "whatsapp_media" => collect_whatsapp_media(serial, output_dir),
             "telegram_media" => collect_telegram_media(serial, output_dir),
             "app_media" => collect_app_media(serial, output_dir),
+            "all_app_media" => collect_all_app_media(serial, output_dir),
+            "adb_backup" => collect_adb_backup(serial, output_dir),
             "bugreport" => collect_bugreport(serial, output_dir),
             "shared_storage" => collect_shared_storage(serial, output_dir),
             _ => continue,
