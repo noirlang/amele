@@ -213,6 +213,15 @@ const LOGICAL_STEPS: &[(&str, &str)] = &[
     ("dumpsys_activity", "dumpsys_activity.txt"),
     ("dumpsys_meminfo", "dumpsys_meminfo.txt"),
     ("dumpsys_appops", "dumpsys_appops.txt"),
+    ("dumpsys_package", "dumpsys_package.txt"),
+    ("dumpsys_diskstats", "dumpsys_diskstats.txt"),
+    ("dumpsys_deviceidle", "dumpsys_deviceidle.txt"),
+    ("dumpsys_alarm", "dumpsys_alarm.txt"),
+    ("dumpsys_jobscheduler", "dumpsys_jobscheduler.txt"),
+    ("dumpsys_procstats", "dumpsys_procstats.txt"),
+    ("dumpsys_sensorservice", "dumpsys_sensorservice.txt"),
+    ("dumpsys_power", "dumpsys_power.txt"),
+    ("dumpsys_window", "dumpsys_window.txt"),
     ("device_settings", "device_settings.txt"),
     ("network_info", "network_info.txt"),
     ("processes", "processes.txt"),
@@ -220,6 +229,10 @@ const LOGICAL_STEPS: &[(&str, &str)] = &[
     ("content_sms", "content_sms.txt"),
     ("content_calls", "content_calls.txt"),
     ("content_contacts", "content_contacts.txt"),
+    ("content_user_dictionary", "content_user_dictionary.txt"),
+    ("content_calendar", "content_calendar.txt"),
+    ("content_media_images", "content_media_images.txt"),
+    ("content_media_videos", "content_media_videos.txt"),
     ("screenshot", "screenshot.png"),
     ("whatsapp_media", "whatsapp_media"),
     ("telegram_media", "telegram_media"),
@@ -1007,6 +1020,33 @@ where
                 collect_dumpsys(serial, "meminfo", "dumpsys_meminfo.txt", output_dir)
             }
             "dumpsys_appops" => collect_dumpsys(serial, "appops", "dumpsys_appops.txt", output_dir),
+            "dumpsys_package" => {
+                collect_dumpsys(serial, "package", "dumpsys_package.txt", output_dir)
+            }
+            "dumpsys_diskstats" => {
+                collect_dumpsys(serial, "diskstats", "dumpsys_diskstats.txt", output_dir)
+            }
+            "dumpsys_deviceidle" => {
+                collect_dumpsys(serial, "deviceidle", "dumpsys_deviceidle.txt", output_dir)
+            }
+            "dumpsys_alarm" => collect_dumpsys(serial, "alarm", "dumpsys_alarm.txt", output_dir),
+            "dumpsys_jobscheduler" => collect_dumpsys(
+                serial,
+                "jobscheduler",
+                "dumpsys_jobscheduler.txt",
+                output_dir,
+            ),
+            "dumpsys_procstats" => {
+                collect_dumpsys(serial, "procstats", "dumpsys_procstats.txt", output_dir)
+            }
+            "dumpsys_sensorservice" => collect_dumpsys(
+                serial,
+                "sensorservice",
+                "dumpsys_sensorservice.txt",
+                output_dir,
+            ),
+            "dumpsys_power" => collect_dumpsys(serial, "power", "dumpsys_power.txt", output_dir),
+            "dumpsys_window" => collect_dumpsys(serial, "window", "dumpsys_window.txt", output_dir),
             "device_settings" => collect_device_settings(serial, output_dir),
             "network_info" => collect_network_info(serial, output_dir),
             "processes" => collect_processes(serial, output_dir),
@@ -1030,6 +1070,34 @@ where
                 "content_contacts",
                 "content_contacts.txt",
                 "content://contacts/phones",
+                output_dir,
+            ),
+            "content_user_dictionary" => collect_content_query(
+                serial,
+                "content_user_dictionary",
+                "content_user_dictionary.txt",
+                "content://user_dictionary/words",
+                output_dir,
+            ),
+            "content_calendar" => collect_content_query(
+                serial,
+                "content_calendar",
+                "content_calendar.txt",
+                "content://com.android.calendar/events",
+                output_dir,
+            ),
+            "content_media_images" => collect_content_query(
+                serial,
+                "content_media_images",
+                "content_media_images.txt",
+                "content://media/external/images/media",
+                output_dir,
+            ),
+            "content_media_videos" => collect_content_query(
+                serial,
+                "content_media_videos",
+                "content_media_videos.txt",
+                "content://media/external/video/media",
                 output_dir,
             ),
             "screenshot" => collect_screenshot(serial, output_dir),

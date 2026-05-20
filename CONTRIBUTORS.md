@@ -9,7 +9,7 @@ Worm adli bilisim odakli bir arac oldugu icin katkilarin test edilebilir, tekrar
 - Agent protokolu, uzak edinim, durdur/devam veya mount akisi degisecekse once davranis etkisini acikla.
 - Pull requestlerde `cargo fmt`, `cargo test --locked` ve ilgili UI/agent kontrollerinin gectigini belirt.
 - Dokumantasyon katkilari da destek sayilir: eksik kurulum adimi, yanlis platform notu veya anlasilmayan hata mesaji duzeltilebilir.
-- Guvenlik acigi suphelerinde herkese acik issue acmadan once maintainer ile ozel kanaldan iletisime gec.
+- Guvenlik acigi suphelerinde herkese acik issue acmadan once maintainer ile ozel kanaldan iletisime gec. 
 
 ## Support Guidelines
 
