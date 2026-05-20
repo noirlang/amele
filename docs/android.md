@@ -131,9 +131,6 @@ WhatsApp Business, Instagram, Facebook Messenger, Facebook, Viber, Google Messag
 | `manifest.json` | Toplanan tüm verilerin özeti: kategori, dosya adı, boyut, başarı durumu |
 | `manifest.json.sha256` | Manifest dosyasının SHA-256 hash'i — bütünlük doğrulaması |
 
-### Bellek (RAM) Dökümü Hakkında
-
-> ⚠️ Root yetkisi olmadan Android'de **tam bellek (RAM) dökümü almak mümkün değildir**. Android kernel'i `/proc/*/mem` ve `/dev/mem` erişimini kısıtlar. `dumpsys meminfo` komutu bellek **istatistiklerini** (her uygulamanın heap, PSS, RSS kullanımı) sağlar — tam bellek içeriğini değil. Tam RAM dökümü için cihazın rootlanması veya özel forensic araçlarının kullanılması gerekir.
 
 ### Çıktı Klasör Yapısı
 
