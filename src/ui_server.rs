@@ -1343,12 +1343,15 @@ fn run_winpmem_install_job(job_id: String) {
     let total_expected_bytes = 3_831_296; // ~3.65 MB
     let monitor_stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let thread_stop = monitor_stop.clone();
-    
+
     let monitor_thread = thread::spawn(move || {
         while !thread_stop.load(std::sync::atomic::Ordering::SeqCst) {
             if let Ok(metadata) = fs::metadata(&monitor_path) {
                 let size = metadata.len();
-                let pct = (size * 100).checked_div(total_expected_bytes).unwrap_or(0).min(100);
+                let pct = (size * 100)
+                    .checked_div(total_expected_bytes)
+                    .unwrap_or(0)
+                    .min(100);
                 update_acquisition_progress_message(
                     &monitor_job_id,
                     size,
@@ -1356,7 +1359,7 @@ fn run_winpmem_install_job(job_id: String) {
                     &format!("WinPMEM indiriliyor... %{pct}"),
                 );
             }
-            thread::sleep(Duration::from_millis(250));
+            thread::sleep(std::time::Duration::from_millis(250));
         }
     });
 
@@ -1444,7 +1447,6 @@ fn run_winpmem_install_job(job_id: String) {
         "WinPMEM kuruldu",
     );
 }
-
 
 fn avml_release_asset_name() -> Option<&'static str> {
     match std::env::consts::ARCH {
