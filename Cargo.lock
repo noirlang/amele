@@ -3688,7 +3688,7 @@ dependencies = [
 
 [[package]]
 name = "worm"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "base64",
  "chrono",

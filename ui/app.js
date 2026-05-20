@@ -33,7 +33,7 @@ const icons = {
   arrow: '<path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>'
 };
 
-const APP_VERSION = "v0.0.6";
+const APP_VERSION = "v0.0.7";
 const assetPath = "./assets";
 const backendAvailable = location.protocol === "http:" || location.protocol === "https:";
 const isNativeWebView = new URLSearchParams(window.location.search).get("native") === "1";
