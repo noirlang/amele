@@ -1315,73 +1315,136 @@ fn winpmem_install_endpoint() -> Response {
             );
         }
 
-        let download_dir = std::env::temp_dir().join("worm-winpmem-install");
-        if let Err(err) = fs::create_dir_all(&download_dir) {
-            return json_error(500, err.to_string());
-        }
-        let download_path = download_dir.join(ram::WINPMEM_NAME);
-        if let Err(err) = download_file_to_path(
-            WINPMEM_DOWNLOAD_URL,
-            &download_path,
-            "WinPMEM download failed",
-        ) {
-            let _ = fs::remove_file(&download_path);
-            return json_error(500, err);
-        }
-
-        let sha256 = match sha256_file(&download_path) {
-            Ok(value) => value,
-            Err(err) => {
-                let _ = fs::remove_file(&download_path);
-                return json_error(500, err);
-            }
-        };
-        let stem = helper_file_stem("worm-winpmem-install");
-        let result_path = download_dir.join(format!("{stem}-result.json"));
-        let args = vec![
-            "winpmem-install-helper".to_string(),
-            download_path.to_string_lossy().into_owned(),
-            result_path.to_string_lossy().into_owned(),
-        ];
-
-        let run_result = run_elevated_helper_wait(&args);
-        let helper_result = read_helper_json(&result_path).ok();
-        cleanup_helper_files(&[&download_path, &result_path]);
-        if let Err(err) = run_result {
-            let message = helper_result
-                .as_ref()
-                .and_then(|value| value.get("error"))
-                .and_then(Value::as_str)
-                .unwrap_or(&err)
-                .to_string();
-            return json_error(500, message);
-        }
-
-        let helper_result = match helper_result {
-            Some(value) => value,
-            None => return json_error(500, "WinPMEM install helper did not return a result"),
-        };
-        if helper_result.get("ok").and_then(Value::as_bool) != Some(true) {
-            return json_error(
-                500,
-                helper_result
-                    .get("error")
-                    .and_then(Value::as_str)
-                    .unwrap_or("WinPMEM installation failed")
-                    .to_string(),
-            );
-        }
+        let (job_id, _control) = create_acquisition_job("WinPMEM indiriliyor");
+        let thread_job_id = job_id.clone();
+        thread::spawn(move || run_winpmem_install_job(thread_job_id));
 
         json_ok(json!({
+            "job_id": job_id,
+            "status": "running",
+            "message": "WinPMEM indirme başlatıldı",
+        }))
+    }
+}
+
+#[cfg(windows)]
+fn run_winpmem_install_job(job_id: String) {
+    update_acquisition_message(&job_id, "WinPMEM indiriliyor...");
+
+    let download_dir = std::env::temp_dir().join("worm-winpmem-install");
+    if let Err(err) = fs::create_dir_all(&download_dir) {
+        fail_acquisition_job_with_message(&job_id, err.to_string(), "WinPMEM indirme başarısız");
+        return;
+    }
+    let download_path = download_dir.join(ram::WINPMEM_NAME);
+
+    let monitor_job_id = job_id.clone();
+    let monitor_path = download_path.clone();
+    let total_expected_bytes = 3_831_296; // ~3.65 MB
+    let monitor_stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let thread_stop = monitor_stop.clone();
+    
+    let monitor_thread = thread::spawn(move || {
+        while !thread_stop.load(std::sync::atomic::Ordering::SeqCst) {
+            if let Ok(metadata) = fs::metadata(&monitor_path) {
+                let size = metadata.len();
+                let pct = (size * 100).checked_div(total_expected_bytes).unwrap_or(0).min(100);
+                update_acquisition_progress_message(
+                    &monitor_job_id,
+                    size,
+                    total_expected_bytes,
+                    &format!("WinPMEM indiriliyor... %{pct}"),
+                );
+            }
+            thread::sleep(Duration::from_millis(250));
+        }
+    });
+
+    let download_result = download_file_to_path(
+        WINPMEM_DOWNLOAD_URL,
+        &download_path,
+        "WinPMEM download failed",
+    );
+
+    monitor_stop.store(true, std::sync::atomic::Ordering::SeqCst);
+    let _ = monitor_thread.join();
+
+    if let Err(err) = download_result {
+        let _ = fs::remove_file(&download_path);
+        fail_acquisition_job_with_message(&job_id, err, "WinPMEM indirme başarısız");
+        return;
+    }
+
+    update_acquisition_message(&job_id, "WinPMEM SHA256 hesaplanıyor...");
+    let sha256 = match sha256_file(&download_path) {
+        Ok(value) => value,
+        Err(err) => {
+            let _ = fs::remove_file(&download_path);
+            fail_acquisition_job_with_message(&job_id, err, "WinPMEM hash hesaplama başarısız");
+            return;
+        }
+    };
+
+    update_acquisition_message(&job_id, "WinPMEM kurulumu yapılıyor (yetki gerekli)...");
+    let stem = helper_file_stem("worm-winpmem-install");
+    let result_path = download_dir.join(format!("{stem}-result.json"));
+    let args = vec![
+        "winpmem-install-helper".to_string(),
+        download_path.to_string_lossy().into_owned(),
+        result_path.to_string_lossy().into_owned(),
+    ];
+
+    let run_result = run_elevated_helper_wait(&args);
+    let helper_result = read_helper_json(&result_path).ok();
+    cleanup_helper_files(&[&download_path, &result_path]);
+
+    if let Err(err) = run_result {
+        let message = helper_result
+            .as_ref()
+            .and_then(|value| value.get("error"))
+            .and_then(Value::as_str)
+            .unwrap_or(&err)
+            .to_string();
+        fail_acquisition_job_with_message(&job_id, message, "WinPMEM kurulum başarısız");
+        return;
+    }
+
+    let helper_result = match helper_result {
+        Some(value) => value,
+        None => {
+            fail_acquisition_job_with_message(
+                &job_id,
+                "WinPMEM install helper did not return a result".to_string(),
+                "WinPMEM kurulum başarısız",
+            );
+            return;
+        }
+    };
+
+    if helper_result.get("ok").and_then(Value::as_bool) != Some(true) {
+        let message = helper_result
+            .get("error")
+            .and_then(Value::as_str)
+            .unwrap_or("WinPMEM installation failed")
+            .to_string();
+        fail_acquisition_job_with_message(&job_id, message, "WinPMEM kurulum başarısız");
+        return;
+    }
+
+    finish_acquisition_job_with_message(
+        &job_id,
+        json!({
             "asset": ram::WINPMEM_NAME,
             "download_url": WINPMEM_DOWNLOAD_URL,
             "sha256": sha256,
             "path": helper_result.get("path").cloned().unwrap_or(Value::Null),
             "message": helper_result.get("message").cloned().unwrap_or(Value::String("WinPMEM installed".to_string())),
             "status": ram::winpmem_status(None),
-        }))
-    }
+        }),
+        "WinPMEM kuruldu",
+    );
 }
+
 
 fn avml_release_asset_name() -> Option<&'static str> {
     match std::env::consts::ARCH {
@@ -1612,24 +1675,37 @@ fn elevated_helper_executable() -> Result<PathBuf, String> {
 #[cfg(windows)]
 fn spawn_elevated_helper(args: &[String]) -> Result<std::process::Child, String> {
     let exe = std::env::current_exe().map_err(|err| err.to_string())?;
+    let exe_str = exe.to_string_lossy().to_string();
+
+    // Build a properly quoted argument string for Start-Process -ArgumentList
+    let quoted_args: Vec<String> = args
+        .iter()
+        .map(|a| {
+            // Escape any single quotes inside the argument, then wrap in single quotes
+            let escaped = a.replace('\'', "''");
+            format!("'{escaped}'")
+        })
+        .collect();
+    let arg_list = quoted_args.join(",");
+
+    // Build the full PowerShell command with the exe and arguments inlined
+    let ps_command = format!(
+        "$ErrorActionPreference='Stop'; \
+         $process = Start-Process -FilePath '{}' -ArgumentList {} -Verb RunAs -Wait -PassThru; \
+         exit $process.ExitCode",
+        exe_str.replace('\'', "''"),
+        arg_list,
+    );
+
     Command::new("powershell")
         .arg("-NoProfile")
         .arg("-ExecutionPolicy")
         .arg("Bypass")
         .arg("-Command")
-        .arg(
-            "$ErrorActionPreference='Stop'; \
-             $exe=$args[0]; \
-             $argList=@(); \
-             for ($i=1; $i -lt $args.Count; $i++) { $argList += $args[$i] }; \
-             $process=Start-Process -FilePath $exe -ArgumentList $argList -Verb RunAs -Wait -PassThru; \
-             exit $process.ExitCode",
-        )
-        .arg(exe)
-        .args(args)
+        .arg(&ps_command)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .spawn()
         .map_err(|err| format!("UAC baslatilamadi: {err}"))
 }
@@ -2087,18 +2163,23 @@ fn sanitize_download_name(value: &str) -> String {
 
 fn download_file_to_path(url: &str, target: &Path, fallback: &str) -> Result<(), String> {
     #[cfg(windows)]
-    let output = Command::new("powershell")
-        .arg("-NoProfile")
-        .arg("-ExecutionPolicy")
-        .arg("Bypass")
-        .arg("-Command")
-        .arg(
-            "$ProgressPreference='SilentlyContinue'; \
-             Invoke-WebRequest -Uri $args[0] -OutFile $args[1] -UseBasicParsing",
-        )
-        .arg(url)
-        .arg(target)
-        .output();
+    let output = {
+        let target_str = target.to_string_lossy();
+        let ps_command = format!(
+            "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; \
+             $ProgressPreference = 'SilentlyContinue'; \
+             Invoke-WebRequest -Uri '{}' -OutFile '{}' -UseBasicParsing",
+            url.replace('\'', "''"),
+            target_str.replace('\'', "''"),
+        );
+        Command::new("powershell")
+            .arg("-NoProfile")
+            .arg("-ExecutionPolicy")
+            .arg("Bypass")
+            .arg("-Command")
+            .arg(&ps_command)
+            .output()
+    };
 
     #[cfg(not(windows))]
     let output = Command::new("curl")
@@ -3242,7 +3323,12 @@ fn process_is_root() -> bool {
     unsafe { libc::geteuid() == 0 }
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(windows)]
+fn process_is_root() -> bool {
+    ram::is_root_or_admin()
+}
+
+#[cfg(not(any(target_os = "linux", windows)))]
 fn process_is_root() -> bool {
     false
 }

@@ -2683,8 +2683,14 @@ async function installWinpmem(button) {
   button.disabled = true;
   writeWorkflowLog(t("workflow.winpmemInstalling"));
   updateSide("last-action", t("workflow.winpmemInstalling"));
+  setProgress(0, "0%");
   try {
-    const result = await apiRequest("/api/winpmem-install", { method: "POST" });
+    const start = await apiRequest("/api/winpmem-install", { method: "POST" });
+    if (!start.job_id) throw new Error(t("workflow.jobIdMissing"));
+
+    // Wait for the download/install job to finish
+    const result = await waitForAcquisitionJob(start.job_id);
+
     const status = result.status || {};
     const path = status.tool_path || result.path || "C:\\Tools\\go-winpmem_amd64_1.0-rc2_signed.exe";
     const label = status.message || result.message || "WinPMEM ready";
@@ -2702,6 +2708,7 @@ async function installWinpmem(button) {
     writeWorkflowLog(t("workflow.winpmemInstalled", { path: escapeHtml(path) }));
     showToast(t("workflow.winpmemInstalled", { path }));
   } catch (error) {
+    setProgress(0);
     writeWorkflowLog(t("workflow.winpmemInstallFailed", { message: escapeHtml(error.message) }));
     showToast(t("workflow.winpmemInstallFailed", { message: error.message }), "error");
   } finally {

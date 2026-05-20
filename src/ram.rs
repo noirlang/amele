@@ -391,13 +391,17 @@ pub fn find_winpmem(candidate: Option<&Path>) -> Option<PathBuf> {
     }
 
     find_in_path(WINPMEM_NAME).or_else(|| {
-        [
-            PathBuf::from(WINPMEM_NAME),
-            PathBuf::from(r"C:\Forensics\go-winpmem_amd64_1.0-rc2_signed.exe"),
+        let mut candidates = vec![
             PathBuf::from(r"C:\Tools\go-winpmem_amd64_1.0-rc2_signed.exe"),
-        ]
-        .into_iter()
-        .find(|path| path.exists())
+            PathBuf::from(r"C:\Forensics\go-winpmem_amd64_1.0-rc2_signed.exe"),
+        ];
+        // Also check next to the running executable
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(exe_dir) = exe.parent() {
+                candidates.insert(0, exe_dir.join(WINPMEM_NAME));
+            }
+        }
+        candidates.into_iter().find(|path| path.exists())
     })
 }
 
