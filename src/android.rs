@@ -222,6 +222,9 @@ const LOGICAL_STEPS: &[(&str, &str)] = &[
     ("dumpsys_sensorservice", "dumpsys_sensorservice.txt"),
     ("dumpsys_power", "dumpsys_power.txt"),
     ("dumpsys_window", "dumpsys_window.txt"),
+    ("dumpsys_clipboard", "dumpsys_clipboard.txt"),
+    ("dumpsys_batterystats", "dumpsys_batterystats.txt"),
+    ("dumpsys_keystore", "dumpsys_keystore.txt"),
     ("device_settings", "device_settings.txt"),
     ("network_info", "network_info.txt"),
     ("processes", "processes.txt"),
@@ -233,6 +236,12 @@ const LOGICAL_STEPS: &[(&str, &str)] = &[
     ("content_calendar", "content_calendar.txt"),
     ("content_media_images", "content_media_images.txt"),
     ("content_media_videos", "content_media_videos.txt"),
+    ("content_media_audio", "content_media_audio.txt"),
+    ("content_media_files", "content_media_files.txt"),
+    (
+        "content_telephony_carriers",
+        "content_telephony_carriers.txt",
+    ),
     ("screenshot", "screenshot.png"),
     ("whatsapp_media", "whatsapp_media"),
     ("telegram_media", "telegram_media"),
@@ -1047,6 +1056,18 @@ where
             ),
             "dumpsys_power" => collect_dumpsys(serial, "power", "dumpsys_power.txt", output_dir),
             "dumpsys_window" => collect_dumpsys(serial, "window", "dumpsys_window.txt", output_dir),
+            "dumpsys_clipboard" => {
+                collect_dumpsys(serial, "clipboard", "dumpsys_clipboard.txt", output_dir)
+            }
+            "dumpsys_batterystats" => collect_dumpsys(
+                serial,
+                "batterystats",
+                "dumpsys_batterystats.txt",
+                output_dir,
+            ),
+            "dumpsys_keystore" => {
+                collect_dumpsys(serial, "keystore", "dumpsys_keystore.txt", output_dir)
+            }
             "device_settings" => collect_device_settings(serial, output_dir),
             "network_info" => collect_network_info(serial, output_dir),
             "processes" => collect_processes(serial, output_dir),
@@ -1098,6 +1119,27 @@ where
                 "content_media_videos",
                 "content_media_videos.txt",
                 "content://media/external/video/media",
+                output_dir,
+            ),
+            "content_media_audio" => collect_content_query(
+                serial,
+                "content_media_audio",
+                "content_media_audio.txt",
+                "content://media/external/audio/media",
+                output_dir,
+            ),
+            "content_media_files" => collect_content_query(
+                serial,
+                "content_media_files",
+                "content_media_files.txt",
+                "content://media/external/file",
+                output_dir,
+            ),
+            "content_telephony_carriers" => collect_content_query(
+                serial,
+                "content_telephony_carriers",
+                "content_telephony_carriers.txt",
+                "content://telephony/carriers",
                 output_dir,
             ),
             "screenshot" => collect_screenshot(serial, output_dir),
