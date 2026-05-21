@@ -415,6 +415,7 @@ const translations = {
     "case.select": "Vaka Seç",
     "case.noCases": "Kayıtlı vaka yok",
     "case.refresh": "Vakaları Yenile",
+    "case.promptNewName": "Lütfen oluşturmak istediğiniz yeni vaka adını girin:",
     "case.loaded": "{count} vaka yüklendi.",
     "case.create": "Vaka Oluştur",
     "case.notCreated": "Vaka oluşturulmadı",
@@ -817,6 +818,7 @@ const translations = {
     "case.select": "Select Case",
     "case.noCases": "No saved cases",
     "case.refresh": "Refresh Cases",
+    "case.promptNewName": "Please enter the new case name:",
     "case.loaded": "{count} cases loaded.",
     "case.create": "Create Case",
     "case.notCreated": "No case created",
@@ -2036,6 +2038,40 @@ document.addEventListener("change", (event) => {
 
   const caseSelect = event.target.closest("[data-case-select]");
   if (caseSelect) {
+    if (caseSelect.value === "__new__") {
+      const promptTitle = t("case.promptNewName") || "Lütfen oluşturmak istediğiniz yeni vaka adını girin:";
+      const newName = prompt(promptTitle);
+      if (newName && newName.trim()) {
+        const cleanName = newName.trim();
+        const exists = state.cases.some((c) => c.case_name.toLowerCase() === cleanName.toLowerCase());
+        if (!exists) {
+          state.cases.push({ case_name: cleanName });
+        }
+        state.activeCase = { case_name: cleanName };
+        caseSelect.value = cleanName;
+        
+        // Mirror to all data-case-select fields on the page
+        document.querySelectorAll("[data-case-select]").forEach((el) => {
+          el.innerHTML = caseSelectOptions(cleanName, { allowNew: el.dataset.allowNewCase === "1" });
+          el.value = cleanName;
+        });
+
+        // Set value to legacy hidden input
+        const legacyInput = document.querySelector("#workflow-case-name");
+        if (legacyInput) {
+          legacyInput.value = cleanName;
+        }
+      } else {
+        // Revert to first case or empty if cancelled
+        const fallback = state.cases.length ? state.cases[0].case_name : "";
+        caseSelect.value = fallback;
+        document.querySelectorAll("[data-case-select]").forEach((el) => {
+          el.value = fallback;
+        });
+      }
+    } else {
+      state.activeCase = state.cases.find((c) => c.case_name === caseSelect.value) || { case_name: caseSelect.value };
+    }
     toggleCaseCreateInput(caseSelect);
   }
 
