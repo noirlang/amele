@@ -137,6 +137,13 @@ const translations = {
     "android.logical.done": "Mantıksal imaj alma tamamlandı.",
     "android.logical.failed": "İmaj alma başarısız: {message}",
     "android.logical.deviceRequired": "Önce cihaz seçin.",
+    "android.filesystem.caseTitle": "Vaka Notları",
+    "android.filesystem.caseHint": "Android imaj çıktısı seçilen vakanın android klasörüne yazılır. Vaka yoksa yeni vaka adıyla otomatik oluşturulur.",
+    "android.filesystem.options": "Seçenekler",
+    "android.filesystem.hasRoot": "Cihazda Root Yetkisi Var (Doğrudan imaj al)",
+    "android.filesystem.acquisitionTitle": "Dosya Sistemi İmaj Alma",
+    "android.filesystem.start": "Dosya Sistem İmajını Al",
+    "android.filesystem.starting": "Dosya sistemi aktarımı başlatılıyor...",
     "android.side.status": "Durum",
     "android.side.adb": "ADB",
     "android.side.device": "Cihaz",
@@ -523,6 +530,13 @@ const translations = {
     "android.logical.done": "Logical image acquisition completed.",
     "android.logical.failed": "Acquisition failed: {message}",
     "android.logical.deviceRequired": "Select a device first.",
+    "android.filesystem.caseTitle": "Case Notes",
+    "android.filesystem.caseHint": "Android image output is written to the selected case's android folder. If no case exists, a new one is created automatically.",
+    "android.filesystem.options": "Options",
+    "android.filesystem.hasRoot": "Device Has Root Privilege (Acquire directly)",
+    "android.filesystem.acquisitionTitle": "Filesystem Image Acquisition",
+    "android.filesystem.start": "Acquire Filesystem Image",
+    "android.filesystem.starting": "Starting filesystem acquisition...",
     "android.side.status": "Status",
     "android.side.adb": "ADB",
     "android.side.device": "Device",
@@ -1117,7 +1131,7 @@ function render() {
     const workflow = workflows[state.route.split(":")[1]];
     if (workflow && workflow.mode.includes("disk")) loadEvidenceCases();
   }
-  if (state.route === "android:logical") loadEvidenceCases();
+  if (state.route === "android:logical" || state.route === "android:filesystem") loadEvidenceCases();
   view.focus({ preventScroll: true });
 }
 

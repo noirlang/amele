@@ -1176,6 +1176,167 @@ where
     })
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct FilesystemAcquisitionResult {
+    pub output_file: std::path::PathBuf,
+    pub total_bytes: u64,
+    pub sha256: String,
+}
+
+pub fn filesystem_acquisition<F, C>(
+    serial: &str,
+    output_dir: &std::path::Path,
+    has_root: bool,
+    mut progress: F,
+    cancelled: C,
+) -> Result<FilesystemAcquisitionResult, String>
+where
+    F: FnMut(u32, u32, &str),
+    C: Fn() -> bool,
+{
+    std::fs::create_dir_all(output_dir)
+        .map_err(|err| format!("Cikti dizini olusturulamadi: {err}"))?;
+
+    // Step 0: Root check or attempt
+    progress(0, 3, "Root yetkisi kontrol ediliyor...");
+
+    let mut is_root = false;
+    let mut use_su = false;
+
+    // Check current root status
+    if let Ok(out) = run_adb_command(serial, &["shell", "id"]) {
+        if out.contains("uid=0(root)") || out.contains("root") {
+            is_root = true;
+        }
+    }
+
+    if !is_root {
+        if let Ok(out) = run_adb_command(serial, &["shell", "su", "-c", "id"]) {
+            if out.contains("uid=0(root)") || out.contains("root") {
+                is_root = true;
+                use_su = true;
+            }
+        }
+    }
+
+    // If not rooted and we are allowed to attempt adb root
+    if !is_root && !has_root {
+        progress(0, 3, "Root yetkisi bulunamadi, 'adb root' deneniyor...");
+        let _ = Command::new("adb").args(["-s", serial, "root"]).output();
+        std::thread::sleep(std::time::Duration::from_secs(3));
+
+        // Re-check
+        if let Ok(out) = run_adb_command(serial, &["shell", "id"]) {
+            if out.contains("uid=0(root)") || out.contains("root") {
+                is_root = true;
+            }
+        }
+
+        if !is_root {
+            if let Ok(out) = run_adb_command(serial, &["shell", "su", "-c", "id"]) {
+                if out.contains("uid=0(root)") || out.contains("root") {
+                    is_root = true;
+                    use_su = true;
+                }
+            }
+        }
+    }
+
+    if !is_root {
+        return Err("Cihazda root yetkisi alinamadi. Dosya sistemi imaji ancak root yetkisine sahip cihazlarda alinabilir.".to_string());
+    }
+
+    progress(1, 3, "Root yetkisi doğrulandı. Dosya sistemi aktarımı başlatılıyor...");
+
+    let output_path = output_dir.join("filesystem.tar");
+    let mut file = std::fs::File::create(&output_path)
+        .map_err(|err| format!("Hedef dosya olusturulamadi: {err}"))?;
+
+    let mut cmd = Command::new("adb");
+    cmd.args(["-s", serial]);
+
+    if use_su {
+        cmd.args(["exec-out", "su -c 'tar -cf - /data 2>/dev/null'"]);
+    } else {
+        cmd.args(["exec-out", "tar -cf - /data 2>/dev/null"]);
+    }
+
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::null());
+
+    let mut child = cmd.spawn().map_err(|err| format!("ADB baslatilamadi: {err}"))?;
+    let mut stdout = child.stdout.take().ok_or_else(|| "ADB cikti akisi alinamadi".to_string())?;
+
+    let mut buffer = [0; 65536];
+    let mut total_bytes = 0_u64;
+    let mut last_progress_bytes = 0_u64;
+
+    use std::io::{Read, Write};
+
+    loop {
+        if cancelled() {
+            let _ = child.kill();
+            return Err("Kullanici tarafindan iptal edildi".to_string());
+        }
+
+        let bytes_read = stdout.read(&mut buffer)
+            .map_err(|err| format!("Cihazdan veri okunurken hata olustu: {err}"))?;
+
+        if bytes_read == 0 {
+            break;
+        }
+
+        file.write_all(&buffer[..bytes_read])
+            .map_err(|err| format!("Dosyaya veri yazilirken hata olustu: {err}"))?;
+
+        total_bytes += bytes_read as u64;
+
+        if total_bytes - last_progress_bytes > 10 * 1024 * 1024 {
+            last_progress_bytes = total_bytes;
+            let mb = total_bytes / (1024 * 1024);
+            progress(1, 3, &format!("Dosya sistemi imajı aktarılıyor: {} MB", mb));
+        }
+    }
+
+    let _ = child.wait();
+
+    if total_bytes == 0 {
+        return Err("Dosya sistemi imaji bos (0 byte). Gecersiz aktarim.".to_string());
+    }
+
+    // Step 2: Hashing
+    progress(2, 3, "Dosya sistemi imajı tamamlandı, SHA-256 doğrulaması hesaplanıyor...");
+
+    let mut file = std::fs::File::open(&output_path)
+        .map_err(|err| format!("Olusturulan tar dosyasi acilamadi: {err}"))?;
+    
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    
+    loop {
+        let bytes_read = file.read(&mut buffer)
+            .map_err(|err| format!("Hash hesabi icin dosya okunurken hata: {err}"))?;
+        if bytes_read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..bytes_read]);
+    }
+
+    let sha256 = crate::hash::to_hex(&hasher.finalize());
+
+    // Write SHA-256 sidecar file
+    let sidecar_path = output_dir.join("filesystem.tar.sha256");
+    let _ = std::fs::write(&sidecar_path, format!("{sha256}  filesystem.tar\n"));
+
+    progress(3, 3, "İşlem başarıyla tamamlandı!");
+
+    Ok(FilesystemAcquisitionResult {
+        output_file: output_path,
+        total_bytes,
+        sha256,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
