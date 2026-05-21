@@ -1,4 +1,3 @@
-# Worm
 
 <p align="center">
   <img src="ui/assets/logo/logo.png" alt="Worm Logo" width="120" />
