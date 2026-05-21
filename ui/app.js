@@ -33,7 +33,7 @@ const icons = {
   arrow: '<path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>'
 };
 
-const APP_VERSION = "v0.0.7";
+const APP_VERSION = "v0.0.8";
 const assetPath = "./assets";
 const backendAvailable = location.protocol === "http:" || location.protocol === "https:";
 const isNativeWebView = new URLSearchParams(window.location.search).get("native") === "1";
@@ -144,6 +144,15 @@ const translations = {
     "android.filesystem.acquisitionTitle": "Dosya Sistemi İmaj Alma",
     "android.filesystem.start": "Dosya Sistem İmajını Al",
     "android.filesystem.starting": "Dosya sistemi aktarımı başlatılıyor...",
+    "android.mode.ram.title": "RAM İmajı",
+    "android.mode.ram.desc": "Cihazın fiziksel belleğini (RAM) canlı olarak edinin.",
+    "android.mode.ram.badge": "Fiziksel / Root",
+    "android.ram.caseTitle": "Vaka Notları",
+    "android.ram.caseHint": "RAM imaj çıktısı seçilen vakanın android klasörüne yazılır. Vaka yoksa yeni vaka adıyla otomatik oluşturulur.",
+    "android.ram.options": "Seçenekler",
+    "android.ram.acquisitionTitle": "RAM Bellek İmaj Alma",
+    "android.ram.start": "RAM İmajını Al",
+    "android.ram.starting": "RAM aktarımı başlatılıyor...",
     "android.side.status": "Durum",
     "android.side.adb": "ADB",
     "android.side.device": "Cihaz",
@@ -537,6 +546,15 @@ const translations = {
     "android.filesystem.acquisitionTitle": "Filesystem Image Acquisition",
     "android.filesystem.start": "Acquire Filesystem Image",
     "android.filesystem.starting": "Starting filesystem acquisition...",
+    "android.mode.ram.title": "RAM Image",
+    "android.mode.ram.desc": "Acquire the physical memory (RAM) of the device live.",
+    "android.mode.ram.badge": "Physical / Root",
+    "android.ram.caseTitle": "Case Notes",
+    "android.ram.caseHint": "RAM image output is written to the selected case's android folder. If no case exists, a new one is created automatically.",
+    "android.ram.options": "Options",
+    "android.ram.acquisitionTitle": "RAM Memory Image Acquisition",
+    "android.ram.start": "Acquire RAM Image",
+    "android.ram.starting": "Starting RAM acquisition...",
     "android.side.status": "Status",
     "android.side.adb": "ADB",
     "android.side.device": "Device",
@@ -1131,7 +1149,7 @@ function render() {
     const workflow = workflows[state.route.split(":")[1]];
     if (workflow && workflow.mode.includes("disk")) loadEvidenceCases();
   }
-  if (state.route === "android:logical" || state.route === "android:filesystem") loadEvidenceCases();
+  if (state.route === "android:logical" || state.route === "android:filesystem" || state.route === "android:ram") loadEvidenceCases();
   view.focus({ preventScroll: true });
 }
 

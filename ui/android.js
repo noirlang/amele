@@ -6,6 +6,7 @@ export function androidPage({ t, icon, pageTitle, state, escapeHtml, backendRead
         ${androidImageModeCard("physical", t("android.mode.physical.title"), t("android.mode.physical.desc"), "disk", "var(--red)", t("android.mode.physical.badge"), icon, escapeHtml)}
         ${androidImageModeCard("logical", t("android.mode.logical.title"), t("android.mode.logical.desc"), "android", "var(--green)", t("android.mode.logical.badge"), icon, escapeHtml)}
         ${androidImageModeCard("filesystem", t("android.mode.filesystem.title"), t("android.mode.filesystem.desc"), "folder", "var(--blue)", t("android.mode.filesystem.badge"), icon, escapeHtml)}
+        ${androidImageModeCard("ram", t("android.mode.ram.title") || "RAM İmajı", t("android.mode.ram.desc") || "Cihazın fiziksel belleğini (RAM) canlı olarak edinin.", "cpu", "var(--orange)", t("android.mode.ram.badge") || "Fiziksel / Root", icon, escapeHtml)}
       </div>
     </section>
   `;
@@ -25,7 +26,10 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
 
   const isLogical = modeId === "logical";
   const isFilesystem = modeId === "filesystem";
-  const job = isLogical ? (android.logicalJob || null) : (android.filesystemJob || null);
+  const isRam = modeId === "ram";
+  const job = isLogical 
+    ? (android.logicalJob || null) 
+    : (isFilesystem ? (android.filesystemJob || null) : (android.ramJob || null));
   const isRunning = job?.status === "running";
   const isDone = job?.status === "completed";
   const isFailed = job?.status === "failed";
@@ -101,14 +105,39 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             <div class="progress-bar" data-progress style="--value:${progressValue}%"><span></span><b>${progressValue}%</b></div>
             <div class="log-box" id="android-log">${androidLogContent(android, t, modeId)}</div>
           ` : ""}
+
+          ${isRam ? `
+            <div class="section-divider"></div>
+            <p class="section-label">${t("android.ram.caseTitle") || "Vaka Notları"}</p>
+            ${casePanel("android", t("android.ram.caseHint") || "RAM imajı için vaka detayı belirtin.")}
+
+            <div class="section-divider"></div>
+            <p class="section-label">${t("android.ram.options") || "Seçenekler"}</p>
+            <div class="field" style="flex-direction: row; align-items: center; gap: 10px;">
+              <input type="checkbox" id="android-ram-has-root" data-android-ram-has-root style="width: 18px; height: 18px; cursor: pointer;" />
+              <label for="android-ram-has-root" style="cursor: pointer; user-select: none; font-size: 0.9rem; color: #acc0e4;">${t("android.filesystem.hasRoot") || "Cihazda Root Yetkisi Var (Doğrudan imaj al)"}</label>
+            </div>
+
+            <div class="section-divider"></div>
+            <p class="section-label">${t("android.ram.acquisitionTitle") || "Aktarım"}</p>
+            <div class="button-row">
+              <button class="primary-button" data-action="android-start-ram" ${isRunning ? "disabled" : ""}>${icon("cpu")} ${t("android.ram.start") || "RAM İmajını Al"}</button>
+              ${isRunning ? `<button class="danger-button" data-action="android-stop-ram">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
+            </div>
+
+            <div class="section-divider"></div>
+            <p class="section-label">${t("android.logical.progress")}</p>
+            <div class="progress-bar" data-progress style="--value:${progressValue}%"><span></span><b>${progressValue}%</b></div>
+            <div class="log-box" id="android-log">${androidLogContent(android, t, modeId)}</div>
+          ` : ""}
         </div>
 
         <aside class="side-panel">
           <h3>${t("android.side.status")}</h3>
           ${sideInfo(t("android.side.adb"), statusTitle, installed ? "shield" : "android", icon)}
           ${sideInfo(t("android.side.device"), selected || t("android.devices.none"), "android", icon)}
-          ${(isLogical || isFilesystem) && job ? sideInfo(t("android.side.lastAction"), job.message || "—", "clock", icon) : ""}
-          ${(isLogical || isFilesystem) && isDone && job.result ? sideInfo(t("android.side.totalBytes"), formatBytes(job.result.total_bytes || 0), "disk", icon) : ""}
+          ${(isLogical || isFilesystem || isRam) && job ? sideInfo(t("android.side.lastAction"), job.message || "—", "clock", icon) : ""}
+          ${(isLogical || isFilesystem || isRam) && isDone && job.result ? sideInfo(t("android.side.totalBytes"), formatBytes(job.result.total_bytes || 0), "disk", icon) : ""}
         </aside>
       </div>
     </section>
@@ -125,8 +154,9 @@ function sideInfo(title, body, iconName, icon) {
 }
 
 function androidLogContent(android, t, modeId) {
-  const isLogical = modeId === "logical";
-  const log = isLogical ? (android.logicalLog || []) : (android.filesystemLog || []);
+  const log = modeId === "logical" 
+    ? (android.logicalLog || []) 
+    : (modeId === "filesystem" ? (android.filesystemLog || []) : (android.ramLog || []));
   if (!log.length) return `• ${t("android.logical.waiting")}`;
   return log.map((line) => `• ${line}`).join("<br />");
 }
@@ -154,6 +184,11 @@ function androidMode(modeId, t) {
       title: t("android.mode.filesystem.title"),
       desc: t("android.mode.filesystem.desc"),
       icon: "folder"
+    },
+    ram: {
+      title: t("android.mode.ram.title") || "RAM İmajı",
+      desc: t("android.mode.ram.desc") || "Cihazın fiziksel belleğini (RAM) canlı olarak edinin.",
+      icon: "cpu"
     }
   };
   return modes[modeId] || modes.logical;
@@ -194,6 +229,14 @@ export async function handleAndroidAction(button, deps) {
   }
   if (action === "android-stop-filesystem") {
     await stopFilesystemAcquisition(button, deps);
+    return true;
+  }
+  if (action === "android-start-ram") {
+    await startRamAcquisition(button, deps);
+    return true;
+  }
+  if (action === "android-stop-ram") {
+    await stopRamAcquisition(button, deps);
     return true;
   }
   return false;
@@ -459,6 +502,113 @@ function pollFilesystemJob(jobId, { apiRequest, state, t, showToast, render }) {
       } else if (result.status === "failed") {
         clearInterval(interval);
         state.android.filesystemLog.push(`❌ ${result.error || "Aktarım başarısız"}`);
+        showToast(result.error || "Aktarım başarısız", "error");
+      }
+
+      render();
+    } catch {
+      // Silently retry
+    }
+  }, 1500);
+}
+
+async function startRamAcquisition(button, { apiRequest, backendReady, state, t, showToast, render, resolveCase }) {
+  if (!backendReady()) {
+    showToast(t("android.appModeRequired"), "error");
+    return;
+  }
+  if (!state.android?.selectedDevice) {
+    showToast(t("android.logical.deviceRequired"), "error");
+    return;
+  }
+
+  const hasRootCheckbox = document.querySelector("[data-android-ram-has-root]");
+  const hasRoot = hasRootCheckbox ? Boolean(hasRootCheckbox.checked) : false;
+
+  const caseName = resolveCase?.() || null;
+  if (!state.android) state.android = {};
+  state.android.ramLog = [t("android.ram.starting") || "RAM aktarımı başlatılıyor..."];
+  state.android.ramJob = null;
+  render();
+
+  button.disabled = true;
+  try {
+    const body = { 
+      serial: state.android.selectedDevice,
+      has_root: hasRoot
+    };
+    if (caseName) body.case_name = caseName;
+    const result = await apiRequest("/api/android-ram-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (result.job_id) {
+      state.android.ramJob = { job_id: result.job_id, status: "running", done: 0, total: 3, message: "Başlatılıyor..." };
+      render();
+      pollRamJob(result.job_id, { apiRequest, state, t, showToast, render });
+    }
+  } catch (error) {
+    state.android.ramLog.push(`❌ ${error.message}`);
+    showToast(error.message, "error");
+    render();
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function stopRamAcquisition(button, { apiRequest, backendReady, state, t, showToast, render }) {
+  if (!state.android?.ramJob?.job_id) return;
+
+  button.disabled = true;
+  try {
+    await apiRequest("/api/acquisition-control", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_id: state.android.ramJob.job_id, action: "stop" }),
+    });
+    showToast(t("android.logical.stopped"), "success");
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function pollRamJob(jobId, { apiRequest, state, t, showToast, render }) {
+  const interval = setInterval(async () => {
+    try {
+      const result = await apiRequest("/api/acquisition-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: jobId }),
+      });
+      if (!state.android) state.android = {};
+
+      state.android.ramJob = {
+        job_id: jobId,
+        status: result.status,
+        done: result.done || 0,
+        total: result.total || 0,
+        message: result.message || "",
+        result: result.result || null,
+        error: result.error || null,
+      };
+
+      // Update log
+      if (!state.android.ramLog) state.android.ramLog = [];
+      const lastMsg = state.android.ramLog[state.android.ramLog.length - 1];
+      if (result.message && result.message !== lastMsg) {
+        state.android.ramLog.push(result.message);
+      }
+
+      if (result.status === "completed") {
+        clearInterval(interval);
+        state.android.ramLog.push(`✅ ${t("android.ram.done") || "RAM imajı başarıyla tamamlandı."}`);
+        showToast(t("android.ram.done") || "RAM imajı başarıyla tamamlandı.", "success");
+      } else if (result.status === "failed") {
+        clearInterval(interval);
+        state.android.ramLog.push(`❌ ${result.error || "Aktarım başarısız"}`);
         showToast(result.error || "Aktarım başarısız", "error");
       }
 

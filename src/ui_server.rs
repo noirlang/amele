@@ -314,6 +314,7 @@ fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
         },
         ("POST", "/api/android-logical-image") => android_logical_image_endpoint(body),
         ("POST", "/api/android-filesystem-image") => android_filesystem_image_endpoint(body),
+        ("POST", "/api/android-ram-image") => android_ram_image_endpoint(body),
         ("GET", "/api/ram-status") => json_ok(json!({
             "avml": ram::avml_status(None),
             "winpmem": ram::winpmem_status(None),
@@ -2811,14 +2812,22 @@ fn run_android_filesystem_job(
     let vault = match evidence_vault_for_output(case_name.as_deref()) {
         Ok(vault) => vault,
         Err(err) => {
-            fail_acquisition_job_with_message(&job_id, err, "Android dosya sistemi imaj alma basarisiz");
+            fail_acquisition_job_with_message(
+                &job_id,
+                err,
+                "Android dosya sistemi imaj alma basarisiz",
+            );
             return;
         }
     };
 
     let android_dir = vault.case_dir.join("android");
     if let Err(err) = std::fs::create_dir_all(&android_dir) {
-        fail_acquisition_job_with_message(&job_id, err.to_string(), "Android dosya sistemi imaj alma basarisiz");
+        fail_acquisition_job_with_message(
+            &job_id,
+            err.to_string(),
+            "Android dosya sistemi imaj alma basarisiz",
+        );
         return;
     }
 
@@ -2827,12 +2836,7 @@ fn run_android_filesystem_job(
         &android_dir,
         has_root,
         |done, total, category| {
-            update_acquisition_progress_message(
-                &job_id,
-                done as u64,
-                total as u64,
-                category,
-            );
+            update_acquisition_progress_message(&job_id, done as u64, total as u64, category);
         },
         || control.is_cancelled(),
     ) {
@@ -2849,7 +2853,93 @@ fn run_android_filesystem_job(
             );
         }
         Err(err) => {
-            fail_acquisition_job_with_message(&job_id, err, "Android dosya sistemi imaj alma basarisiz");
+            fail_acquisition_job_with_message(
+                &job_id,
+                err,
+                "Android dosya sistemi imaj alma basarisiz",
+            );
+        }
+    }
+}
+
+fn android_ram_image_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct AndroidRamRequest {
+        serial: String,
+        case_name: Option<String>,
+        has_root: Option<bool>,
+    }
+
+    let request: AndroidRamRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let serial = request.serial.trim().to_string();
+    if serial.is_empty() {
+        return json_error(400, "serial is required");
+    }
+
+    let (job_id, control) = create_acquisition_job("Android RAM imaj alma baslatildi");
+    let thread_job_id = job_id.clone();
+    let has_root = request.has_root.unwrap_or(false);
+    thread::spawn(move || {
+        run_android_ram_job(thread_job_id, serial, request.case_name, has_root, control)
+    });
+
+    json_ok(json!({
+        "job_id": job_id,
+        "status": "running",
+    }))
+}
+
+fn run_android_ram_job(
+    job_id: String,
+    serial: String,
+    case_name: Option<String>,
+    has_root: bool,
+    control: ram::CancellationToken,
+) {
+    let vault = match evidence_vault_for_output(case_name.as_deref()) {
+        Ok(vault) => vault,
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err, "Android RAM imaj alma basarisiz");
+            return;
+        }
+    };
+
+    let android_dir = vault.case_dir.join("android");
+    if let Err(err) = std::fs::create_dir_all(&android_dir) {
+        fail_acquisition_job_with_message(
+            &job_id,
+            err.to_string(),
+            "Android RAM imaj alma basarisiz",
+        );
+        return;
+    }
+
+    match android::ram_acquisition(
+        &serial,
+        &android_dir,
+        has_root,
+        |done, total, category| {
+            update_acquisition_progress_message(&job_id, done as u64, total as u64, category);
+        },
+        || control.is_cancelled(),
+    ) {
+        Ok(result) => {
+            finish_acquisition_job_with_message(
+                &job_id,
+                json!({
+                    "message": "Android RAM imajı başarıyla tamamlandı",
+                    "output_file": result.output_file,
+                    "total_bytes": result.total_bytes,
+                    "sha256": result.sha256,
+                }),
+                "Android RAM imajı başarıyla tamamlandı",
+            );
+        }
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err, "Android RAM imaj alma basarisiz");
         }
     }
 }
