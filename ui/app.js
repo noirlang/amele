@@ -1850,8 +1850,7 @@ function caseOutputLabel(caseName, subdir = "ciktilar") {
 
 function reportCaseName() {
   const selected = document.querySelector("#report-case")?.value.trim() || "";
-  if (selected && state.cases.length) return selected;
-  return document.querySelector("#report-case-name")?.value.trim() || defaultCaseName();
+  return selected || defaultCaseName();
 }
 
 async function ensureImageCase() {
@@ -3232,14 +3231,10 @@ function detailPanel(tab) {
     `;
   }
   if (tab === "reports") {
-    const autoCaseField = state.cases.length
-      ? ""
-      : field(t("report.autoCase"), `<input id="report-case-name" class="input" value="${defaultCaseName()}" />`);
     return `
       <p class="section-label">${t("report.createTitle")}</p>
       <p class="field-hint">${t("report.hint")}</p>
-      ${field(t("report.case"), `<select id="report-case" class="select" data-case-select>${caseSelectOptions(state.activeCase?.case_name)}</select>`)}
-      ${autoCaseField}
+      ${field(t("report.case"), `<select id="report-case" class="select" data-case-select data-allow-new-case="1">${caseSelectOptions(state.activeCase?.case_name, { allowNew: true })}</select>`)}
       ${field(t("report.title"), `<input id="report-title" class="input" value="${t("report.defaultTitle")}" />`)}
       ${field(t("report.format"), '<select id="report-format" class="select"><option value="txt">TXT</option><option value="json">JSON</option></select>')}
       ${field(t("report.note"), `<textarea id="report-note" class="textarea" placeholder="${t("report.notePlaceholder")}"></textarea>`)}
