@@ -1352,6 +1352,9 @@ where
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     
+    let mut hashed_bytes = 0_u64;
+    let mut last_hash_progress_bytes = 0_u64;
+
     loop {
         let bytes_read = file.read(&mut buffer)
             .map_err(|err| format!("Hash hesabi icin dosya okunurken hata: {err}"))?;
@@ -1359,6 +1362,13 @@ where
             break;
         }
         hasher.update(&buffer[..bytes_read]);
+        hashed_bytes += bytes_read as u64;
+
+        if hashed_bytes - last_hash_progress_bytes > 50 * 1024 * 1024 {
+            last_hash_progress_bytes = hashed_bytes;
+            let mb = hashed_bytes / (1024 * 1024);
+            progress(2, 3, &format!("Doğrulama özeti (SHA-256) hesaplanıyor: {} MB", mb));
+        }
     }
 
     let sha256 = crate::hash::to_hex(&hasher.finalize());
