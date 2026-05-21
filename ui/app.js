@@ -1626,18 +1626,18 @@ function aboutPage() {
         <p>${t("about.usageDesc")}</p>
       </div>
 
-      <h2 class="section-heading">Contributors</h2>
+      <h2 class="section-heading">Maintainers</h2>
       <div class="contributor-grid">
-        ${contributorCard("ME", "Melih Emik", "melih-emik.jpg", [
+        ${contributorCard("ME", "Melih Emik", "Lead Maintainer", "melih-emik.jpg", [
           ["GitHub", "https://github.com/favilances"],
           ["LinkedIn", "https://www.linkedin.com/in/melihemik/"],
           ["Website", "https://melihemik.com.tr"]
         ])}
-        ${contributorCard("YT", "Yusuf Tuncel", "yusuf-tuncel.jpg", [
+        ${contributorCard("YT", "Yusuf Tuncel", "Windows Maintainer", "yusuf-tuncel.jpg", [
           ["GitHub", "https://github.com/yetece1"],
           ["LinkedIn", "https://www.linkedin.com/in/yusuf-tuncel/"]
         ])}
-        ${contributorCard("MG", "Muhammet Ali Güner", "muhammet-ali-guner.jpg", [
+        ${contributorCard("MG", "Muhammet Ali Güner", "Linux Maintainer", "muhammet-ali-guner.jpg", [
           ["GitHub", "https://github.com/kafkaskrtl"],
           ["LinkedIn", "https://www.linkedin.com/in/muhammetali-g%C3%BCner/"]
         ])}
@@ -1661,12 +1661,12 @@ function capabilityCard(kicker, title, desc, iconName, accent) {
   `;
 }
 
-function contributorCard(initials, name, photo, links) {
+function contributorCard(initials, name, role, photo, links) {
   return `
     <article class="contributor-card">
       <img class="avatar" src="${assetPath}/contributors/${photo}" alt="${name}" />
       <h3>${name}</h3>
-      <p>Forensic Contributor</p>
+      <p>${role}</p>
       <div class="social-row" aria-label="${name} bağlantıları">
         ${links.map(([label, url]) => socialLink(label, url)).join("")}
       </div>
