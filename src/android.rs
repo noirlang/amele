@@ -1246,19 +1246,57 @@ where
         return Err("Cihazda root yetkisi alinamadi. Dosya sistemi imaji ancak root yetkisine sahip cihazlarda alinabilir.".to_string());
     }
 
-    progress(1, 3, "Root yetkisi doğrulandı. Dosya sistemi aktarımı başlatılıyor...");
+    progress(1, 3, "Root yetkisi doğrulandı. Bölüm bilgileri analiz ediliyor...");
 
-    let output_path = output_dir.join("filesystem.tar");
+    // Try to resolve the userdata block device
+    let mut block_device = None;
+    let mount_cmd = if use_su {
+        "su -c 'cat /proc/mounts'"
+    } else {
+        "cat /proc/mounts"
+    };
+
+    if let Ok(out) = run_adb_command(serial, &["shell", mount_cmd]) {
+        for line in out.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 && parts[1] == "/data" {
+                block_device = Some(parts[0].to_string());
+                break;
+            }
+        }
+    }
+
+    let (output_file_name, use_block_copy) = if block_device.is_some() {
+        (format!("userdata.img"), true)
+    } else {
+        (format!("filesystem.tar"), false)
+    };
+
+    let output_path = output_dir.join(&output_file_name);
     let mut file = std::fs::File::create(&output_path)
         .map_err(|err| format!("Hedef dosya olusturulamadi: {err}"))?;
 
     let mut cmd = Command::new("adb");
     cmd.args(["-s", serial]);
 
-    if use_su {
-        cmd.args(["exec-out", "su -c 'tar -cf - /data 2>/dev/null'"]);
+    if use_block_copy {
+        let dev = block_device.clone().unwrap();
+        let status_msg = format!("Bölüm aygıtı bulundu: {dev}. Disk imajı (dd) aktarılıyor...");
+        progress(1, 3, &status_msg);
+
+        if use_su {
+            cmd.args(["exec-out", &format!("su -c 'dd if={} bs=4096 2>/dev/null'", dev)]);
+        } else {
+            cmd.args(["exec-out", &format!("dd if={} bs=4096 2>/dev/null", dev)]);
+        }
     } else {
-        cmd.args(["exec-out", "tar -cf - /data 2>/dev/null"]);
+        progress(1, 3, "Bölüm aygıtı bulunamadı. Dosya arşivi (tar) aktarılıyor...");
+
+        if use_su {
+            cmd.args(["exec-out", "su -c 'tar -cf - /data 2>/dev/null'"]);
+        } else {
+            cmd.args(["exec-out", "tar -cf - /data 2>/dev/null"]);
+        }
     }
 
     cmd.stdout(std::process::Stdio::piped());
@@ -1294,21 +1332,22 @@ where
         if total_bytes - last_progress_bytes > 10 * 1024 * 1024 {
             last_progress_bytes = total_bytes;
             let mb = total_bytes / (1024 * 1024);
-            progress(1, 3, &format!("Dosya sistemi imajı aktarılıyor: {} MB", mb));
+            let mode_str = if use_block_copy { "Disk İmajı" } else { "Dosya Arşivi" };
+            progress(1, 3, &format!("{} aktarılıyor: {} MB", mode_str, mb));
         }
     }
 
     let _ = child.wait();
 
     if total_bytes == 0 {
-        return Err("Dosya sistemi imaji bos (0 byte). Gecersiz aktarim.".to_string());
+        return Err("Aktarilan veri bos (0 byte). Gecersiz imaj.".to_string());
     }
 
     // Step 2: Hashing
-    progress(2, 3, "Dosya sistemi imajı tamamlandı, SHA-256 doğrulaması hesaplanıyor...");
+    progress(2, 3, "İmaj aktarımı tamamlandı, bütünlük doğrulama özeti (SHA-256) hesaplanıyor...");
 
     let mut file = std::fs::File::open(&output_path)
-        .map_err(|err| format!("Olusturulan tar dosyasi acilamadi: {err}"))?;
+        .map_err(|err| format!("Olusturulan imaj dosyasi acilamadi: {err}"))?;
     
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
@@ -1325,8 +1364,8 @@ where
     let sha256 = crate::hash::to_hex(&hasher.finalize());
 
     // Write SHA-256 sidecar file
-    let sidecar_path = output_dir.join("filesystem.tar.sha256");
-    let _ = std::fs::write(&sidecar_path, format!("{sha256}  filesystem.tar\n"));
+    let sidecar_path = output_dir.join(format!("{}.sha256", output_file_name));
+    let _ = std::fs::write(&sidecar_path, format!("{sha256}  {}\n", output_file_name));
 
     progress(3, 3, "İşlem başarıyla tamamlandı!");
 
