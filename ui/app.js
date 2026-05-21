@@ -1401,12 +1401,11 @@ function ramCasePanel() {
 }
 
 function casePanel(subdir, hint) {
-  const selected = state.activeCase?.case_name || (state.cases.length ? state.cases[0].case_name : "__new__");
+  const selected = state.activeCase?.case_name || (state.cases.length ? state.cases[0].case_name : "");
   const output = caseOutputLabel(selected, subdir);
   return `
     <p class="field-hint">${hint}</p>
     ${field(t("workflow.case"), `<select id="workflow-case" class="select" data-case-select data-allow-new-case="1">${caseSelectOptions(selected, { allowNew: true })}</select>`)}
-    ${field(t("workflow.newCaseName"), `<input id="workflow-case-name" class="input" value="${stableDefaultCaseName()}" />`)}
     <div class="button-row">
       <button class="secondary-button" data-action="refresh-cases">${icon("refresh")} ${t("case.refresh")}</button>
     </div>
@@ -1775,7 +1774,22 @@ async function loadEvidenceCases({ silent = true } = {}) {
     const result = await apiRequest("/api/evidence-cases");
     state.caseBaseDir = result.base_dir || "";
     state.cases = Array.isArray(result.cases) ? result.cases : [];
-    if (result.current_case) state.activeCase = result.current_case;
+    
+    // Keep frontend selected case active if it still exists
+    const activeCaseName = state.activeCase?.case_name;
+    if (activeCaseName) {
+      const stillExists = state.cases.find(c => c.case_name === activeCaseName);
+      if (stillExists) {
+        state.activeCase = stillExists;
+      } else if (result.current_case) {
+        state.activeCase = result.current_case;
+      }
+    } else if (result.current_case) {
+      state.activeCase = result.current_case;
+    } else if (state.cases.length) {
+      state.activeCase = state.cases[0];
+    }
+
     updateCaseControls();
     if (!silent) showToast(t("case.loaded", { count: String(state.cases.length) }));
   } catch (error) {
@@ -1788,10 +1802,11 @@ function updateCaseControls() {
     node.textContent = state.caseBaseDir || "~/Worm/Vakalar";
   });
 
+  const selected = state.activeCase?.case_name || "";
   document.querySelectorAll("[data-case-select]").forEach((select) => {
     const allowNew = select.dataset.allowNewCase === "1";
-    const selected = select.value || state.activeCase?.case_name || "";
     select.innerHTML = caseSelectOptions(selected, { allowNew });
+    select.value = selected;
     toggleCaseCreateInput(select);
   });
 }
@@ -1814,8 +1829,6 @@ function caseSelectOptions(selected = "", { allowNew = false } = {}) {
 }
 
 function toggleCaseCreateInput(select) {
-  const input = document.querySelector("#workflow-case-name");
-  if (input) input.closest(".field").hidden = select.value !== "__new__";
   document.querySelectorAll("[data-case-output]").forEach((output) => {
     output.textContent = caseOutputLabel(select.value, output.dataset.caseOutputSubdir || "ciktilar");
   });
@@ -1829,10 +1842,10 @@ function caseOutputLabel(caseName, subdir = "ciktilar") {
   const selected = state.cases.find((item) => item.case_name === caseName)
     || (state.activeCase?.case_name === caseName ? state.activeCase : null);
   const key = subdir === "ram" ? "ram_dir" : "output_dir";
-  if (caseName !== "__new__" && selected?.[key]) return selected[key];
+  if (caseName && caseName !== "__new__" && selected?.[key]) return selected[key];
   const folder = subdir === "ram" ? "ram" : "ciktilar";
-  if (state.caseBaseDir) return `${state.caseBaseDir}/${document.querySelector("#workflow-case-name")?.value.trim() || defaultCaseName()}/${folder}`;
-  return `~/Worm/Vakalar/<vaka>/${folder}`;
+  if (state.caseBaseDir) return `${state.caseBaseDir}/${caseName || "vaka"}/${folder}`;
+  return `~/Worm/Vakalar/${caseName || "vaka"}/${folder}`;
 }
 
 function reportCaseName() {
@@ -1846,10 +1859,20 @@ async function ensureImageCase() {
   const selected = select?.value || "";
   if (selected && selected !== "__new__") {
     const existing = state.cases.find((item) => item.case_name === selected);
-    if (existing) return existing;
+    if (existing && existing.case_path) return existing;
+    
+    // Create new case folder on backend disk if not already existing
+    const created = await apiRequest("/api/evidence-create", {
+      method: "POST",
+      body: JSON.stringify({ case_name: selected })
+    });
+    state.activeCase = created;
+    state.cachedDefaultCaseName = "";
+    await loadEvidenceCases();
+    return created;
   }
 
-  const caseName = document.querySelector("#workflow-case-name")?.value.trim() || defaultCaseName();
+  const caseName = defaultCaseName();
   const created = await apiRequest("/api/evidence-create", {
     method: "POST",
     body: JSON.stringify({ case_name: caseName })
@@ -2079,25 +2102,10 @@ document.addEventListener("change", (event) => {
   if (androidDeviceSelect) {
     syncAndroidDeviceSelection(androidDeviceSelect, { state, t, showToast });
   }
-
-  if (event.target.closest("#workflow-case-name")) {
-    const select = document.querySelector("#workflow-case");
-    if (select?.value === "__new__") {
-      document.querySelectorAll("[data-case-output]").forEach((output) => {
-        output.textContent = caseOutputLabel("__new__", output.dataset.caseOutputSubdir || "ciktilar");
-      });
-    }
-  }
 });
 
 document.addEventListener("input", (event) => {
-  if (!event.target.closest("#workflow-case-name")) return;
-  const select = document.querySelector("#workflow-case");
-  if (select?.value === "__new__") {
-    document.querySelectorAll("[data-case-output]").forEach((output) => {
-      output.textContent = caseOutputLabel("__new__", output.dataset.caseOutputSubdir || "ciktilar");
-    });
-  }
+  // Empty
 });
 
 async function handleAction(button) {
@@ -2112,9 +2120,7 @@ async function handleAction(button) {
       render,
       resolveCase() {
         const select = document.querySelector("#workflow-case");
-        const selected = select?.value || "";
-        if (selected && selected !== "__new__") return selected;
-        return document.querySelector("#workflow-case-name")?.value.trim() || null;
+        return select?.value || null;
       }
     });
     if (handled) return;
