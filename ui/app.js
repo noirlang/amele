@@ -377,6 +377,10 @@ const translations = {
     "about.package.desc": "Vaka notları, kanıt kasası ve rapor çıktıları.",
     "about.usage": "Kullanım İlkesi",
     "about.usageDesc": "Bu araç yalnızca yetkili adli bilişim süreçlerinde kullanılmalıdır. Edinim, doğrulama ve günlük adımları görünür, denetlenebilir ve raporlanabilir tutulur.",
+    "about.maintainers": "Maintainer'lar",
+    "about.role.lead": "Lider Maintainer",
+    "about.role.windows": "Windows Maintainer",
+    "about.role.linux": "Linux Maintainer",
     "agent.desc": "Windows ve Linux agent kullanım özetleri.",
     "agent.windowsNote": "Windows Agent kullanım özeti. Dosyayı Windows üzerinde yönetici olarak çalıştırın ve ana uygulamadaki IP/Port bilgisiyle eşleştirin.",
     "agent.linuxNote": "Linux Agent kullanım özeti. Çalıştırılabilir izin verin, agentı başlatın ve ana uygulamadaki IP/Port ile bağlanın.",
@@ -759,6 +763,10 @@ const translations = {
     "about.package.desc": "Case notes, evidence vault, and report outputs.",
     "about.usage": "Use Policy",
     "about.usageDesc": "This tool should be used only in authorized forensic workflows. Acquisition, verification, and log steps remain visible, auditable, and reportable.",
+    "about.maintainers": "Maintainers",
+    "about.role.lead": "Lead Maintainer",
+    "about.role.windows": "Windows Maintainer",
+    "about.role.linux": "Linux Maintainer",
     "agent.desc": "Windows and Linux agent usage summaries.",
     "agent.windowsNote": "Windows Agent summary. Run the file as Administrator on Windows and match it with the IP/Port in the main application.",
     "agent.linuxNote": "Linux Agent summary. Make it executable, start the agent, and connect from the main application using IP/Port.",
@@ -1626,18 +1634,18 @@ function aboutPage() {
         <p>${t("about.usageDesc")}</p>
       </div>
 
-      <h2 class="section-heading">Maintainers</h2>
+      <h2 class="section-heading">${t("about.maintainers")}</h2>
       <div class="contributor-grid">
-        ${contributorCard("ME", "Melih Emik", "Lead Maintainer", "melih-emik.jpg", [
+        ${contributorCard("ME", "Melih Emik", t("about.role.lead"), "melih-emik.jpg", [
           ["GitHub", "https://github.com/favilances"],
           ["LinkedIn", "https://www.linkedin.com/in/melihemik/"],
           ["Website", "https://melihemik.com.tr"]
         ])}
-        ${contributorCard("YT", "Yusuf Tuncel", "Windows Maintainer", "yusuf-tuncel.jpg", [
+        ${contributorCard("YT", "Yusuf Tuncel", t("about.role.windows"), "yusuf-tuncel.jpg", [
           ["GitHub", "https://github.com/yetece1"],
           ["LinkedIn", "https://www.linkedin.com/in/yusuf-tuncel/"]
         ])}
-        ${contributorCard("MG", "Muhammet Ali Güner", "Linux Maintainer", "muhammet-ali-guner.jpg", [
+        ${contributorCard("MG", "Muhammet Ali Güner", t("about.role.linux"), "muhammet-ali-guner.jpg", [
           ["GitHub", "https://github.com/kafkaskrtl"],
           ["LinkedIn", "https://www.linkedin.com/in/muhammetali-g%C3%BCner/"]
         ])}
