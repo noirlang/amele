@@ -1,8 +1,8 @@
-use std::fs::{self, File};
-use std::path::Path;
-use std::io::{self, Read, Seek, SeekFrom};
-use serde::{Serialize, Deserialize};
 use regex::bytes::Regex;
+use serde::{Deserialize, Serialize};
+use std::fs::{self, File};
+use std::io::{self, Read, Seek, SeekFrom};
+use std::path::Path;
 use tar::Archive;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,14 +43,29 @@ pub struct MemoryMapEntry {
 /// Analyze a memory dump (or process dump) for volatile string patterns.
 pub fn analyze_ram_strings(file_path: &Path) -> io::Result<Vec<RamStringMatch>> {
     let mut file = File::open(file_path)?;
-    
+
     // Define standard forensic regexes on bytes
     let patterns = vec![
-        ("E-Posta", Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}").unwrap()),
-        ("IPv4 Adresi", Regex::new(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b").unwrap()),
-        ("URL / Web Adresi", Regex::new(r"https?://[a-zA-Z0-9./?=&_-]+").unwrap()),
+        (
+            "E-Posta",
+            Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}").unwrap(),
+        ),
+        (
+            "IPv4 Adresi",
+            Regex::new(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b").unwrap(),
+        ),
+        (
+            "URL / Web Adresi",
+            Regex::new(r"https?://[a-zA-Z0-9./?=&_-]+").unwrap(),
+        ),
         ("Telefon Numarası", Regex::new(r"\+?[0-9]{9,15}").unwrap()),
-        ("Mesajlaşma İzleri", Regex::new(r"(?:chat\.whatsapp\.com|telegram\.me|t\.me|wa\.me|whatsapp\.net|telegram\.org)").unwrap()),
+        (
+            "Mesajlaşma İzleri",
+            Regex::new(
+                r"(?:chat\.whatsapp\.com|telegram\.me|t\.me|wa\.me|whatsapp\.net|telegram\.org)",
+            )
+            .unwrap(),
+        ),
     ];
 
     let mut results = Vec::new();
@@ -92,14 +107,20 @@ pub fn analyze_ram_strings(file_path: &Path) -> io::Result<Vec<RamStringMatch>> 
                     // Extract context (up to 20 bytes before and after)
                     let match_start = mat.start();
                     let match_end = mat.end();
-                    
+
                     let context_start = match_start.saturating_sub(20);
                     let context_end = (match_end + 20).min(bytes_read);
-                    
+
                     let context_bytes = &current_chunk[context_start..context_end];
                     let context_str = String::from_utf8_lossy(context_bytes)
                         .chars()
-                        .map(|c| if c.is_ascii_graphic() || c == ' ' { c } else { '.' })
+                        .map(|c| {
+                            if c.is_ascii_graphic() || c == ' ' {
+                                c
+                            } else {
+                                '.'
+                            }
+                        })
                         .collect::<String>();
 
                     results.push(RamStringMatch {
@@ -128,7 +149,7 @@ pub fn carve_files(file_path: &Path, output_dir: &Path) -> io::Result<Vec<Carved
     let mut file = File::open(file_path)?;
     let metadata = file.metadata()?;
     let file_size = metadata.len();
-    
+
     // Dynamic output subdirectory for carved assets
     let carved_dir = output_dir.join("carved");
     fs::create_dir_all(&carved_dir)?;
@@ -160,16 +181,16 @@ pub fn carve_files(file_path: &Path, output_dir: &Path) -> io::Result<Vec<Carved
         Signature {
             ext: "pdf",
             mime: "application/pdf",
-            header: &[0x25, 0x50, 0x44, 0x46], // %PDF
+            header: &[0x25, 0x50, 0x44, 0x46],             // %PDF
             footer: Some(&[0x25, 0x25, 0x45, 0x4F, 0x46]), // %%EOF
-            max_size: 15 * 1024 * 1024, // 15MB max PDF
+            max_size: 15 * 1024 * 1024,                    // 15MB max PDF
         },
         Signature {
             ext: "zip",
             mime: "application/zip",
-            header: &[0x50, 0x4B, 0x03, 0x04], // PK\x03\x04
+            header: &[0x50, 0x4B, 0x03, 0x04],       // PK\x03\x04
             footer: Some(&[0x50, 0x4B, 0x05, 0x06]), // End of Central Directory
-            max_size: 20 * 1024 * 1024, // 20MB max ZIP
+            max_size: 20 * 1024 * 1024,              // 20MB max ZIP
         },
         Signature {
             ext: "elf",
@@ -196,21 +217,21 @@ pub fn carve_files(file_path: &Path, output_dir: &Path) -> io::Result<Vec<Carved
 
         let chunk = &buffer[..bytes_read];
         let mut i = 0;
-        
+
         while i < bytes_read.saturating_sub(8) {
             for sig in &signatures {
                 if chunk[i..].starts_with(sig.header) {
                     let absolute_header_offset = offset + i as u64;
-                    
+
                     // Found a header! Let's search for the footer
                     let mut file_len = sig.max_size;
-                    
+
                     if let Some(footer) = sig.footer {
                         // Scan within chunk or seek forward to find the footer
                         let mut found_footer = false;
                         let scan_start = i + sig.header.len();
                         let scan_end = (i + sig.max_size).min(bytes_read);
-                        
+
                         for j in scan_start..scan_end.saturating_sub(footer.len()) {
                             if chunk[j..].starts_with(footer) {
                                 file_len = j + footer.len() - i;
@@ -257,7 +278,7 @@ pub fn carve_files(file_path: &Path, output_dir: &Path) -> io::Result<Vec<Carved
 
         // Advance by chunk size minus overlap to ensure we don't miss headers at chunk borders
         offset += (chunk_size - 1024) as u64;
-        
+
         // Stop carving after 100 files to avoid disk overflow or massive runtimes
         if carved_files.len() >= 100 {
             break;
@@ -283,8 +304,10 @@ pub fn list_tar_processes(tar_path: &Path) -> io::Result<Vec<ActiveProcessInfo>>
             let pid = parts[1].to_string();
             let file_name = parts[2];
 
-            let state = processes.entry(pid.clone()).or_insert((String::new(), 0_u64));
-            
+            let state = processes
+                .entry(pid.clone())
+                .or_insert((String::new(), 0_u64));
+
             if file_name == "name.txt" {
                 let mut content = String::new();
                 entry.read_to_string(&mut content)?;
@@ -299,7 +322,11 @@ pub fn list_tar_processes(tar_path: &Path) -> io::Result<Vec<ActiveProcessInfo>>
         .into_iter()
         .map(|(pid, (name, dump_size))| ActiveProcessInfo {
             pid,
-            name: if name.is_empty() { "Unknown".to_string() } else { name },
+            name: if name.is_empty() {
+                "Unknown".to_string()
+            } else {
+                name
+            },
             dump_size,
         })
         .collect();
@@ -316,7 +343,7 @@ pub fn get_process_maps_and_dump_files(
 ) -> io::Result<(String, Vec<String>)> {
     let file = File::open(tar_path)?;
     let mut archive = Archive::new(file);
-    
+
     let mut maps_content = String::new();
     let mut bin_files = Vec::new();
 
@@ -346,7 +373,7 @@ pub fn search_process_memory(
 ) -> io::Result<Vec<RamStringMatch>> {
     let file = File::open(tar_path)?;
     let mut archive = Archive::new(file);
-    
+
     let mut results = Vec::new();
     let query_lower = query.to_ascii_lowercase();
 
@@ -371,7 +398,7 @@ pub fn search_process_memory(
 
                 let query_bytes = query_lower.as_bytes();
                 let mut pos = 0;
-                
+
                 while pos < data.len().saturating_sub(query_bytes.len()) {
                     let window = &data[pos..pos + query_bytes.len()];
                     if window.eq_ignore_ascii_case(query_bytes) {
@@ -379,19 +406,26 @@ pub fn search_process_memory(
                         let context_start = pos.saturating_sub(20);
                         let context_end = (pos + query_bytes.len() + 20).min(data.len());
                         let context_bytes = &data[context_start..context_end];
-                        
+
                         let context_str = String::from_utf8_lossy(context_bytes)
                             .chars()
-                            .map(|c| if c.is_ascii_graphic() || c == ' ' { c } else { '.' })
+                            .map(|c| {
+                                if c.is_ascii_graphic() || c == ' ' {
+                                    c
+                                } else {
+                                    '.'
+                                }
+                            })
                             .collect::<String>();
 
                         results.push(RamStringMatch {
                             category: format!("Segment: {segment_name}"),
-                            value: String::from_utf8_lossy(&data[pos..pos + query_bytes.len()]).into_owned(),
+                            value: String::from_utf8_lossy(&data[pos..pos + query_bytes.len()])
+                                .into_owned(),
                             offset: segment_start + pos as u64,
                             context: context_str,
                         });
-                        
+
                         if results.len() >= 300 {
                             return Ok(results); // Cap results to avoid crashing UI
                         }

@@ -965,7 +965,9 @@ fn image_browse_endpoint(body: &[u8]) -> Response {
     let mount_dir = match current_image_mount().lock() {
         Ok(current) => match &*current {
             Some(state) => state.mount_dir.clone(),
-            None => return json_error(400, "Aktif bir imaj bağlantısı yok / No active image mount"),
+            None => {
+                return json_error(400, "Aktif bir imaj bağlantısı yok / No active image mount");
+            }
         },
         Err(_) => return json_error(500, "Mutex lock hatası / Mutex lock error"),
     };
@@ -994,7 +996,8 @@ fn image_browse_endpoint(body: &[u8]) -> Response {
                 let is_dir = meta.as_ref().map(|m| m.is_dir()).unwrap_or(false);
                 let size = meta.as_ref().map(|m| m.len()).unwrap_or(0);
                 let name = entry.file_name().to_string_lossy().into_owned();
-                let rel_path = target_path.join(&name)
+                let rel_path = target_path
+                    .join(&name)
                     .strip_prefix(&mount_dir)
                     .unwrap_or(&Path::new(""))
                     .to_string_lossy()
@@ -1009,7 +1012,10 @@ fn image_browse_endpoint(body: &[u8]) -> Response {
             }
             json_ok(json!({ "files": files }))
         }
-        Err(err) => json_error(500, format!("Dizin okunamadı / Directory read failed: {}", err)),
+        Err(err) => json_error(
+            500,
+            format!("Dizin okunamadı / Directory read failed: {}", err),
+        ),
     }
 }
 
@@ -1027,7 +1033,9 @@ fn image_read_file_endpoint(body: &[u8]) -> Response {
     let mount_dir = match current_image_mount().lock() {
         Ok(current) => match &*current {
             Some(state) => state.mount_dir.clone(),
-            None => return json_error(400, "Aktif bir imaj bağlantısı yok / No active image mount"),
+            None => {
+                return json_error(400, "Aktif bir imaj bağlantısı yok / No active image mount");
+            }
         },
         Err(_) => return json_error(500, "Mutex lock hatası / Mutex lock error"),
     };
@@ -1044,7 +1052,8 @@ fn image_read_file_endpoint(body: &[u8]) -> Response {
         return json_error(404, "Dosya bulunamadı / File not found");
     }
 
-    let ext = target_path.extension()
+    let ext = target_path
+        .extension()
         .and_then(|e| e.to_str())
         .unwrap_or_default()
         .to_ascii_lowercase();
@@ -1056,7 +1065,10 @@ fn image_read_file_endpoint(body: &[u8]) -> Response {
 
     if ["png", "jpg", "jpeg", "gif", "bmp", "webp"].contains(&ext.as_str()) {
         if size > 15 * 1024 * 1024 {
-            return json_error(400, "Resim boyutu önizleme için çok büyük / Image size too large for preview");
+            return json_error(
+                400,
+                "Resim boyutu önizleme için çok büyük / Image size too large for preview",
+            );
         }
         match fs::read(&target_path) {
             Ok(bytes) => {
@@ -1080,8 +1092,13 @@ fn image_read_file_endpoint(body: &[u8]) -> Response {
         }
     }
 
-    let is_text_ext = ["txt", "log", "json", "xml", "plist", "html", "css", "js", "sh", "prop", "rc", "conf", "ini"].contains(&ext.as_str()) || size < 200_000;
-    
+    let is_text_ext = [
+        "txt", "log", "json", "xml", "plist", "html", "css", "js", "sh", "prop", "rc", "conf",
+        "ini",
+    ]
+    .contains(&ext.as_str())
+        || size < 200_000;
+
     match fs::File::open(&target_path) {
         Ok(mut f) => {
             let mut buf = vec![0_u8; 16384.min(size as usize)];
@@ -1104,8 +1121,15 @@ fn image_read_file_endpoint(body: &[u8]) -> Response {
                 let offset = (hex_lines.len() * 16) as u64;
                 let hex_parts: Vec<String> = chunk.iter().map(|b| format!("{:02X}", b)).collect();
                 let hex_str = hex_parts.join(" ");
-                let ascii_str: String = chunk.iter()
-                    .map(|&b| if b.is_ascii_graphic() || b == b' ' { b as char } else { '.' })
+                let ascii_str: String = chunk
+                    .iter()
+                    .map(|&b| {
+                        if b.is_ascii_graphic() || b == b' ' {
+                            b as char
+                        } else {
+                            '.'
+                        }
+                    })
                     .collect();
                 hex_lines.push(format!("{:08X}  {:48}  |{}|", offset, hex_str, ascii_str));
             }
@@ -1252,7 +1276,8 @@ fn ram_read_carved_endpoint(body: &[u8]) -> Response {
         return json_error(403, "Yetkisiz erişim / Access denied");
     }
 
-    let ext = target_path.extension()
+    let ext = target_path
+        .extension()
         .and_then(|e| e.to_str())
         .unwrap_or_default()
         .to_ascii_lowercase();
@@ -1285,8 +1310,9 @@ fn ram_read_carved_endpoint(body: &[u8]) -> Response {
         }
     }
 
-    let is_text_ext = ["txt", "log", "json", "xml", "plist"].contains(&ext.as_str()) || size < 100_000;
-    
+    let is_text_ext =
+        ["txt", "log", "json", "xml", "plist"].contains(&ext.as_str()) || size < 100_000;
+
     match fs::File::open(&target_path) {
         Ok(mut f) => {
             let mut buf = vec![0_u8; 16384.min(size as usize)];
@@ -1309,8 +1335,15 @@ fn ram_read_carved_endpoint(body: &[u8]) -> Response {
                 let offset = (hex_lines.len() * 16) as u64;
                 let hex_parts: Vec<String> = chunk.iter().map(|b| format!("{:02X}", b)).collect();
                 let hex_str = hex_parts.join(" ");
-                let ascii_str: String = chunk.iter()
-                    .map(|&b| if b.is_ascii_graphic() || b == b' ' { b as char } else { '.' })
+                let ascii_str: String = chunk
+                    .iter()
+                    .map(|&b| {
+                        if b.is_ascii_graphic() || b == b' ' {
+                            b as char
+                        } else {
+                            '.'
+                        }
+                    })
                     .collect();
                 hex_lines.push(format!("{:08X}  {:48}  |{}|", offset, hex_str, ascii_str));
             }
