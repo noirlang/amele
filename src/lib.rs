@@ -7,6 +7,7 @@ pub mod job;
 pub mod logging;
 pub mod native_window;
 pub mod ram;
+pub mod ram_analysis;
 pub mod remote;
 pub mod report;
 pub mod settings;

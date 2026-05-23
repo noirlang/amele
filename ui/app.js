@@ -303,24 +303,39 @@ const translations = {
     "key.approved": "Güvenlik anahtarı onaylandı.",
     "key.active": "Güvenlik anahtarı aktif.",
     "key.reset": "Güvenlik anahtarı sıfırlandı.",
-    "analysis.title": "İmaj Görüntüleme",
-    "analysis.desc": "Seçilen disk imajını salt-okunur olarak bağlar ve içeriğini klasör ağacında gösterir.",
-    "analysis.hint": "İmaj dosyasını seçin, salt-okunur bağlayın ve içerik ağacını bu ekrandan inceleyin.",
+    "analysis.title": "İmaj ve RAM Analizi",
+    "analysis.desc": "Disk imajlarını ve uçucu bellek (RAM) verilerini analiz edin, dinamik olarak inceleyin.",
+    "analysis.hint": "Disk imajı bağlayın, dosya sisteminde gezinin ve içerikleri görüntüleyin.",
     "analysis.imageFile": "İmaj Dosyası",
     "analysis.mount": "Salt-Okunur Bağla",
     "analysis.unmount": "Bağlantıyı Kaldır",
     "analysis.status": "Durum",
     "analysis.noImage": "İmaj seçilmedi",
-    "analysis.outputWaiting": "Klasör ağacı ve bağlama çıktısı burada görüntülenecek.",
+    "analysis.outputWaiting": "Klasör yapısı ve bağlama çıktısı burada görüntülenecek.",
     "analysis.imageRequired": "Önce imaj dosyası seçin.",
     "analysis.mounting": "İmaj bağlanıyor...",
     "analysis.mounted": "Bağlandı: {path}",
-    "analysis.mountedLog": "İmaj salt-okunur bağlandı. İçerik ağacı aşağıda gösteriliyor.",
+    "analysis.mountedLog": "İmaj salt-okunur bağlandı. Klasör yapısında gezinebilirsiniz.",
     "analysis.mountPrepared": "İmaj bağlama işlemi hazırlandı.",
     "analysis.mountFailed": "İmaj bağlanamadı: {message}",
     "analysis.unmounted": "Bağlantı kaldırıldı",
     "analysis.noActiveMount": "Aktif imaj bağlantısı yok.",
     "analysis.unmountFailed": "Bağlantı kaldırılamadı: {message}",
+    "analysis.tabImage": "İmaj Analizi (Disk)",
+    "analysis.tabRam": "RAM Analizi (Bellek)",
+    "analysis.ramFile": "RAM Bellek İmajı / Arşivi (.bin, .raw, .tar)",
+    "analysis.ramHint": "Raw RAM imajını (.bin) veya mantıksal proses RAM arşivini (.tar) seçip analizi başlatın.",
+    "analysis.btnStrings": "Dizgi Madenciliği (Strings)",
+    "analysis.btnCarver": "Dosya Kurtarma (Carving)",
+    "analysis.btnProcess": "Prosesleri Listele",
+    "analysis.lblCarved": "Kurtarılan Dosyalar",
+    "analysis.lblStrings": "Bulunan Bulgu / IOC Dizgileri",
+    "analysis.lblProcesses": "Aktif Proses Listesi (.tar)",
+    "analysis.lblMaps": "Proses Bellek Bölgeleri (maps)",
+    "analysis.lblSearch": "Proses Belleğinde Arama",
+    "analysis.btnSearch": "Bellekte Ara",
+    "analysis.runningAnalysis": "Bellek analizi sürdürülüyor...",
+    "analysis.doneAnalysis": "Bellek analizi tamamlandı.",
     "other.title": "Diğer",
     "other.desc": "Hash işlemleri, kanıt kasası, rapor üretimi ve canlı günlük modülleri.",
     "other.hash.title": "Hash İşlemleri",
@@ -706,24 +721,39 @@ const translations = {
     "key.approved": "Security key approved.",
     "key.active": "Security key active.",
     "key.reset": "Security key reset.",
-    "analysis.title": "Image Viewer",
-    "analysis.desc": "Mounts the selected disk image read-only and shows its contents as a folder tree.",
-    "analysis.hint": "Select an image file, mount it read-only, and inspect the content tree here.",
+    "analysis.title": "Image & RAM Analysis",
+    "analysis.desc": "Analyze and dynamically inspect disk images and volatile memory (RAM) dumps.",
+    "analysis.hint": "Mount a disk image, navigate the filesystem, and view file contents.",
     "analysis.imageFile": "Image File",
     "analysis.mount": "Mount Read-Only",
     "analysis.unmount": "Remove Mount",
     "analysis.status": "Status",
     "analysis.noImage": "No image selected",
-    "analysis.outputWaiting": "Folder tree and mount output will appear here.",
+    "analysis.outputWaiting": "Folder structure and mount output will appear here.",
     "analysis.imageRequired": "Select an image file first.",
     "analysis.mounting": "Mounting image...",
     "analysis.mounted": "Mounted: {path}",
-    "analysis.mountedLog": "Image mounted read-only. The content tree is shown below.",
+    "analysis.mountedLog": "Image mounted read-only. You can explore the folder structure.",
     "analysis.mountPrepared": "Image mount prepared.",
     "analysis.mountFailed": "Image could not be mounted: {message}",
     "analysis.unmounted": "Mount removed",
     "analysis.noActiveMount": "No active image mount.",
     "analysis.unmountFailed": "Mount could not be removed: {message}",
+    "analysis.tabImage": "Image Analysis (Disk)",
+    "analysis.tabRam": "RAM Analysis (Memory)",
+    "analysis.ramFile": "RAM Memory Image / Archive (.bin, .raw, .tar)",
+    "analysis.ramHint": "Select a raw RAM image (.bin) or logical process RAM archive (.tar) to begin.",
+    "analysis.btnStrings": "String Mining (Strings)",
+    "analysis.btnCarver": "File Recovery (Carving)",
+    "analysis.btnProcess": "List Processes",
+    "analysis.lblCarved": "Carved/Recovered Files",
+    "analysis.lblStrings": "Extracted Evidential / IOC Strings",
+    "analysis.lblProcesses": "Active Process List (.tar)",
+    "analysis.lblMaps": "Process Memory Maps (maps)",
+    "analysis.lblSearch": "Search Process Memory",
+    "analysis.btnSearch": "Search Memory",
+    "analysis.runningAnalysis": "Analyzing memory dump...",
+    "analysis.doneAnalysis": "Memory analysis completed.",
     "other.title": "Other",
     "other.desc": "Hash operations, evidence vault, report generation, and live log modules.",
     "other.hash.title": "Hash Operations",
@@ -1496,25 +1526,148 @@ function agentDoc({ title, repo, binary, url, note, iconName, stepsTr, stepsEn }
 }
 
 function analysisPage() {
+  const activeTab = state.activeAnalysisTab || "image";
   return `
     <section class="page">
       ${pageTitle(t("analysis.title"), t("analysis.desc"), "search")}
-      <div class="workflow-panel">
-        <p class="section-label">${t("analysis.title")}</p>
-        <p class="field-hint">${t("analysis.hint")}</p>
-        ${pickerField(t("analysis.imageFile"), "image-path", ".img, .dd, .raw, .iso ...", "file")}
-        <div class="button-row">
-          <button class="primary-button" data-action="mount-readonly">${icon("disk")} ${t("analysis.mount")}</button>
-          <button class="danger-button" data-action="unmount-image">${icon("stop")} ${t("analysis.unmount")}</button>
-        </div>
-        <div class="section-divider"></div>
-        <div class="side-info">
-          <span class="metric-icon">${icon("info")}</span>
-          <span><strong>${t("analysis.status")}</strong><small data-analysis-status>${state.imageMount?.mountDir || t("analysis.noImage")}</small></span>
-        </div>
-        <div class="log-box" data-analysis-log>${t("analysis.outputWaiting")}</div>
+      
+      <div class="analysis-tabs">
+        <button class="analysis-tab-btn ${activeTab === "image" ? "active" : ""}" data-analysis-tab="image">
+          ${icon("disk")} ${t("analysis.tabImage")}
+        </button>
+        <button class="analysis-tab-btn ${activeTab === "ram" ? "active" : ""}" data-analysis-tab="ram">
+          ${icon("shield")} ${t("analysis.tabRam")}
+        </button>
+      </div>
+
+      <div id="analysis-content">
+        ${activeTab === "image" ? renderImageAnalysis() : renderRamAnalysis()}
       </div>
     </section>
+  `;
+}
+
+function renderImageAnalysis() {
+  const activeMount = state.imageMount?.mountDir || t("analysis.noImage");
+  const defaultPath = state.imagePathInput || ".img, .dd, .raw, .iso ...";
+  return `
+    <div class="workflow-panel">
+      <p class="section-label">${t("analysis.tabImage")}</p>
+      <p class="field-hint">${t("analysis.hint")}</p>
+      ${pickerField(t("analysis.imageFile"), "image-path", defaultPath, "file")}
+      <div class="button-row">
+        <button class="primary-button" data-action="mount-readonly">${icon("disk")} ${t("analysis.mount")}</button>
+        <button class="danger-button" data-action="unmount-image">${icon("stop")} ${t("analysis.unmount")}</button>
+      </div>
+      <div class="section-divider"></div>
+      <div class="side-info">
+        <span class="metric-icon">${icon("info")}</span>
+        <span><strong>${t("analysis.status")}</strong><small data-analysis-status>${activeMount}</small></span>
+      </div>
+      
+      <div class="forensic-split">
+        <div class="tree-panel">
+          <div class="panel-header">
+            <h3>📁 Klasör Yapısı / Directory Tree</h3>
+          </div>
+          <div class="file-tree-container" id="image-tree-root">
+            ${state.imageMountTreeHTML || `<div class="log-box">${t("analysis.outputWaiting")}</div>`}
+          </div>
+        </div>
+        <div class="preview-panel">
+          <div class="panel-header">
+            <h3>📄 Dosya Önizleme / File Preview</h3>
+          </div>
+          <div class="file-tree-container" id="image-file-preview" style="background: rgba(0,0,0,0.12)">
+            <div class="log-box" style="display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center;padding:20px">
+              Klasör yapısında bir dosyaya tıklayarak içeriğini inceleyebilirsiniz.<br/>Click a file on the left to preview it.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderRamAnalysis() {
+  const defaultPath = state.ramAnalysisPathInput || ".bin, .raw, .tar ...";
+  return `
+    <div class="workflow-panel">
+      <p class="section-label">${t("analysis.tabRam")}</p>
+      <p class="field-hint">${t("analysis.ramHint")}</p>
+      ${pickerField(t("analysis.ramFile"), "ram-analysis-path", defaultPath, "file")}
+      
+      <div class="button-row" style="margin-top:14px">
+        <button class="primary-button" data-action="ram-strings">${icon("shield")} ${t("analysis.btnStrings")}</button>
+        <button class="primary-button" data-action="ram-carver">${icon("disk")} ${t("analysis.btnCarver")}</button>
+        <button class="primary-button" data-action="ram-processes">${icon("menu")} ${t("analysis.btnProcess")}</button>
+      </div>
+
+      <div class="section-divider"></div>
+
+      <div id="ram-analysis-results" class="ram-dashboard" style="display:none">
+        <!-- Stats Row -->
+        <div class="ram-stats">
+          <div class="ram-stat-card">
+            <span class="card-icon">${icon("shield")}</span>
+            <div class="stat-info">
+              <strong id="stat-strings-count">0</strong>
+              <small>Bulgu Dizgileri / IOCs</small>
+            </div>
+          </div>
+          <div class="ram-stat-card">
+            <span class="card-icon">${icon("disk")}</span>
+            <div class="stat-info">
+              <strong id="stat-carved-count">0</strong>
+              <small>Kurtarılan Dosya / Carved</small>
+            </div>
+          </div>
+          <div class="ram-stat-card">
+            <span class="card-icon">${icon("menu")}</span>
+            <div class="stat-info">
+              <strong id="stat-procs-count">0</strong>
+              <small>Aktif Proses / PIDs</small>
+            </div>
+          </div>
+          <div class="ram-stat-card">
+            <span class="card-icon">${icon("info")}</span>
+            <div class="stat-info">
+              <strong id="stat-status-lbl">Hazır / Ready</strong>
+              <small>Durum / Status</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="forensic-split" id="ram-split-view" style="display:none">
+          <!-- Left list -->
+          <div class="tree-panel" id="ram-left-panel">
+            <div class="panel-header">
+              <h3 id="ram-left-panel-title">${t("analysis.lblProcesses")}</h3>
+            </div>
+            <div class="file-tree-container" id="ram-left-list" style="padding:0">
+              <!-- Dynamic processes or carved files -->
+            </div>
+          </div>
+          <!-- Right panel -->
+          <div class="preview-panel" id="ram-right-panel">
+            <div class="panel-header">
+              <h3 id="ram-right-panel-title">${t("analysis.lblMaps")}</h3>
+            </div>
+            <div class="file-tree-container" id="ram-right-content">
+              <!-- Dynamic details/maps -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Flat Result Panel -->
+        <div class="workflow-panel" id="ram-flat-results-panel" style="display:none;padding:16px;margin-top:14px">
+          <p class="section-label" id="ram-flat-title">${t("analysis.lblStrings")}</p>
+          <div class="strings-results-list" id="ram-flat-results-list">
+            <!-- Matches list -->
+          </div>
+        </div>
+      </div>
+    </div>
   `;
 }
 
@@ -2042,6 +2195,50 @@ document.addEventListener("click", (event) => {
     if (detail) detail.innerHTML = detailPanel(state.activeTab);
     hydrateIcons(detail);
     if (["evidence", "reports"].includes(state.activeTab)) loadEvidenceCases();
+    return;
+  }
+
+  const analysisTabButton = event.target.closest("[data-analysis-tab]");
+  if (analysisTabButton) {
+    const imgInput = document.querySelector("#image-path");
+    if (imgInput) state.imagePathInput = imgInput.value.trim();
+    const ramInput = document.querySelector("#ram-analysis-path");
+    if (ramInput) state.ramAnalysisPathInput = ramInput.value.trim();
+
+    state.activeAnalysisTab = analysisTabButton.dataset.analysisTab;
+    render();
+    return;
+  }
+
+  const treeNode = event.target.closest(".tree-node");
+  if (treeNode) {
+    const isDir = treeNode.dataset.isDir === "true";
+    const relativePath = treeNode.dataset.path;
+    document.querySelectorAll(".tree-node").forEach(el => el.classList.remove("active"));
+    treeNode.classList.add("active");
+    if (isDir) {
+      expandTreeNode(treeNode, relativePath);
+    } else {
+      previewImageFile(relativePath);
+    }
+    return;
+  }
+
+  const procRow = event.target.closest(".proc-row");
+  if (procRow) {
+    document.querySelectorAll(".proc-row").forEach(el => el.classList.remove("active"));
+    procRow.classList.add("active");
+    const pid = procRow.dataset.pid;
+    const name = procRow.dataset.name;
+    inspectProcessDetails(pid, name);
+    return;
+  }
+
+  const carvedPreviewBtn = event.target.closest("[data-carved-preview]");
+  if (carvedPreviewBtn) {
+    const path = carvedPreviewBtn.dataset.carvedPreview;
+    previewCarvedFile(path);
+    return;
   }
 });
 
@@ -2346,9 +2543,14 @@ async function handleAction(button) {
         imagePath: result.image_path,
         mountDir: result.mount_dir
       };
+      state.imageMountTreeHTML = renderTree(result.tree);
+      const container = document.querySelector("#image-tree-root");
+      if (container) {
+        container.innerHTML = state.imageMountTreeHTML;
+      }
       setAnalysisStatus(
         t("analysis.mounted", { path: result.mount_dir }),
-        renderTree(result.tree)
+        t("analysis.mountedLog")
       );
       showToast(t("analysis.mountPrepared"));
     } catch (error) {
@@ -2362,10 +2564,188 @@ async function handleAction(button) {
     try {
       await apiRequest("/api/image-unmount", { method: "POST" });
       state.imageMount = null;
+      state.imageMountTreeHTML = "";
+      const container = document.querySelector("#image-tree-root");
+      if (container) {
+        container.innerHTML = `<div class="log-box">${t("analysis.outputWaiting")}</div>`;
+      }
+      const preview = document.querySelector("#image-file-preview");
+      if (preview) {
+        preview.innerHTML = `
+          <div class="log-box" style="display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center;padding:20px">
+            Klasör yapısında bir dosyaya tıklayarak içeriğini inceleyebilirsiniz.<br/>Click a file on the left to preview it.
+          </div>
+        `;
+      }
       setAnalysisStatus(t("analysis.unmounted"), t("analysis.noActiveMount"));
       showToast(t("analysis.unmounted"));
     } catch (error) {
       showToast(t("analysis.unmountFailed", { message: error.message }), "error");
+    }
+    return;
+  }
+
+  if (action === "ram-strings") {
+    const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
+    if (!ramPath || ramPath.startsWith(".")) {
+      showToast("Önce geçerli bir RAM dosyası seçin / Select a valid RAM file first", "error");
+      return;
+    }
+    
+    document.querySelector("#ram-analysis-results").style.display = "block";
+    document.querySelector("#ram-split-view").style.display = "none";
+    document.querySelector("#ram-flat-results-panel").style.display = "block";
+    
+    const statusLbl = document.querySelector("#stat-status-lbl");
+    if (statusLbl) statusLbl.textContent = t("analysis.runningAnalysis");
+
+    const flatResults = document.querySelector("#ram-flat-results-list");
+    flatResults.innerHTML = `<div class="log-box" style="text-align:center;padding:30px">⌛ Uçucu bellek taranıyor, dizgiler çıkartılıyor... (Bu işlem bir miktar sürebilir)<br/>Scanning dynamic memory heap and extracting evidential strings...</div>`;
+
+    try {
+      const result = await apiRequest("/api/ram-analyze-strings", {
+        method: "POST",
+        body: JSON.stringify({ path: ramPath })
+      });
+      
+      const count = result.length || 0;
+      document.querySelector("#stat-strings-count").textContent = count;
+      document.querySelector("#stat-carved-count").textContent = "0";
+      document.querySelector("#stat-procs-count").textContent = "0";
+      if (statusLbl) statusLbl.textContent = "Analiz Edildi / Analysed";
+
+      if (count === 0) {
+        flatResults.innerHTML = `<div class="log-box" style="text-align:center;padding:20px;color:var(--muted)">Hiçbir bulgu dizgisi bulunamadı / No evidential strings found.</div>`;
+      } else {
+        flatResults.innerHTML = result.map(item => `
+          <div class="string-match-item">
+            <div class="match-meta">
+              <span>Kategori: <strong>${escapeHtml(item.category)}</strong></span>
+              <span>Ofset: <strong>0x${item.offset.toString(16).toUpperCase()}</strong></span>
+            </div>
+            <div class="match-value">${escapeHtml(item.value)}</div>
+            <div class="match-context">${escapeHtml(item.context)}</div>
+          </div>
+        `).join("");
+      }
+      showToast("Dizgi analizi başarıyla tamamlandı.");
+    } catch (error) {
+      if (statusLbl) statusLbl.textContent = "Hata / Failed";
+      flatResults.innerHTML = `<div class="log-box" style="color:#ff5f68">Analiz başarısız: ${escapeHtml(error.message)}</div>`;
+      showToast("RAM dizgi analizi başarısız oldu: " + error.message, "error");
+    }
+    return;
+  }
+
+  if (action === "ram-carver") {
+    const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
+    if (!ramPath || ramPath.startsWith(".")) {
+      showToast("Önce geçerli bir RAM dosyası seçin / Select a valid RAM file first", "error");
+      return;
+    }
+
+    document.querySelector("#ram-analysis-results").style.display = "block";
+    document.querySelector("#ram-split-view").style.display = "grid";
+    document.querySelector("#ram-flat-results-panel").style.display = "none";
+
+    document.querySelector("#ram-left-panel-title").textContent = t("analysis.lblCarved");
+    document.querySelector("#ram-right-panel-title").textContent = "Dosya Önizleme / File Preview";
+
+    const leftList = document.querySelector("#ram-left-list");
+    leftList.innerHTML = `<div class="log-box" style="text-align:center;padding:20px">⌛ Bellekten gömülü dosyalar kurtarılıyor... / Carving files from memory...</div>`;
+    const rightContent = document.querySelector("#ram-right-content");
+    rightContent.innerHTML = `<div class="log-box" style="display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center">Kurtarılan bir dosyaya tıklayarak içeriğini inceleyin.<br/>Click a carved file on the left to preview.</div>`;
+
+    const statusLbl = document.querySelector("#stat-status-lbl");
+    if (statusLbl) statusLbl.textContent = t("analysis.runningAnalysis");
+
+    try {
+      const result = await apiRequest("/api/ram-carve-files", {
+        method: "POST",
+        body: JSON.stringify({ path: ramPath })
+      });
+
+      const count = result.length || 0;
+      document.querySelector("#stat-strings-count").textContent = "0";
+      document.querySelector("#stat-carved-count").textContent = count;
+      document.querySelector("#stat-procs-count").textContent = "0";
+      if (statusLbl) statusLbl.textContent = "Kurtarıldı / Carved";
+
+      if (count === 0) {
+        leftList.innerHTML = `<div class="log-box" style="text-align:center;padding:12px;color:var(--muted)">Kurtarılan dosya bulunamadı / No carved files.</div>`;
+      } else {
+        leftList.innerHTML = result.map(file => {
+          const isImg = file.mime_type.startsWith("image/");
+          const fileIcon = isImg ? "🖼️" : "📄";
+          return `
+            <div class="tree-node" data-carved-preview="${escapeHtml(file.file_path)}" style="padding:10px;border-bottom:1px solid var(--line)">
+              <span class="node-icon">${fileIcon}</span>
+              <div style="display:flex;flex-direction:column;min-width:0;flex:1">
+                <strong style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(file.file_name)}</strong>
+                <small style="font-size:10px;color:var(--muted)">Ofset: 0x${file.offset.toString(16).toUpperCase()} · ${formatBytes(file.size)}</small>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+      showToast("Dosya kurtarma (carving) başarıyla tamamlandı.");
+    } catch (error) {
+      if (statusLbl) statusLbl.textContent = "Hata / Failed";
+      leftList.innerHTML = `<div class="log-box" style="color:#ff5f68">Kurtarma başarısız: ${escapeHtml(error.message)}</div>`;
+      showToast("RAM dosya kurtarma başarısız: " + error.message, "error");
+    }
+    return;
+  }
+
+  if (action === "ram-processes") {
+    const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
+    if (!ramPath || ramPath.startsWith(".")) {
+      showToast("Önce geçerli bir RAM dosyası seçin / Select a valid RAM file first", "error");
+      return;
+    }
+
+    document.querySelector("#ram-analysis-results").style.display = "block";
+    document.querySelector("#ram-split-view").style.display = "grid";
+    document.querySelector("#ram-flat-results-panel").style.display = "none";
+
+    document.querySelector("#ram-left-panel-title").textContent = t("analysis.lblProcesses");
+    document.querySelector("#ram-right-panel-title").textContent = "Proses Detayları / Process Inspector";
+
+    const leftList = document.querySelector("#ram-left-list");
+    leftList.innerHTML = `<div class="log-box" style="text-align:center;padding:20px">⌛ Proses tablosu çıkartılıyor... / Reading process lists...</div>`;
+    const rightContent = document.querySelector("#ram-right-content");
+    rightContent.innerHTML = `<div class="log-box" style="display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center">Proses seçildiğinde bellek haritası ve arama alanları burada açılacak.<br/>Select a process from the left to inspect memory maps.</div>`;
+
+    const statusLbl = document.querySelector("#stat-status-lbl");
+    if (statusLbl) statusLbl.textContent = t("analysis.runningAnalysis");
+
+    try {
+      const result = await apiRequest("/api/ram-list-processes", {
+        method: "POST",
+        body: JSON.stringify({ path: ramPath })
+      });
+
+      const count = result.length || 0;
+      document.querySelector("#stat-strings-count").textContent = "0";
+      document.querySelector("#stat-carved-count").textContent = "0";
+      document.querySelector("#stat-procs-count").textContent = count;
+      if (statusLbl) statusLbl.textContent = "Hazır / Ready";
+
+      if (count === 0) {
+        leftList.innerHTML = `<div class="log-box" style="text-align:center;padding:12px;color:var(--muted)">Bu arşivde proses bulunamadı (Sadece .tar arşivleri desteklenir) / No processes.</div>`;
+      } else {
+        leftList.innerHTML = result.map(proc => `
+          <div class="proc-row" data-pid="${escapeHtml(proc.pid)}" data-name="${escapeHtml(proc.name)}">
+            <strong>${escapeHtml(proc.pid)}</strong>
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(proc.name)}</span>
+            <small style="text-align:right">${formatBytes(proc.dump_size)}</small>
+          </div>
+        `).join("");
+      }
+    } catch (error) {
+      if (statusLbl) statusLbl.textContent = "Hata / Failed";
+      leftList.innerHTML = `<div class="log-box" style="color:#ff5f68">Proses tablosu alınamadı: ${escapeHtml(error.message)}</div>`;
+      showToast("Proses listeleme başarısız: " + error.message, "error");
     }
     return;
   }
@@ -2985,15 +3365,33 @@ function setAnalysisStatus(status, log) {
 }
 
 function renderTree(node, depth = 0) {
-  if (!node) return escapeHtml(t("analysis.outputWaiting"));
-  const indent = "&nbsp;".repeat(depth * 2);
-  const marker = node.is_dir ? "▸" : "•";
-  const size = node.is_dir ? "" : ` <small>${formatBytes(node.size)}</small>`;
-  const current = `${indent}${marker} ${escapeHtml(node.name || node.path || "")}${size}`;
-  const children = Array.isArray(node.children)
-    ? node.children.map((child) => renderTree(child, depth + 1)).join("<br />")
+  if (!node) return `<div class="log-box">${escapeHtml(t("analysis.outputWaiting"))}</div>`;
+  const fileIcon = node.is_dir ? "📁" : "📄";
+  const toggle = node.is_dir ? `<span class="toggle-icon">▸</span>` : "";
+  const sizeStr = node.is_dir ? "" : `<span class="node-size">${formatBytes(node.size)}</span>`;
+  
+  let relativePath = node.path;
+  if (state.imageMount && state.imageMount.mountDir) {
+    if (node.path.startsWith(state.imageMount.mountDir)) {
+      relativePath = node.path.substring(state.imageMount.mountDir.length);
+    }
+  }
+
+  const current = `
+    <div class="tree-node" data-path="${escapeHtml(relativePath)}" data-is-dir="${node.is_dir}">
+      <span style="width:16px;display:inline-block">${toggle}</span>
+      <span class="node-icon">${fileIcon}</span>
+      <span class="node-name">${escapeHtml(node.name || node.path.split('/').pop() || "/")}</span>
+      ${sizeStr}
+    </div>
+    <div class="tree-children-container"></div>
+  `;
+
+  const children = Array.isArray(node.children) && node.children.length > 0
+    ? `<div class="tree-children" style="padding-left:14px; display:none">${node.children.map(child => renderTree(child, depth + 1)).join("")}</div>`
     : "";
-  return children ? `${current}<br />${children}` : current;
+
+  return current + children;
 }
 
 async function calculateHashes() {
@@ -3257,6 +3655,240 @@ function detailPanel(tab) {
     `;
   }
   return hashPanel();
+}
+
+async function expandTreeNode(nodeElement, relativePath) {
+  const childrenContainer = nodeElement.nextElementSibling;
+  if (childrenContainer && childrenContainer.classList.contains("tree-children")) {
+    if (childrenContainer.style.display === "none") {
+      childrenContainer.style.display = "block";
+      nodeElement.querySelector(".toggle-icon").innerHTML = "▾";
+    } else {
+      childrenContainer.style.display = "none";
+      nodeElement.querySelector(".toggle-icon").innerHTML = "▸";
+    }
+    return;
+  }
+
+  const tempContainer = document.createElement("div");
+  tempContainer.className = "tree-children";
+  tempContainer.style.paddingLeft = "14px";
+  nodeElement.parentNode.insertBefore(tempContainer, nodeElement.nextSibling.nextSibling);
+
+  try {
+    nodeElement.querySelector(".toggle-icon").innerHTML = "⌛";
+    const result = await apiRequest("/api/image-browse", {
+      method: "POST",
+      body: JSON.stringify({ path: relativePath })
+    });
+    
+    let html = "";
+    if (result.files && result.files.length > 0) {
+      result.files.sort((a, b) => b.is_dir - a.is_dir || a.name.localeCompare(b.name));
+      result.files.forEach(file => {
+        const fileIcon = file.is_dir ? "📁" : "📄";
+        const toggle = file.is_dir ? `<span class="toggle-icon">▸</span>` : "";
+        const sizeStr = file.is_dir ? "" : `<span class="node-size">${formatBytes(file.size)}</span>`;
+        html += `
+          <div class="tree-node" data-path="${escapeHtml(file.relative_path)}" data-is-dir="${file.is_dir}">
+            <span style="width:16px;display:inline-block">${toggle}</span>
+            <span class="node-icon">${fileIcon}</span>
+            <span class="node-name">${escapeHtml(file.name)}</span>
+            ${sizeStr}
+          </div>
+          <div class="tree-children-container"></div>
+        `;
+      });
+    } else {
+      html += `<div class="tree-node" style="opacity:0.5;padding-left:20px">Boş Klasör / Empty Directory</div>`;
+    }
+    
+    nodeElement.querySelector(".toggle-icon").innerHTML = "▾";
+    tempContainer.innerHTML = html;
+  } catch (error) {
+    nodeElement.querySelector(".toggle-icon").innerHTML = "▸";
+    tempContainer.remove();
+    showToast("Klasör açma başarısız: " + error.message, "error");
+  }
+}
+
+async function previewImageFile(relativePath) {
+  const container = document.querySelector("#image-file-preview");
+  if (!container) return;
+  container.innerHTML = `<div class="log-box" style="display:flex;align-items:center;justify-content:center;color:var(--muted);height:200px">⌛ Yükleniyor / Loading...</div>`;
+  
+  try {
+    const result = await apiRequest("/api/image-read-file", {
+      method: "POST",
+      body: JSON.stringify({ path: relativePath })
+    });
+    
+    let contentHtml = "";
+    if (result.type === "image") {
+      contentHtml = `
+        <div class="image-viewer-area" style="height:320px">
+          <img src="${result.content}" alt="preview" style="max-height:300px" />
+        </div>
+      `;
+    } else if (result.type === "text") {
+      contentHtml = `
+        <textarea class="text-viewer-area" style="height:320px" readonly>${escapeHtml(result.content)}</textarea>
+      `;
+    } else {
+      contentHtml = `
+        <div class="hex-viewer-area" style="height:320px">${escapeHtml(result.content)}</div>
+      `;
+    }
+    
+    container.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:12px;padding:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:10px">
+          <strong style="color:var(--green);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(relativePath.split('/').pop())}</strong>
+          <small class="meta" style="margin-top:0">${formatBytes(result.size)}</small>
+        </div>
+        <div style="flex:1;overflow:hidden">
+          ${contentHtml}
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    container.innerHTML = `<div class="log-box" style="color:#ff5f68;padding:20px">Hata / Error: ${escapeHtml(error.message)}</div>`;
+  }
+}
+
+async function inspectProcessDetails(pid, name) {
+  const rightContent = document.querySelector("#ram-right-content");
+  if (!rightContent) return;
+  
+  rightContent.innerHTML = `<div class="log-box" style="text-align:center;padding:20px">⌛ Proses bellek haritası yükleniyor...</div>`;
+  
+  const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
+  try {
+    const result = await apiRequest("/api/ram-process-details", {
+      method: "POST",
+      body: JSON.stringify({ path: ramPath, pid })
+    });
+    
+    rightContent.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:14px;padding:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:8px">
+          <strong style="color:var(--green)">${escapeHtml(name)} (${escapeHtml(pid)})</strong>
+          <span style="font-size:12px;color:var(--muted)">Döküm: ${result.dumps?.length || 0} segment</span>
+        </div>
+        
+        <p style="margin:0;font-size:12px;font-weight:bold;color:var(--muted)">Bellek Haritaları (Maps)</p>
+        <div class="maps-pre-box">${escapeHtml(result.maps || "Bellek haritası yok")}</div>
+        
+        <div class="section-divider" style="margin:8px 0"></div>
+        
+        <p style="margin:0;font-size:12px;font-weight:bold;color:var(--muted)">Proses Belleğinde Kelime/Dizgi Ara</p>
+        <div class="input-action">
+          <input type="text" id="proc-search-query" class="input" placeholder="Örn: whatsapp, telegram, token, password..." />
+          <button class="primary-button" data-action="proc-search" data-pid="${escapeHtml(pid)}">Bellekte Ara</button>
+        </div>
+        
+        <div id="proc-search-results" style="margin-top:10px"></div>
+      </div>
+    `;
+    hydrateIcons(rightContent);
+  } catch (error) {
+    rightContent.innerHTML = `<div class="log-box" style="color:#ff5f68">Hata: ${escapeHtml(error.message)}</div>`;
+  }
+}
+
+// Add global listener to inspect proc-search data action
+document.addEventListener("click", async (event) => {
+  const searchBtn = event.target.closest("[data-action='proc-search']");
+  if (searchBtn) {
+    const pid = searchBtn.dataset.pid;
+    await runProcessMemorySearch(pid);
+  }
+});
+
+async function runProcessMemorySearch(pid) {
+  const query = document.querySelector("#proc-search-query")?.value.trim();
+  const resultsDiv = document.querySelector("#proc-search-results");
+  if (!query || !resultsDiv) {
+    showToast("Arama sorgusu boş olamaz", "error");
+    return;
+  }
+  
+  resultsDiv.innerHTML = `<div class="log-box" style="text-align:center;padding:10px">⌛ Proses hafızası taranıyor...</div>`;
+  
+  const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
+  try {
+    const result = await apiRequest("/api/ram-process-search", {
+      method: "POST",
+      body: JSON.stringify({ path: ramPath, pid, query })
+    });
+    
+    const count = result.length || 0;
+    if (count === 0) {
+      resultsDiv.innerHTML = `<div class="log-box" style="color:var(--muted);text-align:center;padding:10px">Hiçbir eşleşme bulunamadı.</div>`;
+    } else {
+      resultsDiv.innerHTML = `
+        <div class="strings-results-list" style="max-height:220px">
+          ${result.map(item => `
+            <div class="string-match-item">
+              <div class="match-meta">
+                <span>Segment: <strong>${escapeHtml(item.category)}</strong></span>
+                <span>Ofset: <strong>0x${item.offset.toString(16).toUpperCase()}</strong></span>
+              </div>
+              <div class="match-value" style="color:var(--green)">${escapeHtml(item.value)}</div>
+              <div class="match-context">${escapeHtml(item.context)}</div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+  } catch (error) {
+    resultsDiv.innerHTML = `<div class="log-box" style="color:#ff5f68">Arama başarısız: ${escapeHtml(error.message)}</div>`;
+  }
+}
+
+async function previewCarvedFile(filePath) {
+  const rightContent = document.querySelector("#ram-right-content");
+  if (!rightContent) return;
+  
+  rightContent.innerHTML = `<div class="log-box" style="text-align:center;padding:20px">⌛ Kurtarılan dosya yükleniyor... / Loading carved file...</div>`;
+  
+  try {
+    const result = await apiRequest("/api/ram-read-carved", {
+      method: "POST",
+      body: JSON.stringify({ path: filePath })
+    });
+    
+    let contentHtml = "";
+    if (result.type === "image") {
+      contentHtml = `
+        <div class="image-viewer-area" style="height:320px">
+          <img src="${result.content}" alt="carved preview" style="max-height:300px" />
+        </div>
+      `;
+    } else if (result.type === "text") {
+      contentHtml = `
+        <textarea class="text-viewer-area" style="height:320px" readonly>${escapeHtml(result.content)}</textarea>
+      `;
+    } else {
+      contentHtml = `
+        <div class="hex-viewer-area" style="height:320px">${escapeHtml(result.content)}</div>
+      `;
+    }
+    
+    rightContent.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:12px;padding:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:10px">
+          <strong style="color:var(--green);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(filePath.split('/').pop())}</strong>
+          <small class="meta" style="margin-top:0">${formatBytes(result.size)}</small>
+        </div>
+        <div style="flex:1;overflow:hidden">
+          ${contentHtml}
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    rightContent.innerHTML = `<div class="log-box" style="color:#ff5f68;padding:20px">Önizleme başarısız: ${escapeHtml(error.message)}</div>`;
+  }
 }
 
 setLanguage(state.language);

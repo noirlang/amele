@@ -4,6 +4,7 @@ use crate::disk::{DiskAcquisitionControl, DiskAcquisitionTask};
 use crate::evidence::EvidenceVault;
 use crate::hash::{self, HashAlgorithm};
 use crate::ram;
+use crate::ram_analysis;
 use crate::remote::RemoteConnection;
 use crate::report::{self, ReportFormat, ReportInfo};
 use crate::settings::AppSettings;
@@ -339,6 +340,14 @@ fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
         ("POST", "/api/report-create") => report_create_endpoint(body),
         ("POST", "/api/image-mount-readonly") => image_mount_readonly_endpoint(body),
         ("POST", "/api/image-unmount") => image_unmount_endpoint(),
+        ("POST", "/api/image-browse") => image_browse_endpoint(body),
+        ("POST", "/api/image-read-file") => image_read_file_endpoint(body),
+        ("POST", "/api/ram-analyze-strings") => ram_analyze_strings_endpoint(body),
+        ("POST", "/api/ram-carve-files") => ram_carve_files_endpoint(body),
+        ("POST", "/api/ram-list-processes") => ram_list_processes_endpoint(body),
+        ("POST", "/api/ram-process-details") => ram_process_details_endpoint(body),
+        ("POST", "/api/ram-process-search") => ram_process_search_endpoint(body),
+        ("POST", "/api/ram-read-carved") => ram_read_carved_endpoint(body),
         ("POST", "/api/wireguard-config") => wireguard_config_endpoint(body),
         ("POST", "/api/wireguard-start") => wireguard_start_endpoint(body),
         ("POST", "/api/wireguard-stop") => wireguard_stop_endpoint(),
@@ -939,6 +948,380 @@ fn image_unmount_endpoint() -> Response {
         Ok(Some(mount_dir)) => json_ok(json!({ "mount_dir": mount_dir })),
         Ok(None) => json_ok(json!({ "mount_dir": Value::Null })),
         Err(err) => json_error(500, err),
+    }
+}
+
+fn image_browse_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct BrowseRequest {
+        path: Option<String>,
+    }
+
+    let request: BrowseRequest = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+
+    let mount_dir = match current_image_mount().lock() {
+        Ok(current) => match &*current {
+            Some(state) => state.mount_dir.clone(),
+            None => return json_error(400, "Aktif bir imaj bağlantısı yok / No active image mount"),
+        },
+        Err(_) => return json_error(500, "Mutex lock hatası / Mutex lock error"),
+    };
+
+    let target_path = if let Some(sub) = request.path {
+        let sub = sub.trim().replace("..", "");
+        let clean_sub = sub.trim_start_matches('/');
+        mount_dir.join(clean_sub)
+    } else {
+        mount_dir.clone()
+    };
+
+    if !target_path.starts_with(&mount_dir) {
+        return json_error(403, "Yetkisiz erişim / Access denied");
+    }
+
+    if !target_path.exists() {
+        return json_error(404, "Dizin bulunamadı / Directory not found");
+    }
+
+    let mut files = Vec::new();
+    match fs::read_dir(&target_path) {
+        Ok(entries) => {
+            for entry in entries.flatten() {
+                let meta = entry.metadata().ok();
+                let is_dir = meta.as_ref().map(|m| m.is_dir()).unwrap_or(false);
+                let size = meta.as_ref().map(|m| m.len()).unwrap_or(0);
+                let name = entry.file_name().to_string_lossy().into_owned();
+                let rel_path = target_path.join(&name)
+                    .strip_prefix(&mount_dir)
+                    .unwrap_or(&Path::new(""))
+                    .to_string_lossy()
+                    .into_owned();
+
+                files.push(json!({
+                    "name": name,
+                    "relative_path": rel_path,
+                    "is_dir": is_dir,
+                    "size": size,
+                }));
+            }
+            json_ok(json!({ "files": files }))
+        }
+        Err(err) => json_error(500, format!("Dizin okunamadı / Directory read failed: {}", err)),
+    }
+}
+
+fn image_read_file_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct ReadRequest {
+        path: String,
+    }
+
+    let request: ReadRequest = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+
+    let mount_dir = match current_image_mount().lock() {
+        Ok(current) => match &*current {
+            Some(state) => state.mount_dir.clone(),
+            None => return json_error(400, "Aktif bir imaj bağlantısı yok / No active image mount"),
+        },
+        Err(_) => return json_error(500, "Mutex lock hatası / Mutex lock error"),
+    };
+
+    let sub = request.path.trim().replace("..", "");
+    let clean_sub = sub.trim_start_matches('/');
+    let target_path = mount_dir.join(clean_sub);
+
+    if !target_path.starts_with(&mount_dir) {
+        return json_error(403, "Yetkisiz erişim / Access denied");
+    }
+
+    if !target_path.is_file() {
+        return json_error(404, "Dosya bulunamadı / File not found");
+    }
+
+    let ext = target_path.extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+
+    let size = match fs::metadata(&target_path) {
+        Ok(meta) => meta.len(),
+        Err(err) => return json_error(500, err.to_string()),
+    };
+
+    if ["png", "jpg", "jpeg", "gif", "bmp", "webp"].contains(&ext.as_str()) {
+        if size > 15 * 1024 * 1024 {
+            return json_error(400, "Resim boyutu önizleme için çok büyük / Image size too large for preview");
+        }
+        match fs::read(&target_path) {
+            Ok(bytes) => {
+                use base64::Engine;
+                let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                let mime = match ext.as_str() {
+                    "png" => "image/png",
+                    "jpg" | "jpeg" => "image/jpeg",
+                    "gif" => "image/gif",
+                    "webp" => "image/webp",
+                    _ => "image/png",
+                };
+                return json_ok(json!({
+                    "type": "image",
+                    "mime": mime,
+                    "content": format!("data:{};base64,{}", mime, encoded),
+                    "size": size,
+                }));
+            }
+            Err(err) => return json_error(500, err.to_string()),
+        }
+    }
+
+    let is_text_ext = ["txt", "log", "json", "xml", "plist", "html", "css", "js", "sh", "prop", "rc", "conf", "ini"].contains(&ext.as_str()) || size < 200_000;
+    
+    match fs::File::open(&target_path) {
+        Ok(mut f) => {
+            let mut buf = vec![0_u8; 16384.min(size as usize)];
+            let read = f.read(&mut buf).unwrap_or(0);
+            let content_bytes = &buf[..read];
+
+            if is_text_ext {
+                if let Ok(text) = std::str::from_utf8(content_bytes) {
+                    return json_ok(json!({
+                        "type": "text",
+                        "content": text,
+                        "size": size,
+                        "truncated": size > 16384,
+                    }));
+                }
+            }
+
+            let mut hex_lines = Vec::new();
+            for chunk in content_bytes.chunks(16) {
+                let offset = (hex_lines.len() * 16) as u64;
+                let hex_parts: Vec<String> = chunk.iter().map(|b| format!("{:02X}", b)).collect();
+                let hex_str = hex_parts.join(" ");
+                let ascii_str: String = chunk.iter()
+                    .map(|&b| if b.is_ascii_graphic() || b == b' ' { b as char } else { '.' })
+                    .collect();
+                hex_lines.push(format!("{:08X}  {:48}  |{}|", offset, hex_str, ascii_str));
+            }
+            json_ok(json!({
+                "type": "hex",
+                "content": hex_lines.join("\n"),
+                "size": size,
+                "truncated": size > 16384,
+            }))
+        }
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+fn ram_analyze_strings_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = Path::new(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
+    }
+    match ram_analysis::analyze_ram_strings(path) {
+        Ok(matches) => json_ok(serde_json::to_value(matches).unwrap_or(Value::Null)),
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+fn ram_carve_files_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = Path::new(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
+    }
+    let vault = match current_evidence_vault() {
+        Ok(v) => v,
+        Err(resp) => return resp,
+    };
+    match ram_analysis::carve_files(path, &vault.ram_dir) {
+        Ok(carved) => json_ok(serde_json::to_value(carved).unwrap_or(Value::Null)),
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+fn ram_list_processes_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = Path::new(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek arşivi bulunamadı / Memory archive not found");
+    }
+    match ram_analysis::list_tar_processes(path) {
+        Ok(procs) => json_ok(serde_json::to_value(procs).unwrap_or(Value::Null)),
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+fn ram_process_details_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+        pid: String,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = Path::new(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek arşivi bulunamadı / Memory archive not found");
+    }
+    match ram_analysis::get_process_maps_and_dump_files(path, &request.pid) {
+        Ok((maps, bin_files)) => json_ok(json!({
+            "maps": maps,
+            "dumps": bin_files,
+        })),
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+fn ram_process_search_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+        pid: String,
+        query: String,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    if request.query.trim().is_empty() {
+        return json_error(400, "Arama sorgusu gerekli / Search query required");
+    }
+    let path = Path::new(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek arşivi bulunamadı / Memory archive not found");
+    }
+    match ram_analysis::search_process_memory(path, &request.pid, &request.query) {
+        Ok(matches) => json_ok(serde_json::to_value(matches).unwrap_or(Value::Null)),
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+fn ram_read_carved_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+    }
+
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+
+    let target_path = PathBuf::from(request.path.trim());
+    if !target_path.exists() {
+        return json_error(404, "Dosya bulunamadı / File not found");
+    }
+
+    let vault = match current_evidence_vault() {
+        Ok(v) => v,
+        Err(resp) => return resp,
+    };
+    if !target_path.starts_with(&vault.ram_dir) {
+        return json_error(403, "Yetkisiz erişim / Access denied");
+    }
+
+    let ext = target_path.extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+
+    let size = match fs::metadata(&target_path) {
+        Ok(meta) => meta.len(),
+        Err(err) => return json_error(500, err.to_string()),
+    };
+
+    if ["png", "jpg", "jpeg", "gif", "bmp", "webp"].contains(&ext.as_str()) {
+        match fs::read(&target_path) {
+            Ok(bytes) => {
+                use base64::Engine;
+                let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                let mime = match ext.as_str() {
+                    "png" => "image/png",
+                    "jpg" | "jpeg" => "image/jpeg",
+                    "gif" => "image/gif",
+                    "webp" => "image/webp",
+                    _ => "image/png",
+                };
+                return json_ok(json!({
+                    "type": "image",
+                    "mime": mime,
+                    "content": format!("data:{};base64,{}", mime, encoded),
+                    "size": size,
+                }));
+            }
+            Err(err) => return json_error(500, err.to_string()),
+        }
+    }
+
+    let is_text_ext = ["txt", "log", "json", "xml", "plist"].contains(&ext.as_str()) || size < 100_000;
+    
+    match fs::File::open(&target_path) {
+        Ok(mut f) => {
+            let mut buf = vec![0_u8; 16384.min(size as usize)];
+            let read = f.read(&mut buf).unwrap_or(0);
+            let content_bytes = &buf[..read];
+
+            if is_text_ext {
+                if let Ok(text) = std::str::from_utf8(content_bytes) {
+                    return json_ok(json!({
+                        "type": "text",
+                        "content": text,
+                        "size": size,
+                        "truncated": size > 16384,
+                    }));
+                }
+            }
+
+            let mut hex_lines = Vec::new();
+            for chunk in content_bytes.chunks(16) {
+                let offset = (hex_lines.len() * 16) as u64;
+                let hex_parts: Vec<String> = chunk.iter().map(|b| format!("{:02X}", b)).collect();
+                let hex_str = hex_parts.join(" ");
+                let ascii_str: String = chunk.iter()
+                    .map(|&b| if b.is_ascii_graphic() || b == b' ' { b as char } else { '.' })
+                    .collect();
+                hex_lines.push(format!("{:08X}  {:48}  |{}|", offset, hex_str, ascii_str));
+            }
+            json_ok(json!({
+                "type": "hex",
+                "content": hex_lines.join("\n"),
+                "size": size,
+                "truncated": size > 16384,
+            }))
+        }
+        Err(err) => json_error(500, err.to_string()),
     }
 }
 
