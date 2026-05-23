@@ -73,12 +73,16 @@ function boundDetailPanel(tab) {
     t,
     icon,
     state,
-    pickerField,
+    pickerField: boundPickerField,
     field,
     escapeHtml,
     caseSelectOptions,
     hashPanel
   });
+}
+
+function boundPickerField(label, id, value, type = "file") {
+  return pickerField(label, id, value, type, icon, t);
 }
 
 function L(tr, en) {
@@ -318,7 +322,7 @@ function render() {
       state,
       assetPath,
       pageTitle,
-      pickerField,
+      pickerField: boundPickerField,
       field,
       escapeHtml,
       caseSelectOptions,

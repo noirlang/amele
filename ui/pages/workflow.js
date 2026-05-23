@@ -131,7 +131,7 @@ export function field(label, control) {
   `;
 }
 
-export function pickerField(label, id, value, type = "file", icon, t) {
+export function pickerField(label, id, value, type = "file", icon = defaultIcon, t = (key) => key) {
   const action = type === "folder" ? "pick-folder" : "pick-file";
   const placeholderOnly = value.startsWith(".") || value.toLowerCase().includes("seç") || value.toLowerCase().includes("select");
   const valueAttr = placeholderOnly ? `placeholder="${value}" value=""` : `value="${value}"`;
