@@ -2,84 +2,81 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## What this is
+## What This Project Is
 
-Worm is a desktop forensic tool (Rust backend + vanilla HTML/CSS/JS UI) for disk/RAM imaging, hash verification, remote agent control, case management, and reporting. Targets Linux and Windows only; macOS is explicitly unsupported.
+Worm is a desktop digital forensics tool for Linux and Windows. It provides local and remote disk/RAM acquisition, hash calculation, evidence case management, forensic image mounting, WireGuard VPN config generation, and report generation. The UI is a native window (GTK/WebKit on Linux, WebView2 on Windows) backed by a loopback HTTP server.
 
-## Build & development commands
-
-```bash
-cargo check                         # fast compile check
-cargo build --locked                # debug build
-cargo build --release --locked      # release build
-cargo test --locked                 # run all tests
-cargo fmt --all -- --check          # format check (required before commits)
-node --check ui/app.js              # UI JS syntax check
-```
-
-Run the app:
+## Build & Run Commands
 
 ```bash
-cargo run -- ui                     # native GTK/WebKit window (Linux) or WebView2 (Windows)
-cargo run -- ui-browser             # open in browser for debugging (no native window)
+cargo build --locked                  # debug build
+cargo build --release --locked        # release build
+cargo run -- ui                       # launch native UI
+cargo run -- ui-browser               # open UI in default browser (debug mode)
+cargo fmt --all -- --check            # check Rust formatting
 ```
-
-Preview UI without building: `python3 -m http.server 4173 --bind 127.0.0.1` from repo root.
-
-## Linux system dependencies
-
-```bash
-sudo apt install -y build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
-```
-
-## Architecture
-
-The binary serves dual roles: a **CLI** (dispatched via `main.rs` match on the first argument) and a **UI host** (`ui` / `ui-browser` subcommands). The UI talks only to a loopback HTTP API served by `ui_server.rs`; it never connects to the internet directly.
-
-### Rust modules (`src/`)
-
-| Module | Responsibility |
-|---|---|
-| `main.rs` | CLI dispatch and privileged helper entry points (`image-helper`, `ram-helper`, `disk-list-helper`, `mount-helper`) |
-| `lib.rs` | Re-exports all modules for use from `main.rs` and future embedding |
-| `ui_server.rs` | Loopback HTTP API + static UI asset serving; spawns native window |
-| `native_window.rs` | GTK/WebKit (Linux) and WebView2 (Windows) window wrappers |
-| `disk.rs` | Local disk/file imaging with SHA256 sidecar, `.partial` safety |
-| `ram.rs` | AVML (Linux) and WinPMEM (Windows) acquisition with cancellation token |
-| `remote.rs` | JSON-over-TCP client compatible with `worm-linux` / `worm-win` agents |
-| `hash.rs` | MD5, SHA1, SHA256, SHA512 computation |
-| `evidence.rs` | Case tree under `~/Worm/Vakalar` |
-| `report.rs` | JSON/TXT report generation |
-| `wireguard.rs` | WireGuard config generation and wg-quick wrapper |
-| `settings.rs` | `AppSettings` struct and defaults |
-| `error.rs` | `WormError` / `HataKodu` error types |
-| `logging.rs` | Logging helpers |
-
-### Elevated helper pattern
-
-Operations requiring root (disk listing on Linux, disk imaging, RAM acquisition, image mounting) are performed by re-invoking the same binary as a privileged subprocess via `pkexec` or `sudo`. The helper subcommands (`disk-list-helper`, `image-helper`, `ram-helper`, `mount-helper`) communicate through JSON files (request, result, progress, control) rather than stdio so the unprivileged parent can poll for progress and send pause/resume/stop signals.
-
-### Remote agent protocol
-
-`remote.rs` implements the JSON-over-TCP protocol used by `worm-linux` and `worm-win`. Turkish field names (`komut`, `durum`, `guvenlik_anahtar_b64`, etc.) must be preserved — changing them requires updating both agents simultaneously.
-
-Core agent commands: `merhaba`, `disk_listele`, `imaj_baslat`, `winpmem_kontrol`, `avml_kontrol`, `ram_edinim_baslat`, `ram_dosya_indir`, `edinim_kontrol`.
-
-## Naming conventions
-
-- Rust: standard `snake_case`; public types are descriptive (`RemoteTransferResult`, `RamAcquisitionResult`, `DiskAcquisitionControl`)
-- Turkish protocol field names are intentional — keep them as-is
-- UI: dependency-free vanilla JS/CSS; semantic selectors; all assets local
 
 ## Testing
 
-Unit tests live in `#[cfg(test)]` blocks within each module. Tests must not require real disks, RAM dumps, VPN secrets, or live network services — use `tempfile` and local mock TCP listeners.
-
-Run a single test:
 ```bash
-cargo test --locked <test_name>
+bash tests/run_tests.sh               # run all tests (Rust + JS)
+cargo test --locked                   # Rust unit tests only
+node --test tests/i18n.test.js        # translation key parity check
+node --test tests/routes.test.js      # JS route module loading check
+node --check ui/app.js                # JS syntax validation
 ```
 
-## What not to commit
+Run a single Rust test: `cargo test --locked <test_name>`
 
-Evidence files, memory dumps, VPN private keys, tokens, generated reports, or any file from `~/Worm/Vakalar`.
+CI runs: fmt check → `node --check` → `cargo test` → release build on both Ubuntu and Windows runners.
+
+## Architecture
+
+### Dual-process privilege model
+
+`src/main.rs` serves both as the app entrypoint and as a privileged helper. The app re-invokes itself (via `pkexec` or equivalent) using subcommands like `image-helper`, `ram-helper`, and `mount-helper` to perform privileged I/O. Parent and helper communicate via JSON files on disk — the helper polls a "control file" every 200ms for pause/resume/stop signals.
+
+### Loopback HTTP API pattern
+
+The native window is a thin WebView wrapper. All logic lives in Rust; the frontend is stateless HTML/JS that calls the loopback API. `src/server.rs` binds a random port on `127.0.0.1`; `src/router.rs` dispatches requests; `src/api/` contains domain handlers (evidence, ram, system, android, wireguard).
+
+### Frontend
+
+Pure vanilla HTML/CSS/ES module JavaScript — no bundler, no framework, no build step. Served directly by the Rust server. Route pages live in `ui/pages/<name>.js`; shared helpers go through `ui/app.js`. Translations (Turkish/English) are in `ui/i18n.js`.
+
+### Platform gating
+
+Windows-specific GUI (winit/wry) and syscall crates are gated with `#[cfg(windows)]` and `[target.'cfg(windows)'.dependencies]`. Linux-specific code uses `#[cfg(unix)]` or `#[cfg(target_os = "linux")]`.
+
+### Key source files
+
+| File | Purpose |
+|---|---|
+| `src/main.rs` | CLI entry point and all subcommand handlers |
+| `src/server.rs` | Loopback HTTP server |
+| `src/router.rs` | Request routing |
+| `src/api/` | HTTP API handler modules |
+| `src/disk.rs` | Local disk imaging |
+| `src/ram.rs` | RAM acquisition (AVML/WinPMEM) |
+| `src/remote.rs` | JSON-over-TCP client for remote agents |
+| `src/job.rs` | Job pause/resume/stop lifecycle |
+| `src/error.rs` | `WormError`, `HataKodu`, `WormResult<T>` |
+| `src/settings.rs` | `AppSettings` struct and defaults |
+| `ui/app.js` | Frontend bootstrap and shared helpers |
+| `ui/i18n.js` | Bilingual translation strings |
+
+### Evidence storage
+
+All evidence is always under `~/Worm/Vakalar` — this path is fixed, not configurable.
+
+## Coding Conventions
+
+- `rustfmt` defaults for Rust; `snake_case` functions/modules, `PascalCase` types, `SCREAMING_SNAKE_CASE` constants.
+- Rust tests are colocated with source modules using `#[cfg(test)]`. Tests must not touch real disks, RAM devices, or privileged paths.
+- New UI route pages go in `ui/pages/<name>.js`; bind shared helpers via `ui/app.js`.
+- Privileged operations must go through existing helper flows, not ad hoc shell commands.
+- Commit style: short imperative or Conventional Commit (`feat: ...`, `fix: ...`, `ux(case): ...`), one behavior per commit.
+
+## What Not to Commit
+
+`target/`, `dist/`, AppImages, raw disk images, memory dumps, `agent.md`, or any forensic case output.

@@ -1,19 +1,32 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-`src/` contains the Rust forensic core. Key modules include `disk.rs`, `ram.rs`, `remote.rs`, `hash.rs`, `evidence.rs`, `report.rs`, `settings.rs`, and `wireguard.rs`; `main.rs` is a temporary CLI smoke-test entry point and `lib.rs` exposes reusable modules for future Tauri commands. The static Tauri-ready UI prototype lives in `ui/`, with `ui/index.html`, `ui/app.js`, `ui/styles.css`, and bundled assets under `ui/assets/`. The original C/Qt app is outside this repo at `../worm`; existing remote agents are `../worm-linux` and `../worm-win`.
+
+This repository contains the Rust implementation of Worm Forensic Tool. Core backend code is in `src/`: acquisition logic lives in `disk.rs`, `ram.rs`, `android.rs`, `remote.rs`, and API handlers are under `src/api/`. The native/web UI is in `ui/`, with route pages in `ui/pages/`, shared icons/i18n in `ui/icons.js` and `ui/i18n.js`, and static assets under `ui/assets/`. Rust unit tests are colocated in source modules; JavaScript route and translation checks live in `tests/`. CI configuration is in `.github/workflows/ci.yml`; packaging helpers are in `scripts/` and `packaging/`.
 
 ## Build, Test, and Development Commands
-Run `cargo check` for a fast Rust compile check. Use `cargo test` to run unit tests for acquisition helpers, hashing, reports, settings, WireGuard, and remote protocol behavior. Run `cargo fmt --all --check` before commits. CLI smoke examples: `cargo run -- hash <file> sha256`, `cargo run -- disk-list`, `cargo run -- ram-status`, and `cargo run -- remote-disks <ip> <port> [token]`. Preview the UI with `python3 -m http.server 4173 --bind 127.0.0.1` from the repo root.
+
+- `cargo build --locked`: build a debug binary using the locked dependency graph.
+- `cargo build --release --locked`: produce the optimized release binary.
+- `cargo run -- ui`: run the native UI locally.
+- `cargo test --locked`: run Rust unit tests.
+- `cargo fmt --all -- --check`: verify Rust formatting.
+- `node --check ui/app.js`: validate frontend JavaScript syntax used by CI.
+- `node --test tests/i18n.test.js` and `node --test tests/routes.test.js`: check translation keys and route module loading.
+- `scripts/build-appimage.sh`: build the Linux AppImage when packaging is needed.
 
 ## Coding Style & Naming Conventions
-Use Rust 2024 with standard `rustfmt` formatting and idiomatic snake_case for functions, variables, and modules. Keep public types descriptive, for example `RemoteTransferResult` or `RamAcquisitionResult`. Preserve Turkish protocol field names where they mirror existing agents, such as `komut`, `durum`, and `guvenlik_anahtar_b64`. UI code is dependency-free vanilla HTML/CSS/JS; keep selectors semantic and assets local.
+
+Use `rustfmt` defaults for Rust. Prefer explicit, small modules over large mixed-purpose files. Keep Rust names idiomatic: `snake_case` for functions/modules, `PascalCase` for types, and `SCREAMING_SNAKE_CASE` for constants. UI files use plain ES modules; keep route pages in `ui/pages/<name>.js` and bind shared helpers through `ui/app.js` instead of duplicating logic.
 
 ## Testing Guidelines
-Place Rust unit tests near the module they cover under `#[cfg(test)]`. Name tests by expected behavior, for example `calculates_known_hashes` or `acquires_image_stream_with_agent_protocol`. Do not require real disks, RAM dumps, VPN secrets, or network services for normal tests; use temporary files and local mock TCP listeners.
+
+Add Rust tests near the module they validate with `#[cfg(test)]`. Use deterministic fixtures and avoid touching real disks, RAM devices, or privileged system paths in tests. For UI changes, run the JavaScript syntax check and route/i18n tests. Before pushing, run the same checks as CI where possible: formatting, `node --check`, `cargo test --locked`, and release build for touched platform code.
 
 ## Commit & Pull Request Guidelines
-History uses concise conventional-style commits such as `feat: port local acquisition modules`, `fix: align ui pages with qt source`, and `style: modernize ui branding and responsive layout`. Keep commits focused. PRs should include a summary, tests run, affected platforms, screenshots for UI changes, and notes for any untested Windows/Linux-specific behavior.
 
-## Security & Compatibility Notes
-Never commit evidence files, memory dumps, VPN private keys, tokens, or generated reports. Keep JSON-over-TCP compatibility with `worm-linux` and `worm-win`; do not rename protocol fields unless the agents are updated together.
+History uses short imperative or Conventional Commit-style messages, for example `Fix UI route rendering helper bindings`, `feat: ...`, or `ux(case): ...`. Keep commits scoped to one behavior. Pull requests should include a concise summary, test results, linked issues when applicable, and screenshots for visible UI changes.
+
+## Security & Configuration Tips
+
+Do not commit generated artifacts from `target/`, `dist/`, AppImages, raw images, memory dumps, or `agent.md`. Treat forensic outputs and case data as sensitive. Privileged operations must go through existing helper flows rather than ad hoc shell commands.
