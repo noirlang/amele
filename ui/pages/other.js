@@ -1,0 +1,254 @@
+export function otherPage({ t, icon, state, pageTitle, pickerField, field, escapeHtml, caseSelectOptions, detailPanel }) {
+  return `
+    <section class="page">
+      ${pageTitle(t("other.title"), t("other.desc"), "tiles")}
+      <div class="other-grid">
+        ${simpleCard(t("other.hash.title"), t("other.hash.desc"), "shield", "hash", icon, t)}
+        ${simpleCard(t("other.evidence.title"), t("other.evidence.desc"), "scale", "evidence", icon, t)}
+        ${simpleCard(t("other.reports.title"), t("other.reports.desc"), "report", "reports", icon, t)}
+        ${simpleCard(t("other.logs.title"), t("other.logs.desc"), "clock", "logs", icon, t)}
+      </div>
+      <div id="other-detail" class="workflow-panel" style="margin-top:16px">${detailPanel(state.activeTab)}</div>
+    </section>
+  `;
+}
+
+function simpleCard(title, desc, iconName, tab, icon, t) {
+  return `
+    <button class="forensic-card" data-tab="${tab}">
+      <span class="card-icon">${icon(iconName)}</span>
+      <h3>${title}</h3>
+      <p>${desc}</p>
+      <span class="meta">${t("open")}</span>
+    </button>
+  `;
+}
+
+export function detailPanel({ tab, t, icon, state, pickerField, field, escapeHtml, caseSelectOptions, hashPanel }) {
+  if (tab === "evidence") {
+    return `
+      <p class="section-label">${t("case.management")}</p>
+      <div class="side-info">
+        <span class="metric-icon">${icon("folder")}</span>
+        <span><strong>${t("case.location")}</strong><small data-case-base>${escapeHtml(state.caseBaseDir || "~/Worm/Vakalar")}</small></span>
+      </div>
+      <p class="field-hint">${t("case.fixedLocation")}</p>
+      ${field(t("case.name"), '<input id="case-name" class="input" placeholder="Case_2026_001" />')}
+      <div class="button-row">
+        <button class="primary-button" data-action="create-case">${icon("folder")} ${t("case.create")}</button>
+        <button class="secondary-button" data-action="refresh-cases">${icon("refresh")} ${t("case.refresh")}</button>
+      </div>
+      <div class="status-badge" data-case-status>${icon("info")} ${state.activeCase ? t("case.created", { path: state.activeCase.case_dir }) : t("case.notCreated")}</div>
+      <div class="section-divider"></div>
+      <p class="section-label">${t("case.files")}</p>
+      ${field(t("case.folder"), `<select id="case-folder" class="select"><option value="ciktilar">${t("case.outputs")}</option><option value="disk_imajlari">${t("case.diskImages")}</option><option value="ram">${t("case.ram")}</option><option value="raporlar">${t("case.reports")}</option><option value="hash">${t("case.hash")}</option><option value="notlar">${t("case.notes")}</option><option value="gunlukler">${t("case.logs")}</option></select>`)}
+      ${field(t("case.file"), `<select id="case-file-list" class="select"><option>${t("case.listFilesPlaceholder")}</option></select>`)}
+      <div class="button-row">
+        <button class="secondary-button" data-action="list-files">${icon("search")} ${t("case.listFiles")}</button>
+      </div>
+    `;
+  }
+  if (tab === "reports") {
+    return `
+      <p class="section-label">${t("report.createTitle")}</p>
+      <p class="field-hint">${t("report.hint")}</p>
+      ${field(t("report.case"), `<select id="report-case" class="select" data-case-select data-allow-new-case="1">${caseSelectOptions(state.activeCase?.case_name, { allowNew: true })}</select>`)}
+      ${field(t("report.title"), `<input id="report-title" class="input" value="${t("report.defaultTitle")}" />`)}
+      ${field(t("report.format"), '<select id="report-format" class="select"><option value="txt">TXT</option><option value="json">JSON</option></select>')}
+      ${field(t("report.note"), `<textarea id="report-note" class="textarea" placeholder="${t("report.notePlaceholder")}"></textarea>`)}
+      <div class="button-row">
+        <button class="secondary-button" data-action="refresh-cases">${icon("refresh")} ${t("case.refresh")}</button>
+        <button class="secondary-button" data-action="add-note">${icon("report")} ${t("report.addNote")}</button>
+        <button class="primary-button" data-action="create-report">${icon("report")} ${t("report.createTitle")}</button>
+      </div>
+      <div class="status-badge" data-report-status>${icon("info")} ${t("ready")}</div>
+    `;
+  }
+  if (tab === "logs") {
+    return `
+      <p class="section-label">${t("other.logs.title")}</p>
+      <p class="field-hint">${t("log.live")}</p>
+      <div class="log-box">${state.lastLog.map((line) => `• ${line}`).join("<br />")}</div>
+      <div class="button-row" style="margin-top:12px">
+        <button class="secondary-button" data-action="refresh-log">${icon("refresh")} ${t("log.refreshFromFile")}</button>
+      </div>
+    `;
+  }
+  return hashPanel({ t, icon, pickerField, field });
+}
+
+export function hashPanel({ t, icon, pickerField, field }) {
+  return `
+    <p class="section-label">${t("hash.calculator")}</p>
+    ${pickerField(t("hash.file"), "hash-file", t("hash.selectFile"), "file")}
+    <div class="button-row">
+      <button class="primary-button" data-action="hash">${icon("shield")} ${t("hash.calculate")}</button>
+    </div>
+    <div class="hash-grid">
+      ${hashResult("MD5", "md5")}
+      ${hashResult("SHA1", "sha1")}
+      ${hashResult("SHA256", "sha256")}
+      ${hashResult("SHA512", "sha512")}
+    </div>
+    <div class="section-divider"></div>
+    <p class="section-label">${t("hash.compare")}</p>
+    ${field(t("hash.value"), `<input class="input" data-hash-expected placeholder="${t("hash.placeholder")}" />`)}
+    <div class="button-row">
+      <button class="secondary-button" data-action="compare">${icon("search")} ${t("hash.compare")}</button>
+    </div>
+    <div class="side-info" data-hash-compare-result>
+      <span class="metric-icon">${icon("info")}</span>
+      <span><strong>${t("hash.result")}</strong><small>${t("hash.waiting")}</small></span>
+    </div>
+  `;
+}
+
+function hashResult(label, key) {
+  return `
+    <div class="hash-result" data-hash-result="${key}">
+      <small>${label}</small>
+      <strong>-</strong>
+    </div>
+  `;
+}
+
+export function settingsPage({ t, icon, state, platformLabel, APP_VERSION }) {
+  return `
+    <section class="page">
+      <div class="settings-header">
+        <h1>${t("settings.title")}</h1>
+        <p>${t("settings.desc")}</p>
+      </div>
+      <div class="settings-layout">
+        <article class="settings-card settings-primary">
+          <span class="settings-kicker">${t("settings.appearance")}</span>
+          <h3>${t("settings.appSettings")}</h3>
+          <p>${t("settings.persisted")}</p>
+          <div class="settings-row">
+            <span>
+              <strong>${t("settings.darkTheme")}</strong>
+              <small>${t("settings.darkHint")}</small>
+            </span>
+            <button class="switch ${state.theme === "dark" ? "on" : ""}" data-action="theme-toggle" aria-label="${t("settings.darkTheme")}"></button>
+          </div>
+          <div class="settings-row">
+            <span>
+              <strong>${t("settings.language")}</strong>
+              <small>${t("settings.languageHint")}</small>
+            </span>
+            <select class="select compact-select" data-action="language-select" aria-label="${t("settings.language")}">
+              <option value="tr" ${state.language === "tr" ? "selected" : ""}>Türkçe</option>
+              <option value="en" ${state.language === "en" ? "selected" : ""}>English</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <span>
+              <strong>${t("settings.detectedSystem")}</strong>
+              <small>${t("settings.detectedHint")}</small>
+            </span>
+            <span class="status-badge">${icon(state.platform === "windows" ? "windows" : state.platform === "linux" ? "linux" : "monitor")} ${platformLabel(state.platform)}</span>
+          </div>
+          <div class="button-row">
+            <button class="primary-button" data-action="save-settings">${t("settings.save")}</button>
+          </div>
+          <div class="status-badge" data-settings-status>${icon("info")} ${t("ready")}</div>
+        </article>
+
+        <article class="settings-card">
+          <span class="settings-kicker">${t("settings.version")}</span>
+          <h3>${t("settings.update")}</h3>
+          <p>${t("settings.updateDesc")}</p>
+          <div class="settings-meta">
+            <span>${t("settings.installed")}: ${APP_VERSION}</span>
+            <span>Asset: ${state.platform === "windows" ? "worm-windows-x64.msi" : "worm-linux-x64.AppImage"}</span>
+          </div>
+          <div class="progress-bar" data-update-progress style="--value:0%"><span></span><b>0%</b></div>
+          <div class="button-row">
+            <button class="primary-button" data-action="check-update">${icon("refresh")} ${t("settings.checkUpdate")}</button>
+            <button class="secondary-button" data-action="download-update">${icon("download")} ${t("settings.downloadInstall")}</button>
+          </div>
+          <div class="status-badge" data-update-status>${icon("info")} ${t("ready")}</div>
+          <div class="log-box compact-log" data-update-log>${t("settings.releaseNotes")}</div>
+        </article>
+      </div>
+    </section>
+  `;
+}
+
+export function aboutPage({ t, icon, APP_VERSION, assetPath }) {
+  return `
+    <section class="page">
+      <div class="about-hero">
+        <span class="about-logo"><img src="${assetPath}/logo/logo.png" alt="Worm logo" /></span>
+        <div>
+          <p class="eyebrow">Worm Forensic Tool</p>
+          <h1>Worm Forensic Tool</h1>
+          <span class="status-badge">${t("about.version", { version: APP_VERSION })}</span>
+          <p>${t("about.desc")}</p>
+        </div>
+      </div>
+
+      <h2 class="section-heading">${t("about.capabilities")}</h2>
+      <div class="capability-grid">
+        ${capabilityCard("COLLECT", t("about.collect.title"), t("about.collect.desc"), "disk", "var(--green)", icon)}
+        ${capabilityCard("PROVE", t("about.prove.title"), t("about.prove.desc"), "shield", "var(--blue)", icon)}
+        ${capabilityCard("PACKAGE", t("about.package.title"), t("about.package.desc"), "report", "var(--purple)", icon)}
+      </div>
+
+      <div class="doc-card usage-card">
+        <h3>${t("about.usage")}</h3>
+        <p>${t("about.usageDesc")}</p>
+      </div>
+
+      <h2 class="section-heading">${t("about.maintainers")}</h2>
+      <div class="contributor-grid">
+        ${contributorCard("ME", "Melih Emik", t("about.role.lead"), "melih-emik.jpg", [
+          ["GitHub", "https://github.com/favilances"],
+          ["LinkedIn", "https://www.linkedin.com/in/melihemik/"],
+          ["Website", "https://melihemik.com.tr"]
+        ], assetPath, icon)}
+        ${contributorCard("YT", "Yusuf Tuncel", t("about.role.windows"), "yusuf-tuncel.jpg", [
+          ["GitHub", "https://github.com/yetece1"],
+          ["LinkedIn", "https://www.linkedin.com/in/yusuf-tuncel/"]
+        ], assetPath, icon)}
+        ${contributorCard("MG", "Muhammet Ali Güner", t("about.role.linux"), "muhammet-ali-guner.jpg", [
+          ["GitHub", "https://github.com/kafkaskrtl"],
+          ["LinkedIn", "https://www.linkedin.com/in/muhammetali-g%C3%BCner/"]
+        ], assetPath, icon)}
+      </div>
+
+      <div class="company-logo-card">
+        <img src="${assetPath}/logo/sirket.png" alt="Şirket logosu" />
+      </div>
+    </section>
+  `;
+}
+
+function capabilityCard(kicker, title, desc, iconName, accent, icon) {
+  return `
+    <article class="forensic-card" style="--accent:${accent};cursor:default">
+      <span class="card-icon">${icon(iconName)}</span>
+      <p class="eyebrow">${kicker}</p>
+      <h3>${title}</h3>
+      <p>${desc}</p>
+    </article>
+  `;
+}
+
+function contributorCard(initials, name, role, photo, links, assetPath, icon) {
+  return `
+    <article class="contributor-card">
+      <img class="avatar" src="${assetPath}/contributors/${photo}" alt="${name}" />
+      <h3>${name}</h3>
+      <p>${role}</p>
+      <div class="social-row" aria-label="${name} bağlantıları">
+        ${links.map(([label, url]) => socialLink(label, url, icon)).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function socialLink(label, url, icon) {
+  const key = label === "LinkedIn" ? "linkedin" : label === "Website" ? "website" : "github";
+  return `<a class="social-button" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${label}">${icon(key)}</a>`;
+}

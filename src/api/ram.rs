@@ -1,0 +1,1086 @@
+use chrono::Local;
+use serde::Deserialize;
+use serde_json::{Value, json};
+use std::fs;
+use std::io::Read;
+use std::path::{Path, PathBuf};
+use std::thread;
+
+use crate::disk;
+use crate::ram;
+use crate::ram_analysis;
+use crate::remote::RemoteConnection;
+use crate::server::{Response, json_error, json_ok};
+
+use super::{
+    acquisition_jobs,
+    cleanup_helper_files,
+    create_acquisition_job,
+    current_evidence_vault,
+    // Elevated and installer helpers
+    download_file_to_path,
+    evidence_vault_for_output,
+    fail_acquisition_job_with_message,
+    finish_acquisition_job_with_message,
+    helper_file_stem,
+    helper_owner_gid,
+    helper_owner_uid,
+    process_is_root,
+    read_helper_error,
+    read_helper_json,
+    read_helper_progress,
+    run_elevated_helper_wait,
+    sanitize_file_stem,
+    sha256_file,
+    spawn_elevated_helper,
+    update_acquisition_message,
+    update_acquisition_progress_message,
+    write_helper_control_state,
+    write_json_file,
+};
+
+#[derive(Deserialize)]
+pub struct LocalRamRequest {
+    pub output: String,
+    pub tool: Option<String>,
+    pub tool_path: Option<String>,
+    pub case_name: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct RemoteRamRequest {
+    pub ip: String,
+    pub port: u16,
+    pub token: Option<String>,
+    pub output: String,
+    pub case_name: Option<String>,
+}
+
+pub fn avml_install_endpoint() -> Response {
+    #[cfg(not(target_os = "linux"))]
+    {
+        return json_error(400, "AVML installation is only supported on Linux");
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let Some(asset_name) = avml_release_asset_name() else {
+            return json_error(
+                400,
+                format!(
+                    "AVML binary is not available for this architecture: {}",
+                    std::env::consts::ARCH
+                ),
+            );
+        };
+        let url =
+            format!("https://github.com/microsoft/avml/releases/latest/download/{asset_name}");
+        let download_dir = std::env::temp_dir().join("worm-avml-install");
+        if let Err(err) = fs::create_dir_all(&download_dir) {
+            return json_error(500, err.to_string());
+        }
+        let download_path = download_dir.join(format!("{asset_name}.download"));
+
+        if let Err(err) = download_file_to_path(&url, &download_path, "AVML download failed") {
+            let _ = fs::remove_file(&download_path);
+            return json_error(500, err);
+        }
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(metadata) = fs::metadata(&download_path) {
+                let mut permissions = metadata.permissions();
+                permissions.set_mode(0o755);
+                let _ = fs::set_permissions(&download_path, permissions);
+            }
+        }
+
+        let sha256 = match sha256_file(&download_path) {
+            Ok(value) => value,
+            Err(err) => {
+                let _ = fs::remove_file(&download_path);
+                return json_error(500, err);
+            }
+        };
+        let stem = helper_file_stem("worm-avml-install");
+        let result_path = download_dir.join(format!("{stem}-result.json"));
+        let args = vec![
+            "avml-install-helper".to_string(),
+            download_path.to_string_lossy().into_owned(),
+            result_path.to_string_lossy().into_owned(),
+        ];
+
+        let run_result = run_elevated_helper_wait(&args);
+        let helper_result = read_helper_json(&result_path).ok();
+        cleanup_helper_files(&[&download_path, &result_path]);
+        if let Err(err) = run_result {
+            let message = helper_result
+                .as_ref()
+                .and_then(|value| value.get("error"))
+                .and_then(Value::as_str)
+                .unwrap_or(&err)
+                .to_string();
+            return json_error(500, message);
+        }
+
+        let helper_result = match helper_result {
+            Some(value) => value,
+            None => return json_error(500, "AVML install helper did not return a result"),
+        };
+        if helper_result.get("ok").and_then(Value::as_bool) != Some(true) {
+            return json_error(
+                500,
+                helper_result
+                    .get("error")
+                    .and_then(Value::as_str)
+                    .unwrap_or("AVML installation failed")
+                    .to_string(),
+            );
+        }
+
+        json_ok(json!({
+            "asset": asset_name,
+            "download_url": url,
+            "sha256": sha256,
+            "path": helper_result.get("path").cloned().unwrap_or(Value::Null),
+            "version": helper_result.get("version").cloned().unwrap_or(Value::Null),
+            "message": helper_result.get("message").cloned().unwrap_or(Value::String("AVML installed".to_string())),
+            "status": ram::avml_status(None),
+        }))
+    }
+}
+
+pub fn winpmem_install_endpoint() -> Response {
+    #[cfg(not(windows))]
+    {
+        return json_error(400, "WinPMEM installation is only supported on Windows");
+    }
+
+    #[cfg(windows)]
+    {
+        if std::env::consts::ARCH != "x86_64" {
+            return json_error(
+                400,
+                format!(
+                    "WinPMEM binary is not available for this architecture: {}",
+                    std::env::consts::ARCH
+                ),
+            );
+        }
+
+        let (job_id, _control) = create_acquisition_job("WinPMEM indiriliyor");
+        let thread_job_id = job_id.clone();
+        thread::spawn(move || run_winpmem_install_job(thread_job_id));
+
+        json_ok(json!({
+            "job_id": job_id,
+            "status": "running",
+            "message": "WinPMEM indirme başlatıldı",
+        }))
+    }
+}
+
+#[cfg(windows)]
+fn run_winpmem_install_job(job_id: String) {
+    update_acquisition_message(&job_id, "WinPMEM indiriliyor...");
+
+    let download_dir = std::env::temp_dir().join("worm-winpmem-install");
+    if let Err(err) = fs::create_dir_all(&download_dir) {
+        fail_acquisition_job_with_message(&job_id, err.to_string(), "WinPMEM indirme başarısız");
+        return;
+    }
+    let download_path = download_dir.join(ram::WINPMEM_NAME);
+
+    let monitor_job_id = job_id.clone();
+    let monitor_path = download_path.clone();
+    let total_expected_bytes = 3_831_296; // ~3.65 MB
+    let monitor_stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let thread_stop = monitor_stop.clone();
+
+    let monitor_thread = thread::spawn(move || {
+        while !thread_stop.load(std::sync::atomic::Ordering::SeqCst) {
+            if let Ok(metadata) = fs::metadata(&monitor_path) {
+                let size = metadata.len();
+                let pct = (size * 100)
+                    .checked_div(total_expected_bytes)
+                    .unwrap_or(0)
+                    .min(100);
+                update_acquisition_progress_message(
+                    &monitor_job_id,
+                    size,
+                    total_expected_bytes,
+                    &format!("WinPMEM indiriliyor... %{pct}"),
+                );
+            }
+            thread::sleep(std::time::Duration::from_millis(250));
+        }
+    });
+
+    let download_result = download_file_to_path(
+        WINPMEM_DOWNLOAD_URL,
+        &download_path,
+        "WinPMEM download failed",
+    );
+
+    monitor_stop.store(true, std::sync::atomic::Ordering::SeqCst);
+    let _ = monitor_thread.join();
+
+    if let Err(err) = download_result {
+        let _ = fs::remove_file(&download_path);
+        fail_acquisition_job_with_message(&job_id, err, "WinPMEM indirme başarısız");
+        return;
+    }
+
+    update_acquisition_message(&job_id, "WinPMEM SHA256 hesaplanıyor...");
+    let sha256 = match sha256_file(&download_path) {
+        Ok(value) => value,
+        Err(err) => {
+            let _ = fs::remove_file(&download_path);
+            fail_acquisition_job_with_message(&job_id, err, "WinPMEM hash hesaplama başarısız");
+            return;
+        }
+    };
+
+    update_acquisition_message(&job_id, "WinPMEM kuruluşu yapılıyor (yetki gerekli)...");
+    let stem = helper_file_stem("worm-winpmem-install");
+    let result_path = download_dir.join(format!("{stem}-result.json"));
+    let args = vec![
+        "winpmem-install-helper".to_string(),
+        download_path.to_string_lossy().into_owned(),
+        result_path.to_string_lossy().into_owned(),
+    ];
+
+    let run_result = run_elevated_helper_wait(&args);
+    let helper_result = read_helper_json(&result_path).ok();
+    cleanup_helper_files(&[&download_path, &result_path]);
+
+    if let Err(err) = run_result {
+        let message = helper_result
+            .as_ref()
+            .and_then(|value| value.get("error"))
+            .and_then(Value::as_str)
+            .unwrap_or(&err)
+            .to_string();
+        fail_acquisition_job_with_message(&job_id, message, "WinPMEM kurulum başarısız");
+        return;
+    }
+
+    let helper_result = match helper_result {
+        Some(value) => value,
+        None => {
+            fail_acquisition_job_with_message(
+                &job_id,
+                "WinPMEM install helper did not return a result".to_string(),
+                "WinPMEM kurulum başarısız",
+            );
+            return;
+        }
+    };
+
+    if helper_result.get("ok").and_then(Value::as_bool) != Some(true) {
+        let message = helper_result
+            .get("error")
+            .and_then(Value::as_str)
+            .unwrap_or("WinPMEM installation failed")
+            .to_string();
+        fail_acquisition_job_with_message(&job_id, message, "WinPMEM kurulum başarısız");
+        return;
+    }
+
+    finish_acquisition_job_with_message(
+        &job_id,
+        json!({
+            "asset": ram::WINPMEM_NAME,
+            "download_url": WINPMEM_DOWNLOAD_URL,
+            "sha256": sha256,
+            "path": helper_result.get("path").cloned().unwrap_or(Value::Null),
+            "message": helper_result.get("message").cloned().unwrap_or(Value::String("WinPMEM installed".to_string())),
+            "status": ram::winpmem_status(None),
+        }),
+        "WinPMEM kuruldu",
+    );
+}
+
+fn avml_release_asset_name() -> Option<&'static str> {
+    match std::env::consts::ARCH {
+        "x86_64" => Some("avml"),
+        "aarch64" => Some("avml-aarch64"),
+        _ => None,
+    }
+}
+
+pub fn local_ram_endpoint(body: &[u8]) -> Response {
+    let request: LocalRamRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+
+    if request.output.trim().is_empty() {
+        return json_error(400, "output is required");
+    }
+
+    let tool = request.tool.as_deref().unwrap_or_default();
+    if !matches!(tool, "avml" | "winpmem") {
+        return json_error(400, "tool must be avml or winpmem");
+    }
+
+    let (job_id, control) = create_acquisition_job("Yerel RAM edinimi başlatıldı");
+    let thread_job_id = job_id.clone();
+    thread::spawn(move || run_local_ram_job(thread_job_id, request, control));
+
+    json_ok(json!({
+        "job_id": job_id,
+        "status": "running",
+    }))
+}
+
+pub fn remote_ram_endpoint(body: &[u8]) -> Response {
+    let request: RemoteRamRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+
+    if request.ip.trim().is_empty() {
+        return json_error(400, "ip is required");
+    }
+    if request.port == 0 {
+        return json_error(400, "port is required");
+    }
+    if request.output.trim().is_empty() {
+        return json_error(400, "output is required");
+    }
+
+    let (job_id, _control) = create_acquisition_job("Uzak RAM edinimi başlatıldı");
+    let thread_job_id = job_id.clone();
+    thread::spawn(move || run_remote_ram_job(thread_job_id, request));
+
+    json_ok(json!({
+        "job_id": job_id,
+        "status": "running",
+    }))
+}
+
+fn run_local_ram_job(
+    job_id: String,
+    mut request: LocalRamRequest,
+    control: ram::CancellationToken,
+) {
+    let output = match ram_output_path(&request.output, request.case_name.as_deref(), None) {
+        Ok(output) => output,
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err, "RAM edinimi basarisiz");
+            return;
+        }
+    };
+    request.output = output.to_string_lossy().into_owned();
+
+    let tool = request.tool.as_deref().unwrap_or_default();
+    if local_ram_requires_elevation(tool) {
+        run_elevated_local_ram_job(&job_id, &request, &control);
+        return;
+    }
+
+    let output = PathBuf::from(&request.output);
+    let candidate = request
+        .tool_path
+        .as_deref()
+        .map(Path::new)
+        .filter(|path| path.exists());
+
+    let result = match tool {
+        "avml" => ram::acquire_with_avml(&output, candidate, &control, |done, total| {
+            update_acquisition_progress_message(&job_id, done, total, "RAM edinimi sürüyor");
+        }),
+        "winpmem" => ram::acquire_with_winpmem(&output, candidate, &control, |done, total| {
+            update_acquisition_progress_message(&job_id, done, total, "RAM edinimi sürüyor");
+        }),
+        _ => Err(crate::error::WormError::new(
+            crate::error::HataKodu::Genel,
+            "Desteklenmeyen RAM araci",
+        )),
+    };
+
+    match result {
+        Ok(result) => finish_acquisition_job_with_message(
+            &job_id,
+            json!({
+                "message": "RAM edinimi tamamlandi",
+                "target_path": result.output_file,
+                "bytes_written": result.bytes_written,
+            }),
+            "RAM edinimi tamamlandi",
+        ),
+        Err(err) => {
+            let message = err.to_string();
+            if local_ram_error_can_retry_elevated(&message) {
+                run_elevated_local_ram_job(&job_id, &request, &control);
+            } else {
+                fail_acquisition_job_with_message(&job_id, message, "RAM edinimi basarisiz")
+            }
+        }
+    }
+}
+
+fn run_remote_ram_job(job_id: String, request: RemoteRamRequest) {
+    let target_path = match ram_output_path(
+        &request.output,
+        request.case_name.as_deref(),
+        Some(&request.ip),
+    ) {
+        Ok(output) => output,
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err, "RAM edinimi basarisiz");
+            return;
+        }
+    };
+    let remote_file = ram_remote_file_name(&target_path.to_string_lossy());
+
+    match RemoteConnection::connect(&request.ip, request.port, request.token.clone()) {
+        Ok(mut connection) => {
+            let remote_job_id = job_id.clone();
+            match connection.start_remote_ram(&remote_file, Some(&remote_job_id), |done, total| {
+                update_acquisition_progress_message(&job_id, done, total, "RAM edinimi sürüyor");
+            }) {
+                Ok(ram_result) => {
+                    update_acquisition_message(&job_id, "RAM dosyası indiriliyor");
+                    match connection.download_ram_file(
+                        &remote_file,
+                        &target_path,
+                        Some(&remote_job_id),
+                        |done, total| {
+                            update_acquisition_progress_message(
+                                &job_id,
+                                done,
+                                total,
+                                "RAM dosyası indiriliyor",
+                            );
+                        },
+                    ) {
+                        Ok(download) => finish_acquisition_job_with_message(
+                            &job_id,
+                            json!({
+                                "message": download.message,
+                                "remote_job_id": ram_result.job_id,
+                                "target_path": download.target_path,
+                                "bytes_transferred": download.bytes_transferred,
+                                "remote_bytes": ram_result.total_size,
+                                "sha256": download.sha256.or(ram_result.sha256),
+                            }),
+                            "RAM edinimi tamamlandi",
+                        ),
+                        Err(err) => fail_acquisition_job_with_message(
+                            &job_id,
+                            err.to_string(),
+                            "RAM dosyası indirilemedi",
+                        ),
+                    }
+                }
+                Err(err) => fail_acquisition_job_with_message(
+                    &job_id,
+                    err.to_string(),
+                    "RAM edinimi basarisiz",
+                ),
+            }
+        }
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err.to_string(), "RAM edinimi basarisiz")
+        }
+    }
+}
+
+pub fn acquisition_status_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct StatusRequest {
+        job_id: String,
+    }
+
+    let request: StatusRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+
+    match get_acquisition_job(&request.job_id) {
+        Some(job) => json_ok(json!({
+            "job_id": request.job_id,
+            "status": job.status,
+            "done": job.done,
+            "total": job.total,
+            "message": job.message,
+            "result": job.result,
+            "error": job.error,
+        })),
+        None => json_error(404, "acquisition job not found"),
+    }
+}
+
+pub fn acquisition_control_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct ControlRequest {
+        ip: Option<String>,
+        port: Option<u16>,
+        token: Option<String>,
+        job_id: String,
+        action: String,
+    }
+
+    let request: ControlRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+
+    if request.job_id.trim().is_empty() {
+        return json_error(400, "job_id is required");
+    }
+    if !matches!(request.action.as_str(), "pause" | "resume" | "stop") {
+        return json_error(400, "action must be pause, resume, or stop");
+    }
+
+    let ip = request.ip.unwrap_or_default();
+    let remote_control = !ip.trim().is_empty();
+
+    if remote_control {
+        let port = request.port.unwrap_or_default();
+        if port == 0 {
+            return json_error(400, "port is required");
+        }
+        match RemoteConnection::connect(&ip, port, request.token) {
+            Ok(connection) => match connection.control_job(&request.job_id, &request.action) {
+                Ok(message) => {
+                    apply_local_acquisition_control(&request.job_id, &request.action);
+                    json_ok(json!({
+                        "job_id": request.job_id,
+                        "action": request.action,
+                        "message": message,
+                    }))
+                }
+                Err(err) => json_error(500, err.to_string()),
+            },
+            Err(err) => json_error(500, err.to_string()),
+        }
+    } else {
+        match apply_local_acquisition_control(&request.job_id, &request.action) {
+            Some(message) => json_ok(json!({
+                "job_id": request.job_id,
+                "action": request.action,
+                "message": message,
+            })),
+            None => json_error(404, "acquisition job not found"),
+        }
+    }
+}
+
+fn apply_local_acquisition_control(job_id: &str, action: &str) -> Option<String> {
+    let mut jobs = acquisition_jobs().lock().ok()?;
+    let job = jobs.get_mut(job_id)?;
+    match action {
+        "pause" => {
+            job.control.pause();
+            job.status = "paused".to_string();
+            job.message = "Duraklatma komutu uygulandı".to_string();
+            Some("Duraklatma komutu uygulandi".to_string())
+        }
+        "resume" => {
+            job.control.resume();
+            job.status = "running".to_string();
+            job.message = "Devam komutu uygulandı".to_string();
+            Some("Devam komutu uygulandi".to_string())
+        }
+        "stop" => {
+            job.control.cancel();
+            disk::cancel_disk_acquisition();
+            job.message = "Durdurma komutu uygulandı".to_string();
+            Some("Durdurma komutu uygulandi".to_string())
+        }
+        _ => None,
+    }
+}
+
+fn get_acquisition_job(job_id: &str) -> Option<super::AcquisitionJob> {
+    acquisition_jobs()
+        .lock()
+        .ok()
+        .and_then(|jobs| jobs.get(job_id).cloned())
+}
+
+fn local_ram_requires_elevation(tool: &str) -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        tool == "avml" && !process_is_root()
+    }
+
+    #[cfg(windows)]
+    {
+        tool == "winpmem" && !ram::is_root_or_admin()
+    }
+
+    #[cfg(not(any(target_os = "linux", windows)))]
+    {
+        let _ = tool;
+        false
+    }
+}
+
+fn local_ram_error_can_retry_elevated(message: &str) -> bool {
+    if !(cfg!(target_os = "linux") || cfg!(windows)) {
+        return false;
+    }
+    let message = message.to_ascii_lowercase();
+    message.contains("root")
+        || message.contains("administrator")
+        || message.contains("permission denied")
+        || message.contains("access is denied")
+        || message.contains("erişim engellendi")
+        || message.contains("yetkisiz")
+        || message.contains("os error 13")
+}
+
+fn run_elevated_local_ram_job(
+    job_id: &str,
+    request: &LocalRamRequest,
+    control: &ram::CancellationToken,
+) {
+    update_acquisition_message(job_id, "Yetki bekleniyor");
+    let stem = helper_file_stem("worm-ram-helper");
+    let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
+    let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
+    let progress_path = std::env::temp_dir().join(format!("{stem}-progress.json"));
+    let control_path = std::env::temp_dir().join(format!("{stem}-control.json"));
+
+    let request_json = json!({
+        "output_file": &request.output,
+        "tool": request.tool.as_deref().unwrap_or_default(),
+        "tool_path": &request.tool_path,
+        "owner_uid": helper_owner_uid(),
+        "owner_gid": helper_owner_gid(),
+    });
+    if let Err(err) = write_json_file(&request_path, &request_json) {
+        fail_acquisition_job_with_message(job_id, err, "RAM edinimi basarisiz");
+        return;
+    }
+    if let Err(err) = write_helper_control_state(&control_path, "running") {
+        cleanup_helper_files(&[&request_path, &result_path, &progress_path, &control_path]);
+        fail_acquisition_job_with_message(job_id, err, "RAM edinimi basarisiz");
+        return;
+    }
+
+    let args = vec![
+        "ram-helper".to_string(),
+        request_path.to_string_lossy().into_owned(),
+        result_path.to_string_lossy().into_owned(),
+        progress_path.to_string_lossy().into_owned(),
+        control_path.to_string_lossy().into_owned(),
+    ];
+    let mut child = match spawn_elevated_helper(&args) {
+        Ok(child) => child,
+        Err(err) => {
+            cleanup_helper_files(&[&request_path, &result_path, &progress_path, &control_path]);
+            fail_acquisition_job_with_message(job_id, err, "RAM edinimi basarisiz");
+            return;
+        }
+    };
+
+    loop {
+        if control.is_cancelled() {
+            let _ = write_helper_control_state(&control_path, "cancelled");
+            update_acquisition_message(job_id, "RAM edinimi iptal ediliyor");
+            let mut exited = false;
+            for _ in 0..30 {
+                match child.try_wait() {
+                    Ok(Some(_)) => {
+                        exited = true;
+                        break;
+                    }
+                    Ok(None) => thread::sleep(std::time::Duration::from_millis(100)),
+                    Err(_) => break,
+                }
+            }
+            if !exited {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+            cleanup_helper_files(&[&request_path, &result_path, &progress_path, &control_path]);
+            fail_acquisition_job_with_message(
+                job_id,
+                "RAM edinimi iptal edildi".to_string(),
+                "RAM edinimi basarisiz",
+            );
+            return;
+        }
+        if control.is_paused() {
+            let _ = write_helper_control_state(&control_path, "paused");
+            update_acquisition_message(job_id, "RAM edinimi duraklatildi");
+        } else {
+            let _ = write_helper_control_state(&control_path, "running");
+        }
+
+        if let Some((done, total, message)) = read_helper_progress(&progress_path) {
+            update_acquisition_progress_message(job_id, done, total, &message);
+        }
+
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                if !status.success() {
+                    let error = read_helper_error(&result_path).unwrap_or_else(|| {
+                        "yetki yükseltme iptal edildi veya başarısız oldu".to_string()
+                    });
+                    cleanup_helper_files(&[
+                        &request_path,
+                        &result_path,
+                        &progress_path,
+                        &control_path,
+                    ]);
+                    fail_acquisition_job_with_message(job_id, error, "RAM edinimi basarisiz");
+                    return;
+                }
+                break;
+            }
+            Ok(None) => thread::sleep(std::time::Duration::from_millis(500)),
+            Err(err) => {
+                cleanup_helper_files(&[&request_path, &result_path, &progress_path, &control_path]);
+                fail_acquisition_job_with_message(job_id, err.to_string(), "RAM edinimi basarisiz");
+                return;
+            }
+        }
+    }
+
+    let result = match read_helper_json(&result_path) {
+        Ok(result) => result,
+        Err(err) => {
+            cleanup_helper_files(&[&request_path, &result_path, &progress_path, &control_path]);
+            fail_acquisition_job_with_message(job_id, err, "RAM edinimi basarisiz");
+            return;
+        }
+    };
+    cleanup_helper_files(&[&request_path, &result_path, &progress_path, &control_path]);
+
+    if result.get("ok").and_then(Value::as_bool) == Some(true) {
+        finish_acquisition_job_with_message(
+            job_id,
+            json!({
+                "message": "RAM edinimi tamamlandi",
+                "target_path": result.get("target_path").cloned().unwrap_or(Value::Null),
+                "bytes_written": result.get("bytes_written").cloned().unwrap_or(Value::Null),
+            }),
+            "RAM edinimi tamamlandi",
+        );
+    } else {
+        fail_acquisition_job_with_message(
+            job_id,
+            result
+                .get("error")
+                .and_then(Value::as_str)
+                .unwrap_or("RAM edinimi basarisiz")
+                .to_string(),
+            "RAM edinimi basarisiz",
+        );
+    }
+}
+
+fn ram_output_path(
+    output: &str,
+    case_name: Option<&str>,
+    remote_ip: Option<&str>,
+) -> Result<PathBuf, String> {
+    let vault = evidence_vault_for_output(case_name)?;
+    let output = output.trim();
+    let requested_file = ram_file_name_from_output(output);
+    let seed_path = requested_file
+        .map(|file_name| vault.ram_dir.join(file_name))
+        .unwrap_or_else(|| vault.ram_dir.clone());
+
+    Ok(canonical_ram_target_path(
+        &seed_path.to_string_lossy(),
+        remote_ip,
+    ))
+}
+
+fn ram_file_name_from_output(output: &str) -> Option<&str> {
+    let path = Path::new(output);
+    let extension = path.extension()?.to_str()?;
+    if !matches!(
+        extension.to_ascii_lowercase().as_str(),
+        "raw" | "mem" | "bin"
+    ) {
+        return None;
+    }
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+}
+
+fn ram_remote_file_name(output: &str) -> String {
+    Path::new(output)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| "memory_dump.raw".to_string())
+}
+
+fn canonical_ram_target_path(output: &str, remote_ip: Option<&str>) -> PathBuf {
+    let output = PathBuf::from(output.trim());
+    let is_file = output
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| matches!(extension, "raw" | "mem" | "bin"))
+        .unwrap_or(false);
+    let file_name = canonical_ram_file_name(
+        remote_ip,
+        is_file
+            .then(|| output.file_name().and_then(|name| name.to_str()))
+            .flatten(),
+    );
+
+    if is_file {
+        output
+            .parent()
+            .map(|parent| parent.join(&file_name))
+            .unwrap_or_else(|| PathBuf::from(file_name))
+    } else {
+        output.join(file_name)
+    }
+}
+
+fn canonical_ram_file_name(remote_ip: Option<&str>, current_name: Option<&str>) -> String {
+    let remote_ip = remote_ip
+        .map(sanitize_file_stem)
+        .filter(|value| !value.is_empty());
+
+    if let Some(name) = current_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        if let Some(ip) = &remote_ip {
+            let expected_prefix = format!("{ip}_ram_");
+            if name.starts_with(&expected_prefix) && name.ends_with(".raw") {
+                return name.to_string();
+            }
+            if name.starts_with("ram_") && name.ends_with(".raw") {
+                return format!("{ip}_{name}");
+            }
+        } else if name.starts_with("ram_") && name.ends_with(".raw") {
+            return name.to_string();
+        }
+    }
+
+    let prefix = remote_ip
+        .map(|ip| format!("{ip}_ram"))
+        .unwrap_or_else(|| "ram".to_string());
+    format!("{}_{}.raw", prefix, Local::now().format("%Y%m%d_%H%M%S"))
+}
+
+pub fn ram_analyze_strings_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = Path::new(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
+    }
+    match ram_analysis::analyze_ram_strings(path) {
+        Ok(matches) => json_ok(serde_json::to_value(matches).unwrap_or(Value::Null)),
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+pub fn ram_carve_files_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = Path::new(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
+    }
+    let vault = match current_evidence_vault() {
+        Ok(v) => v,
+        Err(resp) => return resp,
+    };
+    match ram_analysis::carve_files(path, &vault.ram_dir) {
+        Ok(carved) => json_ok(serde_json::to_value(carved).unwrap_or(Value::Null)),
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+pub fn ram_list_processes_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = Path::new(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek arşivi bulunamadı / Memory archive not found");
+    }
+    match ram_analysis::list_tar_processes(path) {
+        Ok(procs) => json_ok(serde_json::to_value(procs).unwrap_or(Value::Null)),
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+pub fn ram_process_details_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+        pid: String,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = Path::new(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek arşivi bulunamadı / Memory archive not found");
+    }
+    match ram_analysis::get_process_maps_and_dump_files(path, &request.pid) {
+        Ok((maps, bin_files)) => json_ok(json!({
+            "maps": maps,
+            "dumps": bin_files,
+        })),
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+pub fn ram_process_search_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+        pid: String,
+        query: String,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    if request.query.trim().is_empty() {
+        return json_error(400, "Arama sorgusu gerekli / Search query required");
+    }
+    let path = Path::new(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek arşivi bulunamadı / Memory archive not found");
+    }
+    match ram_analysis::search_process_memory(path, &request.pid, &request.query) {
+        Ok(matches) => json_ok(serde_json::to_value(matches).unwrap_or(Value::Null)),
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+pub fn ram_read_carved_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+    }
+
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+
+    let target_path = PathBuf::from(request.path.trim());
+    if !target_path.exists() {
+        return json_error(404, "Dosya bulunamadı / File not found");
+    }
+
+    let vault = match current_evidence_vault() {
+        Ok(v) => v,
+        Err(resp) => return resp,
+    };
+    if !target_path.starts_with(&vault.ram_dir) {
+        return json_error(403, "Yetkisiz erişim / Access denied");
+    }
+
+    let ext = target_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+
+    let size = match fs::metadata(&target_path) {
+        Ok(meta) => meta.len(),
+        Err(err) => return json_error(500, err.to_string()),
+    };
+
+    if ["png", "jpg", "jpeg", "gif", "bmp", "webp"].contains(&ext.as_str()) {
+        match fs::read(&target_path) {
+            Ok(bytes) => {
+                use base64::Engine;
+                let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                let mime = match ext.as_str() {
+                    "png" => "image/png",
+                    "jpg" | "jpeg" => "image/jpeg",
+                    "gif" => "image/gif",
+                    "webp" => "image/webp",
+                    _ => "image/png",
+                };
+                return json_ok(json!({
+                    "type": "image",
+                    "mime": mime,
+                    "content": format!("data:{};base64,{}", mime, encoded),
+                    "size": size,
+                }));
+            }
+            Err(err) => return json_error(500, err.to_string()),
+        }
+    }
+
+    let is_text_ext =
+        ["txt", "log", "json", "xml", "plist"].contains(&ext.as_str()) || size < 100_000;
+
+    match fs::File::open(&target_path) {
+        Ok(mut f) => {
+            let mut buf = vec![0_u8; 16384.min(size as usize)];
+            let read = f.read(&mut buf).unwrap_or(0);
+            let content_bytes = &buf[..read];
+
+            if is_text_ext {
+                if let Ok(text) = std::str::from_utf8(content_bytes) {
+                    return json_ok(json!({
+                        "type": "text",
+                        "content": text,
+                        "size": size,
+                        "truncated": size > 16384,
+                    }));
+                }
+            }
+
+            let mut hex_lines = Vec::new();
+            for chunk in content_bytes.chunks(16) {
+                let offset = (hex_lines.len() * 16) as u64;
+                let hex_parts: Vec<String> = chunk.iter().map(|b| format!("{:02X}", b)).collect();
+                let hex_str = hex_parts.join(" ");
+                let ascii_str: String = chunk
+                    .iter()
+                    .map(|&b| {
+                        if b.is_ascii_graphic() || b == b' ' {
+                            b as char
+                        } else {
+                            '.'
+                        }
+                    })
+                    .collect();
+                hex_lines.push(format!("{:08X}  {:48}  |{}|", offset, hex_str, ascii_str));
+            }
+            json_ok(json!({
+                "type": "hex",
+                "content": hex_lines.join("\n"),
+                "size": size,
+                "truncated": size > 16384,
+            }))
+        }
+        Err(err) => json_error(500, err.to_string()),
+    }
+}

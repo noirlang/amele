@@ -1,0 +1,273 @@
+use crate::router;
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::{TcpListener, TcpStream};
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::thread;
+
+const DEV_UI_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/ui");
+
+#[derive(Clone, Debug)]
+pub struct Response {
+    pub status: u16,
+    pub content_type: String,
+    pub body: Vec<u8>,
+}
+
+impl Response {
+    pub fn empty(status: u16) -> Self {
+        Self {
+            status,
+            content_type: "text/plain; charset=utf-8".to_string(),
+            body: Vec::new(),
+        }
+    }
+}
+
+pub fn json_ok(value: serde_json::Value) -> Response {
+    Response {
+        status: 200,
+        content_type: "application/json; charset=utf-8".to_string(),
+        body: serde_json::to_vec(&value).unwrap_or_else(|_| b"{}".to_vec()),
+    }
+}
+
+pub fn json_error(status: u16, message: impl Into<String>) -> Response {
+    Response {
+        status,
+        content_type: "application/json; charset=utf-8".to_string(),
+        body: serde_json::to_vec(&serde_json::json!({
+            "ok": false,
+            "error": message.into(),
+        }))
+        .unwrap_or_else(|_| b"{\"ok\":false}".to_vec()),
+    }
+}
+
+pub fn run_native() -> Result<(), String> {
+    crate::native_window::prepare_environment();
+    let url = start_background()?;
+    let native_url = format!("{url}?native=1");
+    println!("Worm native UI: {native_url}");
+    crate::native_window::run(&native_url)
+}
+
+pub fn run_browser() -> Result<(), String> {
+    let url = start_background()?;
+    println!("Worm UI backend: {url}");
+    open_window(&url);
+    loop {
+        thread::park();
+    }
+}
+
+fn start_background() -> Result<String, String> {
+    let listener = TcpListener::bind("127.0.0.1:0").map_err(|err| err.to_string())?;
+    let addr = listener.local_addr().map_err(|err| err.to_string())?;
+    let url = format!("http://{addr}/");
+
+    thread::Builder::new()
+        .name("worm-ui-server".to_string())
+        .spawn(move || serve(listener))
+        .map_err(|err| err.to_string())?;
+
+    Ok(url)
+}
+
+fn serve(listener: TcpListener) {
+    for stream in listener.incoming() {
+        match stream {
+            Ok(stream) => {
+                thread::spawn(|| {
+                    if let Err(err) = handle_stream(stream) {
+                        eprintln!("UI request failed: {err}");
+                    }
+                });
+            }
+            Err(err) => eprintln!("UI connection failed: {err}"),
+        }
+    }
+}
+
+fn open_window(url: &str) {
+    let browsers: &[(&str, &[&str])] = &[
+        (
+            "chromium",
+            &["--new-window", "--no-first-run", "--app", url],
+        ),
+        (
+            "google-chrome",
+            &["--new-window", "--no-first-run", "--app", url],
+        ),
+        (
+            "google-chrome-stable",
+            &["--new-window", "--no-first-run", "--app", url],
+        ),
+        (
+            "brave-browser",
+            &["--new-window", "--no-first-run", "--app", url],
+        ),
+        ("firefox", &[url]),
+        ("xdg-open", &[url]),
+    ];
+
+    for (program, args) in browsers {
+        if Command::new(program)
+            .args(*args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .is_ok()
+        {
+            return;
+        }
+    }
+
+    eprintln!("Browser could not be opened automatically. Use: {url}");
+}
+
+fn handle_stream(stream: TcpStream) -> Result<(), String> {
+    let peer = stream.peer_addr().ok();
+    if peer.map(|addr| !addr.ip().is_loopback()).unwrap_or(true) {
+        return Err("non-loopback request rejected".to_string());
+    }
+
+    let mut reader = BufReader::new(stream.try_clone().map_err(|err| err.to_string())?);
+    let mut request_line = String::new();
+    reader
+        .read_line(&mut request_line)
+        .map_err(|err| err.to_string())?;
+    if request_line.trim().is_empty() {
+        return Ok(());
+    }
+
+    let mut parts = request_line.split_whitespace();
+    let method = parts.next().unwrap_or_default().to_string();
+    let raw_path = parts.next().unwrap_or("/").to_string();
+    let mut content_length = 0_usize;
+
+    loop {
+        let mut line = String::new();
+        reader.read_line(&mut line).map_err(|err| err.to_string())?;
+        let trimmed = line.trim_end();
+        if trimmed.is_empty() {
+            break;
+        }
+        if let Some((name, value)) = trimmed.split_once(':')
+            && name.eq_ignore_ascii_case("content-length")
+        {
+            content_length = value.trim().parse::<usize>().unwrap_or(0);
+        }
+    }
+
+    let mut body = vec![0_u8; content_length];
+    if content_length > 0 {
+        reader
+            .read_exact(&mut body)
+            .map_err(|err| err.to_string())?;
+    }
+
+    let response = router::route_request(&method, &raw_path, &body);
+    write_response(stream, response)
+}
+
+fn write_response(mut stream: TcpStream, response: Response) -> Result<(), String> {
+    let reason = match response.status {
+        200 => "OK",
+        204 => "No Content",
+        400 => "Bad Request",
+        403 => "Forbidden",
+        404 => "Not Found",
+        405 => "Method Not Allowed",
+        499 => "Client Closed Request",
+        500 => "Internal Server Error",
+        _ => "OK",
+    };
+    let headers = format!(
+        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: http://127.0.0.1\r\nAccess-Control-Allow-Headers: content-type\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nConnection: close\r\n\r\n",
+        response.status,
+        reason,
+        response.content_type,
+        response.body.len(),
+    );
+    stream
+        .write_all(headers.as_bytes())
+        .and_then(|_| stream.write_all(&response.body))
+        .map_err(|err| err.to_string())
+}
+
+pub fn ui_root() -> PathBuf {
+    if let Some(path) = std::env::var_os("WORM_UI_ROOT") {
+        let path = PathBuf::from(path);
+        if path.join("index.html").exists() {
+            return path;
+        }
+    }
+
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(bin_dir) = exe.parent()
+        && let Some(prefix) = bin_dir.parent()
+    {
+        let packaged = prefix.join("share").join("worm").join("ui");
+        if packaged.join("index.html").exists() {
+            return packaged;
+        }
+    }
+
+    PathBuf::from(DEV_UI_ROOT)
+}
+
+pub fn mime_for(path: &Path) -> &'static str {
+    match path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or_default()
+    {
+        "css" => "text/css; charset=utf-8",
+        "html" => "text/html; charset=utf-8",
+        "js" => "text/javascript; charset=utf-8",
+        "json" => "application/json; charset=utf-8",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "svg" => "image/svg+xml",
+        "ttf" => "font/ttf",
+        "woff" => "font/woff",
+        "woff2" => "font/woff2",
+        _ => "application/octet-stream",
+    }
+}
+
+pub fn percent_decode(input: &str) -> Result<String, ()> {
+    let bytes = input.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'%' if index + 2 < bytes.len() => {
+                let high = hex_value(bytes[index + 1]).ok_or(())?;
+                let low = hex_value(bytes[index + 2]).ok_or(())?;
+                out.push((high << 4) | low);
+                index += 3;
+            }
+            b'+' => {
+                out.push(b' ');
+                index += 1;
+            }
+            byte => {
+                out.push(byte);
+                index += 1;
+            }
+        }
+    }
+    String::from_utf8(out).map_err(|_| ())
+}
+
+fn hex_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}

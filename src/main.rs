@@ -11,8 +11,8 @@ use worm::disk;
 use worm::hash::{self, HashAlgorithm};
 use worm::ram;
 use worm::remote::RemoteConnection;
+use worm::server;
 use worm::settings::AppSettings;
-use worm::ui_server;
 use worm::wireguard::{self, WireGuardConfig};
 
 fn main() {
@@ -34,8 +34,8 @@ fn main() {
         Some("remote-tool-check") => remote_tool_check_command(args.collect()),
         Some("ram-status") => ram_status_command(),
         Some("wireguard-config") => wireguard_config_command(args.collect()),
-        Some("ui") => ui_server::run_native(),
-        Some("ui-browser") => ui_server::run_browser(),
+        Some("ui") => server::run_native(),
+        Some("ui-browser") => server::run_browser(),
         Some("--help") | Some("-h") | None => {
             print_help();
             Ok(())
