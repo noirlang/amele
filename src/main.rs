@@ -135,7 +135,12 @@ mod windows_error {
         let title = wide_null("Worm Forensic Tool");
         let body = wide_null(message);
         unsafe {
-            MessageBoxW(0, body.as_ptr(), title.as_ptr(), MB_OK | MB_ICONERROR);
+            MessageBoxW(
+                std::ptr::null_mut(),
+                body.as_ptr(),
+                title.as_ptr(),
+                MB_OK | MB_ICONERROR,
+            );
         }
     }
 
