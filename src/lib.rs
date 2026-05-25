@@ -1,5 +1,6 @@
 pub mod android;
 pub mod api;
+pub mod diagnostics;
 pub mod disk;
 pub mod error;
 pub mod evidence;

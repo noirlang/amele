@@ -1297,15 +1297,19 @@ code {
   right: 24px;
   bottom: 24px;
   z-index: 50;
-  max-width: min(420px, calc(100vw - 32px));
+  max-width: min(680px, calc(100vw - 32px));
+  max-height: min(42vh, 420px);
   padding: 14px 16px;
   border: 1px solid var(--line-strong);
   border-radius: 14px;
   background: rgba(8, 16, 20, 0.94);
   color: var(--text);
   box-shadow: var(--shadow);
+  line-height: 1.45;
   opacity: 0;
+  overflow: auto;
   transform: translateY(10px);
+  white-space: pre-wrap;
   pointer-events: none;
   transition: opacity 180ms var(--ease), transform 180ms var(--ease);
 }
@@ -1316,6 +1320,7 @@ code {
 
 .toast.visible {
   opacity: 1;
+  pointer-events: auto;
   transform: translateY(0);
 }
 
@@ -1934,4 +1939,3 @@ svg {
   border-radius: 4px;
   word-break: break-all;
 }
-

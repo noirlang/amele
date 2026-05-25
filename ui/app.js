@@ -434,13 +434,59 @@ async function apiRequest(path, options = {}) {
   if (options.body && !headers.has("content-type")) {
     headers.set("content-type", "application/json");
   }
-  const response = await fetch(path, { ...options, headers });
+  let response;
+  try {
+    response = await fetch(path, { ...options, headers });
+  } catch (error) {
+    throw new Error(formatBackendConnectionError(path, error));
+  }
   const text = await response.text();
-  const data = text ? JSON.parse(text) : {};
+  let data = {};
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error(formatInvalidResponseError(path, response, text));
+    }
+  }
   if (!response.ok) {
-    throw new Error(data.error || response.statusText);
+    throw new Error(formatApiError(path, response, data));
   }
   return data;
+}
+
+function formatBackendConnectionError(path, error) {
+  return [
+    "Backend bağlantısı kurulamadı.",
+    `İstek: ${path}`,
+    `Ayrıntı: ${error?.message || error || "fetch failed"}`,
+    backendAvailable
+      ? "Çözüm: Uygulama backend süreci kapanmış olabilir; Worm'u yeniden başlatın."
+      : "Çözüm: Bu işlem sadece masaüstü uygulama modunda çalışır."
+  ].join("\n");
+}
+
+function formatInvalidResponseError(path, response, text) {
+  const body = String(text || "").trim().slice(0, 900) || "(boş yanıt)";
+  return [
+    "Backend geçersiz yanıt döndürdü.",
+    `HTTP: ${response.status} ${response.statusText || ""}`.trim(),
+    `İstek: ${path}`,
+    `Yanıt: ${body}`,
+    "Çözüm: Uygulama dosyaları eksik olabilir veya endpoint beklenmeyen HTML/metin döndürmüş olabilir."
+  ].join("\n");
+}
+
+function formatApiError(path, response, data) {
+  const lines = [
+    data.error || response.statusText || "İşlem başarısız.",
+    `HTTP: ${response.status} ${response.statusText || ""}`.trim(),
+    `İstek: ${path}`
+  ];
+  if (data.code) lines.push(`Kod: ${data.code}`);
+  if (data.detail && data.detail !== data.error) lines.push(`Neden: ${data.detail}`);
+  if (data.suggestion) lines.push(`Çözüm: ${data.suggestion}`);
+  return lines.filter(Boolean).join("\n");
 }
 
 function isExternalUrl(url) {
@@ -1370,10 +1416,27 @@ function showToast(message, type = "success") {
     document.body.appendChild(toast);
   }
   toast.textContent = message;
+  toast.title = message;
   toast.dataset.type = type;
   toast.classList.add("visible");
   window.clearTimeout(showToast.timer);
-  showToast.timer = window.setTimeout(() => toast.classList.remove("visible"), 3200);
+  showToast.timer = window.setTimeout(
+    () => toast.classList.remove("visible"),
+    type === "error" ? 12000 : 3200
+  );
+}
+
+function installUiErrorHandlers() {
+  window.addEventListener("error", (event) => {
+    const location = event.filename
+      ? `${event.filename}:${event.lineno || 0}:${event.colno || 0}`
+      : "bilinmeyen dosya";
+    showToast(`Arayüz hatası: ${event.message}\nKonum: ${location}`, "error");
+  });
+  window.addEventListener("unhandledrejection", (event) => {
+    const reason = event.reason?.message || event.reason || "Bilinmeyen hata";
+    showToast(`Arayüz işlemi tamamlanamadı:\n${reason}`, "error");
+  });
 }
 
 async function pickFile(targetSelector) {
@@ -2384,5 +2447,6 @@ async function previewCarvedFile(filePath) {
 
 setLanguage(state.language);
 setTheme(state.theme);
+installUiErrorHandlers();
 hydrateIcons();
 render();

@@ -33,19 +33,24 @@ pub fn json_ok(value: serde_json::Value) -> Response {
 }
 
 pub fn json_error(status: u16, message: impl Into<String>) -> Response {
+    let message = message.into();
+    let advice = crate::diagnostics::classify_error(&message);
     Response {
         status,
         content_type: "application/json; charset=utf-8".to_string(),
         body: serde_json::to_vec(&serde_json::json!({
             "ok": false,
-            "error": message.into(),
+            "error": message,
+            "code": advice.code,
+            "detail": advice.detail,
+            "suggestion": advice.suggestion,
         }))
         .unwrap_or_else(|_| b"{\"ok\":false}".to_vec()),
     }
 }
 
 pub fn run_native() -> Result<(), String> {
-    crate::native_window::prepare_environment();
+    crate::native_window::prepare_environment()?;
     let url = start_background()?;
     let native_url = format!("{url}?native=1");
     println!("Worm native UI: {native_url}");
@@ -62,16 +67,35 @@ pub fn run_browser() -> Result<(), String> {
 }
 
 fn start_background() -> Result<String, String> {
-    let listener = TcpListener::bind("127.0.0.1:0").map_err(|err| err.to_string())?;
-    let addr = listener.local_addr().map_err(|err| err.to_string())?;
+    validate_ui_assets()?;
+    let listener = TcpListener::bind("127.0.0.1:0").map_err(|err| {
+        crate::diagnostics::startup_error("Yerel UI backend portu acilamadi.", &err.to_string())
+    })?;
+    let addr = listener.local_addr().map_err(|err| {
+        crate::diagnostics::startup_error("Yerel UI backend adresi okunamadi.", &err.to_string())
+    })?;
     let url = format!("http://{addr}/");
 
     thread::Builder::new()
         .name("worm-ui-server".to_string())
         .spawn(move || serve(listener))
-        .map_err(|err| err.to_string())?;
+        .map_err(|err| {
+            crate::diagnostics::startup_error(
+                "Yerel UI backend thread'i baslatilamadi.",
+                &err.to_string(),
+            )
+        })?;
 
     Ok(url)
+}
+
+fn validate_ui_assets() -> Result<(), String> {
+    let root = ui_root();
+    if root.join("index.html").is_file() {
+        Ok(())
+    } else {
+        Err(crate::diagnostics::ui_assets_missing(&root))
+    }
 }
 
 fn serve(listener: TcpListener) {
@@ -168,7 +192,21 @@ fn handle_stream(stream: TcpStream) -> Result<(), String> {
             .map_err(|err| err.to_string())?;
     }
 
-    let response = router::route_request(&method, &raw_path, &body);
+    let response = match std::panic::catch_unwind(|| {
+        router::route_request(&method, &raw_path, &body)
+    }) {
+        Ok(response) => response,
+        Err(payload) => {
+            let panic = crate::diagnostics::panic_payload(payload.as_ref());
+            eprintln!("UI API panic: {method} {raw_path}: {panic}");
+            json_error(
+                500,
+                format!(
+                    "Backend istegi islenirken beklenmeyen hata olustu: {method} {raw_path}: {panic}"
+                ),
+            )
+        }
+    };
     write_response(stream, response)
 }
 

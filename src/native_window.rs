@@ -1,14 +1,16 @@
 #[cfg(target_os = "linux")]
-pub fn prepare_environment() {
-    linux::prepare_environment();
+pub fn prepare_environment() -> Result<(), String> {
+    linux::prepare_environment()
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-pub fn prepare_environment() {}
+pub fn prepare_environment() -> Result<(), String> {
+    Ok(())
+}
 
 #[cfg(target_os = "windows")]
-pub fn prepare_environment() {
-    windows::prepare_environment();
+pub fn prepare_environment() -> Result<(), String> {
+    windows::prepare_environment()
 }
 
 #[cfg(target_os = "linux")]
@@ -30,13 +32,15 @@ pub fn run(_url: &str) -> Result<(), String> {
 mod linux {
     use std::ffi::CString;
     use std::os::raw::{c_char, c_int, c_ulong, c_void};
+    use std::path::{Path, PathBuf};
     use std::ptr;
 
     const GTK_WINDOW_TOPLEVEL: c_int = 0;
 
-    pub fn prepare_environment() {
+    pub fn prepare_environment() -> Result<(), String> {
         set_env_if_missing("GDK_BACKEND", "x11");
         set_env_if_missing("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        Ok(())
     }
 
     fn set_env_if_missing(key: &str, value: &str) {
@@ -49,7 +53,7 @@ mod linux {
 
     #[link(name = "gtk-3")]
     unsafe extern "C" {
-        fn gtk_init(argc: *mut c_int, argv: *mut *mut *mut c_char);
+        fn gtk_init_check(argc: *mut c_int, argv: *mut *mut *mut c_char) -> c_int;
         fn gtk_window_new(window_type: c_int) -> *mut c_void;
         fn gtk_window_set_title(window: *mut c_void, title: *const c_char);
         fn gtk_window_set_icon_from_file(
@@ -83,21 +87,34 @@ mod linux {
     }
 
     pub fn run(url: &str) -> Result<(), String> {
+        ensure_webkit_helper_available()?;
+
         let title = CString::new("Worm Forensic Tool").map_err(|err| err.to_string())?;
         let destroy = CString::new("destroy").map_err(|err| err.to_string())?;
         let uri = CString::new(url).map_err(|err| err.to_string())?;
 
         unsafe {
-            gtk_init(ptr::null_mut(), ptr::null_mut());
+            if gtk_init_check(ptr::null_mut(), ptr::null_mut()) == 0 {
+                return Err(crate::diagnostics::startup_error(
+                    "GTK ekrana baglanamadi.",
+                    "DISPLAY/WAYLAND_DISPLAY ayari yok veya grafik oturum erisimi reddedildi.",
+                ));
+            }
 
             let window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
             if window.is_null() {
-                return Err("GTK window could not be created".to_string());
+                return Err(crate::diagnostics::startup_error(
+                    "GTK penceresi olusturulamadi.",
+                    "gtk_window_new null dondu.",
+                ));
             }
 
             let webview = webkit_web_view_new();
             if webview.is_null() {
-                return Err("WebKit webview could not be created".to_string());
+                return Err(crate::diagnostics::startup_error(
+                    "WebKit webview olusturulamadi.",
+                    "webkit_web_view_new null dondu. WebKitGTK runtime veya grafik bagimliliklari eksik olabilir.",
+                ));
             }
 
             gtk_window_set_title(window, title.as_ptr());
@@ -130,6 +147,91 @@ mod linux {
         }
     }
 
+    fn ensure_webkit_helper_available() -> Result<(), String> {
+        if std::env::var_os("WORM_SKIP_WEBKIT_HELPER_CHECK").is_some() {
+            return Ok(());
+        }
+
+        let candidates = webkit_helper_candidates();
+        if candidates.iter().any(|path| path.is_file()) {
+            return Ok(());
+        }
+
+        let searched = candidates
+            .iter()
+            .map(|path| format!("  - {}", path.display()))
+            .collect::<Vec<_>>()
+            .join("\n");
+        Err(crate::diagnostics::startup_error(
+            "WebKit helper process bulunamadi.",
+            &format!(
+                "WebKitNetworkProcess su yollarda bulunamadi:\n{searched}\nDebian/Ubuntu: sudo apt install libwebkit2gtk-4.1-0\nFedora: sudo dnf install webkit2gtk4.1\nAppImage paketinde bu yardimci binary de paketlenmeli."
+            ),
+        ))
+    }
+
+    fn webkit_helper_candidates() -> Vec<PathBuf> {
+        let mut candidates = Vec::new();
+        push_helper_from_env(&mut candidates, "WEBKIT_EXEC_PATH");
+
+        if let Some(appdir) = std::env::var_os("APPDIR") {
+            push_helper_dirs(&mut candidates, PathBuf::from(appdir).join("usr"));
+        }
+
+        if let Ok(exe) = std::env::current_exe()
+            && let Some(bin_dir) = exe.parent()
+            && let Some(prefix) = bin_dir.parent()
+        {
+            push_helper_dirs(&mut candidates, prefix);
+        }
+
+        candidates.push(PathBuf::from(
+            "/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess",
+        ));
+        candidates.push(PathBuf::from(
+            "/usr/libexec/webkit2gtk-4.1/WebKitNetworkProcess",
+        ));
+        candidates.push(PathBuf::from(
+            "/usr/lib/webkit2gtk-4.1/WebKitNetworkProcess",
+        ));
+        candidates.push(PathBuf::from(
+            "/usr/lib64/webkit2gtk-4.1/WebKitNetworkProcess",
+        ));
+
+        candidates.sort();
+        candidates.dedup();
+        candidates
+    }
+
+    fn push_helper_from_env(candidates: &mut Vec<PathBuf>, key: &str) {
+        if let Some(path) = std::env::var_os(key) {
+            candidates.push(PathBuf::from(path).join("WebKitNetworkProcess"));
+        }
+    }
+
+    fn push_helper_dirs(candidates: &mut Vec<PathBuf>, prefix: impl AsRef<Path>) {
+        let prefix = prefix.as_ref();
+        candidates.push(
+            prefix
+                .join("lib")
+                .join("webkit2gtk-4.1")
+                .join("WebKitNetworkProcess"),
+        );
+        candidates.push(
+            prefix
+                .join("libexec")
+                .join("webkit2gtk-4.1")
+                .join("WebKitNetworkProcess"),
+        );
+        candidates.push(
+            prefix
+                .join("lib")
+                .join("x86_64-linux-gnu")
+                .join("webkit2gtk-4.1")
+                .join("WebKitNetworkProcess"),
+        );
+    }
+
     fn app_icon_path() -> Option<std::path::PathBuf> {
         if let Some(path) = std::env::var_os("WORM_APP_ICON") {
             let path = std::path::PathBuf::from(path);
@@ -146,6 +248,8 @@ mod linux {
 
 #[cfg(target_os = "windows")]
 mod windows {
+    use std::path::{Path, PathBuf};
+
     use winit::application::ApplicationHandler;
     use winit::dpi::LogicalSize;
     use winit::event::WindowEvent;
@@ -153,17 +257,29 @@ mod windows {
     use winit::window::{Window, WindowId};
     use wry::WebViewBuilder;
 
-    pub fn prepare_environment() {
+    pub fn prepare_environment() -> Result<(), String> {
         if std::env::var_os("WEBVIEW2_USER_DATA_FOLDER").is_none() {
             let dir = std::env::temp_dir().join("worm-webview2");
+            std::fs::create_dir_all(&dir).map_err(|err| {
+                crate::diagnostics::startup_error(
+                    "WebView2 kullanici veri klasoru hazirlanamadi.",
+                    &format!("{}: {err}", dir.display()),
+                )
+            })?;
             unsafe {
                 std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", dir);
             }
         }
+        Ok(())
     }
 
     pub fn run(url: &str) -> Result<(), String> {
-        let event_loop = EventLoop::new().map_err(|err| err.to_string())?;
+        let event_loop = EventLoop::new().map_err(|err| {
+            crate::diagnostics::startup_error(
+                "Windows olay dongusu olusturulamadi.",
+                &err.to_string(),
+            )
+        })?;
         let mut app = WindowsApp {
             url: url.to_string(),
             window: None,
@@ -198,7 +314,10 @@ mod windows {
                 Err(err) => {
                     self.fail_startup(
                         event_loop,
-                        format!("Windows native window could not be created: {err}"),
+                        crate::diagnostics::startup_error(
+                            "Windows native pencere olusturulamadi.",
+                            &err.to_string(),
+                        ),
                     );
                     return;
                 }
@@ -206,12 +325,7 @@ mod windows {
             let webview = match WebViewBuilder::new().with_url(&self.url).build(&window) {
                 Ok(webview) => webview,
                 Err(err) => {
-                    self.fail_startup(
-                        event_loop,
-                        format!(
-                            "WebView2 view could not be created: {err}\n\nInstall Microsoft Edge WebView2 Evergreen Runtime and start Worm again."
-                        ),
-                    );
+                    self.fail_startup(event_loop, webview2_error_message(&err.to_string()));
                     return;
                 }
             };
@@ -236,6 +350,47 @@ mod windows {
         fn fail_startup(&mut self, event_loop: &ActiveEventLoop, message: String) {
             self.startup_error = Some(message);
             event_loop.exit();
+        }
+    }
+
+    fn webview2_error_message(err: &str) -> String {
+        let mut message = format!(
+            "WebView2 view could not be created: {err}\nInstall Microsoft Edge WebView2 Evergreen Runtime and start Worm again."
+        );
+        let candidates = webview2_candidates();
+        if !candidates.iter().any(|path| path.exists()) {
+            let searched = candidates
+                .iter()
+                .map(|path| format!("  - {}", path.display()))
+                .collect::<Vec<_>>()
+                .join("\n");
+            message.push_str(&format!(
+                "\nRuntime klasoru bilinen yollarda bulunamadi:\n{searched}"
+            ));
+        }
+        crate::diagnostics::startup_error("Windows WebView2 baslatilamadi.", &message)
+    }
+
+    fn webview2_candidates() -> Vec<PathBuf> {
+        let mut candidates = Vec::new();
+        if let Some(path) = std::env::var_os("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER") {
+            candidates.push(PathBuf::from(path));
+        }
+        push_program_files_candidate(&mut candidates, "PROGRAMFILES");
+        push_program_files_candidate(&mut candidates, "PROGRAMFILES(X86)");
+        candidates.sort();
+        candidates.dedup();
+        candidates
+    }
+
+    fn push_program_files_candidate(candidates: &mut Vec<PathBuf>, key: &str) {
+        if let Some(base) = std::env::var_os(key) {
+            candidates.push(
+                Path::new(&base)
+                    .join("Microsoft")
+                    .join("EdgeWebView")
+                    .join("Application"),
+            );
         }
     }
 }
