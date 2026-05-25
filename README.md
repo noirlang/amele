@@ -8,86 +8,71 @@
   <video src="https://github.com/user-attachments/assets/1b57bf23-cf54-4f0e-b3b3-f745d298ba09" width="700" controls></video>
 </p>
 
-[![Worm CI](https://github.com/noirlang/worm/actions/workflows/ci.yml/badge.svg)](https://github.com/noirlang/worm/actions/workflows/ci.yml)
+<p align="center">
+  <a href="https://github.com/noirlang/worm/actions/workflows/ci.yml">
+    <img src="https://github.com/noirlang/worm/actions/workflows/ci.yml/badge.svg" alt="Worm CI" />
+  </a>
+</p>
 
-## Türkçe
+---
 
-Worm; disk/RAM imaj alma, hash doğrulama, uzak agent yönetimi, vaka çıktıları ve raporlama için masaüstü adli bilişim aracıdır.
+## 🇹🇷 Türkçe
 
-Uygulama Rust backend ile çalışır, arayüzü yerel pencere içinde açılır ve `worm-linux` / `worm-win` agent protokolüyle uyumludur.
+Worm; disk ve RAM edinimi, hash doğrulama, uzak agent yönetimi, vaka çıktıları, imaj görüntüleme ve raporlama için geliştirilen masaüstü adli bilişim aracıdır.
+
+Uygulama Rust backend üzerinde çalışır. Arayüz Linux'ta GTK/WebKit, Windows'ta WebView2 tabanlı gerçek masaüstü penceresi olarak açılır.
 
 ### Depolar
 
-- Ana Worm deposu: https://github.com/noirlang/worm
-- Linux Agent: https://github.com/noirlang/worm-linux
-- Windows Agent: https://github.com/noirlang/worm-win
+| Bileşen | Bağlantı |
+| --- | --- |
+| Worm | https://github.com/noirlang/worm |
+| Linux Agent | https://github.com/noirlang/worm-linux |
+| Windows Agent | https://github.com/noirlang/worm-win |
+| Web Sitesi | https://worm.noirlang.tr |
 
-### Web Sitesi
+### Platform Desteği
 
-- https://worm.noirlang.tr
+| Platform | Destek | Not |
+| --- | --- | --- |
+| Linux | Desteklenir | GTK/WebKit, AVML, yerel ve uzak edinim |
+| Windows | Desteklenir | WebView2, WinPMEM, yerel ve uzak edinim |
+| macOS | Desteklenmez | Bu sürümde hedef platform değildir |
 
-### Agent İkili İndirme
-
-- Linux binary: `https://worm.noirlang.tr/worm-linux`
-- Windows EXE: `https://worm.noirlang.tr/worm-win.exe`
-
-### Durum
-
-Linux ve Windows hedeflenir. macOS desteği yoktur.
-
-Arayüz tarayıcı sekmesi olarak değil, Linux'ta GTK/WebKit ve Windows'ta WebView2 tabanlı yerel pencere olarak açılır.
-
-### Öne Çıkan Özellikler
+### Özellikler
 
 | Alan | Açıklama |
 | --- | --- |
-| Yerel disk edinimi | Dosya/blok cihazı kopyalama, SHA256 sidecar, `.partial` koruması |
-| Uzak disk edinimi | `imaj_baslat` JSON-over-TCP protokolüyle raw stream alma |
-| Yerel RAM edinimi | Linux AVML, Windows WinPMEM helper akışları |
-| Uzak RAM edinimi | Agent tarafında edinim başlatma, ilerleme izleme, dump indirme |
-| İş kontrolü | Pause/resume/stop komutlarının yerel ve uzak işlere uygulanması |
-| Hash | MD5, SHA1, SHA256, SHA512 hesaplama |
-| Kanıt | Sabit `~/Worm/Vakalar` altında vaka ağacı, notlar, çıktı klasörleri ve rapor JSON/TXT üretimi |
-| İmaj görüntüleme | Linux `mount -o ro,loop` ve partition'lı imajlar için `losetup --partscan`, Windows `Mount-DiskImage` salt-okunur mount |
-| Güncelleme | GitHub release kontrolü, paket indirme, SHA256 doğrulama, installer başlatma |
-| UI | Vanilla HTML/CSS/JS, Linux GTK/WebKit ve Windows WebView2 yerel pencere |
-| CI | Ubuntu/Windows üzerinde test, release build ve binary artifact üretimi |
+| Yerel disk edinimi | Dosya veya blok cihazından bit-by-bit imaj, SHA256 sidecar, `.partial` koruması |
+| Uzak disk edinimi | `worm-linux` ve `worm-win` agentları üzerinden raw stream alma |
+| Yerel RAM edinimi | Linux AVML ve Windows WinPMEM akışları |
+| Uzak RAM edinimi | Agent üzerinde edinim başlatma, ilerleme izleme, dump indirme |
+| İş kontrolü | Pause, resume ve stop komutlarının yerel/uzak işlere uygulanması |
+| Vaka yönetimi | Sabit `~/Worm/Vakalar` altında vaka klasörleri, notlar, çıktılar ve raporlar |
+| Hash | MD5, SHA1, SHA256 ve SHA512 hesaplama |
+| İmaj görüntüleme | Linux salt-okunur loop mount, Windows salt-okunur disk mount |
+| Android araçları | ADB kontrolü ve Android edinim türleri için modüler araç sayfası |
+| Güncelleme | GitHub release kontrolü, paket indirme, SHA256 doğrulama ve installer başlatma |
 
-### Mimari
+### İndirme
+
+Release paketleri GitHub Releases ve web sitesi üzerinden dağıtılır:
+
+- Linux AppImage: `worm-linux-x64.AppImage`
+- Linux DEB: `worm-linux-x64.deb`
+- Linux RPM: `worm-linux-x64.rpm`
+- Windows MSI: `worm-windows-x64.msi`
+
+Agent ikilileri:
 
 ```text
-worm/
-├── src/
-│   ├── disk.rs          # Yerel disk/dosya imaj alma
-│   ├── ram.rs           # AVML / WinPMEM kontrol ve edinim helperları
-│   ├── remote.rs        # worm-linux / worm-win JSON-over-TCP client
-│   ├── ui_server.rs     # Yerel HTTP API ve UI asset servisi
-│   ├── native_window.rs # Linux GTK/WebKit ve Windows WebView2 yerel pencere
-│   ├── hash.rs          # Hash hesaplama
-│   ├── evidence.rs      # Vaka ve kanıt klasörleri
-│   ├── report.rs        # Rapor çıktıları
-│   ├── settings.rs      # Varsayılan ayarlar
-│   ├── wireguard.rs     # WireGuard config ve wrapper
-│   └── main.rs          # CLI ve UI giriş noktası
-├── ui/
-│   ├── index.html
-│   ├── app.js
-│   ├── styles.css
-│   └── assets/
-├── CONTRIBUTORS.md
-└── .github/workflows/ci.yml
+https://worm.noirlang.tr/worm-linux
+https://worm.noirlang.tr/worm-win.exe
 ```
-
-### UI/API Akışı
-
-1. `cargo run -- ui` uygulamayı yerel pencere olarak başlatır.
-2. Backend `127.0.0.1` üzerinde geçici bir port açar.
-3. UI yalnızca loopback API ile konuşur.
-4. Uzak edinimler `worm-linux` / `worm-win` agentlarına JSON-over-TCP ile bağlanır.
 
 ### Gereksinimler
 
-Ubuntu/Debian örneği:
+Linux geliştirme ortamı:
 
 ```bash
 sudo apt update
@@ -101,72 +86,50 @@ rustup toolchain install stable --component rustfmt
 rustup default stable
 ```
 
-Windows native pencere için Microsoft Edge WebView2 Runtime gerekir. Windows 10/11 sistemlerde genellikle hazır gelir; eksikse Microsoft Evergreen Runtime kurulmalıdır.
+Windows'ta yerel pencere için Microsoft Edge WebView2 Runtime gerekir. Windows buildleri Visual C++ runtime bağımlılığını azaltmak için statik MSVC runtime ile üretilir.
 
-### Derleme
-
-Debug build:
+### Derleme ve Test
 
 ```bash
 cargo build --locked
-```
-
-Release build:
-
-```bash
 cargo build --release --locked
-```
-
-Testler:
-
-```bash
 cargo test --locked
+cargo fmt --all -- --check
+node --check ui/app.js
 ```
 
-Format kontrolü:
+Linux AppImage üretimi:
 
 ```bash
-cargo fmt --all -- --check
+./scripts/build-appimage.sh
 ```
 
 ### Çalıştırma
 
-Yerel pencere olarak açma:
-
 ```bash
 cargo run -- ui
-```
-
-Derlenmiş binary ile açma:
-
-```bash
 ./target/release/worm ui
-```
-
-Tarayıcı debug modu:
-
-```bash
 cargo run -- ui-browser
 ```
 
-### CLI Smoke Komutları
+Temel CLI kontrolleri:
 
 ```bash
 cargo run -- settings-default
-cargo run -- hash <file> sha256
+cargo run -- hash <dosya> sha256
 cargo run -- disk-list
-cargo run -- disk-size <device-or-file>
-cargo run -- verify <image> <sha256>
+cargo run -- disk-size <cihaz-veya-dosya>
+cargo run -- verify <imaj> <sha256>
 cargo run -- ram-status
 cargo run -- remote-disks <ip> <port> [token]
-cargo run -- remote-image <ip> <port> <disk_id> <output_dir> [token]
+cargo run -- remote-image <ip> <port> <disk_id> <cikti_klasoru> [token]
 cargo run -- remote-tool-check <ip> <port> <winpmem|avml> [token]
-cargo run -- wireguard-config <path>
+cargo run -- wireguard-config <dosya>
 ```
 
 ### Uzak Agent Kullanımı
 
-Linux Agent:
+Linux agent:
 
 ```bash
 wget -O worm-linux https://worm.noirlang.tr/worm-linux
@@ -174,174 +137,108 @@ chmod +x worm-linux
 ./worm-linux
 ```
 
-Windows Agent:
+Windows agent:
 
-`worm-win.exe` dosyasını https://worm.noirlang.tr/worm-win.exe adresinden indirin ve yönetici olarak çalıştırın.
+```text
+https://worm.noirlang.tr/worm-win.exe
+```
 
-Uygulama tarafında:
+Agent bağlantısı uygulama içinden IP, port ve opsiyonel token ile yapılır. Disk/RAM edinimi başlatıldığında çıktı dosyaları seçilen vaka klasörü altında tutulur.
 
-1. Windows veya Linux araç sayfasını açın.
-2. Uzak disk veya uzak RAM akışını seçin.
-3. Agent IP/port bilgisini girin.
-4. Token kullanıyorsanız anahtarı onaylayın.
-5. Bağlan düğmesiyle agent erişimini doğrulayın.
-6. Disk taraması veya RAM araç kontrolünü çalıştırın.
-7. Çıktı konumunu seçip edinimi başlatın.
+### Çıktı Yapısı
 
-### Agent Protokol Uyumluluğu
+```text
+~/Worm/Vakalar/{vaka_adı}/
+├── {ip}_{disk}_{tarih}.img
+├── {ip}_{disk}_{tarih}.img.sha256
+├── {ip}_{disk}_{tarih}.img.md5
+├── ram_{tarih}.raw
+└── ram_{tarih}.raw.sha256
+```
 
-Rust client, mevcut `worm-linux` ve `worm-win` agentlarının JSON-over-TCP protokolüyle uyumlu çalışır.
+### CI
 
-Temel komutlar:
+GitHub Actions her push ve pull request için Linux/Windows testlerini, format kontrolünü, JavaScript söz dizimi kontrolünü ve release build üretimini çalıştırır.
 
-- `merhaba`: agent kimlik ve özellik doğrulama.
-- `disk_listele`: uzak diskleri listeleme.
-- `imaj_baslat`: uzak disk stream başlatma.
-- `winpmem_kontrol`: Windows RAM aracı kontrolü.
-- `avml_kontrol`: Linux RAM aracı kontrolü.
-- `ram_edinim_baslat`: uzak RAM dump üretimi.
-- `ram_dosya_indir`: oluşan RAM dump dosyasını indirme.
-- `edinim_kontrol`: `pause`, `resume`, `stop` iş kontrolü.
+Workflow:
 
-### Edinim Güvenliği ve Çıktı Davranışı
-
-- Başarısız disk transferlerinde hedef dosya `.partial` olarak korunur.
-- Tamamlanan disk imajlarında SHA256 sidecar üretilir.
-- Uzak stream sırasında stop geldiğinde bağlantı kapatılır; partial dosyanın içine JSON hata satırı yazılmaz.
-- RAM edinimlerinde yüzde ilerleme mevcut dosya boyutu veya agent eventleri üzerinden hesaplanır.
-- Uzak RAM akışında önce agent dump üretir, ardından aynı iş kimliğiyle dump dosyası indirilir.
-- Yerel RAM edinimi root/administrator yetkisi gerektirebilir.
-
-### Paketleme
-
-Release asset adları:
-
-- `worm-windows-x64.msi`
-- `worm-linux-x64.AppImage`
-- `SHA256SUMS`
-
-CI Linux ve Windows release binary artifact üretir. MSI/AppImage paketleme ayrıca bağlanacaktır.
-
-### GitHub Actions
-
-Workflow: `.github/workflows/ci.yml`
-
-Push ve pull requestlerde:
-
-1. Sistem bağımlılıkları kurulur.
-2. Rust stable toolchain hazırlanır.
-3. `cargo fmt --all -- --check` çalışır.
-4. `node --check ui/app.js` ile UI JavaScript söz dizimi doğrulanır.
-5. `cargo test --locked` çalışır.
-6. `cargo build --release --locked` çalışır.
-7. Linux ve Windows release binary artifact olarak yüklenir.
-
-Actions sayfası:
-
-- https://github.com/noirlang/worm/actions/workflows/ci.yml
+```text
+.github/workflows/ci.yml
+```
 
 ### Katkıda Bulunanlar
 
-Katkıcılar README içinde GitHub geçmişinden otomatik gösterilir; elle kişi listesi tutulmaz.
+Katkıcılar GitHub geçmişinden otomatik gösterilir; README içinde elle kişi listesi tutulmaz.
 
 <a href="https://github.com/noirlang/worm/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=noirlang/worm" alt="Worm GitHub contributors" />
 </a>
 
-- GitHub contributor grafiği: https://github.com/noirlang/worm/graphs/contributors
-- Destek ve katkı rehberi: [CONTRIBUTORS.md](CONTRIBUTORS.md)
+Katkı ve destek rehberi: [CONTRIBUTORS.md](CONTRIBUTORS.md)
 
-### Güvenlik Notu
+### Güvenlik
 
-Worm yalnızca yetkili adli bilişim süreçlerinde kullanılmalıdır. Disk ve RAM edinimi sistem bütünlüğünü, gizliliği ve yasal yetki sınırlarını doğrudan etkiler. Test verisi dışındaki gerçek edinimler için doğru izin, doğru hedef ve doğru çıktı konumu kontrol edilmelidir.
-
-### Roadmap
-
-- AppImage/MSI paketleme hattının release workflow'a bağlanması.
-- Uzak agent protokol testlerinin daha geniş mock senaryolarla çoğaltılması.
-- Windows raw DD/IMG mount için opsiyonel forensic image driver entegrasyonu.
-- macOS bu dalda desteklenmez; hedef platformlar Linux ve Windows'tur.
+Worm yalnızca yetkili adli bilişim süreçlerinde kullanılmalıdır. Gerçek disk veya RAM ediniminden önce hedef sistem, yetki kapsamı ve çıktı konumu doğrulanmalıdır.
 
 ---
 
-## English
+## 🇬🇧 English
 
-Worm is a desktop forensic tool for disk/RAM imaging, hash verification, remote agent control, case outputs, and reporting.
+Worm is a desktop forensic tool for disk and memory acquisition, hash verification, remote agent control, case output management, image viewing, and reporting.
 
-The application runs on a Rust backend, opens the UI in a native window, and works with the `worm-linux` / `worm-win` agent protocol.
+The application runs on a Rust backend. The UI opens as a real desktop window: GTK/WebKit on Linux and WebView2 on Windows.
 
 ### Repositories
 
-- Main Worm repository: https://github.com/noirlang/worm
-- Linux Agent: https://github.com/noirlang/worm-linux
-- Windows Agent: https://github.com/noirlang/worm-win
+| Component | Link |
+| --- | --- |
+| Worm | https://github.com/noirlang/worm |
+| Linux Agent | https://github.com/noirlang/worm-linux |
+| Windows Agent | https://github.com/noirlang/worm-win |
+| Website | https://worm.noirlang.tr |
 
-### Website
+### Platform Support
 
-- https://worm.noirlang.tr
+| Platform | Support | Notes |
+| --- | --- | --- |
+| Linux | Supported | GTK/WebKit, AVML, local and remote acquisition |
+| Windows | Supported | WebView2, WinPMEM, local and remote acquisition |
+| macOS | Not supported | Not a target platform for this release |
 
-### Agent Binary Downloads
-
-- Linux binary: `https://worm.noirlang.tr/worm-linux`
-- Windows EXE: `https://worm.noirlang.tr/worm-win.exe`
-
-### Status
-
-Linux and Windows are targeted. macOS is not supported.
-
-The UI opens as a native application window: GTK/WebKit on Linux and WebView2 on Windows.
-
-### Feature Overview
+### Features
 
 | Area | Description |
 | --- | --- |
-| Local disk acquisition | File/block-device copy, SHA256 sidecar, `.partial` preservation |
-| Remote disk acquisition | Raw stream through the `imaj_baslat` JSON-over-TCP protocol |
-| Local RAM acquisition | Linux AVML and Windows WinPMEM helper flows |
-| Remote RAM acquisition | Start acquisition on the agent, track progress, download dump |
-| Job control | Pause/resume/stop commands for local and remote jobs |
-| Hashing | MD5, SHA1, SHA256, SHA512 |
-| Evidence | Case tree, notes, output folders, and JSON/TXT reports under fixed `~/Worm/Vakalar` |
-| Image viewing | Linux `mount -o ro,loop` plus `losetup --partscan` for partitioned images, Windows `Mount-DiskImage` read-only mount |
-| Update | GitHub release check, package download, SHA256 verification, installer launch |
-| UI | Vanilla HTML/CSS/JS served in Linux GTK/WebKit and Windows WebView2 native windows |
-| CI | Ubuntu/Windows tests, release build, and binary artifact upload |
+| Local disk acquisition | Bit-by-bit image from file or block device, SHA256 sidecar, `.partial` preservation |
+| Remote disk acquisition | Raw stream acquisition through `worm-linux` and `worm-win` agents |
+| Local memory acquisition | Linux AVML and Windows WinPMEM flows |
+| Remote memory acquisition | Start acquisition on the agent, track progress, download dump |
+| Job control | Pause, resume, and stop commands for local and remote jobs |
+| Case management | Case folders, notes, outputs, and reports under fixed `~/Worm/Vakalar` |
+| Hashing | MD5, SHA1, SHA256, and SHA512 calculation |
+| Image viewing | Linux read-only loop mount, Windows read-only disk mount |
+| Android tools | Modular Android page for ADB checks and Android acquisition types |
+| Updates | GitHub release check, package download, SHA256 verification, installer launch |
 
-### Architecture
+### Downloads
+
+Release packages are distributed through GitHub Releases and the website:
+
+- Linux AppImage: `worm-linux-x64.AppImage`
+- Linux DEB: `worm-linux-x64.deb`
+- Linux RPM: `worm-linux-x64.rpm`
+- Windows MSI: `worm-windows-x64.msi`
+
+Agent binaries:
 
 ```text
-worm/
-├── src/
-│   ├── disk.rs          # Local disk/file imaging
-│   ├── ram.rs           # AVML / WinPMEM checks and acquisition helpers
-│   ├── remote.rs        # worm-linux / worm-win JSON-over-TCP client
-│   ├── ui_server.rs     # Local HTTP API and UI asset server
-│   ├── native_window.rs # Linux GTK/WebKit and Windows WebView2 native window
-│   ├── hash.rs          # Hash calculation
-│   ├── evidence.rs      # Case and evidence folders
-│   ├── report.rs        # Report output
-│   ├── settings.rs      # Defaults
-│   ├── wireguard.rs     # WireGuard config and wrapper
-│   └── main.rs          # CLI and UI entry point
-├── ui/
-│   ├── index.html
-│   ├── app.js
-│   ├── styles.css
-│   └── assets/
-├── CONTRIBUTORS.md
-└── .github/workflows/ci.yml
+https://worm.noirlang.tr/worm-linux
+https://worm.noirlang.tr/worm-win.exe
 ```
-
-### UI/API Flow
-
-1. `cargo run -- ui` starts the native app window.
-2. The backend opens a temporary `127.0.0.1` port.
-3. The UI talks only to the loopback API.
-4. Remote acquisition connects to `worm-linux` / `worm-win` over JSON-over-TCP.
 
 ### Requirements
 
-Ubuntu/Debian example:
+Linux development environment:
 
 ```bash
 sudo apt update
@@ -355,55 +252,33 @@ rustup toolchain install stable --component rustfmt
 rustup default stable
 ```
 
-The Windows native window requires Microsoft Edge WebView2 Runtime. It is usually present on Windows 10/11; install Microsoft Evergreen Runtime if it is missing.
+The Windows native window requires Microsoft Edge WebView2 Runtime. Windows builds use static MSVC runtime linking to reduce Visual C++ runtime dependency issues.
 
-### Build
-
-Debug build:
+### Build and Test
 
 ```bash
 cargo build --locked
-```
-
-Release build:
-
-```bash
 cargo build --release --locked
-```
-
-Tests:
-
-```bash
 cargo test --locked
+cargo fmt --all -- --check
+node --check ui/app.js
 ```
 
-Format check:
+Build Linux AppImage:
 
 ```bash
-cargo fmt --all -- --check
+./scripts/build-appimage.sh
 ```
 
 ### Run
 
-Open as a native application window:
-
 ```bash
 cargo run -- ui
-```
-
-Open from the release binary:
-
-```bash
 ./target/release/worm ui
-```
-
-Browser debug mode:
-
-```bash
 cargo run -- ui-browser
 ```
 
-### CLI Smoke Commands
+Basic CLI checks:
 
 ```bash
 cargo run -- settings-default
@@ -420,7 +295,7 @@ cargo run -- wireguard-config <path>
 
 ### Remote Agent Usage
 
-Linux Agent:
+Linux agent:
 
 ```bash
 wget -O worm-linux https://worm.noirlang.tr/worm-linux
@@ -428,90 +303,45 @@ chmod +x worm-linux
 ./worm-linux
 ```
 
-Windows Agent:
+Windows agent:
 
-Download `worm-win.exe` from https://worm.noirlang.tr/worm-win.exe and run it as Administrator.
+```text
+https://worm.noirlang.tr/worm-win.exe
+```
 
-Application side:
+Agent connections are configured in the application with IP, port, and optional token. Disk and memory acquisition outputs are stored under the selected case folder.
 
-1. Open the Windows or Linux tools page.
-2. Select a remote disk or remote RAM workflow.
-3. Enter the agent IP/port.
-4. Approve the token if one is used.
-5. Verify agent access with Connect.
-6. Run disk scan or RAM tool check.
-7. Select output location and start acquisition.
+### Output Layout
 
-### Agent Protocol Compatibility
+```text
+~/Worm/Vakalar/{case_name}/
+├── {ip}_{disk}_{date}.img
+├── {ip}_{disk}_{date}.img.sha256
+├── {ip}_{disk}_{date}.img.md5
+├── ram_{date}.raw
+└── ram_{date}.raw.sha256
+```
 
-The Rust client is compatible with the JSON-over-TCP protocol used by the current `worm-linux` and `worm-win` agents.
+### CI
 
-Core commands:
+GitHub Actions runs Linux/Windows tests, formatting checks, JavaScript syntax checks, and release builds on every push and pull request.
 
-- `merhaba`: agent identity and capability handshake.
-- `disk_listele`: list remote disks.
-- `imaj_baslat`: start remote disk stream.
-- `winpmem_kontrol`: check Windows RAM acquisition tool.
-- `avml_kontrol`: check Linux RAM acquisition tool.
-- `ram_edinim_baslat`: produce remote RAM dump.
-- `ram_dosya_indir`: download generated RAM dump.
-- `edinim_kontrol`: `pause`, `resume`, `stop` job control.
+Workflow:
 
-### Acquisition Safety and Output Behavior
-
-- Failed disk transfers preserve the target file as `.partial`.
-- Completed disk images produce a SHA256 sidecar.
-- When stop is requested during remote streaming, the connection is closed; JSON error lines are not written into partial binary output.
-- RAM progress is calculated from output file size or agent progress events.
-- Remote RAM first produces a dump on the agent, then downloads it with the same job id.
-- Local RAM acquisition may require root/administrator privileges.
-
-### Packaging
-
-Release asset names:
-
-- `worm-windows-x64.msi`
-- `worm-linux-x64.AppImage`
-- `SHA256SUMS`
-
-CI produces Linux and Windows release binary artifacts. MSI/AppImage packaging will be connected separately.
-
-### GitHub Actions
-
-Workflow: `.github/workflows/ci.yml`
-
-On push and pull requests:
-
-1. System dependencies are installed.
-2. Stable Rust toolchain is prepared.
-3. `cargo fmt --all -- --check` runs.
-4. `node --check ui/app.js` validates the UI JavaScript syntax.
-5. `cargo test --locked` runs.
-6. `cargo build --release --locked` runs.
-7. Linux and Windows release binaries are uploaded as artifacts.
-
-Actions page:
-
-- https://github.com/noirlang/worm/actions/workflows/ci.yml
+```text
+.github/workflows/ci.yml
+```
 
 ### Contributors
 
-Contributors are rendered from GitHub history in this README; no manual person list is kept.
+Contributors are rendered from GitHub history; no manual person list is kept in the README.
 
 <a href="https://github.com/noirlang/worm/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=noirlang/worm" alt="Worm GitHub contributors" />
 </a>
 
-- GitHub contributors graph: https://github.com/noirlang/worm/graphs/contributors
-- Support and contribution guide: [CONTRIBUTORS.md](CONTRIBUTORS.md)
+Contribution and support guide: [CONTRIBUTORS.md](CONTRIBUTORS.md)
 
-### Security Note
+### Security
 
-Worm should be used only in authorized forensic workflows. Disk and RAM acquisition directly affects system integrity, privacy, and legal authorization boundaries. For real acquisitions, verify permission, target selection, and output location before starting.
-
-### Roadmap
-
-- Connect AppImage/MSI packaging to the release workflow.
-- Expand remote agent protocol tests with more mock scenarios.
-- Optional forensic image driver integration for Windows raw DD/IMG mounts.
-- macOS is not supported in this branch; the target platforms are Linux and Windows.
+Worm must be used only in authorized forensic workflows. Before real disk or memory acquisition, verify the target system, authorization scope, and output location.
