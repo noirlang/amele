@@ -168,14 +168,20 @@ mod windows {
             url: url.to_string(),
             window: None,
             webview: None,
+            startup_error: None,
         };
-        event_loop.run_app(&mut app).map_err(|err| err.to_string())
+        let result = event_loop.run_app(&mut app).map_err(|err| err.to_string());
+        if let Some(err) = app.startup_error.take() {
+            return Err(err);
+        }
+        result
     }
 
     struct WindowsApp {
         url: String,
         window: Option<Window>,
         webview: Option<wry::WebView>,
+        startup_error: Option<String>,
     }
 
     impl ApplicationHandler for WindowsApp {
@@ -187,13 +193,28 @@ mod windows {
             let attributes = Window::default_attributes()
                 .with_title("Worm Forensic Tool")
                 .with_inner_size(LogicalSize::new(1280.0, 820.0));
-            let window = event_loop
-                .create_window(attributes)
-                .expect("Windows native window could not be created");
-            let webview = WebViewBuilder::new()
-                .with_url(&self.url)
-                .build(&window)
-                .expect("WebView2 view could not be created");
+            let window = match event_loop.create_window(attributes) {
+                Ok(window) => window,
+                Err(err) => {
+                    self.fail_startup(
+                        event_loop,
+                        format!("Windows native window could not be created: {err}"),
+                    );
+                    return;
+                }
+            };
+            let webview = match WebViewBuilder::new().with_url(&self.url).build(&window) {
+                Ok(webview) => webview,
+                Err(err) => {
+                    self.fail_startup(
+                        event_loop,
+                        format!(
+                            "WebView2 view could not be created: {err}\n\nInstall Microsoft Edge WebView2 Evergreen Runtime and start Worm again."
+                        ),
+                    );
+                    return;
+                }
+            };
 
             self.webview = Some(webview);
             self.window = Some(window);
@@ -208,6 +229,13 @@ mod windows {
             if matches!(event, WindowEvent::CloseRequested) {
                 event_loop.exit();
             }
+        }
+    }
+
+    impl WindowsApp {
+        fn fail_startup(&mut self, event_loop: &ActiveEventLoop, message: String) {
+            self.startup_error = Some(message);
+            event_loop.exit();
         }
     }
 }

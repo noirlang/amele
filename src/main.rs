@@ -16,6 +16,8 @@ use worm::settings::AppSettings;
 use worm::wireguard::{self, WireGuardConfig};
 
 fn main() {
+    install_error_reporting();
+
     let mut args = std::env::args().skip(1);
     let result = match args.next().as_deref() {
         Some("settings-default") => print_default_settings(),
@@ -36,17 +38,109 @@ fn main() {
         Some("wireguard-config") => wireguard_config_command(args.collect()),
         Some("ui") => server::run_native(),
         Some("ui-browser") => server::run_browser(),
-        Some("--help") | Some("-h") | None => {
+        Some("--help") | Some("-h") => {
             print_help();
             Ok(())
         }
+        None => default_command(),
         Some(other) => Err(format!("Bilinmeyen komut: {other}")),
     };
 
     if let Err(err) = result {
+        report_fatal_error(&err);
         eprintln!("{err}");
         print_help();
         std::process::exit(2);
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn default_command() -> Result<(), String> {
+    server::run_native()
+}
+
+#[cfg(not(target_os = "windows"))]
+fn default_command() -> Result<(), String> {
+    print_help();
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn install_error_reporting() {
+    std::panic::set_hook(Box::new(|info| {
+        let location = info
+            .location()
+            .map(|loc| format!("{}:{}", loc.file(), loc.line()))
+            .unwrap_or_else(|| "unknown location".to_string());
+        windows_error::report(&format!(
+            "Unexpected Worm startup crash:\n\n{info}\n\nLocation: {location}"
+        ));
+    }));
+}
+
+#[cfg(not(target_os = "windows"))]
+fn install_error_reporting() {}
+
+#[cfg(target_os = "windows")]
+fn report_fatal_error(message: &str) {
+    windows_error::report(message);
+}
+
+#[cfg(not(target_os = "windows"))]
+fn report_fatal_error(_message: &str) {}
+
+#[cfg(target_os = "windows")]
+mod windows_error {
+    use std::fs::OpenOptions;
+    use std::io::Write;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use windows_sys::Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MB_OK, MessageBoxW};
+
+    pub fn report(message: &str) {
+        let log_path = log_path();
+        if let Some(path) = &log_path {
+            write_log(path, message);
+        }
+
+        let mut body = format!("Worm Forensic Tool could not start.\n\n{message}");
+        if let Some(path) = log_path {
+            body.push_str(&format!("\n\nLog file:\n{}", path.display()));
+        }
+        show_message(&body);
+    }
+
+    fn write_log(path: &PathBuf, message: &str) {
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
+            let ts = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|value| value.as_secs())
+                .unwrap_or_default();
+            let _ = writeln!(file, "[{ts}] {message}");
+        }
+    }
+
+    fn log_path() -> Option<PathBuf> {
+        std::env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("TEMP").map(PathBuf::from))
+            .map(|base| base.join("Worm").join("worm.log"))
+    }
+
+    fn show_message(message: &str) {
+        let title = wide_null("Worm Forensic Tool");
+        let body = wide_null(message);
+        unsafe {
+            MessageBoxW(0, body.as_ptr(), title.as_ptr(), MB_OK | MB_ICONERROR);
+        }
+    }
+
+    fn wide_null(value: &str) -> Vec<u16> {
+        value.encode_utf16().chain(std::iter::once(0)).collect()
     }
 }
 
