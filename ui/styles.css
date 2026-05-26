@@ -599,10 +599,6 @@ button {
 }
 
 .tile-arrow {
-  position: absolute;
-  right: 28px;
-  top: 50%;
-  transform: translateY(-50%);
   color: var(--muted);
   font-family: "Segoe UI", sans-serif;
   font-size: 26px;
@@ -2170,7 +2166,7 @@ code {
 
 @keyframes edge-light-run {
   100% {
-    transform: rotate(1turn);
+    transform: translate(-50%, -50%) rotate(1turn);
   }
 }
 
@@ -2222,23 +2218,26 @@ code {
 .status-badge::before {
   content: "";
   position: absolute;
-  inset: -65%;
+  top: 50%;
+  left: 50%;
+  width: 155%;
+  aspect-ratio: 1;
   z-index: 0;
   pointer-events: none;
   opacity: 0;
   background: conic-gradient(
     from 0deg,
     transparent 0deg,
-    transparent 235deg,
-    var(--hover-ring-soft) 272deg,
-    var(--hover-ring) 312deg,
-    var(--hover-ring-soft) 338deg,
+    transparent 305deg,
+    var(--hover-ring-soft) 324deg,
+    var(--hover-ring) 342deg,
+    var(--hover-ring-soft) 354deg,
     transparent 360deg
   );
   box-shadow:
     0 0 14px var(--hover-ring-glow),
     0 0 28px var(--hover-ring-soft);
-  transform: rotate(0deg);
+  transform: translate(-50%, -50%) rotate(0deg);
   transform-origin: center;
   transition: opacity 180ms var(--ease);
   will-change: transform, opacity;
