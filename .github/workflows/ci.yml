@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install system dependencies
         run: |
@@ -49,7 +49,7 @@ jobs:
         run: cargo build --release --locked
 
       - name: Upload release binary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: worm-linux-x64
           path: target/release/worm
@@ -61,7 +61,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust
         run: |
@@ -84,7 +84,7 @@ jobs:
           findstr /i "VCRUNTIME MSVCP" dependents.txt && exit /b 1 || exit /b 0
 
       - name: Upload release binary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: worm-windows-x64
           path: target/release/worm.exe
