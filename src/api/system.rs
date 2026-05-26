@@ -496,18 +496,35 @@ fn run_remote_image_job(job_id: String, request: RemoteImageRequest) {
                 Some(&remote_job_id),
                 |done, total| update_acquisition_progress(&job_id, done, total),
             ) {
-                Ok(result) => finish_acquisition_job_with_message(
-                    &job_id,
-                    json!({
-                        "message": result.message,
-                        "remote_job_id": result.job_id,
-                        "target_path": result.target_path,
-                        "bytes_transferred": result.bytes_transferred,
-                        "sha256": result.sha256,
-                        "md5": result.md5,
-                    }),
-                    "Imaj alma tamamlandi",
-                ),
+                Ok(result) => {
+                    let sha256 = match finalize_image_sha256(
+                        &job_id,
+                        &result.target_path,
+                        result.sha256.clone(),
+                    ) {
+                        Ok(value) => value,
+                        Err(err) => {
+                            fail_acquisition_job_with_message(
+                                &job_id,
+                                err,
+                                "Imaj hash olusturulamadi",
+                            );
+                            return;
+                        }
+                    };
+                    finish_acquisition_job_with_message(
+                        &job_id,
+                        json!({
+                            "message": result.message,
+                            "remote_job_id": result.job_id,
+                            "target_path": result.target_path,
+                            "bytes_transferred": result.bytes_transferred,
+                            "sha256": sha256,
+                            "md5": result.md5,
+                        }),
+                        "Imaj alma tamamlandi",
+                    );
+                }
                 Err(err) => fail_acquisition_job_with_message(
                     &job_id,
                     err.to_string(),
@@ -519,6 +536,20 @@ fn run_remote_image_job(job_id: String, request: RemoteImageRequest) {
             fail_acquisition_job_with_message(&job_id, err.to_string(), "Imaj alma basarisiz")
         }
     }
+}
+
+fn finalize_image_sha256(
+    job_id: &str,
+    target_path: &Path,
+    existing_sha256: Option<String>,
+) -> Result<String, String> {
+    update_acquisition_message(job_id, "Imaj SHA256 olusturuluyor");
+    let sha256 = match existing_sha256.filter(|value| !value.trim().is_empty()) {
+        Some(value) => value,
+        None => sha256_file(target_path)?,
+    };
+    hash::write_sha256_sidecar(target_path, &sha256).map_err(|err| err.to_string())?;
+    Ok(sha256)
 }
 
 pub fn remote_tool_check_endpoint(body: &[u8]) -> Response {
