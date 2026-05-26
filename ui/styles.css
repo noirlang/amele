@@ -588,7 +588,7 @@ button {
 .settings-card {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: var(--radius-lg);
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
@@ -1054,12 +1054,21 @@ code {
   min-height: 36px;
   margin-top: 14px;
   padding: 0 12px;
-  border: 1px solid var(--line);
   border-radius: 999px;
   background: rgba(101, 229, 138, 0.08);
   color: var(--green);
   font-weight: 800;
   font-size: 13px;
+}
+
+.settings-meta span {
+  border: 1px solid var(--line);
+}
+
+.status-badge {
+  border: 0;
+  position: relative;
+  overflow: hidden;
 }
 
 .settings-meta {
@@ -1277,7 +1286,7 @@ code {
   display: grid;
   justify-items: center;
   padding: 22px;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: var(--radius-lg);
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
@@ -1592,7 +1601,7 @@ svg {
 .preview-panel {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 16px;
   background: var(--panel);
   box-shadow: var(--shadow);
@@ -1680,7 +1689,7 @@ svg {
   flex-direction: column;
   width: min(900px, 95vw);
   height: min(720px, 85vh);
-  border: 1px solid var(--line-strong);
+  border: 0;
   border-radius: 18px;
   background: var(--panel);
   box-shadow: 0 20px 50px rgba(0,0,0,0.5);
@@ -1791,7 +1800,9 @@ svg {
   align-items: center;
   gap: 16px;
   padding: 16px 20px;
-  border: 1px solid var(--line);
+  border: 0;
+  position: relative;
+  overflow: hidden;
   border-radius: 14px;
   background: var(--panel);
 }
@@ -1832,7 +1843,8 @@ svg {
 .carved-card {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--line);
+  border: 0;
+  position: relative;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.015);
   overflow: hidden;
@@ -2264,7 +2276,7 @@ code {
     transform 260ms var(--ease);
 }
 
-/* ── Rotating light beam – panels & cards (overflow:hidden safe) ── */
+/* ── Rotating light beam – panels & cards (integrated 1px border) ── */
 
 .action-tile::before,
 .forensic-card::before,
@@ -2288,17 +2300,19 @@ code {
   inset: 0;
   z-index: 2;
   border-radius: inherit;
-  padding: 2px;
+  padding: 1px;
   pointer-events: none;
-  background: conic-gradient(
-    from var(--glow-angle),
-    transparent 0%,
-    transparent 32%,
-    var(--glow-idle) 39%,
-    var(--glow-idle-soft) 43%,
-    transparent 50%,
-    transparent 100%
-  );
+  background: 
+    conic-gradient(
+      from var(--glow-angle),
+      transparent 0%,
+      transparent 32%,
+      var(--glow-idle) 39%,
+      var(--glow-idle-soft) 43%,
+      transparent 50%,
+      transparent 100%
+    ),
+    var(--glow-track);
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
@@ -2308,8 +2322,8 @@ code {
     linear-gradient(#fff 0 0);
   mask-composite: exclude;
   animation: glow-spin 3.6s linear infinite;
-  opacity: 0.45;
-  transition: opacity 220ms var(--ease);
+  opacity: 0.65;
+  transition: opacity 220ms var(--ease), background 220ms var(--ease);
   will-change: --glow-angle;
 }
 
@@ -2416,15 +2430,17 @@ code {
 .status-badge:hover::before,
 .action-tile:focus-visible::before,
 .forensic-card:focus-visible::before {
-  background: conic-gradient(
-    from var(--glow-angle),
-    transparent 0%,
-    transparent 25%,
-    var(--glow-hover) 35%,
-    var(--glow-hover-soft) 45%,
-    transparent 55%,
-    transparent 100%
-  );
+  background: 
+    conic-gradient(
+      from var(--glow-angle),
+      transparent 0%,
+      transparent 25%,
+      var(--glow-hover) 35%,
+      var(--glow-hover-soft) 45%,
+      transparent 55%,
+      transparent 100%
+    ),
+    rgba(255, 236, 180, 0.14);
   opacity: 1;
   animation: glow-spin 2.2s linear infinite;
 }
@@ -2446,10 +2462,7 @@ code {
 .carved-card:hover,
 .modal-content:hover,
 .status-badge:hover {
-  border-color: var(--glow-track) !important;
-  box-shadow:
-    0 0 0 1px var(--glow-track),
-    0 0 18px var(--glow-hover-glow) !important;
+  box-shadow: 0 0 24px var(--glow-hover-glow) !important;
 }
 
 /* ── HOVER: cream LED glow (buttons) ───────────────────────────── */
@@ -2478,9 +2491,7 @@ code {
 .icon-button:hover,
 .top-action:hover {
   transform: translateY(-1px);
-  box-shadow:
-    0 0 0 1px var(--glow-track),
-    0 0 14px var(--glow-hover-glow) !important;
+  box-shadow: 0 0 14px var(--glow-hover-glow) !important;
 }
 
 /* ── HOVER: cream LED glow (inputs) ────────────────────────────── */
@@ -2509,4 +2520,5 @@ code {
   opacity: 1;
   animation: glow-spin 1.8s linear infinite;
 }
+
 
