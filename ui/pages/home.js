@@ -8,21 +8,20 @@ export function homePage({ t, icon, assetPath }) {
       </div>
 
       <div class="home-grid">
-        ${homeTile(t("home.acquire.title"), t("home.acquire.desc"), "ACQUIRE", "disk", "windows", "var(--green)", icon)}
-        ${homeTile(t("home.integrity.title"), t("home.integrity.desc"), "VERIFY", "shield", "other", "var(--green)", icon)}
-        ${homeTile(t("home.evidence.title"), t("home.evidence.desc"), "CASE", "scale", "other", "var(--purple)", icon)}
-        ${homeTile(t("home.output.title"), t("home.output.desc"), "REPORT", "report", "other", "var(--blue)", icon)}
+        ${homeTile(t("home.acquire.title"), t("home.acquire.desc"), "disk", "windows", "var(--text)", icon)}
+        ${homeTile(t("home.integrity.title"), t("home.integrity.desc"), "shield", "other", "var(--text)", icon)}
+        ${homeTile(t("home.evidence.title"), t("home.evidence.desc"), "scale", "other", "var(--text)", icon)}
+        ${homeTile(t("home.output.title"), t("home.output.desc"), "report", "other", "var(--text)", icon)}
       </div>
     </section>
   `;
 }
 
-function homeTile(title, desc, label, iconName, route, accent, icon) {
+function homeTile(title, desc, iconName, route, accent, icon) {
   return `
     <button class="action-tile" data-route="${route}" style="--accent:${accent}">
       <span class="tile-icon">${icon(iconName)}</span>
       <span>
-        <span class="eyebrow">${label}</span>
         <h3>${title}</h3>
         <p>${desc}</p>
       </span>
