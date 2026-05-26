@@ -2137,30 +2137,101 @@ code {
   border-color: color-mix(in srgb, var(--red) 72%, transparent) !important;
 }
 
-@property --ring-angle {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
-}
-
-@keyframes ring-spin {
-  to {
-    --ring-angle: 360deg;
-  }
-}
-
 :root {
-  --hover-ring: rgba(255, 248, 221, 0.95);
-  --hover-ring-soft: rgba(255, 238, 190, 0.2);
-  --hover-ring-glow: rgba(255, 241, 204, 0.24);
-  --hover-ring-track: rgba(255, 255, 255, 0.12);
+  --hover-ring: rgba(255, 246, 222, 0.82);
+  --hover-ring-soft: rgba(255, 240, 204, 0.18);
+  --hover-ring-glow: rgba(255, 238, 196, 0.16);
+  --hover-ring-track: rgba(255, 255, 255, 0.08);
 }
 
 .shell.theme-light {
-  --hover-ring: rgba(74, 74, 74, 0.72);
-  --hover-ring-soft: rgba(0, 0, 0, 0.1);
-  --hover-ring-glow: rgba(0, 0, 0, 0.12);
-  --hover-ring-track: rgba(0, 0, 0, 0.1);
+  --hover-ring: rgba(72, 72, 72, 0.54);
+  --hover-ring-soft: rgba(0, 0, 0, 0.08);
+  --hover-ring-glow: rgba(0, 0, 0, 0.09);
+  --hover-ring-track: rgba(0, 0, 0, 0.08);
+}
+
+@keyframes edge-light-run {
+  0% {
+    top: -1px;
+    right: auto;
+    bottom: auto;
+    left: 7%;
+    width: 34%;
+    height: 2px;
+    transform: translateX(-52%);
+    background: linear-gradient(90deg, transparent, var(--hover-ring), transparent);
+  }
+  24% {
+    top: -1px;
+    right: auto;
+    bottom: auto;
+    left: 66%;
+    width: 34%;
+    height: 2px;
+    transform: translateX(14%);
+    background: linear-gradient(90deg, transparent, var(--hover-ring), transparent);
+  }
+  25% {
+    top: 7%;
+    right: -1px;
+    bottom: auto;
+    left: auto;
+    width: 2px;
+    height: 34%;
+    transform: translateY(-52%);
+    background: linear-gradient(180deg, transparent, var(--hover-ring), transparent);
+  }
+  49% {
+    top: 66%;
+    right: -1px;
+    bottom: auto;
+    left: auto;
+    width: 2px;
+    height: 34%;
+    transform: translateY(14%);
+    background: linear-gradient(180deg, transparent, var(--hover-ring), transparent);
+  }
+  50% {
+    top: auto;
+    right: 7%;
+    bottom: -1px;
+    left: auto;
+    width: 34%;
+    height: 2px;
+    transform: translateX(52%);
+    background: linear-gradient(270deg, transparent, var(--hover-ring), transparent);
+  }
+  74% {
+    top: auto;
+    right: 66%;
+    bottom: -1px;
+    left: auto;
+    width: 34%;
+    height: 2px;
+    transform: translateX(-14%);
+    background: linear-gradient(270deg, transparent, var(--hover-ring), transparent);
+  }
+  75% {
+    top: auto;
+    right: auto;
+    bottom: 7%;
+    left: -1px;
+    width: 2px;
+    height: 34%;
+    transform: translateY(52%);
+    background: linear-gradient(0deg, transparent, var(--hover-ring), transparent);
+  }
+  100% {
+    top: auto;
+    right: auto;
+    bottom: 66%;
+    left: -1px;
+    width: 2px;
+    height: 34%;
+    transform: translateY(-14%);
+    background: linear-gradient(0deg, transparent, var(--hover-ring), transparent);
+  }
 }
 
 .action-tile,
@@ -2187,7 +2258,14 @@ code {
 .status-badge,
 .settings-meta span {
   isolation: isolate;
+  overflow: hidden;
   position: relative;
+  transition:
+    border-color 240ms var(--ease),
+    box-shadow 240ms var(--ease),
+    background-color 240ms var(--ease),
+    color 240ms var(--ease),
+    transform 240ms var(--ease);
 }
 
 .action-tile::before,
@@ -2215,31 +2293,21 @@ code {
 .settings-meta span::before {
   content: "";
   position: absolute;
-  inset: -1px;
-  z-index: 2;
-  padding: 1px;
+  top: -1px;
+  left: 7%;
+  width: 34%;
+  height: 2px;
+  z-index: 3;
   pointer-events: none;
-  border-radius: inherit;
+  border-radius: 999px;
   opacity: 0;
-  background: conic-gradient(
-    from var(--ring-angle),
-    transparent 0deg,
-    transparent 82deg,
-    var(--hover-ring-soft) 112deg,
-    var(--hover-ring) 142deg,
-    var(--hover-ring-soft) 172deg,
-    transparent 220deg,
-    transparent 360deg
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
+  background: linear-gradient(90deg, transparent, var(--hover-ring), transparent);
+  box-shadow:
+    0 0 8px var(--hover-ring-glow),
+    0 0 18px var(--hover-ring-soft);
+  transform: translateX(-52%);
   transition: opacity 180ms var(--ease);
+  will-change: transform, opacity;
 }
 
 .action-tile:hover::before,
@@ -2271,7 +2339,7 @@ code {
 .icon-button:focus-visible::before,
 .top-action:focus-visible::before {
   opacity: 1;
-  animation: ring-spin 1.45s linear infinite;
+  animation: edge-light-run 3.6s linear infinite;
 }
 
 .action-tile:hover,
@@ -2300,12 +2368,48 @@ code {
   border-color: var(--hover-ring-track) !important;
   box-shadow:
     0 0 0 1px var(--hover-ring-track),
-    0 0 24px var(--hover-ring-glow) !important;
+    0 0 14px var(--hover-ring-glow) !important;
+}
+
+.primary-button:hover,
+.secondary-button:hover,
+.danger-button:hover,
+.icon-button:hover,
+.top-action:hover {
+  transform: translateY(-1px);
 }
 
 .input:hover,
 .select:hover,
 .textarea:hover {
   border-color: var(--hover-ring) !important;
-  box-shadow: 0 0 18px var(--hover-ring-glow) !important;
+  box-shadow: 0 0 12px var(--hover-ring-glow) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action-tile:hover::before,
+  .forensic-card:hover::before,
+  .workflow-panel:hover::before,
+  .side-panel:hover::before,
+  .status-strip:hover::before,
+  .doc-card:hover::before,
+  .settings-card:hover::before,
+  .tree-panel:hover::before,
+  .preview-panel:hover::before,
+  .about-hero:hover::before,
+  .worm-art:hover::before,
+  .contributor-card:hover::before,
+  .company-logo-card:hover::before,
+  .ram-stat-card:hover::before,
+  .carved-card:hover::before,
+  .modal-content:hover::before,
+  .primary-button:hover::before,
+  .secondary-button:hover::before,
+  .danger-button:hover::before,
+  .icon-button:hover::before,
+  .top-action:hover::before,
+  .status-badge:hover::before,
+  .settings-meta span:hover::before {
+    animation: none;
+  }
 }
