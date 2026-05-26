@@ -2165,8 +2165,45 @@ code {
 }
 
 @keyframes edge-light-run {
+  0% {
+    top: 0;
+    left: 18%;
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  24% {
+    top: 0;
+    left: 82%;
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  25% {
+    top: 18%;
+    left: 100%;
+    transform: translate(-50%, -50%) rotate(90deg);
+  }
+  49% {
+    top: 82%;
+    left: 100%;
+    transform: translate(-50%, -50%) rotate(90deg);
+  }
+  50% {
+    top: 100%;
+    left: 82%;
+    transform: translate(-50%, -50%) rotate(180deg);
+  }
+  74% {
+    top: 100%;
+    left: 18%;
+    transform: translate(-50%, -50%) rotate(180deg);
+  }
+  75% {
+    top: 82%;
+    left: 0;
+    transform: translate(-50%, -50%) rotate(270deg);
+  }
   100% {
-    transform: translate(-50%, -50%) rotate(1turn);
+    top: 18%;
+    left: 0;
+    transform: translate(-50%, -50%) rotate(270deg);
   }
 }
 
@@ -2190,7 +2227,6 @@ code {
   isolation: isolate;
   overflow: hidden;
   position: relative;
-  --ring-fill: var(--panel);
   transition:
     border-color 240ms var(--ease),
     box-shadow 240ms var(--ease),
@@ -2218,27 +2254,19 @@ code {
 .status-badge::before {
   content: "";
   position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 155%;
-  aspect-ratio: 1;
-  z-index: 0;
+  top: 0;
+  left: 18%;
+  width: 92px;
+  height: 5px;
+  z-index: 2;
   pointer-events: none;
+  border-radius: 999px;
   opacity: 0;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg,
-    transparent 305deg,
-    var(--hover-ring-soft) 324deg,
-    var(--hover-ring) 342deg,
-    var(--hover-ring-soft) 354deg,
-    transparent 360deg
-  );
+  background: linear-gradient(90deg, transparent 0%, var(--hover-ring-soft) 24%, var(--hover-ring) 50%, var(--hover-ring-soft) 76%, transparent 100%);
   box-shadow:
-    0 0 14px var(--hover-ring-glow),
-    0 0 28px var(--hover-ring-soft);
+    0 0 10px var(--hover-ring),
+    0 0 26px var(--hover-ring-glow);
   transform: translate(-50%, -50%) rotate(0deg);
-  transform-origin: center;
   transition: opacity 180ms var(--ease);
   will-change: transform, opacity;
 }
@@ -2260,14 +2288,7 @@ code {
 .carved-card::after,
 .modal-content::after,
 .status-badge::after {
-  content: "";
-  position: absolute;
-  inset: 3px;
-  z-index: 0;
-  display: block !important;
-  pointer-events: none;
-  border-radius: inherit;
-  background: var(--ring-fill, var(--panel));
+  display: none !important;
 }
 
 .action-tile > *,
@@ -2311,7 +2332,7 @@ code {
 .action-tile:focus-visible::before,
 .forensic-card:focus-visible::before {
   opacity: 1;
-  animation: edge-light-run 3.6s linear infinite;
+  animation: edge-light-run 2.35s linear infinite;
 }
 
 .action-tile:hover,
@@ -2350,26 +2371,4 @@ code {
 .textarea:hover {
   border-color: var(--hover-ring) !important;
   box-shadow: 0 0 12px var(--hover-ring-glow) !important;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .action-tile:hover::before,
-  .forensic-card:hover::before,
-  .workflow-panel:hover::before,
-  .side-panel:hover::before,
-  .status-strip:hover::before,
-  .doc-card:hover::before,
-  .settings-card:hover::before,
-  .tree-panel:hover::before,
-  .preview-panel:hover::before,
-  .about-hero:hover::before,
-  .worm-art:hover::before,
-  .contributor-card:hover::before,
-  .company-logo-card:hover::before,
-  .ram-stat-card:hover::before,
-  .carved-card:hover::before,
-  .modal-content:hover::before,
-  .status-badge:hover::before {
-    animation: none;
-  }
 }
