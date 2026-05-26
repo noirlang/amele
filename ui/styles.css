@@ -226,7 +226,54 @@ button {
   background: transparent;
   color: var(--muted);
   text-align: left;
+  isolation: isolate;
+  overflow: visible;
   transition: color 180ms var(--ease), background 180ms var(--ease), transform 180ms var(--ease);
+}
+
+.nav-item::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%,
+    transparent 30%,
+    var(--glow-idle) 38%,
+    var(--glow-idle-soft) 42%,
+    transparent 50%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: glow-spin 3.2s linear infinite;
+  opacity: 0.4;
+  transition: opacity 220ms var(--ease);
+  will-change: --glow-angle;
+}
+
+.nav-item:hover::after {
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%,
+    transparent 25%,
+    var(--glow-hover) 35%,
+    var(--glow-hover-soft) 45%,
+    transparent 55%,
+    transparent 100%
+  );
+  opacity: 1;
+  animation: glow-spin 2.2s linear infinite;
 }
 
 .nav-item::before {
@@ -2151,61 +2198,36 @@ code {
 }
 
 :root {
-  --hover-ring: rgba(255, 245, 218, 0.96);
-  --hover-ring-soft: rgba(255, 237, 194, 0.34);
-  --hover-ring-glow: rgba(255, 236, 190, 0.22);
-  --hover-ring-track: rgba(255, 255, 255, 0.08);
+  --glow-idle: rgba(255, 255, 255, 0.35);
+  --glow-idle-soft: rgba(255, 255, 255, 0.10);
+  --glow-hover: rgba(255, 236, 180, 0.92);
+  --glow-hover-soft: rgba(255, 228, 160, 0.30);
+  --glow-hover-glow: rgba(255, 225, 150, 0.18);
+  --glow-track: rgba(255, 255, 255, 0.06);
 }
 
 .shell.theme-light {
-  --hover-ring: rgba(62, 62, 62, 0.72);
-  --hover-ring-soft: rgba(0, 0, 0, 0.16);
-  --hover-ring-glow: rgba(0, 0, 0, 0.1);
-  --hover-ring-track: rgba(0, 0, 0, 0.08);
+  --glow-idle: rgba(0, 0, 0, 0.18);
+  --glow-idle-soft: rgba(0, 0, 0, 0.06);
+  --glow-hover: rgba(120, 90, 20, 0.65);
+  --glow-hover-soft: rgba(120, 90, 20, 0.18);
+  --glow-hover-glow: rgba(120, 90, 20, 0.10);
+  --glow-track: rgba(0, 0, 0, 0.06);
 }
 
-@keyframes edge-light-run {
-  0% {
-    top: 0;
-    left: 18%;
-    transform: translate(-50%, -50%) rotate(0deg);
-  }
-  24% {
-    top: 0;
-    left: 82%;
-    transform: translate(-50%, -50%) rotate(0deg);
-  }
-  25% {
-    top: 18%;
-    left: 100%;
-    transform: translate(-50%, -50%) rotate(90deg);
-  }
-  49% {
-    top: 82%;
-    left: 100%;
-    transform: translate(-50%, -50%) rotate(90deg);
-  }
-  50% {
-    top: 100%;
-    left: 82%;
-    transform: translate(-50%, -50%) rotate(180deg);
-  }
-  74% {
-    top: 100%;
-    left: 18%;
-    transform: translate(-50%, -50%) rotate(180deg);
-  }
-  75% {
-    top: 82%;
-    left: 0;
-    transform: translate(-50%, -50%) rotate(270deg);
-  }
-  100% {
-    top: 18%;
-    left: 0;
-    transform: translate(-50%, -50%) rotate(270deg);
-  }
+/* ── Rotating border-light keyframe ────────────────────────────── */
+
+@property --glow-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
 }
+
+@keyframes glow-spin {
+  to { --glow-angle: 360deg; }
+}
+
+/* ── Shared glow container setup ───────────────────────────────── */
 
 .action-tile,
 .forensic-card,
@@ -2223,17 +2245,26 @@ code {
 .ram-stat-card,
 .carved-card,
 .modal-content,
-.status-badge {
+.status-badge,
+.primary-button,
+.secondary-button,
+.danger-button,
+.icon-button,
+.top-action,
+.input,
+.select,
+.textarea {
   isolation: isolate;
-  overflow: hidden;
   position: relative;
   transition:
-    border-color 240ms var(--ease),
-    box-shadow 240ms var(--ease),
-    background-color 240ms var(--ease),
-    color 240ms var(--ease),
-    transform 240ms var(--ease);
+    border-color 260ms var(--ease),
+    box-shadow 260ms var(--ease),
+    background-color 260ms var(--ease),
+    color 260ms var(--ease),
+    transform 260ms var(--ease);
 }
+
+/* ── Rotating light beam (::before) ────────────────────────────── */
 
 .action-tile::before,
 .forensic-card::before,
@@ -2251,25 +2282,43 @@ code {
 .ram-stat-card::before,
 .carved-card::before,
 .modal-content::before,
-.status-badge::before {
+.status-badge::before,
+.primary-button::before,
+.secondary-button::before,
+.danger-button::before,
+.icon-button::before,
+.top-action::before {
   content: "";
   position: absolute;
-  top: 0;
-  left: 18%;
-  width: 92px;
-  height: 5px;
-  z-index: 2;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1px;
   pointer-events: none;
-  border-radius: 999px;
-  opacity: 0;
-  background: linear-gradient(90deg, transparent 0%, var(--hover-ring-soft) 24%, var(--hover-ring) 50%, var(--hover-ring-soft) 76%, transparent 100%);
-  box-shadow:
-    0 0 10px var(--hover-ring),
-    0 0 26px var(--hover-ring-glow);
-  transform: translate(-50%, -50%) rotate(0deg);
-  transition: opacity 180ms var(--ease);
-  will-change: transform, opacity;
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%,
+    transparent 30%,
+    var(--glow-idle) 38%,
+    var(--glow-idle-soft) 42%,
+    transparent 50%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: glow-spin 3.2s linear infinite;
+  opacity: 0.55;
+  transition: opacity 220ms var(--ease);
+  will-change: --glow-angle;
 }
+
+/* ── Disable ::after (clean up old system) ─────────────────────── */
 
 .action-tile::after,
 .forensic-card::after,
@@ -2290,6 +2339,8 @@ code {
 .status-badge::after {
   display: none !important;
 }
+
+/* ── Z-index for content above the glow ────────────────────────── */
 
 .action-tile > *,
 .forensic-card > *,
@@ -2312,6 +2363,8 @@ code {
   z-index: 1;
 }
 
+/* ── HOVER: cream LED glow (panels) ────────────────────────────── */
+
 .action-tile:hover::before,
 .forensic-card:hover::before,
 .workflow-panel:hover::before,
@@ -2331,8 +2384,17 @@ code {
 .status-badge:hover::before,
 .action-tile:focus-visible::before,
 .forensic-card:focus-visible::before {
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%,
+    transparent 25%,
+    var(--glow-hover) 35%,
+    var(--glow-hover-soft) 45%,
+    transparent 55%,
+    transparent 100%
+  );
   opacity: 1;
-  animation: edge-light-run 2.35s linear infinite;
+  animation: glow-spin 2.2s linear infinite;
 }
 
 .action-tile:hover,
@@ -2352,10 +2414,30 @@ code {
 .carved-card:hover,
 .modal-content:hover,
 .status-badge:hover {
-  border-color: var(--hover-ring-track) !important;
+  border-color: var(--glow-track) !important;
   box-shadow:
-    0 0 0 1px var(--hover-ring-track),
-    0 0 14px var(--hover-ring-glow) !important;
+    0 0 0 1px var(--glow-track),
+    0 0 18px var(--glow-hover-glow) !important;
+}
+
+/* ── HOVER: cream LED glow (buttons) ───────────────────────────── */
+
+.primary-button:hover::before,
+.secondary-button:hover::before,
+.danger-button:hover::before,
+.icon-button:hover::before,
+.top-action:hover::before {
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%,
+    transparent 25%,
+    var(--glow-hover) 35%,
+    var(--glow-hover-soft) 45%,
+    transparent 55%,
+    transparent 100%
+  );
+  opacity: 1;
+  animation: glow-spin 1.8s linear infinite;
 }
 
 .primary-button:hover,
@@ -2364,11 +2446,35 @@ code {
 .icon-button:hover,
 .top-action:hover {
   transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px var(--glow-track),
+    0 0 14px var(--glow-hover-glow) !important;
 }
+
+/* ── HOVER: cream LED glow (inputs) ────────────────────────────── */
 
 .input:hover,
 .select:hover,
 .textarea:hover {
-  border-color: var(--hover-ring) !important;
-  box-shadow: 0 0 12px var(--hover-ring-glow) !important;
+  border-color: var(--glow-hover) !important;
+  box-shadow: 0 0 14px var(--glow-hover-glow) !important;
 }
+
+/* ── Focus visible glow for buttons ────────────────────────────── */
+
+.primary-button:focus-visible::before,
+.secondary-button:focus-visible::before,
+.danger-button:focus-visible::before {
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%,
+    transparent 25%,
+    var(--glow-hover) 35%,
+    var(--glow-hover-soft) 45%,
+    transparent 55%,
+    transparent 100%
+  );
+  opacity: 1;
+  animation: glow-spin 1.8s linear infinite;
+}
+
