@@ -2001,6 +2001,7 @@ svg {
 .theme-light .worm-art {
   background: #111111 !important;
   border-color: rgba(0, 0, 0, 0.16) !important;
+  --ring-fill: #111111;
 }
 
 .action-tile:hover,
@@ -2154,16 +2155,16 @@ code {
 }
 
 :root {
-  --hover-ring: rgba(255, 246, 222, 0.82);
-  --hover-ring-soft: rgba(255, 240, 204, 0.18);
-  --hover-ring-glow: rgba(255, 238, 196, 0.16);
+  --hover-ring: rgba(255, 245, 218, 0.96);
+  --hover-ring-soft: rgba(255, 237, 194, 0.34);
+  --hover-ring-glow: rgba(255, 236, 190, 0.22);
   --hover-ring-track: rgba(255, 255, 255, 0.08);
 }
 
 .shell.theme-light {
-  --hover-ring: rgba(72, 72, 72, 0.54);
-  --hover-ring-soft: rgba(0, 0, 0, 0.08);
-  --hover-ring-glow: rgba(0, 0, 0, 0.09);
+  --hover-ring: rgba(62, 62, 62, 0.72);
+  --hover-ring-soft: rgba(0, 0, 0, 0.16);
+  --hover-ring-glow: rgba(0, 0, 0, 0.1);
   --hover-ring-track: rgba(0, 0, 0, 0.08);
 }
 
@@ -2189,16 +2190,11 @@ code {
 .ram-stat-card,
 .carved-card,
 .modal-content,
-.primary-button,
-.secondary-button,
-.danger-button,
-.icon-button,
-.top-action,
-.status-badge,
-.settings-meta span {
+.status-badge {
   isolation: isolate;
   overflow: hidden;
   position: relative;
+  --ring-fill: var(--panel);
   transition:
     border-color 240ms var(--ease),
     box-shadow 240ms var(--ease),
@@ -2223,45 +2219,77 @@ code {
 .ram-stat-card::before,
 .carved-card::before,
 .modal-content::before,
-.primary-button::before,
-.secondary-button::before,
-.danger-button::before,
-.icon-button::before,
-.top-action::before,
-.status-badge::before,
-.settings-meta span::before {
+.status-badge::before {
   content: "";
   position: absolute;
-  inset: -2px;
-  z-index: 3;
-  padding: 2px;
+  inset: -65%;
+  z-index: 0;
   pointer-events: none;
-  border-radius: inherit;
   opacity: 0;
   background: conic-gradient(
     from 0deg,
     transparent 0deg,
-    transparent 238deg,
-    var(--hover-ring-soft) 276deg,
-    var(--hover-ring) 315deg,
-    var(--hover-ring-soft) 342deg,
+    transparent 235deg,
+    var(--hover-ring-soft) 272deg,
+    var(--hover-ring) 312deg,
+    var(--hover-ring-soft) 338deg,
     transparent 360deg
   );
   box-shadow:
-    0 0 10px var(--hover-ring-glow),
-    0 0 22px var(--hover-ring-soft);
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
+    0 0 14px var(--hover-ring-glow),
+    0 0 28px var(--hover-ring-soft);
   transform: rotate(0deg);
   transform-origin: center;
   transition: opacity 180ms var(--ease);
   will-change: transform, opacity;
+}
+
+.action-tile::after,
+.forensic-card::after,
+.workflow-panel::after,
+.side-panel::after,
+.status-strip::after,
+.doc-card::after,
+.settings-card::after,
+.tree-panel::after,
+.preview-panel::after,
+.about-hero::after,
+.worm-art::after,
+.contributor-card::after,
+.company-logo-card::after,
+.ram-stat-card::after,
+.carved-card::after,
+.modal-content::after,
+.status-badge::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  z-index: 0;
+  display: block !important;
+  pointer-events: none;
+  border-radius: inherit;
+  background: var(--ring-fill, var(--panel));
+}
+
+.action-tile > *,
+.forensic-card > *,
+.workflow-panel > *,
+.side-panel > *,
+.status-strip > *,
+.doc-card > *,
+.settings-card > *,
+.tree-panel > *,
+.preview-panel > *,
+.about-hero > *,
+.worm-art > *,
+.contributor-card > *,
+.company-logo-card > *,
+.ram-stat-card > *,
+.carved-card > *,
+.modal-content > *,
+.status-badge > * {
+  position: relative;
+  z-index: 1;
 }
 
 .action-tile:hover::before,
@@ -2280,18 +2308,9 @@ code {
 .ram-stat-card:hover::before,
 .carved-card:hover::before,
 .modal-content:hover::before,
-.primary-button:hover::before,
-.secondary-button:hover::before,
-.danger-button:hover::before,
-.icon-button:hover::before,
-.top-action:hover::before,
 .status-badge:hover::before,
-.settings-meta span:hover::before,
-.primary-button:focus-visible::before,
-.secondary-button:focus-visible::before,
-.danger-button:focus-visible::before,
-.icon-button:focus-visible::before,
-.top-action:focus-visible::before {
+.action-tile:focus-visible::before,
+.forensic-card:focus-visible::before {
   opacity: 1;
   animation: edge-light-run 3.6s linear infinite;
 }
@@ -2312,13 +2331,7 @@ code {
 .ram-stat-card:hover,
 .carved-card:hover,
 .modal-content:hover,
-.primary-button:hover,
-.secondary-button:hover,
-.danger-button:hover,
-.icon-button:hover,
-.top-action:hover,
-.status-badge:hover,
-.settings-meta span:hover {
+.status-badge:hover {
   border-color: var(--hover-ring-track) !important;
   box-shadow:
     0 0 0 1px var(--hover-ring-track),
@@ -2357,13 +2370,7 @@ code {
   .ram-stat-card:hover::before,
   .carved-card:hover::before,
   .modal-content:hover::before,
-  .primary-button:hover::before,
-  .secondary-button:hover::before,
-  .danger-button:hover::before,
-  .icon-button:hover::before,
-  .top-action:hover::before,
-  .status-badge:hover::before,
-  .settings-meta span:hover::before {
+  .status-badge:hover::before {
     animation: none;
   }
 }
