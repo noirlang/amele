@@ -74,23 +74,23 @@ button {
 
 .shell.theme-light {
   color-scheme: light;
-  --bg: #ffffff;
-  --bg-2: #f7f7f7;
-  --panel: #ffffff;
-  --panel-strong: #ffffff;
-  --panel-soft: #f5f5f5;
-  --line: rgba(0, 0, 0, 0.12);
-  --line-strong: rgba(0, 0, 0, 0.28);
-  --text: #111111;
-  --muted: #5f5f5f;
-  --dim: #8a8a8a;
-  --green: #111111;
-  --green-2: #404040;
-  --blue: #111111;
-  --purple: #111111;
-  --red: #b91c1c;
-  --amber: #111111;
-  --shadow: 0 18px 50px rgba(0, 0, 0, 0.08);
+  --bg: #f5f2e9;                  /* Gorgeous warm cream background */
+  --bg-2: #e9e4d3;                /* Slightly deeper cream for container elements */
+  --panel: #fdfbf7;               /* Clean warm off-white for panels and cards */
+  --panel-strong: #ffffff;        /* Pure white for card elevation contrast */
+  --panel-soft: #f1ebd8;          /* Warm panel-soft background */
+  --line: rgba(38, 33, 24, 0.12); /* Coffee-toned subtle border lines */
+  --line-strong: rgba(38, 33, 24, 0.26); /* Stronger coffee-toned lines */
+  --text: #262118;                /* Warm espresso brown for extremely premium typography */
+  --muted: #5e5748;               /* Soft warm brown-grey for descriptions */
+  --dim: #8b816e;                 /* Dimmed warm grey */
+  --green: #1a4a2b;               /* Deep forest green for positive states */
+  --green-2: #2d6b41;             /* Lighter warm green */
+  --blue: #1a3d54;                /* Deep steel blue */
+  --purple: #422a5c;              /* Deep eggplant purple */
+  --red: #a81c1c;                 /* Warm crimson red */
+  --amber: #8a5e12;               /* Warm bronze amber */
+  --shadow: 0 18px 50px rgba(38, 33, 24, 0.06); /* Custom shadow with warm tone */
   background: var(--bg);
 }
 
@@ -352,7 +352,7 @@ button {
 }
 
 .theme-light .topbar {
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(245, 242, 233, 0.72);
 }
 
 .window-title {
@@ -1094,6 +1094,50 @@ code {
   gap: 18px;
 }
 
+.settings-update {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-update h3 {
+  margin: 0 0 4px 0 !important;
+}
+
+.settings-update .settings-meta {
+  margin: 0 !important;
+  display: flex;
+  gap: 10px;
+}
+
+.settings-update .progress-bar {
+  margin: 8px 0 !important;
+  height: 24px !important;
+  background: var(--bg-2) !important;
+  border-radius: 8px !important;
+}
+
+.settings-update .progress-bar b {
+  font-weight: 800 !important;
+  font-size: 11px !important;
+  color: var(--text) !important;
+}
+
+.settings-update .button-row {
+  display: flex;
+  gap: 12px;
+  margin: 4px 0 0 0 !important;
+}
+
+.settings-update .status-badge {
+  margin: 4px 0 0 0 !important;
+}
+
+.settings-update .log-box {
+  margin-top: 8px !important;
+  flex: 1;
+}
+
 .settings-header {
   margin-bottom: 18px;
 }
@@ -1385,7 +1429,7 @@ code {
 }
 
 .theme-light .toast {
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(253, 251, 247, 0.96);
 }
 
 .toast.visible {
@@ -2219,12 +2263,12 @@ code {
 }
 
 .shell.theme-light {
-  --glow-idle: rgba(0, 0, 0, 0.18);
-  --glow-idle-soft: rgba(0, 0, 0, 0.06);
-  --glow-hover: rgba(120, 90, 20, 0.65);
-  --glow-hover-soft: rgba(120, 90, 20, 0.18);
-  --glow-hover-glow: rgba(120, 90, 20, 0.10);
-  --glow-track: rgba(0, 0, 0, 0.06);
+  --glow-idle: rgba(38, 33, 24, 0.12);
+  --glow-idle-soft: rgba(38, 33, 24, 0.04);
+  --glow-hover: rgba(138, 94, 18, 0.60);
+  --glow-hover-soft: rgba(138, 94, 18, 0.18);
+  --glow-hover-glow: rgba(138, 94, 18, 0.08);
+  --glow-track: rgba(38, 33, 24, 0.06);
 }
 
 /* ── Rotating border-light keyframe ────────────────────────────── */

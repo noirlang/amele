@@ -149,7 +149,7 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION }) {
           <div class="status-badge" data-settings-status>${icon("info")} ${t("ready")}</div>
         </article>
 
-        <article class="settings-card">
+        <article class="settings-card settings-update">
           <span class="settings-kicker">${t("settings.version")}</span>
           <h3>${t("settings.update")}</h3>
           <div class="settings-meta">
