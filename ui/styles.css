@@ -2264,7 +2264,7 @@ code {
     transform 260ms var(--ease);
 }
 
-/* ── Rotating light beam (::before) ────────────────────────────── */
+/* ── Rotating light beam – panels & cards (overflow:hidden safe) ── */
 
 .action-tile::before,
 .forensic-card::before,
@@ -2282,7 +2282,39 @@ code {
 .ram-stat-card::before,
 .carved-card::before,
 .modal-content::before,
-.status-badge::before,
+.status-badge::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  padding: 2px;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%,
+    transparent 32%,
+    var(--glow-idle) 39%,
+    var(--glow-idle-soft) 43%,
+    transparent 50%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: glow-spin 3.6s linear infinite;
+  opacity: 0.45;
+  transition: opacity 220ms var(--ease);
+  will-change: --glow-angle;
+}
+
+/* ── Rotating light beam – buttons (no overflow:hidden) ────────── */
+
 .primary-button::before,
 .secondary-button::before,
 .danger-button::before,
@@ -2360,7 +2392,7 @@ code {
 .modal-content > *,
 .status-badge > * {
   position: relative;
-  z-index: 1;
+  z-index: 3;
 }
 
 /* ── HOVER: cream LED glow (panels) ────────────────────────────── */
