@@ -8,6 +8,12 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
   const initialTarget = isRam ? localText(data.diskLabel) : "";
   const initialTargetLabel = isRam ? localText(data.diskLabel) : t("scanDisksFirst");
   const outputField = isRam ? ramCasePanel({ t, icon, state, caseSelectOptions, caseOutputLabel, escapeHtml, canonicalRamFileName }) : imageCasePanel({ t, icon, state, caseSelectOptions, caseOutputLabel, escapeHtml });
+  const targetSelect = isRam
+    ? field(t("workflow.tool"), `<select class="select" data-field="target"><option value="${initialTarget}">${initialTargetLabel}</option></select>`)
+    : field(t("workflow.disk"), `<select class="select" data-field="target"><option value="" disabled selected>${initialTargetLabel}</option></select>`);
+  const scanLabel = isRam
+    ? (isRemote ? t("workflow.checkTool", { tool: toolCheck }) : t("workflow.checkToolAction", { tool: toolCheck }))
+    : (isRemote ? t("workflow.scanDisks") : t("workflow.scanLocalDisks"));
 
   return `
     <section class="page">
@@ -18,21 +24,21 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
             ${
               isRemote
                 ? `
+                  <p class="section-label">${t("workflow.connectionOps")}</p>
                   ${field(t("workflow.ip"), `<input class="input" data-field="ip" placeholder="${t("workflow.ipPlaceholder")}" value="" />`)}
                   ${field(t("workflow.port"), '<input class="input" data-field="port" value="4444" />')}
                   ${field(t("workflow.token"), `<input class="input" data-field="token" placeholder="${t("workflow.tokenPlaceholder")}" />`)}
                   <div class="button-row">
                     <button class="secondary-button" data-action="approve-key">${icon("key")} ${t("workflow.approveKey")}</button>
                     <button class="secondary-button" data-action="reset-key">${icon("refresh")} ${t("workflow.reset")}</button>
+                    <button class="primary-button" data-action="connect">${icon("network")} ${t("workflow.connect")}</button>
                   </div>
-                  <div class="section-divider"></div>
-                  <p class="section-label">${t("workflow.networkVpn")}</p>
                   <div class="toggle-row">
                     <span>${t("workflow.useVpn")}</span>
                     <button class="switch" data-action="toggle-vpn" aria-label="${t("workflow.useVpn")}"></button>
                   </div>
-                  <button class="secondary-button" data-action="vpn-config">${icon("settings")} ${t("workflow.configureVpn")}</button>
                   <div class="vpn-panel" hidden>
+                    <button class="secondary-button" data-action="vpn-config">${icon("settings")} ${t("workflow.configureVpn")}</button>
                     ${field(t("workflow.server"), '<input class="input" data-field="vpn-endpoint" placeholder="10.0.0.1:51820" />')}
                     ${field(t("workflow.vpnPrivateKey"), '<input class="input" data-field="vpn-private-key" placeholder="YOUR_PRIVATE_KEY" />')}
                     ${field(t("workflow.vpnPublicKey"), '<input class="input" data-field="vpn-public-key" placeholder="SERVER_PUBLIC_KEY" />')}
@@ -47,45 +53,25 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
                       <button class="danger-button" data-action="stop-vpn">${icon("stop")} ${t("workflow.stopVpn")}</button>
                     </div>
                   </div>
-                  <div class="section-divider"></div>
-                  <p class="section-label">${t("workflow.connectionOps")}</p>
-                  <div class="button-row">
-                    <button class="primary-button" data-action="connect">${icon("network")} ${t("workflow.connect")}</button>
-                    <button class="secondary-button" data-action="scan">${icon(isRam ? "chip" : "disk")} ${isRam ? t("workflow.checkTool", { tool: toolCheck }) : t("workflow.scanDisks")}</button>
-                  </div>
                 `
-                : `
-                  <p class="section-label">${t("workflow.localCheck")}</p>
-                  <p class="field-hint">${t("workflow.localHint", { platform: data.platform })}</p>
-                  <div class="button-row">
-                    <button class="primary-button" data-action="scan">${icon(isRam ? "chip" : "disk")} ${isRam ? t("workflow.checkToolAction", { tool: toolCheck }) : t("workflow.scanLocalDisks")}</button>
-                    ${isRam && data.platform === "Windows" ? `<button class="secondary-button" data-action="download">${icon("refresh")} ${t("workflow.downloadWinpmem")}</button>` : ""}
-                    ${isRam && data.platform === "Linux" ? `<button class="secondary-button" data-action="install-avml">${icon("download")} ${t("workflow.downloadAvml")}</button>` : ""}
-                  </div>
-                `
+                : ""
             }
 
             <div class="section-divider"></div>
-            ${
-              isRam
-                ? `
-                  <p class="section-label">4. ${t("workflow.ramOutput")}</p>
-                  ${field(t("workflow.tool"), `<select class="select" data-field="target"><option value="${initialTarget}">${initialTargetLabel}</option></select>`)}
-                  ${outputField}
-                `
-                : `
-                  <p class="section-label">${t("workflow.caseSection")}</p>
-                  ${outputField}
-                  <div class="section-divider"></div>
-                  <p class="section-label">5. ${t("workflow.diskOutput")}</p>
-                  ${field(t("workflow.disk"), `<select class="select" data-field="target"><option value="" disabled selected>${initialTargetLabel}</option></select>`)}
-                `
-            }
-            <button class="primary-button" data-action="start">${icon(isRam ? "ram" : "disk")} ${isRam ? t("workflow.startRam") : t("workflow.startImage")}</button>
+            <p class="section-label">${t("workflow.caseSection")}</p>
+            ${outputField}
 
             <div class="section-divider"></div>
-            <p class="section-label">${t("workflow.controls")}</p>
-            <div class="button-row">
+            <p class="section-label">${isRam ? t("workflow.ramOutput") : t("workflow.diskOutput")}</p>
+            ${targetSelect}
+            <div class="button-row workflow-target-actions">
+              <button class="secondary-button" data-action="scan">${icon(isRam ? "chip" : "disk")} ${scanLabel}</button>
+              ${!isRemote && isRam && data.platform === "Windows" ? `<button class="secondary-button" data-action="download">${icon("refresh")} ${t("workflow.downloadWinpmem")}</button>` : ""}
+              ${!isRemote && isRam && data.platform === "Linux" ? `<button class="secondary-button" data-action="install-avml">${icon("download")} ${t("workflow.downloadAvml")}</button>` : ""}
+              <button class="primary-button" data-action="start">${icon(isRam ? "ram" : "disk")} ${isRam ? t("workflow.startRam") : t("workflow.startImage")}</button>
+            </div>
+
+            <div class="button-row acquisition-controls" data-acquisition-controls hidden>
               <button class="secondary-button" data-action="pause">${icon("pause")} ${t("workflow.pause")}</button>
               <button class="secondary-button" data-action="resume">${icon("play")} ${t("workflow.resume")}</button>
               <button class="danger-button" data-action="stop">${icon("stop")} ${t("workflow.stop")}</button>
@@ -94,7 +80,7 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
             <div class="section-divider"></div>
             <p class="section-label">${t("workflow.progress")}</p>
             <div class="progress-bar" data-progress style="--value:0%"><span></span><b>0%</b></div>
-            <div class="log-box" id="workflow-log">${state.lastLog.map((line) => `• ${line}`).join("<br />")}</div>
+            <div class="log-box" id="workflow-log">${state.lastLog.map((line) => escapeHtml(line)).join("<br />")}</div>
           </div>
         </div>
 
@@ -155,8 +141,8 @@ function ramCasePanel({ t, icon, state, caseSelectOptions, caseOutputLabel, esca
 export function casePanel(subdir, hint, { t, icon, state, caseSelectOptions, caseOutputLabel, escapeHtml }) {
   const selected = state.activeCase?.case_name || (state.cases.length ? state.cases[0].case_name : "");
   const output = caseOutputLabel(selected, subdir);
+  void hint;
   return `
-    <p class="field-hint">${hint}</p>
     ${field(t("workflow.case"), `<select id="workflow-case" class="select" data-case-select data-allow-new-case="1">${caseSelectOptions(selected, { allowNew: true })}</select>`)}
     <div class="button-row">
       <button class="secondary-button" data-action="refresh-cases">${icon("refresh")} ${t("case.refresh")}</button>
