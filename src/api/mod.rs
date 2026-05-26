@@ -514,7 +514,7 @@ pub fn sha256_file(path: &Path) -> Result<String, String> {
         }
         hasher.update(&buffer[..read]);
     }
-    Ok(format!("{:x}", hasher.finalize()))
+    Ok(crate::hash::to_hex(&hasher.finalize()))
 }
 
 pub fn helper_file_stem(prefix: &str) -> String {
