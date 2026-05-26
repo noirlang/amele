@@ -551,12 +551,13 @@ button {
 
 .action-tile {
   display: grid;
-  grid-template-columns: 58px 1fr 34px;
+  grid-template-columns: 1fr;
   align-items: center;
-  gap: 24px;
+  justify-items: center;
+  gap: 14px;
   min-height: 148px;
   padding: 28px;
-  text-align: left;
+  text-align: center;
 }
 
 .action-tile:hover,
@@ -598,8 +599,13 @@ button {
 }
 
 .tile-arrow {
+  position: absolute;
+  right: 28px;
+  top: 50%;
+  transform: translateY(-50%);
   color: var(--muted);
-  font-size: 38px;
+  font-family: "Segoe UI", sans-serif;
+  font-size: 26px;
   z-index: 1;
 }
 
@@ -689,14 +695,18 @@ button {
 }
 
 .forensic-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   min-height: 220px;
   padding: 24px;
-  text-align: left;
+  text-align: center;
   transition: border-color 180ms var(--ease), transform 180ms var(--ease);
 }
 
 .forensic-card > .card-icon {
-  margin-bottom: 16px;
+  margin: 0 0 16px;
 }
 
 .forensic-card.is-disabled {
@@ -710,6 +720,7 @@ button {
 }
 
 .forensic-card .meta {
+  align-self: center;
   display: inline-flex;
   margin-top: 18px;
   padding: 7px 10px;
@@ -717,6 +728,11 @@ button {
   border-radius: 999px;
   color: var(--muted);
   font-size: 12px;
+}
+
+.action-tile,
+.forensic-card {
+  font-family: "Times New Roman", Times, serif;
 }
 
 .platform-note {
@@ -2152,85 +2168,8 @@ code {
 }
 
 @keyframes edge-light-run {
-  0% {
-    top: -1px;
-    right: auto;
-    bottom: auto;
-    left: 7%;
-    width: 34%;
-    height: 2px;
-    transform: translateX(-52%);
-    background: linear-gradient(90deg, transparent, var(--hover-ring), transparent);
-  }
-  24% {
-    top: -1px;
-    right: auto;
-    bottom: auto;
-    left: 66%;
-    width: 34%;
-    height: 2px;
-    transform: translateX(14%);
-    background: linear-gradient(90deg, transparent, var(--hover-ring), transparent);
-  }
-  25% {
-    top: 7%;
-    right: -1px;
-    bottom: auto;
-    left: auto;
-    width: 2px;
-    height: 34%;
-    transform: translateY(-52%);
-    background: linear-gradient(180deg, transparent, var(--hover-ring), transparent);
-  }
-  49% {
-    top: 66%;
-    right: -1px;
-    bottom: auto;
-    left: auto;
-    width: 2px;
-    height: 34%;
-    transform: translateY(14%);
-    background: linear-gradient(180deg, transparent, var(--hover-ring), transparent);
-  }
-  50% {
-    top: auto;
-    right: 7%;
-    bottom: -1px;
-    left: auto;
-    width: 34%;
-    height: 2px;
-    transform: translateX(52%);
-    background: linear-gradient(270deg, transparent, var(--hover-ring), transparent);
-  }
-  74% {
-    top: auto;
-    right: 66%;
-    bottom: -1px;
-    left: auto;
-    width: 34%;
-    height: 2px;
-    transform: translateX(-14%);
-    background: linear-gradient(270deg, transparent, var(--hover-ring), transparent);
-  }
-  75% {
-    top: auto;
-    right: auto;
-    bottom: 7%;
-    left: -1px;
-    width: 2px;
-    height: 34%;
-    transform: translateY(52%);
-    background: linear-gradient(0deg, transparent, var(--hover-ring), transparent);
-  }
   100% {
-    top: auto;
-    right: auto;
-    bottom: 66%;
-    left: -1px;
-    width: 2px;
-    height: 34%;
-    transform: translateY(-14%);
-    background: linear-gradient(0deg, transparent, var(--hover-ring), transparent);
+    transform: rotate(1turn);
   }
 }
 
@@ -2293,19 +2232,34 @@ code {
 .settings-meta span::before {
   content: "";
   position: absolute;
-  top: -1px;
-  left: 7%;
-  width: 34%;
-  height: 2px;
+  inset: -2px;
   z-index: 3;
+  padding: 2px;
   pointer-events: none;
-  border-radius: 999px;
+  border-radius: inherit;
   opacity: 0;
-  background: linear-gradient(90deg, transparent, var(--hover-ring), transparent);
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 238deg,
+    var(--hover-ring-soft) 276deg,
+    var(--hover-ring) 315deg,
+    var(--hover-ring-soft) 342deg,
+    transparent 360deg
+  );
   box-shadow:
-    0 0 8px var(--hover-ring-glow),
-    0 0 18px var(--hover-ring-soft);
-  transform: translateX(-52%);
+    0 0 10px var(--hover-ring-glow),
+    0 0 22px var(--hover-ring-soft);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  transform: rotate(0deg);
+  transform-origin: center;
   transition: opacity 180ms var(--ease);
   will-change: transform, opacity;
 }
