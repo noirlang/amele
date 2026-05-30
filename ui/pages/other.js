@@ -68,7 +68,7 @@ export function detailPanel({ tab, t, icon, state, pickerField, field, escapeHtm
     return `
       <p class="section-label">${t("other.logs.title")}</p>
       <p class="field-hint">${t("log.live")}</p>
-      <div class="log-box">${state.lastLog.map((line) => `• ${line}`).join("<br />")}</div>
+      <div class="log-box">${state.lastLog.map((line) => escapeHtml(line)).join("<br />")}</div>
       <div class="button-row" style="margin-top:12px">
         <button class="secondary-button" data-action="refresh-log">${icon("refresh")} ${t("log.refreshFromFile")}</button>
       </div>
@@ -117,24 +117,20 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION }) {
     <section class="page">
       <div class="settings-header">
         <h1>${t("settings.title")}</h1>
-        <p>${t("settings.desc")}</p>
       </div>
       <div class="settings-layout">
         <article class="settings-card settings-primary">
           <span class="settings-kicker">${t("settings.appearance")}</span>
           <h3>${t("settings.appSettings")}</h3>
-          <p>${t("settings.persisted")}</p>
           <div class="settings-row">
             <span>
               <strong>${t("settings.darkTheme")}</strong>
-              <small>${t("settings.darkHint")}</small>
             </span>
             <button class="switch ${state.theme === "dark" ? "on" : ""}" data-action="theme-toggle" aria-label="${t("settings.darkTheme")}"></button>
           </div>
           <div class="settings-row">
             <span>
               <strong>${t("settings.language")}</strong>
-              <small>${t("settings.languageHint")}</small>
             </span>
             <select class="select compact-select" data-action="language-select" aria-label="${t("settings.language")}">
               <option value="tr" ${state.language === "tr" ? "selected" : ""}>Türkçe</option>
@@ -144,7 +140,6 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION }) {
           <div class="settings-row">
             <span>
               <strong>${t("settings.detectedSystem")}</strong>
-              <small>${t("settings.detectedHint")}</small>
             </span>
             <span class="status-badge">${icon(state.platform === "windows" ? "windows" : state.platform === "linux" ? "linux" : "monitor")} ${platformLabel(state.platform)}</span>
           </div>
@@ -154,10 +149,9 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION }) {
           <div class="status-badge" data-settings-status>${icon("info")} ${t("ready")}</div>
         </article>
 
-        <article class="settings-card">
+        <article class="settings-card settings-update">
           <span class="settings-kicker">${t("settings.version")}</span>
           <h3>${t("settings.update")}</h3>
-          <p>${t("settings.updateDesc")}</p>
           <div class="settings-meta">
             <span>${t("settings.installed")}: ${APP_VERSION}</span>
             <span>Asset: ${state.platform === "windows" ? "worm-windows-x64.msi" : "worm-linux-x64.AppImage"}</span>
@@ -181,7 +175,6 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath }) {
       <div class="about-hero">
         <span class="about-logo"><img src="${assetPath}/logo/logo.png" alt="Worm logo" /></span>
         <div>
-          <p class="eyebrow">Worm Forensic Tool</p>
           <h1>Worm Forensic Tool</h1>
           <span class="status-badge">${t("about.version", { version: APP_VERSION })}</span>
           <p>${t("about.desc")}</p>
@@ -190,14 +183,9 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath }) {
 
       <h2 class="section-heading">${t("about.capabilities")}</h2>
       <div class="capability-grid">
-        ${capabilityCard("COLLECT", t("about.collect.title"), t("about.collect.desc"), "disk", "var(--green)", icon)}
-        ${capabilityCard("PROVE", t("about.prove.title"), t("about.prove.desc"), "shield", "var(--blue)", icon)}
-        ${capabilityCard("PACKAGE", t("about.package.title"), t("about.package.desc"), "report", "var(--purple)", icon)}
-      </div>
-
-      <div class="doc-card usage-card">
-        <h3>${t("about.usage")}</h3>
-        <p>${t("about.usageDesc")}</p>
+        ${capabilityCard(t("about.collect.title"), t("about.collect.desc"), "disk", "var(--text)", icon)}
+        ${capabilityCard(t("about.prove.title"), t("about.prove.desc"), "shield", "var(--text)", icon)}
+        ${capabilityCard(t("about.package.title"), t("about.package.desc"), "report", "var(--text)", icon)}
       </div>
 
       <h2 class="section-heading">${t("about.maintainers")}</h2>
@@ -224,11 +212,10 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath }) {
   `;
 }
 
-function capabilityCard(kicker, title, desc, iconName, accent, icon) {
+function capabilityCard(title, desc, iconName, accent, icon) {
   return `
     <article class="forensic-card" style="--accent:${accent};cursor:default">
       <span class="card-icon">${icon(iconName)}</span>
-      <p class="eyebrow">${kicker}</p>
       <h3>${title}</h3>
       <p>${desc}</p>
     </article>

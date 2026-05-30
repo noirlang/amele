@@ -9,27 +9,26 @@ import { analysisPage } from "./pages/analysis.js";
 import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel } from "./pages/other.js";
 import { workflowPage, pickerField, field, pageTitle, casePanel } from "./pages/workflow.js";
 
-const APP_VERSION = "v0.0.8";
+const APP_VERSION = "v0.0.9";
 const assetPath = "./assets";
 const backendAvailable = location.protocol === "http:" || location.protocol === "https:";
-const isNativeWebView = new URLSearchParams(window.location.search).get("native") === "1";
+const urlParams = new URLSearchParams(window.location.search);
+const isNativeWebView = urlParams.get("native") === "1";
 if (isNativeWebView) document.documentElement.classList.add("native-webview");
 
 const app = document.querySelector("#app");
 const view = document.querySelector("#view");
 const preferredLanguage = localStorage.getItem("worm-language") || "tr";
+const requestedTheme = urlParams.get("theme");
+const preferredTheme = ["dark", "light"].includes(requestedTheme || "") ? requestedTheme : localStorage.getItem("worm-theme") || "dark";
 
 function initialLogMessages(language) {
-  return [
-    translate(language, backendAvailable ? "log.appReady" : "log.previewMode"),
-    translate(language, "log.agentProtocol"),
-    translate(language, "log.workflowsReady")
-  ];
+  return [translate(language, backendAvailable ? "log.appReady" : "log.previewMode")];
 }
 
 const state = {
-  route: new URLSearchParams(window.location.search).get("route") || "home",
-  theme: localStorage.getItem("worm-theme") || "dark",
+  route: urlParams.get("route") || "home",
+  theme: preferredTheme,
   language: preferredLanguage,
   platform: detectPlatform(),
   files: {},
@@ -101,33 +100,33 @@ const toolCards = {
     {
       id: "windows-remote-disk",
       title: L("Uzak Disk İmajı", "Remote Disk Image"),
-      desc: L("Windows agent üzerinden PhysicalDrive imajı alın.", "Acquire a PhysicalDrive image through the Windows agent."),
+      desc: L("Agent ile PhysicalDrive imajı alın.", "Acquire a PhysicalDrive image through the agent."),
       icon: "disk",
-      accent: "var(--green)",
+      accent: "var(--text)",
       badge: "Agent + raw stream"
     },
     {
       id: "windows-local-disk",
       title: L("Yerel Disk İmajı", "Local Disk Image"),
-      desc: L("Bu makinedeki Windows disklerinden ham imaj üretin.", "Create a raw image from Windows disks on this machine."),
+      desc: L("Bu makinedeki diskten ham imaj alın.", "Acquire a raw image from this machine."),
       icon: "windows",
-      accent: "var(--blue)",
+      accent: "var(--text)",
       badge: "PhysicalDrive"
     },
     {
       id: "windows-remote-ram",
       title: L("Uzak RAM", "Remote RAM"),
-      desc: L("WinPMEM ile uzak Windows RAM edinimi başlatın ve indirin.", "Start and download remote Windows RAM acquisition with WinPMEM."),
+      desc: L("WinPMEM ile RAM dump alın.", "Acquire a RAM dump with WinPMEM."),
       icon: "ram",
-      accent: "var(--purple)",
+      accent: "var(--text)",
       badge: "WinPMEM remote"
     },
     {
       id: "windows-local-ram",
       title: L("Yerel RAM", "Local RAM"),
-      desc: L("Yerel WinPMEM kontrolü, indirme ve RAM imajı alma.", "Check local WinPMEM, download if needed, and acquire RAM."),
+      desc: L("WinPMEM ile yerel RAM alın.", "Acquire local RAM with WinPMEM."),
       icon: "chip",
-      accent: "var(--amber)",
+      accent: "var(--text)",
       badge: L("Yönetici gerekli", "Admin required")
     }
   ],
@@ -135,33 +134,33 @@ const toolCards = {
     {
       id: "linux-remote-disk",
       title: L("Uzak Disk İmajı", "Remote Disk Image"),
-      desc: L("Linux agent üzerinden /dev disklerinden ham imaj alın.", "Acquire raw images from /dev disks through the Linux agent."),
+      desc: L("Agent ile /dev disk imajı alın.", "Acquire a /dev disk image through the agent."),
       icon: "disk",
-      accent: "var(--green)",
+      accent: "var(--text)",
       badge: "Agent + /dev"
     },
     {
       id: "linux-local-disk",
       title: L("Yerel Disk İmajı", "Local Disk Image"),
-      desc: L("Yerel Linux diskleri için root yetkili imaj alma akışı.", "Root-level acquisition workflow for local Linux disks."),
+      desc: L("Root ile yerel disk imajı alın.", "Acquire a local disk image as root."),
       icon: "linux",
-      accent: "var(--blue)",
+      accent: "var(--text)",
       badge: "BLKGETSIZE64"
     },
     {
       id: "linux-remote-ram",
       title: L("Uzak RAM", "Remote RAM"),
-      desc: L("AVML ile uzak Linux RAM edinimi ve dosya indirme.", "Acquire remote Linux RAM with AVML and download the dump file."),
+      desc: L("AVML ile RAM dump alın.", "Acquire a RAM dump with AVML."),
       icon: "ram",
-      accent: "var(--purple)",
+      accent: "var(--text)",
       badge: "AVML remote"
     },
     {
       id: "linux-local-ram",
       title: L("Yerel RAM", "Local RAM"),
-      desc: L("AVML varlık/yetki kontrolü ve yerel RAM dump üretimi.", "Check AVML availability/privileges and create a local RAM dump."),
+      desc: L("AVML ile yerel RAM alın.", "Acquire local RAM with AVML."),
       icon: "chip",
-      accent: "var(--amber)",
+      accent: "var(--text)",
       badge: L("Root gerekli", "Root required")
     }
   ]
@@ -172,7 +171,7 @@ const workflows = {
     platform: "Windows",
     icon: "windows",
     title: L("Uzak Windows Sunucu Bağlantısı", "Remote Windows Server Connection"),
-    desc: L("Uzak Windows sistemlerine güvenli bağlantı kurun ve disk imajı alın.", "Connect securely to remote Windows systems and acquire disk images."),
+    desc: L("Bağlanın, disk seçin, imaj alın.", "Connect, select a disk, acquire an image."),
     mode: "remote-disk",
     output: "/home/raodrin/Worm/Ciktilar",
     diskLabel: L("Disk seçilmedi", "No disk selected")
@@ -181,7 +180,7 @@ const workflows = {
     platform: "Linux",
     icon: "linux",
     title: L("Uzak Linux Disk Bağlantısı", "Remote Linux Disk Connection"),
-    desc: L("Linux agent ile uzak /dev disklerini listeleyin ve raw imaj alın.", "List remote /dev disks through the Linux agent and acquire raw images."),
+    desc: L("Bağlanın, /dev disk seçin, imaj alın.", "Connect, select a /dev disk, acquire an image."),
     mode: "remote-disk",
     output: "/home/raodrin/Worm/Ciktilar",
     diskLabel: L("Disk seçilmedi", "No disk selected")
@@ -190,7 +189,7 @@ const workflows = {
     platform: "Windows",
     icon: "windows",
     title: L("Windows Yerel Disk İmajı", "Windows Local Disk Image"),
-    desc: L("Yerel PhysicalDrive kaynaklarından ham imaj alma akışı.", "Raw image acquisition workflow for local PhysicalDrive sources."),
+    desc: L("PhysicalDrive seçin ve imaj alın.", "Select a PhysicalDrive and acquire an image."),
     mode: "local-disk",
     output: "C:\\Worm\\Ciktilar",
     diskLabel: L("Disk seçilmedi", "No disk selected")
@@ -199,7 +198,7 @@ const workflows = {
     platform: "Linux",
     icon: "linux",
     title: L("Linux Yerel Disk İmajı", "Linux Local Disk Image"),
-    desc: L("Yerel Linux blok cihazlarından imaj alma akışı.", "Image acquisition workflow for local Linux block devices."),
+    desc: L("Blok cihaz seçin ve imaj alın.", "Select a block device and acquire an image."),
     mode: "local-disk",
     output: "/home/raodrin/Worm/Ciktilar",
     diskLabel: L("Disk seçilmedi", "No disk selected")
@@ -208,7 +207,7 @@ const workflows = {
     platform: "Windows",
     icon: "ram",
     title: L("Windows Uzak RAM Edinimi", "Windows Remote RAM Acquisition"),
-    desc: L("WinPMEM durumunu kontrol edin, uzak RAM edinimini başlatın ve dump dosyasını indirin.", "Check WinPMEM, start remote RAM acquisition, and download the dump file."),
+    desc: L("WinPMEM kontrolü ve RAM dump indirme.", "Check WinPMEM and download the RAM dump."),
     mode: "remote-ram",
     output: "memory_dump.raw",
     diskLabel: "WinPMEM"
@@ -217,7 +216,7 @@ const workflows = {
     platform: "Linux",
     icon: "ram",
     title: L("Linux Uzak RAM Edinimi", "Linux Remote RAM Acquisition"),
-    desc: L("AVML durumunu kontrol edin, uzak RAM edinimini başlatın ve dump dosyasını indirin.", "Check AVML, start remote RAM acquisition, and download the dump file."),
+    desc: L("AVML kontrolü ve RAM dump indirme.", "Check AVML and download the RAM dump."),
     mode: "remote-ram",
     output: "memory_dump_linux.raw",
     diskLabel: "AVML"
@@ -226,7 +225,7 @@ const workflows = {
     platform: "Windows",
     icon: "chip",
     title: L("Windows Yerel RAM Edinimi", "Windows Local RAM Acquisition"),
-    desc: L("Yerel WinPMEM kontrolü, gerekirse indirme ve RAM imajı alma.", "Check local WinPMEM, download if needed, and acquire a RAM image."),
+    desc: L("WinPMEM kontrolü ve yerel RAM imajı.", "Check WinPMEM and acquire local RAM."),
     mode: "local-ram",
     output: "memory_dump_local.raw",
     diskLabel: L("WinPMEM local", "Local WinPMEM")
@@ -235,7 +234,7 @@ const workflows = {
     platform: "Linux",
     icon: "chip",
     title: L("Linux Yerel RAM Edinimi", "Linux Local RAM Acquisition"),
-    desc: L("Yerel AVML kontrolü ve root yetkili RAM imajı alma.", "Check local AVML and acquire RAM with root privileges."),
+    desc: L("AVML kontrolü ve root ile RAM imajı.", "Check AVML and acquire RAM as root."),
     mode: "local-ram",
     output: "linux_memory_dump.raw",
     diskLabel: L("AVML local", "Local AVML")
@@ -374,10 +373,15 @@ function toolHub(platform) {
     .join("");
 
   const isWindows = platform === "windows";
+  const detectedIcon =
+    state.platform === "windows" ? "windows" :
+    state.platform === "linux" ? "linux" :
+    state.platform === "android" ? "android" :
+    "monitor";
   return `
     <section class="page">
       <div class="platform-note">
-        ${icon("monitor")} ${t("hub.detected", { platform: `<strong>${platformLabel(state.platform)}</strong>` })}
+        ${icon(detectedIcon)} ${t("hub.detected", { platform: `<strong>${platformLabel(state.platform)}</strong>` })}
       </div>
       ${pageTitle(
         t(isWindows ? "hub.windows.title" : "hub.linux.title"),
@@ -1541,17 +1545,32 @@ async function pickFolder(targetSelector) {
   });
 }
 
+function compactLogLine(message) {
+  return String(message || "").replace(/\s+/g, " ").trim();
+}
+
 function writeWorkflowLog(message) {
-  state.lastLog.unshift(message);
-  state.lastLog = state.lastLog.slice(0, 8);
+  const next = compactLogLine(message);
+  if (!next) return;
+  if (state.lastLog[0] !== next) state.lastLog.unshift(next);
+  state.lastLog = state.lastLog.slice(0, 5);
   const log = document.querySelector("#workflow-log");
-  if (log) log.innerHTML = state.lastLog.map((line) => `• ${line}`).join("<br />");
-  updateSide("last-action", message);
+  if (log) log.innerHTML = state.lastLog.map((line) => escapeHtml(line)).join("<br />");
+  updateSide("last-action", escapeHtml(next));
 }
 
 function updateSide(key, value) {
   const item = document.querySelector(`[data-side="${key}"] small`);
   if (item) item.innerHTML = value;
+}
+
+function setAcquisitionControlsVisible(active, startButton = document.querySelector("[data-action='start']")) {
+  const controls = document.querySelector("[data-acquisition-controls]");
+  if (controls) controls.hidden = !active;
+  if (startButton) {
+    startButton.hidden = active;
+    startButton.disabled = active;
+  }
 }
 
 async function scanTargets() {
@@ -1583,12 +1602,23 @@ async function scanTargets() {
           const result = await apiRequest("/api/ram-status");
           status = result[toolKey];
         }
-        const label = status?.tool_path || status?.message || localText(workflow.diskLabel);
+        const toolName = workflow.platform === "Windows" ? "WinPMEM" : "AVML";
+        const statusMessage = String(status?.message || "");
+        const missingTool = status?.tool_present === false || /not found|bulunamad/i.test(statusMessage);
+        if (missingTool) {
+          const fallback = localText(workflow.diskLabel);
+          select.innerHTML = `<option value="${escapeHtml(fallback)}">${escapeHtml(fallback)}</option>`;
+          updateSide("target", t("scan.toolMissing", { tool: toolName }));
+          writeWorkflowLog(t("scan.toolMissing", { tool: toolName }));
+          showToast(t("scan.toolMissing", { tool: toolName }), "error");
+          return;
+        }
+        const label = status?.tool_path || statusMessage || localText(workflow.diskLabel);
         const targets = [localText(workflow.diskLabel), label].filter(Boolean);
-        select.innerHTML = targets.map((target) => `<option value="${target}">${target}</option>`).join("");
+        select.innerHTML = targets.map((target) => `<option value="${escapeHtml(target)}">${escapeHtml(target)}</option>`).join("");
         updateSide("target", targets[0]);
-        writeWorkflowLog(t("scan.toolDoneLog", { target: localText(workflow.diskLabel), message: status?.message || t("ready") }));
-        showToast(t("scan.done"));
+        writeWorkflowLog(t("scan.toolDoneLog", { target: localText(workflow.diskLabel), message: statusMessage || t("ready") }));
+        showToast(t("scan.toolReady", { tool: toolName }));
       } catch (error) {
         if (workflow?.mode.startsWith("remote")) {
           forgetConnection();
@@ -1878,6 +1908,7 @@ async function startAcquisition(button) {
   const operation = isRam ? t("ramAcquisition") : t("imageAcquisition");
 
   try {
+    setAcquisitionControlsVisible(true, button);
     await loadEvidenceCases();
     const evidenceCase = await ensureImageCase();
     caseName = evidenceCase.case_name;
@@ -1945,6 +1976,9 @@ async function startAcquisition(button) {
     setProgress(100);
     const targetPath = result.target_path || result.target || output;
     writeWorkflowLog(t("workflow.operationCompletedPath", { operation, path: targetPath }));
+    if (result.sha256) {
+      writeWorkflowLog(t("workflow.hashWritten", { hash: escapeHtml(result.sha256) }));
+    }
     updateSide("last-action", t("workflow.operationCompleted", { operation }));
     if (workflow?.mode.startsWith("remote") && payload) {
       updateSide("connection", t("connection.connected", { ip: payload.ip }));
@@ -1960,7 +1994,7 @@ async function startAcquisition(button) {
     showToast(t("workflow.operationFailedDetail", { operation, message: error.message }), "error");
   } finally {
     state.activeAcquisition = null;
-    button.disabled = false;
+    setAcquisitionControlsVisible(false, button);
   }
 }
 
@@ -2297,7 +2331,7 @@ async function previewImageFile(relativePath) {
     container.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:12px;padding:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:10px">
-          <strong style="color:var(--green);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(relativePath.split('/').pop())}</strong>
+          <strong style="color:var(--text);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(relativePath.split('/').pop())}</strong>
           <small class="meta" style="margin-top:0">${formatBytes(result.size)}</small>
         </div>
         <div style="flex:1;overflow:hidden">
@@ -2326,7 +2360,7 @@ async function inspectProcessDetails(pid, name) {
     rightContent.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:14px;padding:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:8px">
-          <strong style="color:var(--green)">${escapeHtml(name)} (${escapeHtml(pid)})</strong>
+          <strong style="color:var(--text)">${escapeHtml(name)} (${escapeHtml(pid)})</strong>
           <span style="font-size:12px;color:var(--muted)">Döküm: ${result.dumps?.length || 0} segment</span>
         </div>
         
@@ -2388,7 +2422,7 @@ async function runProcessMemorySearch(pid) {
                 <span>Segment: <strong>${escapeHtml(item.category)}</strong></span>
                 <span>Ofset: <strong>0x${item.offset.toString(16).toUpperCase()}</strong></span>
               </div>
-              <div class="match-value" style="color:var(--green)">${escapeHtml(item.value)}</div>
+              <div class="match-value" style="color:var(--text)">${escapeHtml(item.value)}</div>
               <div class="match-context">${escapeHtml(item.context)}</div>
             </div>
           `).join("")}
@@ -2432,7 +2466,7 @@ async function previewCarvedFile(filePath) {
     rightContent.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:12px;padding:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:10px">
-          <strong style="color:var(--green);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(filePath.split('/').pop())}</strong>
+          <strong style="color:var(--text);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(filePath.split('/').pop())}</strong>
           <small class="meta" style="margin-top:0">${formatBytes(result.size)}</small>
         </div>
         <div style="flex:1;overflow:hidden">

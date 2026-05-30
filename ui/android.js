@@ -3,10 +3,10 @@ export function androidPage({ t, icon, pageTitle, state, escapeHtml, backendRead
     <section class="page">
       ${pageTitle(t("hub.android.title"), t("hub.android.desc"), "android")}
       <div class="tool-grid android-mode-grid">
-        ${androidImageModeCard("physical", t("android.mode.physical.title"), t("android.mode.physical.desc"), "disk", "var(--red)", t("android.mode.physical.badge"), icon, escapeHtml)}
-        ${androidImageModeCard("logical", t("android.mode.logical.title"), t("android.mode.logical.desc"), "android", "var(--green)", t("android.mode.logical.badge"), icon, escapeHtml)}
-        ${androidImageModeCard("filesystem", t("android.mode.filesystem.title"), t("android.mode.filesystem.desc"), "folder", "var(--blue)", t("android.mode.filesystem.badge"), icon, escapeHtml)}
-        ${androidImageModeCard("ram", t("android.mode.ram.title") || "RAM İmajı", t("android.mode.ram.desc") || "Cihazın fiziksel belleğini (RAM) canlı olarak edinin.", "cpu", "var(--orange)", t("android.mode.ram.badge") || "Fiziksel / Root", icon, escapeHtml)}
+        ${androidImageModeCard("physical", t("android.mode.physical.title"), t("android.mode.physical.desc"), "disk", "var(--text)", t("android.mode.physical.badge"), icon, escapeHtml)}
+        ${androidImageModeCard("logical", t("android.mode.logical.title"), t("android.mode.logical.desc"), "android", "var(--text)", t("android.mode.logical.badge"), icon, escapeHtml)}
+        ${androidImageModeCard("filesystem", t("android.mode.filesystem.title"), t("android.mode.filesystem.desc"), "folder", "var(--text)", t("android.mode.filesystem.badge"), icon, escapeHtml)}
+        ${androidImageModeCard("ram", t("android.mode.ram.title") || "RAM İmajı", t("android.mode.ram.desc") || "Cihazın fiziksel belleğini (RAM) canlı olarak edinin.", "cpu", "var(--text)", t("android.mode.ram.badge") || "Fiziksel / Root", icon, escapeHtml)}
       </div>
     </section>
   `;

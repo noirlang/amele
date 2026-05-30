@@ -21,7 +21,8 @@ let clickListener = null;
 globalThis.window = {
   location: {
     search: "?native=0&route=home"
-  }
+  },
+  addEventListener: () => {}
 };
 globalThis.location = globalThis.window.location;
 globalThis.document = {

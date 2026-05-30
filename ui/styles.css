@@ -5,23 +5,23 @@
     "Segoe UI Variable",
     "Segoe UI",
     sans-serif;
-  --bg: #03080b;
-  --bg-2: #071016;
-  --panel: rgba(13, 20, 27, 0.76);
-  --panel-strong: rgba(17, 27, 36, 0.9);
-  --panel-soft: rgba(12, 24, 20, 0.58);
-  --line: rgba(152, 180, 203, 0.16);
-  --line-strong: rgba(113, 255, 157, 0.32);
-  --text: #f4f8fb;
-  --muted: #a8b4c4;
-  --dim: #687487;
-  --green: #65e58a;
-  --green-2: #1f9f61;
-  --blue: #58a6ff;
-  --purple: #9b5cf6;
-  --red: #ff5f68;
-  --amber: #ffd166;
-  --shadow: 0 22px 80px rgba(0, 0, 0, 0.48);
+  --bg: #050505;
+  --bg-2: #0c0c0c;
+  --panel: #111111;
+  --panel-strong: #161616;
+  --panel-soft: #0f0f0f;
+  --line: rgba(255, 255, 255, 0.12);
+  --line-strong: rgba(255, 255, 255, 0.32);
+  --text: #f5f5f5;
+  --muted: #a3a3a3;
+  --dim: #737373;
+  --green: #f5f5f5;
+  --green-2: #d4d4d4;
+  --blue: #f5f5f5;
+  --purple: #f5f5f5;
+  --red: #ef4444;
+  --amber: #f5f5f5;
+  --shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
   --radius-xl: 28px;
   --radius-lg: 18px;
   --radius-md: 12px;
@@ -38,14 +38,15 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   min-height: 100%;
   margin: 0;
-  background:
-    radial-gradient(circle at 16% 8%, rgba(64, 255, 132, 0.12), transparent 28%),
-    radial-gradient(circle at 90% 12%, rgba(71, 135, 255, 0.1), transparent 32%),
-    linear-gradient(145deg, #030507 0%, #071017 42%, #020508 100%);
+  background: var(--bg);
   color: var(--text);
 }
 
@@ -67,25 +68,30 @@ button {
   grid-template-columns: 260px 1fr;
   min-height: 100vh;
   overflow: hidden;
-  background:
-    linear-gradient(90deg, rgba(11, 18, 26, 0.96), rgba(3, 8, 11, 0.88)),
-    radial-gradient(circle at 65% 16%, rgba(48, 234, 127, 0.11), transparent 26%);
+  background: var(--bg);
+  color: var(--text);
 }
 
 .shell.theme-light {
   color-scheme: light;
-  --bg: #eef4f1;
-  --bg-2: #f8fbfa;
-  --panel: rgba(255, 255, 255, 0.82);
-  --panel-strong: rgba(255, 255, 255, 0.94);
-  --panel-soft: rgba(229, 247, 236, 0.86);
-  --line: rgba(39, 64, 73, 0.16);
-  --line-strong: rgba(31, 159, 97, 0.36);
-  --text: #091117;
-  --muted: #41505c;
-  --dim: #667482;
-  --shadow: 0 24px 70px rgba(22, 46, 39, 0.14);
-  background: linear-gradient(135deg, #eef5f2, #f8fbfa 48%, #e6f3ea);
+  --bg: #f5f2e9;                  /* Gorgeous warm cream background */
+  --bg-2: #e9e4d3;                /* Slightly deeper cream for container elements */
+  --panel: #fdfbf7;               /* Clean warm off-white for panels and cards */
+  --panel-strong: #ffffff;        /* Pure white for card elevation contrast */
+  --panel-soft: #f1ebd8;          /* Warm panel-soft background */
+  --line: rgba(38, 33, 24, 0.12); /* Coffee-toned subtle border lines */
+  --line-strong: rgba(38, 33, 24, 0.26); /* Stronger coffee-toned lines */
+  --text: #262118;                /* Warm espresso brown for extremely premium typography */
+  --muted: #5e5748;               /* Soft warm brown-grey for descriptions */
+  --dim: #8b816e;                 /* Dimmed warm grey */
+  --green: #1a4a2b;               /* Deep forest green for positive states */
+  --green-2: #2d6b41;             /* Lighter warm green */
+  --blue: #1a3d54;                /* Deep steel blue */
+  --purple: #422a5c;              /* Deep eggplant purple */
+  --red: #a81c1c;                 /* Warm crimson red */
+  --amber: #8a5e12;               /* Warm bronze amber */
+  --shadow: 0 18px 50px rgba(38, 33, 24, 0.06); /* Custom shadow with warm tone */
+  background: var(--bg);
 }
 
 .sidebar {
@@ -94,17 +100,15 @@ button {
   min-height: 100vh;
   padding: 28px 18px;
   border-right: 1px solid var(--line);
-  background:
-    linear-gradient(180deg, rgba(8, 14, 20, 0.92), rgba(3, 8, 11, 0.98)),
-    radial-gradient(circle at 0% 30%, rgba(101, 229, 138, 0.11), transparent 36%);
+  background: var(--bg);
 }
 
 .theme-light .sidebar {
-  background: rgba(251, 253, 252, 0.82);
+  background: var(--bg);
 }
 
 .native-webview body {
-  background: #071016;
+  background: var(--bg);
 }
 
 .native-webview .shell,
@@ -222,7 +226,54 @@ button {
   background: transparent;
   color: var(--muted);
   text-align: left;
+  isolation: isolate;
+  overflow: visible;
   transition: color 180ms var(--ease), background 180ms var(--ease), transform 180ms var(--ease);
+}
+
+.nav-item::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%,
+    transparent 30%,
+    var(--glow-idle) 38%,
+    var(--glow-idle-soft) 42%,
+    transparent 50%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: glow-spin 3.2s linear infinite;
+  opacity: 0.4;
+  transition: opacity 220ms var(--ease);
+  will-change: --glow-angle;
+}
+
+.nav-item:hover::after {
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%,
+    transparent 25%,
+    var(--glow-hover) 35%,
+    var(--glow-hover-soft) 45%,
+    transparent 55%,
+    transparent 100%
+  );
+  opacity: 1;
+  animation: glow-spin 2.2s linear infinite;
 }
 
 .nav-item::before {
@@ -301,7 +352,7 @@ button {
 }
 
 .theme-light .topbar {
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(245, 242, 233, 0.72);
 }
 
 .window-title {
@@ -411,9 +462,7 @@ button {
   margin-top: 24px;
 }
 
-.hero::after,
-.forensic-card::after,
-.action-tile::after {
+.hero::after {
   content: "";
   position: absolute;
   inset: auto -20% -35% 30%;
@@ -455,13 +504,14 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  min-height: 48px;
-  padding: 0 22px;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
   border: 1px solid var(--line-strong);
-  border-radius: 12px;
+  border-radius: 10px;
   background: linear-gradient(135deg, rgba(101, 229, 138, 0.82), rgba(31, 159, 97, 0.82));
   color: #06110b;
+  font-size: 14px;
   font-weight: 800;
   box-shadow: 0 18px 38px rgba(31, 159, 97, 0.22);
 }
@@ -538,7 +588,7 @@ button {
 .settings-card {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: var(--radius-lg);
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
@@ -548,11 +598,13 @@ button {
 
 .action-tile {
   display: grid;
-  grid-template-columns: 96px 1fr 42px;
+  grid-template-columns: 1fr;
   align-items: center;
-  min-height: 168px;
-  padding: 28px 30px;
-  text-align: left;
+  justify-items: center;
+  gap: 14px;
+  min-height: 148px;
+  padding: 28px;
+  text-align: center;
 }
 
 .action-tile:hover,
@@ -566,12 +618,13 @@ button {
 .metric-icon {
   display: grid;
   place-items: center;
-  width: 72px;
-  height: 72px;
-  border: 1px solid color-mix(in srgb, var(--accent, var(--green)) 52%, transparent);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--accent, var(--green)) 14%, transparent);
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--accent, var(--green));
+  filter: drop-shadow(0 0 14px color-mix(in srgb, var(--accent, var(--green)) 26%, transparent));
 }
 
 .action-tile h3,
@@ -594,7 +647,8 @@ button {
 
 .tile-arrow {
   color: var(--muted);
-  font-size: 38px;
+  font-family: "Segoe UI", sans-serif;
+  font-size: 26px;
   z-index: 1;
 }
 
@@ -621,9 +675,8 @@ button {
 }
 
 .metric-icon {
-  width: 54px;
-  height: 54px;
-  border-radius: 14px;
+  width: 40px;
+  height: 40px;
 }
 
 .fa-icon {
@@ -639,7 +692,7 @@ button {
 
 .card-icon .fa-icon,
 .tile-icon .fa-icon {
-  font-size: 30px;
+  font-size: 28px;
 }
 
 .nav-item .fa-icon,
@@ -660,7 +713,7 @@ button {
 
 .page-title {
   display: grid;
-  grid-template-columns: 70px 1fr;
+  grid-template-columns: 46px 1fr;
   align-items: center;
   gap: 18px;
   margin-bottom: 18px;
@@ -685,10 +738,18 @@ button {
 }
 
 .forensic-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   min-height: 220px;
   padding: 24px;
-  text-align: left;
+  text-align: center;
   transition: border-color 180ms var(--ease), transform 180ms var(--ease);
+}
+
+.forensic-card > .card-icon {
+  margin: 0 0 16px;
 }
 
 .forensic-card.is-disabled {
@@ -702,6 +763,7 @@ button {
 }
 
 .forensic-card .meta {
+  align-self: center;
   display: inline-flex;
   margin-top: 18px;
   padding: 7px 10px;
@@ -711,17 +773,22 @@ button {
   font-size: 12px;
 }
 
+.action-tile,
+.forensic-card {
+  font-family: "Times New Roman", Times, serif;
+}
+
 .platform-note {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 14px;
-  padding: 10px 14px;
+  padding: 10px 16px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.035);
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .platform-note strong {
@@ -801,7 +868,7 @@ button {
 .button-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
 }
 
 .button-row button:disabled {
@@ -987,12 +1054,21 @@ code {
   min-height: 36px;
   margin-top: 14px;
   padding: 0 12px;
-  border: 1px solid var(--line);
   border-radius: 999px;
   background: rgba(101, 229, 138, 0.08);
   color: var(--green);
   font-weight: 800;
   font-size: 13px;
+}
+
+.settings-meta span {
+  border: 1px solid var(--line);
+}
+
+.status-badge {
+  border: 0;
+  position: relative;
+  overflow: hidden;
 }
 
 .settings-meta {
@@ -1018,6 +1094,50 @@ code {
   gap: 18px;
 }
 
+.settings-update {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-update h3 {
+  margin: 0 0 4px 0 !important;
+}
+
+.settings-update .settings-meta {
+  margin: 0 !important;
+  display: flex;
+  gap: 10px;
+}
+
+.settings-update .progress-bar {
+  margin: 8px 0 !important;
+  height: 24px !important;
+  background: var(--bg-2) !important;
+  border-radius: 8px !important;
+}
+
+.settings-update .progress-bar b {
+  font-weight: 800 !important;
+  font-size: 11px !important;
+  color: var(--text) !important;
+}
+
+.settings-update .button-row {
+  display: flex;
+  gap: 12px;
+  margin: 4px 0 0 0 !important;
+}
+
+.settings-update .status-badge {
+  margin: 4px 0 0 0 !important;
+}
+
+.settings-update .log-box {
+  margin-top: 8px !important;
+  flex: 1;
+}
+
 .settings-header {
   margin-bottom: 18px;
 }
@@ -1027,12 +1147,6 @@ code {
   font-size: clamp(42px, 6vw, 64px);
   line-height: 0.95;
   letter-spacing: -0.07em;
-}
-
-.settings-header p {
-  margin: 12px 0 0;
-  color: var(--muted);
-  font-size: 17px;
 }
 
 .settings-kicker {
@@ -1058,7 +1172,7 @@ code {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 18px;
-  padding: 16px 0;
+  padding: 14px 0;
   border-bottom: 1px solid var(--line);
 }
 
@@ -1101,8 +1215,8 @@ code {
 
 .switch {
   position: relative;
-  width: 48px;
-  height: 28px;
+  width: 42px;
+  height: 24px;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.12);
@@ -1111,10 +1225,10 @@ code {
 .switch::after {
   content: "";
   position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 18px;
-  height: 18px;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: #eaf1f5;
   transition: transform 180ms var(--ease), background 180ms var(--ease);
@@ -1125,7 +1239,7 @@ code {
 }
 
 .switch.on::after {
-  transform: translateX(20px);
+  transform: translateX(18px);
   background: #07130d;
 }
 
@@ -1141,10 +1255,10 @@ code {
 
 .about-hero {
   display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 26px;
+  grid-template-columns: 96px 1fr;
+  gap: 24px;
   align-items: center;
-  padding: 30px;
+  padding: 28px;
   border: 1px solid var(--line);
   border-radius: var(--radius-xl);
   background:
@@ -1170,9 +1284,9 @@ code {
 .about-logo {
   display: grid;
   place-items: center;
-  width: 112px;
-  height: 112px;
-  padding: 12px;
+  width: 92px;
+  height: 92px;
+  padding: 10px;
   border: 1px solid var(--line-strong);
   border-radius: 28px;
   background:
@@ -1216,7 +1330,7 @@ code {
   display: grid;
   justify-items: center;
   padding: 22px;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: var(--radius-lg);
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
@@ -1315,7 +1429,7 @@ code {
 }
 
 .theme-light .toast {
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(253, 251, 247, 0.96);
 }
 
 .toast.visible {
@@ -1531,7 +1645,7 @@ svg {
 .preview-panel {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 16px;
   background: var(--panel);
   box-shadow: var(--shadow);
@@ -1619,7 +1733,7 @@ svg {
   flex-direction: column;
   width: min(900px, 95vw);
   height: min(720px, 85vh);
-  border: 1px solid var(--line-strong);
+  border: 0;
   border-radius: 18px;
   background: var(--panel);
   box-shadow: 0 20px 50px rgba(0,0,0,0.5);
@@ -1730,7 +1844,9 @@ svg {
   align-items: center;
   gap: 16px;
   padding: 16px 20px;
-  border: 1px solid var(--line);
+  border: 0;
+  position: relative;
+  overflow: hidden;
   border-radius: 14px;
   background: var(--panel);
 }
@@ -1771,7 +1887,8 @@ svg {
 .carved-card {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--line);
+  border: 0;
+  position: relative;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.015);
   overflow: hidden;
@@ -1939,3 +2056,513 @@ svg {
   border-radius: 4px;
   word-break: break-all;
 }
+
+/* Monochrome UI refresh */
+.shell,
+.sidebar,
+.topbar,
+.view,
+.native-webview body {
+  background: var(--bg) !important;
+  background-image: none !important;
+}
+
+.view::before,
+.hero::after,
+.action-tile::after,
+.forensic-card::after {
+  display: none !important;
+}
+
+.hero,
+.worm-art,
+.action-tile,
+.forensic-card,
+.workflow-panel,
+.side-panel,
+.status-strip,
+.doc-card,
+.settings-card,
+.tree-panel,
+.preview-panel,
+.about-hero,
+.contributor-card,
+.company-logo-card,
+.ram-stat-card,
+.carved-card,
+.modal-content {
+  background: var(--panel) !important;
+  background-image: none !important;
+  border-color: var(--line) !important;
+  box-shadow: none !important;
+}
+
+.theme-light .worm-art {
+  background: #111111 !important;
+  border-color: rgba(0, 0, 0, 0.16) !important;
+  --ring-fill: #111111;
+}
+
+.action-tile:hover,
+.forensic-card:hover,
+.nav-item:hover,
+.nav-item.active,
+.top-action:hover,
+.top-action.active,
+.icon-button:hover,
+.tree-node:hover,
+.tree-node.active,
+.proc-row:hover,
+.proc-row.active,
+.settings-meta span,
+.status-badge,
+.vpn-panel {
+  background: var(--panel-soft) !important;
+  background-image: none !important;
+  border-color: var(--line-strong) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+}
+
+.nav-item.active::before,
+.pulse,
+.progress-bar span,
+.spark {
+  background: var(--text) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.tile-icon,
+.card-icon,
+.metric-icon,
+.ram-stat-card .card-icon {
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--text) !important;
+  filter: none !important;
+}
+
+.about-logo {
+  background: var(--bg-2) !important;
+  background-image: none !important;
+  border-color: var(--line) !important;
+  box-shadow: none !important;
+}
+
+.primary-button {
+  background: var(--text) !important;
+  background-image: none !important;
+  color: var(--bg) !important;
+  border: 1px solid var(--text) !important;
+  box-shadow: none !important;
+}
+
+.secondary-button,
+.danger-button,
+.icon-button,
+.top-action {
+  background: transparent !important;
+  background-image: none !important;
+  color: var(--text) !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: none !important;
+}
+
+.secondary-button:hover,
+.danger-button:hover,
+.icon-button:hover,
+.top-action:hover {
+  background: var(--panel-soft) !important;
+  border-color: var(--line-strong) !important;
+}
+
+.input,
+.select,
+.textarea,
+.log-box,
+.code-box,
+.hash-result,
+.analysis-tabs,
+.text-viewer-area,
+.hex-viewer-area,
+.maps-pre-box,
+.process-list-container {
+  background: var(--bg-2) !important;
+  color: var(--text) !important;
+  border-color: var(--line) !important;
+  box-shadow: none !important;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: var(--text) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--text) 14%, transparent) !important;
+}
+
+.section-label,
+.settings-kicker,
+.eyebrow,
+.platform-note strong,
+.proc-row.active strong,
+.string-match-item .match-meta span strong,
+code {
+  color: var(--text) !important;
+}
+
+.progress-bar {
+  background: var(--bg-2) !important;
+  border-color: var(--line-strong) !important;
+  box-shadow: none !important;
+}
+
+.switch {
+  background: var(--bg-2) !important;
+  border-color: var(--line-strong) !important;
+}
+
+.switch::after {
+  background: var(--muted) !important;
+}
+
+.switch.on {
+  background: var(--text) !important;
+}
+
+.switch.on::after {
+  background: var(--bg) !important;
+}
+
+.toast {
+  background: var(--panel-strong) !important;
+  color: var(--text) !important;
+  border-color: var(--line-strong) !important;
+  box-shadow: var(--shadow) !important;
+}
+
+.toast[data-type="error"] {
+  color: var(--red) !important;
+  border-color: color-mix(in srgb, var(--red) 72%, transparent) !important;
+}
+
+:root {
+  --glow-idle: rgba(255, 255, 255, 0.35);
+  --glow-idle-soft: rgba(255, 255, 255, 0.10);
+  --glow-hover: rgba(255, 236, 180, 0.92);
+  --glow-hover-soft: rgba(255, 228, 160, 0.30);
+  --glow-hover-glow: rgba(255, 225, 150, 0.18);
+  --glow-track: rgba(255, 255, 255, 0.06);
+}
+
+.shell.theme-light {
+  --glow-idle: rgba(38, 33, 24, 0.12);
+  --glow-idle-soft: rgba(38, 33, 24, 0.04);
+  --glow-hover: rgba(138, 94, 18, 0.60);
+  --glow-hover-soft: rgba(138, 94, 18, 0.18);
+  --glow-hover-glow: rgba(138, 94, 18, 0.08);
+  --glow-track: rgba(38, 33, 24, 0.06);
+}
+
+/* ── Rotating border-light keyframe ────────────────────────────── */
+
+@property --glow-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes glow-spin {
+  to { --glow-angle: 360deg; }
+}
+
+/* ── Shared glow container setup ───────────────────────────────── */
+
+.action-tile,
+.forensic-card,
+.workflow-panel,
+.side-panel,
+.status-strip,
+.doc-card,
+.settings-card,
+.tree-panel,
+.preview-panel,
+.about-hero,
+.worm-art,
+.contributor-card,
+.company-logo-card,
+.ram-stat-card,
+.carved-card,
+.modal-content,
+.status-badge,
+.primary-button,
+.secondary-button,
+.danger-button,
+.icon-button,
+.top-action,
+.input,
+.select,
+.textarea {
+  isolation: isolate;
+  position: relative;
+  transition:
+    border-color 260ms var(--ease),
+    box-shadow 260ms var(--ease),
+    background-color 260ms var(--ease),
+    color 260ms var(--ease),
+    transform 260ms var(--ease);
+}
+
+/* ── Rotating light beam – panels & cards (integrated 1px border) ── */
+
+.action-tile::before,
+.forensic-card::before,
+.workflow-panel::before,
+.side-panel::before,
+.status-strip::before,
+.doc-card::before,
+.settings-card::before,
+.tree-panel::before,
+.preview-panel::before,
+.about-hero::before,
+.worm-art::before,
+.contributor-card::before,
+.company-logo-card::before,
+.ram-stat-card::before,
+.carved-card::before,
+.modal-content::before,
+.status-badge::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: 
+    conic-gradient(
+      from var(--glow-angle),
+      transparent 0%,
+      transparent 32%,
+      var(--glow-idle) 39%,
+      var(--glow-idle-soft) 43%,
+      transparent 50%,
+      transparent 100%
+    ),
+    var(--glow-track);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: glow-spin 3.6s linear infinite;
+  opacity: 0.65;
+  transition: opacity 220ms var(--ease), background 220ms var(--ease);
+  will-change: --glow-angle;
+}
+
+/* ── Rotating light beam – buttons (no overflow:hidden) ────────── */
+
+.primary-button::before,
+.secondary-button::before,
+.danger-button::before,
+.icon-button::before,
+.top-action::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%,
+    transparent 30%,
+    var(--glow-idle) 38%,
+    var(--glow-idle-soft) 42%,
+    transparent 50%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: glow-spin 3.2s linear infinite;
+  opacity: 0.55;
+  transition: opacity 220ms var(--ease);
+  will-change: --glow-angle;
+}
+
+/* ── Disable ::after (clean up old system) ─────────────────────── */
+
+.action-tile::after,
+.forensic-card::after,
+.workflow-panel::after,
+.side-panel::after,
+.status-strip::after,
+.doc-card::after,
+.settings-card::after,
+.tree-panel::after,
+.preview-panel::after,
+.about-hero::after,
+.worm-art::after,
+.contributor-card::after,
+.company-logo-card::after,
+.ram-stat-card::after,
+.carved-card::after,
+.modal-content::after,
+.status-badge::after {
+  display: none !important;
+}
+
+/* ── Z-index for content above the glow ────────────────────────── */
+
+.action-tile > *,
+.forensic-card > *,
+.workflow-panel > *,
+.side-panel > *,
+.status-strip > *,
+.doc-card > *,
+.settings-card > *,
+.tree-panel > *,
+.preview-panel > *,
+.about-hero > *,
+.worm-art > *,
+.contributor-card > *,
+.company-logo-card > *,
+.ram-stat-card > *,
+.carved-card > *,
+.modal-content > *,
+.status-badge > * {
+  position: relative;
+  z-index: 3;
+}
+
+/* ── HOVER: cream LED glow (panels) ────────────────────────────── */
+
+.action-tile:hover::before,
+.forensic-card:hover::before,
+.workflow-panel:hover::before,
+.side-panel:hover::before,
+.status-strip:hover::before,
+.doc-card:hover::before,
+.settings-card:hover::before,
+.tree-panel:hover::before,
+.preview-panel:hover::before,
+.about-hero:hover::before,
+.worm-art:hover::before,
+.contributor-card:hover::before,
+.company-logo-card:hover::before,
+.ram-stat-card:hover::before,
+.carved-card:hover::before,
+.modal-content:hover::before,
+.status-badge:hover::before,
+.action-tile:focus-visible::before,
+.forensic-card:focus-visible::before {
+  background: 
+    conic-gradient(
+      from var(--glow-angle),
+      transparent 0%,
+      transparent 25%,
+      var(--glow-hover) 35%,
+      var(--glow-hover-soft) 45%,
+      transparent 55%,
+      transparent 100%
+    ),
+    rgba(255, 236, 180, 0.14);
+  opacity: 1;
+  animation: glow-spin 2.2s linear infinite;
+}
+
+.action-tile:hover,
+.forensic-card:hover,
+.workflow-panel:hover,
+.side-panel:hover,
+.status-strip:hover,
+.doc-card:hover,
+.settings-card:hover,
+.tree-panel:hover,
+.preview-panel:hover,
+.about-hero:hover,
+.worm-art:hover,
+.contributor-card:hover,
+.company-logo-card:hover,
+.ram-stat-card:hover,
+.carved-card:hover,
+.modal-content:hover,
+.status-badge:hover {
+  box-shadow: 0 0 24px var(--glow-hover-glow) !important;
+}
+
+/* ── HOVER: cream LED glow (buttons) ───────────────────────────── */
+
+.primary-button:hover::before,
+.secondary-button:hover::before,
+.danger-button:hover::before,
+.icon-button:hover::before,
+.top-action:hover::before {
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%,
+    transparent 25%,
+    var(--glow-hover) 35%,
+    var(--glow-hover-soft) 45%,
+    transparent 55%,
+    transparent 100%
+  );
+  opacity: 1;
+  animation: glow-spin 1.8s linear infinite;
+}
+
+.primary-button:hover,
+.secondary-button:hover,
+.danger-button:hover,
+.icon-button:hover,
+.top-action:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 14px var(--glow-hover-glow) !important;
+}
+
+/* ── HOVER: cream LED glow (inputs) ────────────────────────────── */
+
+.input:hover,
+.select:hover,
+.textarea:hover {
+  border-color: var(--glow-hover) !important;
+  box-shadow: 0 0 14px var(--glow-hover-glow) !important;
+}
+
+/* ── Focus visible glow for buttons ────────────────────────────── */
+
+.primary-button:focus-visible::before,
+.secondary-button:focus-visible::before,
+.danger-button:focus-visible::before {
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%,
+    transparent 25%,
+    var(--glow-hover) 35%,
+    var(--glow-hover-soft) 45%,
+    transparent 55%,
+    transparent 100%
+  );
+  opacity: 1;
+  animation: glow-spin 1.8s linear infinite;
+}
+
+
