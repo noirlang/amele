@@ -1,6 +1,7 @@
 use serde::Serialize;
 use std::io;
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::time::Duration;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AdbStatus {
@@ -225,6 +226,11 @@ const LOGICAL_STEPS: &[(&str, &str)] = &[
     ("dumpsys_clipboard", "dumpsys_clipboard.txt"),
     ("dumpsys_batterystats", "dumpsys_batterystats.txt"),
     ("dumpsys_keystore", "dumpsys_keystore.txt"),
+    ("root_status", "root_status.txt"),
+    ("procfs_summary", "procfs_summary.txt"),
+    ("proc_memory_maps", "proc_memory_maps"),
+    ("heapdump_candidates", "heapdump_candidates.txt"),
+    ("debug_heap_dumps", "debug_heap_dumps"),
     ("device_settings", "device_settings.txt"),
     ("network_info", "network_info.txt"),
     ("processes", "processes.txt"),
@@ -277,6 +283,52 @@ fn run_adb_command(serial: &str, args: &[&str]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
+fn run_adb_command_timeout(
+    serial: &str,
+    args: &[&str],
+    timeout: Duration,
+) -> Result<String, String> {
+    let mut child = Command::new("adb")
+        .args(["-s", serial])
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|err| {
+            if err.kind() == io::ErrorKind::NotFound {
+                "ADB bulunamadi".to_string()
+            } else {
+                format!("ADB komutu calistirilamadi: {err}")
+            }
+        })?;
+
+    let started = std::time::Instant::now();
+    loop {
+        if let Ok(Some(_)) = child.try_wait() {
+            let output = child
+                .wait_with_output()
+                .map_err(|err| format!("ADB komutu sonucu alinamadi: {err}"))?;
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                return Err(first_non_empty(&stderr)
+                    .or_else(|| first_non_empty(&stdout))
+                    .unwrap_or_else(|| "ADB komutu basarisiz oldu".to_string()));
+            }
+            return Ok(String::from_utf8_lossy(&output.stdout).into_owned());
+        }
+        if started.elapsed() >= timeout {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(format!(
+                "ADB komutu zaman asimina ugradi: {}s",
+                timeout.as_secs()
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
 /// Run an ADB command that writes output to a file (e.g. `adb pull`, `adb bugreport`).
 fn run_adb_file_command(serial: &str, args: &[&str]) -> Result<(), String> {
     let output = Command::new("adb")
@@ -294,6 +346,14 @@ fn run_adb_file_command(serial: &str, args: &[&str]) -> Result<(), String> {
         return Err(detail);
     }
     Ok(())
+}
+
+fn run_adb_file_command_timeout(
+    serial: &str,
+    args: &[&str],
+    timeout: Duration,
+) -> Result<(), String> {
+    run_adb_command_timeout(serial, args, timeout).map(|_| ())
 }
 
 fn collect_shell_output(
@@ -914,6 +974,392 @@ fn collect_adb_backup(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     }
 }
 
+fn collect_root_status(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
+    let commands: &[(&str, &[&str])] = &[
+        ("id", &["shell", "id"]),
+        ("su -c id", &["shell", "su", "-c", "id"]),
+        ("adb root probe", &["root"]),
+        ("getenforce", &["shell", "getenforce"]),
+        ("ro.debuggable", &["shell", "getprop", "ro.debuggable"]),
+        ("ro.secure", &["shell", "getprop", "ro.secure"]),
+        ("kernel", &["shell", "cat", "/proc/version"]),
+    ];
+    let mut content = String::new();
+
+    for (label, args) in commands {
+        content.push_str("=== ");
+        content.push_str(label);
+        content.push_str(" ===\n");
+        match run_adb_command_timeout(serial, args, Duration::from_secs(8)) {
+            Ok(output) => content.push_str(output.trim()),
+            Err(err) => {
+                content.push_str("Hata: ");
+                content.push_str(&err);
+            }
+        }
+        content.push_str("\n\n");
+    }
+
+    write_text_acquisition_item(dir, "root_status", "root_status.txt", content)
+}
+
+fn collect_procfs_summary(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
+    let commands: &[(&str, &str)] = &[
+        ("meminfo", "cat /proc/meminfo"),
+        ("vmstat", "cat /proc/vmstat"),
+        ("uptime", "cat /proc/uptime"),
+        (
+            "pressure memory",
+            "cat /proc/pressure/memory 2>/dev/null || true",
+        ),
+        ("cpuinfo", "cat /proc/cpuinfo"),
+        ("mounts", "cat /proc/mounts"),
+        ("net tcp", "cat /proc/net/tcp 2>/dev/null || true"),
+        ("net tcp6", "cat /proc/net/tcp6 2>/dev/null || true"),
+        ("net udp", "cat /proc/net/udp 2>/dev/null || true"),
+        ("net unix", "cat /proc/net/unix 2>/dev/null || true"),
+    ];
+    let mut content = String::new();
+
+    for (label, shell) in commands {
+        content.push_str("=== /proc ");
+        content.push_str(label);
+        content.push_str(" ===\n");
+        match run_adb_command_timeout(
+            serial,
+            &["shell", "sh", "-c", shell],
+            Duration::from_secs(10),
+        ) {
+            Ok(output) => content.push_str(output.trim()),
+            Err(err) => {
+                content.push_str("Hata: ");
+                content.push_str(&err);
+            }
+        }
+        content.push_str("\n\n");
+    }
+
+    write_text_acquisition_item(dir, "procfs_summary", "procfs_summary.txt", content)
+}
+
+fn collect_proc_memory_maps(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
+    let target_dir = dir.join("proc_memory_maps");
+    let _ = std::fs::create_dir_all(&target_dir);
+    let ps_output =
+        match run_adb_command_timeout(serial, &["shell", "ps", "-A"], Duration::from_secs(10)) {
+            Ok(output) => output,
+            Err(err) => {
+                return AcquisitionItem {
+                    category: "proc_memory_maps".to_string(),
+                    file_name: "proc_memory_maps".to_string(),
+                    size: 0,
+                    success: false,
+                    error: Some(format!("Process listesi alinamadi: {err}")),
+                };
+            }
+        };
+
+    let processes = parse_process_rows(&ps_output);
+    let mut index = String::new();
+    let mut captured = 0_usize;
+    let mut failed = 0_usize;
+
+    for (pid, name) in processes.into_iter().take(80) {
+        let shell = format!("cat /proc/{pid}/maps 2>&1 | head -n 2000");
+        let output = run_adb_command_timeout(
+            serial,
+            &["shell", "sh", "-c", &shell],
+            Duration::from_secs(4),
+        );
+        match output {
+            Ok(maps) if maps.contains('-') && !maps.contains("Permission denied") => {
+                let safe_name = sanitize_file_component(&name);
+                let file_name = format!("{pid}_{safe_name}.maps");
+                let path = target_dir.join(&file_name);
+                if std::fs::write(&path, &maps).is_ok() {
+                    captured += 1;
+                    index.push_str(&format!("{pid}\t{name}\t{file_name}\n"));
+                } else {
+                    failed += 1;
+                    index.push_str(&format!("{pid}\t{name}\twrite_failed\n"));
+                }
+            }
+            Ok(output) => {
+                failed += 1;
+                let detail = first_non_empty(&output).unwrap_or_else(|| "empty".to_string());
+                index.push_str(&format!("{pid}\t{name}\t{detail}\n"));
+            }
+            Err(err) => {
+                failed += 1;
+                index.push_str(&format!("{pid}\t{name}\t{err}\n"));
+            }
+        }
+    }
+
+    let _ = std::fs::write(
+        target_dir.join("index.tsv"),
+        format!("pid\tname\tmaps_file_or_error\n{index}"),
+    );
+    let size = dir_size(&target_dir);
+    AcquisitionItem {
+        category: "proc_memory_maps".to_string(),
+        file_name: "proc_memory_maps".to_string(),
+        size,
+        success: captured > 0,
+        error: if captured > 0 {
+            Some(format!("{captured} process maps alindi, {failed} atlandi"))
+        } else {
+            Some(format!("Process maps okunamadi, {failed} process atlandi"))
+        },
+    }
+}
+
+fn collect_heapdump_candidates(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
+    let dumpsys = match run_adb_command_timeout(
+        serial,
+        &["shell", "dumpsys", "package"],
+        Duration::from_secs(45),
+    ) {
+        Ok(output) => output,
+        Err(err) => {
+            return AcquisitionItem {
+                category: "heapdump_candidates".to_string(),
+                file_name: "heapdump_candidates.txt".to_string(),
+                size: 0,
+                success: false,
+                error: Some(format!("Paket bilgisi alinamadi: {err}")),
+            };
+        }
+    };
+
+    let packages = parse_debuggable_packages(&dumpsys);
+    let mut content = String::new();
+    content.push_str("# Debuggable package candidates for adb shell am dumpheap\n");
+    content.push_str("# Full process memory still requires root or ptrace privileges.\n\n");
+    for package in &packages {
+        content.push_str("package=");
+        content.push_str(package);
+        content.push('\n');
+    }
+    if packages.is_empty() {
+        content.push_str("No debuggable package was detected from dumpsys package.\n");
+    }
+
+    let mut item = write_text_acquisition_item(
+        dir,
+        "heapdump_candidates",
+        "heapdump_candidates.txt",
+        content,
+    );
+    item.success = true;
+    item.error = Some(format!("{} aday bulundu", packages.len()));
+    item
+}
+
+fn collect_debug_heap_dumps(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
+    let candidates_path = dir.join("heapdump_candidates.txt");
+    let packages = std::fs::read_to_string(&candidates_path)
+        .ok()
+        .map(|content| parse_candidate_package_lines(&content))
+        .filter(|packages| !packages.is_empty())
+        .unwrap_or_else(|| {
+            run_adb_command_timeout(
+                serial,
+                &["shell", "dumpsys", "package"],
+                Duration::from_secs(45),
+            )
+            .map(|output| parse_debuggable_packages(&output))
+            .unwrap_or_default()
+        });
+
+    let target_dir = dir.join("debug_heap_dumps");
+    let _ = std::fs::create_dir_all(&target_dir);
+    let mut log = String::new();
+    let mut dumped = 0_usize;
+    let mut failed = 0_usize;
+
+    for package in packages.iter().take(5) {
+        let pid_output =
+            run_adb_command_timeout(serial, &["shell", "pidof", package], Duration::from_secs(5));
+        let pid = match pid_output
+            .ok()
+            .and_then(|output| output.split_whitespace().next().map(ToOwned::to_owned))
+            .filter(|value| value.chars().all(|ch| ch.is_ascii_digit()))
+        {
+            Some(pid) => pid,
+            None => {
+                failed += 1;
+                log.push_str(&format!("{package}\tpid_not_running\n"));
+                continue;
+            }
+        };
+
+        let safe_package = sanitize_file_component(package);
+        let remote_path = format!("/sdcard/Download/worm_heap_{safe_package}_{pid}.hprof");
+        let local_file = format!("{safe_package}_{pid}.hprof");
+        let local_path = target_dir.join(&local_file);
+        let local_arg = local_path.to_string_lossy().into_owned();
+
+        match run_adb_command_timeout(
+            serial,
+            &["shell", "am", "dumpheap", &pid, &remote_path],
+            Duration::from_secs(60),
+        ) {
+            Ok(_) => {}
+            Err(err) => {
+                failed += 1;
+                log.push_str(&format!("{package}\t{pid}\tdumpheap_failed\t{err}\n"));
+                let _ = run_adb_command_timeout(
+                    serial,
+                    &["shell", "rm", "-f", &remote_path],
+                    Duration::from_secs(5),
+                );
+                continue;
+            }
+        }
+
+        match run_adb_file_command_timeout(
+            serial,
+            &["pull", &remote_path, &local_arg],
+            Duration::from_secs(120),
+        ) {
+            Ok(()) => {
+                let size = std::fs::metadata(&local_path).map(|m| m.len()).unwrap_or(0);
+                if size > 0 {
+                    dumped += 1;
+                    log.push_str(&format!("{package}\t{pid}\t{local_file}\t{size}\n"));
+                } else {
+                    failed += 1;
+                    log.push_str(&format!("{package}\t{pid}\tempty_hprof\n"));
+                }
+            }
+            Err(err) => {
+                failed += 1;
+                log.push_str(&format!("{package}\t{pid}\tpull_failed\t{err}\n"));
+            }
+        }
+
+        let _ = run_adb_command_timeout(
+            serial,
+            &["shell", "rm", "-f", &remote_path],
+            Duration::from_secs(5),
+        );
+    }
+
+    let _ = std::fs::write(
+        target_dir.join("heapdump_log.tsv"),
+        format!("package\tpid\tfile_or_status\tsize_or_error\n{log}"),
+    );
+    let size = dir_size(&target_dir);
+    AcquisitionItem {
+        category: "debug_heap_dumps".to_string(),
+        file_name: "debug_heap_dumps".to_string(),
+        size,
+        success: dumped > 0,
+        error: if dumped > 0 {
+            Some(format!("{dumped} HPROF alindi, {failed} hedef atlandi"))
+        } else {
+            Some("HPROF alinamadi; debuggable ve calisan uygulama gerekir".to_string())
+        },
+    }
+}
+
+fn write_text_acquisition_item(
+    dir: &std::path::Path,
+    category: &str,
+    file_name: &str,
+    content: String,
+) -> AcquisitionItem {
+    let path = dir.join(file_name);
+    match std::fs::write(&path, &content) {
+        Ok(()) => AcquisitionItem {
+            category: category.to_string(),
+            file_name: file_name.to_string(),
+            size: content.len() as u64,
+            success: true,
+            error: None,
+        },
+        Err(err) => AcquisitionItem {
+            category: category.to_string(),
+            file_name: file_name.to_string(),
+            size: 0,
+            success: false,
+            error: Some(format!("Dosya yazilamadi: {err}")),
+        },
+    }
+}
+
+fn parse_debuggable_packages(dumpsys_package: &str) -> Vec<String> {
+    let mut current_package: Option<String> = None;
+    let mut packages = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    for line in dumpsys_package.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("Package [") {
+            current_package = rest.split(']').next().map(ToOwned::to_owned);
+            continue;
+        }
+        let debuggable = trimmed.contains("DEBUGGABLE")
+            || trimmed.contains("FLAG_DEBUGGABLE")
+            || trimmed.contains("debuggable=true");
+        if debuggable {
+            if let Some(package) = &current_package {
+                if seen.insert(package.clone()) {
+                    packages.push(package.clone());
+                }
+            }
+        }
+    }
+
+    packages
+}
+
+fn parse_candidate_package_lines(content: &str) -> Vec<String> {
+    content
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("package="))
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+fn parse_process_rows(ps_output: &str) -> Vec<(u32, String)> {
+    ps_output
+        .lines()
+        .skip(1)
+        .filter_map(|line| {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() < 2 {
+                return None;
+            }
+            let pid_index = parts.iter().position(|part| part.parse::<u32>().is_ok())?;
+            let pid = parts.get(pid_index)?.parse::<u32>().ok()?;
+            let name = parts.last().copied().unwrap_or("process").to_string();
+            Some((pid, name))
+        })
+        .collect()
+}
+
+fn sanitize_file_component(value: &str) -> String {
+    let sanitized: String = value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '.' || ch == '_' || ch == '-' {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    if sanitized.is_empty() {
+        "unknown".to_string()
+    } else {
+        sanitized
+    }
+}
+
 fn dir_size(path: &std::path::Path) -> u64 {
     let mut total = 0_u64;
     if let Ok(entries) = std::fs::read_dir(path) {
@@ -1068,6 +1514,11 @@ where
             "dumpsys_keystore" => {
                 collect_dumpsys(serial, "keystore", "dumpsys_keystore.txt", output_dir)
             }
+            "root_status" => collect_root_status(serial, output_dir),
+            "procfs_summary" => collect_procfs_summary(serial, output_dir),
+            "proc_memory_maps" => collect_proc_memory_maps(serial, output_dir),
+            "heapdump_candidates" => collect_heapdump_candidates(serial, output_dir),
+            "debug_heap_dumps" => collect_debug_heap_dumps(serial, output_dir),
             "device_settings" => collect_device_settings(serial, output_dir),
             "network_info" => collect_network_info(serial, output_dir),
             "processes" => collect_processes(serial, output_dir),
@@ -1936,5 +2387,29 @@ mod tests {
         assert_eq!(devices[0].model.as_deref(), Some("sdk gphone x86"));
         assert_eq!(devices[1].state, "unauthorized");
         assert_eq!(devices[1].transport_id.as_deref(), Some("2"));
+    }
+
+    #[test]
+    fn parses_debuggable_packages_from_dumpsys() {
+        let packages = parse_debuggable_packages(
+            "Package [com.example.normal] (abc):\n\
+             pkgFlags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]\n\
+             Package [com.example.debug] (def):\n\
+             pkgFlags=[ HAS_CODE DEBUGGABLE ALLOW_CLEAR_USER_DATA ]\n",
+        );
+
+        assert_eq!(packages, vec!["com.example.debug"]);
+    }
+
+    #[test]
+    fn parses_process_rows_from_ps_output() {
+        let rows = parse_process_rows(
+            "USER PID PPID VSZ RSS WCHAN ADDR S NAME\n\
+             u0_a123 2345 123 100 20 0 0 S com.example.app\n\
+             root 1 0 0 0 0 0 S init\n",
+        );
+
+        assert_eq!(rows[0], (2345, "com.example.app".to_string()));
+        assert_eq!(rows[1], (1, "init".to_string()));
     }
 }

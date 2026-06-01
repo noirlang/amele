@@ -32,6 +32,7 @@ enum RecordType {
     ProcInfo = 0x07,
     Network = 0x08,
     LogEntry = 0x09,
+    MemoryDump = 0x0D,
     MemInfo = 0x0E,
     Notification = 0x11,
     Telemetry = 0x12,
@@ -259,6 +260,18 @@ fn build_logical_records(dir: &Path) -> Vec<Record> {
             RecordType::MemInfo,
             vec![Field::string(0x07, trim_for_record(&content, 32 * 1024))],
         ));
+    }
+    if let Some(content) = read_text_file(dir.join("root_status.txt")) {
+        records.extend(parse_status_telemetry_records("root_status", &content));
+    }
+    if let Some(content) = read_text_file(dir.join("procfs_summary.txt")) {
+        records.push(Record::new(
+            RecordType::MemInfo,
+            vec![Field::string(0x07, trim_for_record(&content, 32 * 1024))],
+        ));
+    }
+    if let Some(content) = read_text_file(dir.join("debug_heap_dumps").join("heapdump_log.tsv")) {
+        records.extend(parse_heapdump_log_records(&content));
     }
     if let Some(content) = read_text_file(dir.join("dumpsys_notification.txt")) {
         records.extend(parse_notification_records(&content));
@@ -745,6 +758,67 @@ fn parse_media_records(content: &str) -> Vec<Record> {
         .collect()
 }
 
+fn parse_status_telemetry_records(prefix: &str, content: &str) -> Vec<Record> {
+    let mut records = Vec::new();
+    let mut current_label = String::new();
+    let mut current_value = String::new();
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("===") && trimmed.ends_with("===") {
+            if !current_label.is_empty() && !current_value.trim().is_empty() {
+                records.push(Record::new(
+                    RecordType::Telemetry,
+                    vec![
+                        Field::string(0x01, format!("{prefix}.{}", current_label)),
+                        Field::string(0x02, trim_for_record(current_value.trim(), 4096)),
+                    ],
+                ));
+            }
+            current_label = trimmed.trim_matches('=').trim().replace(' ', "_");
+            current_value.clear();
+        } else if !trimmed.is_empty() {
+            current_value.push_str(line);
+            current_value.push('\n');
+        }
+    }
+
+    if !current_label.is_empty() && !current_value.trim().is_empty() {
+        records.push(Record::new(
+            RecordType::Telemetry,
+            vec![
+                Field::string(0x01, format!("{prefix}.{}", current_label)),
+                Field::string(0x02, trim_for_record(current_value.trim(), 4096)),
+            ],
+        ));
+    }
+
+    records
+}
+
+fn parse_heapdump_log_records(content: &str) -> Vec<Record> {
+    content
+        .lines()
+        .skip(1)
+        .take(MAX_RECORDS_PER_SOURCE)
+        .filter_map(|line| {
+            let parts: Vec<&str> = line.split('\t').collect();
+            if parts.len() < 4 || parts[2].ends_with("_failed") || parts[2] == "pid_not_running" {
+                return None;
+            }
+            let pid = parts[1].parse::<i64>().ok()?;
+            Some(Record::new(
+                RecordType::MemoryDump,
+                vec![
+                    Field::int64(0x01, pid),
+                    Field::string(0x04, "hprof"),
+                    Field::string(0x05, format!("debug_heap_dumps/{}", parts[2])),
+                ],
+            ))
+        })
+        .collect()
+}
+
 fn parse_content_rows(content: &str) -> Vec<HashMap<String, String>> {
     content
         .lines()
@@ -1107,6 +1181,13 @@ fn report_text(serial: &str, records: &[Record]) -> String {
     );
     write_report_section(
         &mut out,
+        "MEMORY DUMPS",
+        records,
+        RecordType::MemoryDump,
+        &[0x01, 0x04, 0x05],
+    );
+    write_report_section(
+        &mut out,
         "ACCOUNTS",
         records,
         RecordType::Account,
@@ -1239,6 +1320,15 @@ fn timeline_event(record: &Record) -> Option<Value> {
                 record.timestamp_ns,
                 format!("{tag}: {}", trim_for_record(&msg, 140)),
                 1,
+            )
+        }
+        RecordType::MemoryDump => {
+            let pid = record_field_string(record, 0x01).unwrap_or_default();
+            let path = record_field_string(record, 0x05).unwrap_or_default();
+            (
+                record.timestamp_ns,
+                format!("Memory dump PID {pid}: {path}"),
+                4,
             )
         }
         RecordType::Notification => {
@@ -1421,6 +1511,7 @@ fn record_type_name(record_type: RecordType) -> &'static str {
         RecordType::ProcInfo => "ProcInfo",
         RecordType::Network => "Network",
         RecordType::LogEntry => "LogEntry",
+        RecordType::MemoryDump => "MemoryDump",
         RecordType::MemInfo => "MemInfo",
         RecordType::Notification => "Notification",
         RecordType::Telemetry => "Telemetry",
@@ -1492,6 +1583,15 @@ fn field_name(record_type: RecordType, id: u8) -> String {
             0x03 => "priority",
             0x04 => "tag",
             0x05 => "message",
+            _ => "",
+        },
+        RecordType::MemoryDump => match id {
+            0x01 => "pid",
+            0x02 => "start_addr",
+            0x03 => "end_addr",
+            0x04 => "perms",
+            0x05 => "path",
+            0x06 => "data",
             _ => "",
         },
         RecordType::MemInfo => match id {
