@@ -1184,6 +1184,31 @@ where
         }
     }
 
+    progress(LOGICAL_STEPS.len() as u32 + 1, total, "analysis_outputs");
+    match crate::android_mft::write_logical_analysis_outputs(serial, output_dir) {
+        Ok(outputs) => {
+            for output in outputs {
+                items.push(AcquisitionItem {
+                    category: "analysis_output".to_string(),
+                    file_name: output.file_name,
+                    size: output.size,
+                    success: true,
+                    error: None,
+                });
+            }
+        }
+        Err(err) => {
+            errors.push(format!("analysis_outputs: {err}"));
+            items.push(AcquisitionItem {
+                category: "analysis_output".to_string(),
+                file_name: "analysis_outputs".to_string(),
+                size: 0,
+                success: false,
+                error: Some(err),
+            });
+        }
+    }
+
     // Final progress tick
     progress(total, total, "manifest");
 
