@@ -9,7 +9,7 @@ import { analysisPage } from "./pages/analysis.js";
 import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel } from "./pages/other.js";
 import { workflowPage, pickerField, field, pageTitle, casePanel } from "./pages/workflow.js";
 
-const APP_VERSION = "v0.0.9";
+const APP_VERSION = "v0.0.10";
 const assetPath = "./assets";
 const backendAvailable = location.protocol === "http:" || location.protocol === "https:";
 const urlParams = new URLSearchParams(window.location.search);
