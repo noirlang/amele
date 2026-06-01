@@ -1,4 +1,7 @@
 import { androidModePage, androidPage, handleAndroidAction, syncAndroidDeviceSelection } from "./android.js";
+import { createApiRequest } from "./core/api.js";
+import { detectPlatform, platformLabel as platformName } from "./core/platform.js";
+import { canonicalRamFileName, compactLogLine, escapeHtml, formatBytes } from "./core/utils.js";
 import { icon, hydrateIcons, fontIcons } from "./icons.js";
 import { translate } from "./i18n.js";
 import { homePage, metric } from "./pages/home.js";
@@ -51,20 +54,11 @@ const state = {
   lastLog: initialLogMessages(preferredLanguage)
 };
 
-function detectPlatform() {
-  const override = new URLSearchParams(window.location.search).get("platform");
-  if (["windows", "linux", "android", "mac"].includes(override || "")) return override;
-  const text = `${navigator.userAgent} ${navigator.platform}`.toLowerCase();
-  if (text.includes("android")) return "android";
-  if (text.includes("win")) return "windows";
-  if (text.includes("linux")) return "linux";
-  if (text.includes("mac")) return "mac";
-  return "unknown";
-}
-
 function t(key, vars = {}) {
   return translate(state.language, key, vars);
 }
+
+const apiRequest = createApiRequest({ backendAvailable });
 
 function boundDetailPanel(tab) {
   return detailPanel({
@@ -395,11 +389,7 @@ function toolHub(platform) {
 }
 
 function platformLabel(platform) {
-  if (platform === "windows") return "Windows";
-  if (platform === "linux") return "Linux";
-  if (platform === "android") return "Android";
-  if (platform === "mac") return "macOS";
-  return t("unknown");
+  return platformName(platform, t("unknown"));
 }
 
 
@@ -432,66 +422,6 @@ const routes = {
   settings: settingsPage,
   about: aboutPage
 };
-
-async function apiRequest(path, options = {}) {
-  const headers = new Headers(options.headers || {});
-  if (options.body && !headers.has("content-type")) {
-    headers.set("content-type", "application/json");
-  }
-  let response;
-  try {
-    response = await fetch(path, { ...options, headers });
-  } catch (error) {
-    throw new Error(formatBackendConnectionError(path, error));
-  }
-  const text = await response.text();
-  let data = {};
-  if (text) {
-    try {
-      data = JSON.parse(text);
-    } catch {
-      throw new Error(formatInvalidResponseError(path, response, text));
-    }
-  }
-  if (!response.ok) {
-    throw new Error(formatApiError(path, response, data));
-  }
-  return data;
-}
-
-function formatBackendConnectionError(path, error) {
-  return [
-    "Backend bağlantısı kurulamadı.",
-    `İstek: ${path}`,
-    `Ayrıntı: ${error?.message || error || "fetch failed"}`,
-    backendAvailable
-      ? "Çözüm: Uygulama backend süreci kapanmış olabilir; Worm'u yeniden başlatın."
-      : "Çözüm: Bu işlem sadece masaüstü uygulama modunda çalışır."
-  ].join("\n");
-}
-
-function formatInvalidResponseError(path, response, text) {
-  const body = String(text || "").trim().slice(0, 900) || "(boş yanıt)";
-  return [
-    "Backend geçersiz yanıt döndürdü.",
-    `HTTP: ${response.status} ${response.statusText || ""}`.trim(),
-    `İstek: ${path}`,
-    `Yanıt: ${body}`,
-    "Çözüm: Uygulama dosyaları eksik olabilir veya endpoint beklenmeyen HTML/metin döndürmüş olabilir."
-  ].join("\n");
-}
-
-function formatApiError(path, response, data) {
-  const lines = [
-    data.error || response.statusText || "İşlem başarısız.",
-    `HTTP: ${response.status} ${response.statusText || ""}`.trim(),
-    `İstek: ${path}`
-  ];
-  if (data.code) lines.push(`Kod: ${data.code}`);
-  if (data.detail && data.detail !== data.error) lines.push(`Neden: ${data.detail}`);
-  if (data.suggestion) lines.push(`Çözüm: ${data.suggestion}`);
-  return lines.filter(Boolean).join("\n");
-}
 
 function isExternalUrl(url) {
   try {
@@ -642,23 +572,6 @@ function stableDefaultCaseName() {
   return state.cachedDefaultCaseName;
 }
 
-function timestampForFileName(date = new Date()) {
-  const pad = (value) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
-}
-
-function sanitizeFileStem(value) {
-  return String(value || "")
-    .trim()
-    .replace(/[<>:"/\\|?*\x00-\x1F\s]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-}
-
-function canonicalRamFileName(remoteIp = "", date = new Date()) {
-  const ip = sanitizeFileStem(remoteIp);
-  return `${ip ? `${ip}_` : ""}ram_${timestampForFileName(date)}.raw`;
-}
-
 function selectedTargetName() {
   const select = document.querySelector("[data-field='target']");
   const option = select?.selectedOptions?.[0];
@@ -738,28 +651,6 @@ function requireActiveConnection(workflow, payload) {
     return false;
   }
   return true;
-}
-
-function formatBytes(bytes) {
-  const value = Number(bytes || 0);
-  if (!Number.isFinite(value) || value <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
-  let size = value;
-  let unit = 0;
-  while (size >= 1024 && unit < units.length - 1) {
-    size /= 1024;
-    unit += 1;
-  }
-  return `${size.toFixed(size >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }
 
 document.addEventListener("click", (event) => {
@@ -1543,10 +1434,6 @@ async function pickFolder(targetSelector) {
     document.body.appendChild(input);
     input.click();
   });
-}
-
-function compactLogLine(message) {
-  return String(message || "").replace(/\s+/g, " ").trim();
 }
 
 function writeWorkflowLog(message) {
