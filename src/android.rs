@@ -971,8 +971,8 @@ where
     std::fs::create_dir_all(output_dir)
         .map_err(|err| format!("Cikti dizini olusturulamadi: {err}"))?;
 
-    let total = LOGICAL_STEPS.len() as u32;
-    let mut items = Vec::with_capacity(LOGICAL_STEPS.len());
+    let total = (LOGICAL_STEPS.len() + 2) as u32;
+    let mut items = Vec::with_capacity(LOGICAL_STEPS.len() + 1);
     let mut errors = Vec::new();
 
     for (step_index, (category, _file_name)) in LOGICAL_STEPS.iter().enumerate() {
@@ -1159,6 +1159,29 @@ where
             }
         }
         items.push(item);
+    }
+
+    progress(LOGICAL_STEPS.len() as u32, total, "mft_archive");
+    match crate::android_mft::write_logical_mft_bundle(serial, output_dir) {
+        Ok(bundle) => {
+            items.push(AcquisitionItem {
+                category: "mft_archive".to_string(),
+                file_name: bundle.file_name.clone(),
+                size: bundle.size,
+                success: true,
+                error: None,
+            });
+        }
+        Err(err) => {
+            errors.push(format!("mft_archive: {err}"));
+            items.push(AcquisitionItem {
+                category: "mft_archive".to_string(),
+                file_name: "evidence.mft".to_string(),
+                size: 0,
+                success: false,
+                error: Some(err),
+            });
+        }
     }
 
     // Final progress tick
