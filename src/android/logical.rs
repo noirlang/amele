@@ -1108,6 +1108,26 @@ mod tests {
 pub fn logical_acquisition<F, C>(
     serial: &str,
     output_dir: &std::path::Path,
+    progress: F,
+    cancelled: C,
+) -> Result<LogicalAcquisitionResult, String>
+where
+    F: FnMut(u32, u32, &str),
+    C: Fn() -> bool,
+{
+    logical_acquisition_with_profile(
+        serial,
+        output_dir,
+        AndroidAcquisitionProfile::FullLogical,
+        progress,
+        cancelled,
+    )
+}
+
+pub fn logical_acquisition_with_profile<F, C>(
+    serial: &str,
+    output_dir: &std::path::Path,
+    profile: AndroidAcquisitionProfile,
     mut progress: F,
     cancelled: C,
 ) -> Result<LogicalAcquisitionResult, String>
@@ -1118,7 +1138,7 @@ where
     std::fs::create_dir_all(output_dir)
         .map_err(|err| format!("Cikti dizini olusturulamadi: {err}"))?;
 
-    let steps = logical_steps_for_profile(AndroidAcquisitionProfile::FullLogical);
+    let steps = logical_steps_for_profile(profile);
     let total = (steps.len() + 2) as u32;
     let mut items = Vec::with_capacity(steps.len() + 1);
     let mut errors = Vec::new();

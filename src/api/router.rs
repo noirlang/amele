@@ -26,6 +26,9 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
             Err(err) => json_error(500, err),
         },
         ("POST", "/api/android-device-profile") => android::android_device_profile_endpoint(body),
+        ("POST", "/api/android-profile-acquisition") => {
+            android::android_profile_acquisition_endpoint(body)
+        }
         ("POST", "/api/android-logical-image") => android::android_logical_image_endpoint(body),
         ("POST", "/api/android-filesystem-image") => {
             android::android_filesystem_image_endpoint(body)

@@ -30,6 +30,109 @@ pub fn android_device_profile_endpoint(body: &[u8]) -> Response {
     }
 }
 
+pub fn android_profile_acquisition_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct AndroidProfileAcquisitionRequest {
+        serial: String,
+        case_name: Option<String>,
+        profile: Option<String>,
+    }
+
+    let request: AndroidProfileAcquisitionRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let serial = request.serial.trim().to_string();
+    if serial.is_empty() {
+        return json_error(400, "serial is required");
+    }
+    let profile = request
+        .profile
+        .as_deref()
+        .map(android::AndroidAcquisitionProfile::from_id)
+        .unwrap_or(android::AndroidAcquisitionProfile::FullLogical);
+
+    let (job_id, control) = create_acquisition_job("Android profil edinimi baslatildi");
+    let thread_job_id = job_id.clone();
+    thread::spawn(move || {
+        run_android_profile_acquisition_job(
+            thread_job_id,
+            serial,
+            request.case_name,
+            profile,
+            control,
+        )
+    });
+
+    json_ok(json!({
+        "job_id": job_id,
+        "status": "running",
+    }))
+}
+
+fn run_android_profile_acquisition_job(
+    job_id: String,
+    serial: String,
+    case_name: Option<String>,
+    profile: android::AndroidAcquisitionProfile,
+    control: ram::CancellationToken,
+) {
+    let vault = match evidence_vault_for_output(case_name.as_deref()) {
+        Ok(vault) => vault,
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err, "Android profil edinimi basarisiz");
+            return;
+        }
+    };
+
+    let android_dir = vault.case_dir.join("android");
+    if let Err(err) = std::fs::create_dir_all(&android_dir) {
+        fail_acquisition_job_with_message(
+            &job_id,
+            err.to_string(),
+            "Android profil edinimi basarisiz",
+        );
+        return;
+    }
+
+    match android::orchestrated_acquisition(
+        &serial,
+        &android_dir,
+        profile,
+        |done, total, category| {
+            update_acquisition_progress_message(
+                &job_id,
+                done as u64,
+                total as u64,
+                &format!("Toplaniyor: {category}"),
+            );
+        },
+        || control.is_cancelled(),
+    ) {
+        Ok(result) => {
+            let success_count = result.items.iter().filter(|i| i.success).count();
+            let total_count = result.items.len();
+            finish_acquisition_job_with_message(
+                &job_id,
+                json!({
+                    "message": format!("Android profil edinimi tamamlandi ({success_count}/{total_count} adim basarili)"),
+                    "profile": result.profile,
+                    "device_profile": result.device_profile,
+                    "output_dir": result.output_dir,
+                    "total_bytes": result.total_bytes,
+                    "sha256": result.sha256,
+                    "items": result.items,
+                    "errors": result.errors,
+                }),
+                "Android profil edinimi tamamlandi",
+            );
+        }
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err, "Android profil edinimi basarisiz");
+        }
+    }
+}
+
 pub fn android_logical_image_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct AndroidLogicalRequest {
