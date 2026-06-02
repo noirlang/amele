@@ -9,6 +9,27 @@ use serde::Deserialize;
 use serde_json::json;
 use std::thread;
 
+pub fn android_device_profile_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct AndroidProfileRequest {
+        serial: String,
+    }
+
+    let request: AndroidProfileRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let serial = request.serial.trim();
+    if serial.is_empty() {
+        return json_error(400, "serial is required");
+    }
+
+    match android::detect_device_profile(serial) {
+        Ok(profile) => json_ok(json!({ "profile": profile })),
+        Err(err) => json_error(500, err),
+    }
+}
+
 pub fn android_logical_image_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct AndroidLogicalRequest {
