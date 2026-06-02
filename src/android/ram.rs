@@ -2,17 +2,58 @@ use super::adb::run_adb_command;
 use serde::Serialize;
 use std::process::Command;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AndroidRamMode {
+    VolatileData,
+    RootProcessMemory,
+    PhysicalMemoryProbe,
+}
+
+impl AndroidRamMode {
+    pub fn from_id(value: &str) -> Self {
+        match value.trim() {
+            "root_process_memory" | "root" => Self::RootProcessMemory,
+            "physical_memory_probe" | "physical" => Self::PhysicalMemoryProbe,
+            _ => Self::VolatileData,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct AndroidRamAcquisitionResult {
     pub output_file: std::path::PathBuf,
     pub total_bytes: u64,
     pub sha256: String,
+    pub mode: AndroidRamMode,
 }
 
 pub fn ram_acquisition<F, C>(
     serial: &str,
     output_dir: &std::path::Path,
     has_root: bool,
+    progress: F,
+    cancelled: C,
+) -> Result<AndroidRamAcquisitionResult, String>
+where
+    F: FnMut(u32, u32, &str),
+    C: Fn() -> bool,
+{
+    ram_acquisition_with_mode(
+        serial,
+        output_dir,
+        has_root,
+        AndroidRamMode::PhysicalMemoryProbe,
+        progress,
+        cancelled,
+    )
+}
+
+pub fn ram_acquisition_with_mode<F, C>(
+    serial: &str,
+    output_dir: &std::path::Path,
+    has_root: bool,
+    mode: AndroidRamMode,
     mut progress: F,
     cancelled: C,
 ) -> Result<AndroidRamAcquisitionResult, String>
@@ -22,6 +63,10 @@ where
 {
     std::fs::create_dir_all(output_dir)
         .map_err(|err| format!("Cikti dizini olusturulamadi: {err}"))?;
+
+    if mode == AndroidRamMode::VolatileData {
+        return collect_volatile_data(serial, output_dir, progress, cancelled);
+    }
 
     // Step 0: Root check or attempt
     progress(0, 3, "Root yetkisi kontrol ediliyor...");
@@ -78,7 +123,7 @@ where
         "Root yetkisi doğrulandı. Bellek kaynakları analiz ediliyor...",
     );
 
-    // Find readable memory interface
+    // Find readable memory interface unless the user explicitly selected process memory.
     let mut memory_source = None;
     let check_cmd = |path: &str| -> bool {
         let cmd = if use_su {
@@ -91,12 +136,14 @@ where
             .unwrap_or(false)
     };
 
-    if check_cmd("/proc/kcore") {
-        memory_source = Some("/proc/kcore");
-    } else if check_cmd("/dev/mem") {
-        memory_source = Some("/dev/mem");
-    } else if check_cmd("/dev/kmem") {
-        memory_source = Some("/dev/kmem");
+    if mode == AndroidRamMode::PhysicalMemoryProbe {
+        if check_cmd("/proc/kcore") {
+            memory_source = Some("/proc/kcore");
+        } else if check_cmd("/dev/mem") {
+            memory_source = Some("/dev/mem");
+        } else if check_cmd("/dev/kmem") {
+            memory_source = Some("/dev/kmem");
+        }
     }
 
     let source = match memory_source {
@@ -332,6 +379,7 @@ echo "[WORM] DONE"
                 output_file: output_path,
                 total_bytes,
                 sha256,
+                mode,
             });
         }
     };
@@ -453,5 +501,89 @@ echo "[WORM] DONE"
         output_file: output_path,
         total_bytes,
         sha256,
+        mode,
+    })
+}
+
+fn collect_volatile_data<F, C>(
+    serial: &str,
+    output_dir: &std::path::Path,
+    mut progress: F,
+    cancelled: C,
+) -> Result<AndroidRamAcquisitionResult, String>
+where
+    F: FnMut(u32, u32, &str),
+    C: Fn() -> bool,
+{
+    let output_file_name = "android_volatile_data.txt";
+    let output_path = output_dir.join(output_file_name);
+    let commands = [
+        ("meminfo", "cat /proc/meminfo"),
+        ("vmstat", "cat /proc/vmstat"),
+        ("uptime", "cat /proc/uptime"),
+        ("processes", "ps -A"),
+        ("dumpsys_meminfo", "dumpsys meminfo"),
+        ("dumpsys_procstats", "dumpsys procstats"),
+        ("activity_processes", "dumpsys activity processes"),
+        ("logcat_tail", "logcat -d | tail -n 1000"),
+    ];
+
+    let total = commands.len() as u32 + 1;
+    let mut content = String::new();
+    content.push_str("# Android volatile data acquisition\n\n");
+
+    for (index, (label, command)) in commands.iter().enumerate() {
+        if cancelled() {
+            return Err("Kullanici tarafindan iptal edildi".to_string());
+        }
+        progress(index as u32, total, label);
+        content.push_str("=== ");
+        content.push_str(label);
+        content.push_str(" ===\n");
+        match run_adb_command(serial, &["shell", command]) {
+            Ok(output) => content.push_str(&output),
+            Err(err) => {
+                content.push_str("ERROR: ");
+                content.push_str(&err);
+                content.push('\n');
+            }
+        }
+        content.push('\n');
+    }
+
+    std::fs::write(&output_path, content)
+        .map_err(|err| format!("Uçucu veri özeti yazılamadı: {err}"))?;
+
+    progress(total - 1, total, "sha256");
+    let mut file = std::fs::File::open(&output_path)
+        .map_err(|err| format!("Uçucu veri dosyasi acilamadi: {err}"))?;
+    use sha2::{Digest, Sha256};
+    use std::io::Read;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0; 65536];
+    loop {
+        let bytes_read = file
+            .read(&mut buffer)
+            .map_err(|err| format!("Hash hesabi icin dosya okunurken hata: {err}"))?;
+        if bytes_read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..bytes_read]);
+    }
+    let sha256 = crate::hash::to_hex(&hasher.finalize());
+    let _ = std::fs::write(
+        output_dir.join(format!("{output_file_name}.sha256")),
+        format!("{sha256}  {output_file_name}\n"),
+    );
+    let total_bytes = std::fs::metadata(&output_path)
+        .map_err(|err| format!("Uçucu veri dosyası metaverisi okunamadı: {err}"))?
+        .len();
+
+    progress(total, total, "done");
+    Ok(AndroidRamAcquisitionResult {
+        output_file: output_path,
+        total_bytes,
+        sha256,
+        mode: AndroidRamMode::VolatileData,
     })
 }

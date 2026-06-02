@@ -17,4 +17,6 @@ pub use logical::{
 };
 pub use orchestrator::{AndroidOrchestratedAcquisitionResult, orchestrated_acquisition};
 pub use profile::{AndroidDeviceProfile, detect_device_profile};
-pub use ram::{AndroidRamAcquisitionResult, ram_acquisition};
+pub use ram::{
+    AndroidRamAcquisitionResult, AndroidRamMode, ram_acquisition, ram_acquisition_with_mode,
+};

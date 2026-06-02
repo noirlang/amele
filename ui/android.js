@@ -6,7 +6,7 @@ export function androidPage({ t, icon, pageTitle, state, escapeHtml, backendRead
         ${androidImageModeCard("physical", t("android.mode.physical.title"), t("android.mode.physical.desc"), "disk", "var(--text)", t("android.mode.soon"), icon, escapeHtml, { disabled: true })}
         ${androidImageModeCard("logical", t("android.mode.logical.title"), t("android.mode.logical.desc"), "android", "var(--text)", t("android.mode.logical.badge"), icon, escapeHtml)}
         ${androidImageModeCard("filesystem", t("android.mode.filesystem.title"), t("android.mode.filesystem.desc"), "folder", "var(--text)", t("android.mode.filesystem.badge"), icon, escapeHtml)}
-        ${androidImageModeCard("ram", t("android.mode.ram.title") || "RAM İmajı", t("android.mode.ram.desc") || "Cihazın fiziksel belleğini (RAM) canlı olarak edinin.", "cpu", "var(--text)", t("android.mode.ram.badge") || "Fiziksel / Root", icon, escapeHtml)}
+        ${androidImageModeCard("ram", t("android.mode.ram.title"), t("android.mode.ram.desc"), "cpu", "var(--text)", t("android.mode.ram.badge"), icon, escapeHtml)}
       </div>
     </section>
   `;
@@ -132,6 +132,12 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
 
             <div class="section-divider"></div>
             <p class="section-label">${t("android.ram.options") || "Seçenekler"}</p>
+            <div class="field">
+              <label>${t("android.ram.mode")}</label>
+              <select class="select" data-android-ram-mode>
+                ${ramModeOptions(android.ramMode || "volatile_data", t)}
+              </select>
+            </div>
             <div class="field" style="flex-direction: row; align-items: center; gap: 10px;">
               <input type="checkbox" id="android-ram-has-root" data-android-ram-has-root style="width: 18px; height: 18px; cursor: pointer;" />
               <label for="android-ram-has-root" style="cursor: pointer; user-select: none; font-size: 0.9rem; color: #acc0e4;">${t("android.filesystem.hasRoot") || "Cihazda Root Yetkisi Var (Doğrudan imaj al)"}</label>
@@ -237,12 +243,23 @@ function androidMode(modeId, t) {
       icon: "folder"
     },
     ram: {
-      title: t("android.mode.ram.title") || "RAM İmajı",
-      desc: t("android.mode.ram.desc") || "Cihazın fiziksel belleğini (RAM) canlı olarak edinin.",
+      title: t("android.mode.ram.title"),
+      desc: t("android.mode.ram.desc"),
       icon: "cpu"
     }
   };
   return modes[modeId] || modes.logical;
+}
+
+function ramModeOptions(selected, t) {
+  const options = [
+    ["volatile_data", t("android.ram.mode.volatile")],
+    ["root_process_memory", t("android.ram.mode.rootProcess")],
+    ["physical_memory_probe", t("android.ram.mode.physicalProbe")]
+  ];
+  return options
+    .map(([value, label]) => `<option value="${value}"${value === selected ? " selected" : ""}>${label}</option>`)
+    .join("");
 }
 
 function androidImageModeCard(modeId, title, desc, iconName, accent, badge, icon, escapeHtml, options = {}) {
@@ -615,9 +632,12 @@ async function startRamAcquisition(button, { apiRequest, backendReady, state, t,
 
   const hasRootCheckbox = document.querySelector("[data-android-ram-has-root]");
   const hasRoot = hasRootCheckbox ? Boolean(hasRootCheckbox.checked) : false;
+  const modeSelect = document.querySelector("[data-android-ram-mode]");
+  const mode = modeSelect?.value || "volatile_data";
 
   const caseName = resolveCase?.() || null;
   if (!state.android) state.android = {};
+  state.android.ramMode = mode;
   state.android.ramLog = [t("android.ram.starting") || "RAM aktarımı başlatılıyor..."];
   state.android.ramJob = null;
   render();
@@ -626,7 +646,8 @@ async function startRamAcquisition(button, { apiRequest, backendReady, state, t,
   try {
     const body = { 
       serial: state.android.selectedDevice,
-      has_root: hasRoot
+      has_root: hasRoot,
+      mode
     };
     if (caseName) body.case_name = caseName;
     const result = await apiRequest("/api/android-ram-image", {

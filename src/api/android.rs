@@ -312,6 +312,7 @@ pub fn android_ram_image_endpoint(body: &[u8]) -> Response {
         serial: String,
         case_name: Option<String>,
         has_root: Option<bool>,
+        mode: Option<String>,
     }
 
     let request: AndroidRamRequest = match serde_json::from_slice(body) {
@@ -326,8 +327,20 @@ pub fn android_ram_image_endpoint(body: &[u8]) -> Response {
     let (job_id, control) = create_acquisition_job("Android RAM imaj alma baslatildi");
     let thread_job_id = job_id.clone();
     let has_root = request.has_root.unwrap_or(false);
+    let mode = request
+        .mode
+        .as_deref()
+        .map(android::AndroidRamMode::from_id)
+        .unwrap_or(android::AndroidRamMode::VolatileData);
     thread::spawn(move || {
-        run_android_ram_job(thread_job_id, serial, request.case_name, has_root, control)
+        run_android_ram_job(
+            thread_job_id,
+            serial,
+            request.case_name,
+            has_root,
+            mode,
+            control,
+        )
     });
 
     json_ok(json!({
@@ -341,6 +354,7 @@ fn run_android_ram_job(
     serial: String,
     case_name: Option<String>,
     has_root: bool,
+    mode: android::AndroidRamMode,
     control: ram::CancellationToken,
 ) {
     let vault = match evidence_vault_for_output(case_name.as_deref()) {
@@ -361,10 +375,11 @@ fn run_android_ram_job(
         return;
     }
 
-    match android::ram_acquisition(
+    match android::ram_acquisition_with_mode(
         &serial,
         &android_dir,
         has_root,
+        mode,
         |done, total, category| {
             update_acquisition_progress_message(&job_id, done as u64, total as u64, category);
         },
@@ -378,6 +393,7 @@ fn run_android_ram_job(
                     "output_file": result.output_file,
                     "total_bytes": result.total_bytes,
                     "sha256": result.sha256,
+                    "mode": result.mode,
                 }),
                 "Android RAM imajı başarıyla tamamlandı",
             );
