@@ -2,6 +2,7 @@ use super::adb::{
     first_non_empty, run_adb_command, run_adb_command_timeout, run_adb_file_command,
     run_adb_file_command_timeout,
 };
+use super::extractors::{AndroidAcquisitionProfile, logical_steps_for_profile};
 use serde::Serialize;
 use std::time::Duration;
 
@@ -26,67 +27,6 @@ pub struct LogicalAcquisitionResult {
     pub sha256: Option<String>,
     pub errors: Vec<String>,
 }
-
-const LOGICAL_STEPS: &[(&str, &str)] = &[
-    ("device_info", "device_info.txt"),
-    ("packages", "packages.txt"),
-    ("logcat", "logcat.txt"),
-    ("dumpsys_battery", "dumpsys_battery.txt"),
-    ("dumpsys_wifi", "dumpsys_wifi.txt"),
-    ("dumpsys_bluetooth", "dumpsys_bluetooth.txt"),
-    ("dumpsys_usagestats", "dumpsys_usagestats.txt"),
-    ("dumpsys_account", "dumpsys_account.txt"),
-    ("dumpsys_connectivity", "dumpsys_connectivity.txt"),
-    ("dumpsys_notification", "dumpsys_notification.txt"),
-    ("dumpsys_telephony", "dumpsys_telephony.txt"),
-    ("dumpsys_location", "dumpsys_location.txt"),
-    ("dumpsys_netstats", "dumpsys_netstats.txt"),
-    ("dumpsys_activity", "dumpsys_activity.txt"),
-    ("dumpsys_meminfo", "dumpsys_meminfo.txt"),
-    ("dumpsys_appops", "dumpsys_appops.txt"),
-    ("dumpsys_package", "dumpsys_package.txt"),
-    ("dumpsys_diskstats", "dumpsys_diskstats.txt"),
-    ("dumpsys_deviceidle", "dumpsys_deviceidle.txt"),
-    ("dumpsys_alarm", "dumpsys_alarm.txt"),
-    ("dumpsys_jobscheduler", "dumpsys_jobscheduler.txt"),
-    ("dumpsys_procstats", "dumpsys_procstats.txt"),
-    ("dumpsys_sensorservice", "dumpsys_sensorservice.txt"),
-    ("dumpsys_power", "dumpsys_power.txt"),
-    ("dumpsys_window", "dumpsys_window.txt"),
-    ("dumpsys_clipboard", "dumpsys_clipboard.txt"),
-    ("dumpsys_batterystats", "dumpsys_batterystats.txt"),
-    ("dumpsys_keystore", "dumpsys_keystore.txt"),
-    ("root_status", "root_status.txt"),
-    ("procfs_summary", "procfs_summary.txt"),
-    ("proc_memory_maps", "proc_memory_maps"),
-    ("heapdump_candidates", "heapdump_candidates.txt"),
-    ("debug_heap_dumps", "debug_heap_dumps"),
-    ("device_settings", "device_settings.txt"),
-    ("network_info", "network_info.txt"),
-    ("processes", "processes.txt"),
-    ("disk_usage", "disk_usage.txt"),
-    ("content_sms", "content_sms.txt"),
-    ("content_calls", "content_calls.txt"),
-    ("content_contacts", "content_contacts.txt"),
-    ("content_user_dictionary", "content_user_dictionary.txt"),
-    ("content_calendar", "content_calendar.txt"),
-    ("content_media_images", "content_media_images.txt"),
-    ("content_media_videos", "content_media_videos.txt"),
-    ("content_media_audio", "content_media_audio.txt"),
-    ("content_media_files", "content_media_files.txt"),
-    (
-        "content_telephony_carriers",
-        "content_telephony_carriers.txt",
-    ),
-    ("screenshot", "screenshot.png"),
-    ("whatsapp_media", "whatsapp_media"),
-    ("telegram_media", "telegram_media"),
-    ("app_media", "app_media"),
-    ("all_app_media", "all_app_media"),
-    ("adb_backup", "adb_backup.ab"),
-    ("bugreport", "bugreport.zip"),
-    ("shared_storage", "shared_storage"),
-];
 
 fn collect_shell_output(
     serial: &str,
@@ -1178,11 +1118,13 @@ where
     std::fs::create_dir_all(output_dir)
         .map_err(|err| format!("Cikti dizini olusturulamadi: {err}"))?;
 
-    let total = (LOGICAL_STEPS.len() + 2) as u32;
-    let mut items = Vec::with_capacity(LOGICAL_STEPS.len() + 1);
+    let steps = logical_steps_for_profile(AndroidAcquisitionProfile::FullLogical);
+    let total = (steps.len() + 2) as u32;
+    let mut items = Vec::with_capacity(steps.len() + 1);
     let mut errors = Vec::new();
 
-    for (step_index, (category, _file_name)) in LOGICAL_STEPS.iter().enumerate() {
+    for (step_index, step) in steps.iter().enumerate() {
+        let category = step.category;
         if cancelled() {
             errors.push("Kullanici tarafindan iptal edildi".to_string());
             break;
@@ -1190,7 +1132,7 @@ where
 
         progress(step_index as u32, total, category);
 
-        let item = match *category {
+        let item = match category {
             "device_info" => collect_device_info(serial, output_dir),
             "packages" => collect_packages(serial, output_dir),
             "logcat" => collect_logcat(serial, output_dir),
@@ -1373,7 +1315,7 @@ where
         items.push(item);
     }
 
-    progress(LOGICAL_STEPS.len() as u32, total, "mft_archive");
+    progress(steps.len() as u32, total, "mft_archive");
     match crate::android_mft::write_logical_mft_bundle(serial, output_dir) {
         Ok(bundle) => {
             items.push(AcquisitionItem {
@@ -1396,7 +1338,7 @@ where
         }
     }
 
-    progress(LOGICAL_STEPS.len() as u32 + 1, total, "analysis_outputs");
+    progress(steps.len() as u32 + 1, total, "analysis_outputs");
     match crate::android_mft::write_logical_analysis_outputs(serial, output_dir) {
         Ok(outputs) => {
             for output in outputs {
