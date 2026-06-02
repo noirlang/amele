@@ -3,7 +3,7 @@ export function androidPage({ t, icon, pageTitle, state, escapeHtml, backendRead
     <section class="page">
       ${pageTitle(t("hub.android.title"), t("hub.android.desc"), "android")}
       <div class="tool-grid android-mode-grid">
-        ${androidImageModeCard("physical", t("android.mode.physical.title"), t("android.mode.physical.desc"), "disk", "var(--text)", t("android.mode.physical.badge"), icon, escapeHtml)}
+        ${androidImageModeCard("physical", t("android.mode.physical.title"), t("android.mode.physical.desc"), "disk", "var(--text)", t("android.mode.soon"), icon, escapeHtml, { disabled: true })}
         ${androidImageModeCard("logical", t("android.mode.logical.title"), t("android.mode.logical.desc"), "android", "var(--text)", t("android.mode.logical.badge"), icon, escapeHtml)}
         ${androidImageModeCard("filesystem", t("android.mode.filesystem.title"), t("android.mode.filesystem.desc"), "folder", "var(--text)", t("android.mode.filesystem.badge"), icon, escapeHtml)}
         ${androidImageModeCard("ram", t("android.mode.ram.title") || "RAM İmajı", t("android.mode.ram.desc") || "Cihazın fiziksel belleğini (RAM) canlı olarak edinin.", "cpu", "var(--text)", t("android.mode.ram.badge") || "Fiziksel / Root", icon, escapeHtml)}
@@ -245,9 +245,12 @@ function androidMode(modeId, t) {
   return modes[modeId] || modes.logical;
 }
 
-function androidImageModeCard(modeId, title, desc, iconName, accent, badge, icon, escapeHtml) {
+function androidImageModeCard(modeId, title, desc, iconName, accent, badge, icon, escapeHtml, options = {}) {
+  const disabled = options.disabled ? " disabled aria-disabled=\"true\"" : "";
+  const route = options.disabled ? "" : ` data-route="android:${modeId}"`;
+  const disabledClass = options.disabled ? " is-disabled" : "";
   return `
-    <button class="forensic-card" data-route="android:${modeId}" style="--accent:${accent}">
+    <button class="forensic-card${disabledClass}"${route}${disabled} style="--accent:${accent}">
       <span class="card-icon">${icon(iconName)}</span>
       <h3>${escapeHtml(title)}</h3>
       <p>${escapeHtml(desc)}</p>
