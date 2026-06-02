@@ -23,7 +23,7 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
         }
         ("GET", "/api/android-devices") => match crate::android::list_devices() {
             Ok(devices) => json_ok(serde_json::json!({ "devices": devices })),
-            Err(err) => json_error(500, err),
+            Err(err) => json_error(500, crate::android::explain_android_error(err)),
         },
         ("POST", "/api/android-device-profile") => android::android_device_profile_endpoint(body),
         ("POST", "/api/android-profile-acquisition") => {

@@ -1,4 +1,5 @@
 mod adb;
+mod errors;
 mod extractors;
 mod filesystem;
 mod logical;
@@ -7,6 +8,7 @@ mod profile;
 mod ram;
 
 pub use adb::{AdbStatus, AndroidDevice, adb_status, list_devices};
+pub use errors::explain_android_error;
 pub use extractors::{
     AndroidAcquisitionProfile, AndroidExtractorStep, FULL_LOGICAL_STEPS, logical_steps_for_profile,
 };

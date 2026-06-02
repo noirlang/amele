@@ -26,7 +26,7 @@ pub fn android_device_profile_endpoint(body: &[u8]) -> Response {
 
     match android::detect_device_profile(serial) {
         Ok(profile) => json_ok(json!({ "profile": profile })),
-        Err(err) => json_error(500, err),
+        Err(err) => json_error(500, android::explain_android_error(err)),
     }
 }
 
@@ -128,7 +128,7 @@ fn run_android_profile_acquisition_job(
             );
         }
         Err(err) => {
-            fail_acquisition_job_with_message(&job_id, err, "Android profil edinimi basarisiz");
+            fail_android_job(&job_id, err, "Android profil edinimi basarisiz");
         }
     }
 }
@@ -211,7 +211,7 @@ fn run_android_logical_job(
             );
         }
         Err(err) => {
-            fail_acquisition_job_with_message(&job_id, err, "Android imaj alma basarisiz");
+            fail_android_job(&job_id, err, "Android imaj alma basarisiz");
         }
     }
 }
@@ -298,11 +298,7 @@ fn run_android_filesystem_job(
             );
         }
         Err(err) => {
-            fail_acquisition_job_with_message(
-                &job_id,
-                err,
-                "Android dosya sistemi imaj alma basarisiz",
-            );
+            fail_android_job(&job_id, err, "Android dosya sistemi imaj alma basarisiz");
         }
     }
 }
@@ -401,9 +397,13 @@ fn run_android_ram_job(
             );
         }
         Err(err) => {
-            fail_acquisition_job_with_message(&job_id, err, "Android RAM imaj alma basarisiz");
+            fail_android_job(&job_id, err, "Android RAM imaj alma basarisiz");
         }
     }
+}
+
+fn fail_android_job(job_id: &str, err: String, title: &str) {
+    fail_acquisition_job_with_message(job_id, android::explain_android_error(err), title);
 }
 
 fn android_job_should_stop(control: &ram::CancellationToken) -> bool {
