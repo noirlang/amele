@@ -275,7 +275,7 @@ fn run_android_filesystem_job(
         return;
     }
 
-    match android::filesystem_acquisition(
+    match android::orchestrated_filesystem_acquisition(
         &serial,
         &android_dir,
         has_root,
@@ -289,6 +289,7 @@ fn run_android_filesystem_job(
                 &job_id,
                 json!({
                     "message": "Android dosya sistemi imajı başarıyla tamamlandı",
+                    "device_profile": result.device_profile,
                     "output_file": result.output_file,
                     "total_bytes": result.total_bytes,
                     "sha256": result.sha256,
@@ -375,7 +376,7 @@ fn run_android_ram_job(
         return;
     }
 
-    match android::ram_acquisition_with_mode(
+    match android::orchestrated_ram_acquisition(
         &serial,
         &android_dir,
         has_root,
@@ -390,6 +391,7 @@ fn run_android_ram_job(
                 &job_id,
                 json!({
                     "message": "Android RAM imajı başarıyla tamamlandı",
+                    "device_profile": result.device_profile,
                     "output_file": result.output_file,
                     "total_bytes": result.total_bytes,
                     "sha256": result.sha256,
