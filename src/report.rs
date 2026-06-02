@@ -2,10 +2,12 @@ use crate::error::{HataKodu, WormError, WormResult};
 use crate::evidence::EvidenceVault;
 use chrono::Local;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{Value, json};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+
+const REPORT_FILE_LIMIT: usize = 40;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReportInfo {
@@ -103,7 +105,7 @@ pub fn create_report(
 
     match format {
         ReportFormat::Txt => {
-            fs::write(target, render_txt(info))
+            fs::write(target, render_txt(info, vault))
                 .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Rapor yazilamadi", err))?;
             append_system_info(target)?;
         }
@@ -119,6 +121,7 @@ pub fn create_report(
                 "tarih": info.date,
                 "hash_sha256": info.hash_sha256,
                 "sistem": system,
+                "vaka": vault.map(vault_report_json),
             });
             fs::write(target, serde_json::to_string_pretty(&content)?)
                 .map_err(|err| WormError::io(HataKodu::DosyaYazma, "JSON rapor yazilamadi", err))?;
@@ -134,7 +137,7 @@ pub fn create_report(
     Ok(target.to_path_buf())
 }
 
-fn render_txt(info: &ReportInfo) -> String {
+fn render_txt(info: &ReportInfo, vault: Option<&EvidenceVault>) -> String {
     let mut out = String::new();
     out.push_str("========================================\n");
     out.push_str("    ADLI BILISIM TEKNIK RAPORU\n");
@@ -150,10 +153,118 @@ fn render_txt(info: &ReportInfo) -> String {
         out.push_str(&info.hash_sha256);
         out.push_str("\n----------------------------------------\n");
     }
+    if let Some(vault) = vault {
+        append_vault_summary_txt(&mut out, vault);
+    }
     out.push_str("\n========================================\n");
     out.push_str("Sistem tarafindan olusturulmustur.\n");
     out.push_str("========================================\n");
     out
+}
+
+fn append_vault_summary_txt(out: &mut String, vault: &EvidenceVault) {
+    let android_count = count_files_recursive(&vault.android_dir);
+    out.push_str("\n----------------------------------------\n");
+    out.push_str("VAKA KASASI\n");
+    out.push_str(&format!("Vaka: {}\n", vault.case_name));
+    out.push_str(&format!("Klasor: {}\n", vault.case_dir.display()));
+    out.push_str(&format!(
+        "Ciktilar: {} | RAM: {} | Android: {} | Hash: {} | Rapor: {}\n",
+        count_directory_entries(&vault.outputs_dir),
+        count_directory_entries(&vault.ram_dir),
+        android_count,
+        count_directory_entries(&vault.hash_dir),
+        count_directory_entries(&vault.reports_dir)
+    ));
+    out.push_str("\nANDROID CIKTILARI\n");
+    out.push_str(&format!("Klasor: {}\n", vault.android_dir.display()));
+    if android_count == 0 {
+        out.push_str("Kayitli Android ciktisi yok.\n");
+    } else {
+        for entry in collect_file_entries(&vault.android_dir, 10) {
+            let name = entry["name"].as_str().unwrap_or_default();
+            let size = entry["size"].as_u64().unwrap_or_default();
+            out.push_str(&format!("- {name} ({size} bayt)\n"));
+        }
+        if android_count > 10 {
+            out.push_str(&format!("... {} dosya daha\n", android_count - 10));
+        }
+    }
+}
+
+fn vault_report_json(vault: &EvidenceVault) -> Value {
+    json!({
+        "case_name": &vault.case_name,
+        "case_dir": &vault.case_dir,
+        "folders": {
+            "outputs": &vault.outputs_dir,
+            "ram": &vault.ram_dir,
+            "android": &vault.android_dir,
+            "hash": &vault.hash_dir,
+            "reports": &vault.reports_dir,
+            "notes": &vault.notes_dir,
+            "logs": &vault.logs_dir,
+        },
+        "counts": {
+            "outputs": count_directory_entries(&vault.outputs_dir),
+            "ram": count_directory_entries(&vault.ram_dir),
+            "android": count_files_recursive(&vault.android_dir),
+            "hash": count_directory_entries(&vault.hash_dir),
+            "reports": count_directory_entries(&vault.reports_dir),
+        },
+        "android": {
+            "dir": &vault.android_dir,
+            "file_count": count_files_recursive(&vault.android_dir),
+            "files": collect_file_entries(&vault.android_dir, REPORT_FILE_LIMIT),
+        },
+    })
+}
+
+fn collect_file_entries(dir: &Path, limit: usize) -> Vec<Value> {
+    let mut files = Vec::new();
+    collect_paths_recursive(dir, &mut files);
+    files.sort();
+    files
+        .into_iter()
+        .take(limit)
+        .map(|path| file_entry_json(dir, path))
+        .collect()
+}
+
+fn collect_paths_recursive(dir: &Path, files: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_paths_recursive(&path, files);
+        } else {
+            files.push(path);
+        }
+    }
+}
+
+fn file_entry_json(base: &Path, path: PathBuf) -> Value {
+    let metadata = fs::metadata(&path).ok();
+    let relative = path.strip_prefix(base).unwrap_or(&path);
+    json!({
+        "name": relative.to_string_lossy(),
+        "path": path,
+        "size": metadata.map(|meta| meta.len()).unwrap_or_default(),
+    })
+}
+
+fn count_directory_entries(path: &Path) -> usize {
+    fs::read_dir(path)
+        .map(|entries| entries.flatten().count())
+        .unwrap_or_default()
+}
+
+fn count_files_recursive(path: &Path) -> usize {
+    let mut files = Vec::new();
+    collect_paths_recursive(path, &mut files);
+    files.len()
 }
 
 fn human_size(bytes: u64) -> (f64, &'static str) {
@@ -230,5 +341,29 @@ mod tests {
         let parsed: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&target).unwrap()).unwrap();
         assert_eq!(parsed["tur"], "adli_bilisim_raporu");
+    }
+
+    #[test]
+    fn json_report_includes_android_outputs() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = EvidenceVault::create(dir.path(), "case1").unwrap();
+        std::fs::write(vault.android_dir.join("device_profile.json"), "{}").unwrap();
+        let target = vault.reports_dir.join("report.json");
+        let info = ReportInfo {
+            title: "T".to_string(),
+            description: "D".to_string(),
+            creator: "C".to_string(),
+            source: "S".to_string(),
+            hash_sha256: "abc".to_string(),
+            date: "2026-05-15 00:00:00".to_string(),
+        };
+        create_report(&info, ReportFormat::Json, &target, Some(&vault)).unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&target).unwrap()).unwrap();
+        assert_eq!(parsed["vaka"]["counts"]["android"], 1);
+        assert_eq!(
+            parsed["vaka"]["android"]["files"][0]["name"],
+            "device_profile.json"
+        );
     }
 }

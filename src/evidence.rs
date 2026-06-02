@@ -11,6 +11,7 @@ pub struct EvidenceSummary {
     pub case_name: String,
     pub case_dir: PathBuf,
     pub output_count: usize,
+    pub android_count: usize,
     pub hash_count: usize,
     pub report_count: usize,
 }
@@ -21,6 +22,7 @@ pub struct EvidenceVault {
     pub logs_dir: PathBuf,
     pub outputs_dir: PathBuf,
     pub ram_dir: PathBuf,
+    pub android_dir: PathBuf,
     pub reports_dir: PathBuf,
     pub hash_dir: PathBuf,
     pub notes_dir: PathBuf,
@@ -35,6 +37,7 @@ impl EvidenceVault {
         let logs_dir = case_dir.join("gunlukler");
         let outputs_dir = case_dir.join("ciktilar");
         let ram_dir = case_dir.join("ram");
+        let android_dir = case_dir.join("android");
         let reports_dir = case_dir.join("raporlar");
         let hash_dir = case_dir.join("hash");
         let notes_dir = case_dir.join("notlar");
@@ -44,6 +47,7 @@ impl EvidenceVault {
             &logs_dir,
             &outputs_dir,
             &ram_dir,
+            &android_dir,
             &reports_dir,
             &hash_dir,
             &notes_dir,
@@ -69,6 +73,7 @@ impl EvidenceVault {
             logs_dir,
             outputs_dir,
             ram_dir,
+            android_dir,
             reports_dir,
             hash_dir,
             notes_dir,
@@ -124,6 +129,7 @@ impl EvidenceVault {
             case_name: self.case_name.clone(),
             case_dir: self.case_dir.clone(),
             output_count: self.list_files("ciktilar")?.len(),
+            android_count: self.list_files("android")?.len(),
             hash_count: self.list_files("hash")?.len(),
             report_count: self.list_files("raporlar")?.len(),
         })
@@ -134,6 +140,7 @@ impl EvidenceVault {
             "gunlukler" => &self.logs_dir,
             "ciktilar" => &self.outputs_dir,
             "ram" => &self.ram_dir,
+            "android" => &self.android_dir,
             "raporlar" => &self.reports_dir,
             "hash" => &self.hash_dir,
             "notlar" => &self.notes_dir,
@@ -152,6 +159,7 @@ mod tests {
         let vault = EvidenceVault::create(dir.path(), "case1").unwrap();
         assert!(vault.outputs_dir.is_dir());
         assert!(vault.ram_dir.is_dir());
+        assert!(vault.android_dir.is_dir());
         let note = vault.add_note("hello").unwrap();
         assert!(note.is_file());
         let summary = vault.summary().unwrap();
