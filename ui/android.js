@@ -23,6 +23,8 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
     ? installed ? t("android.adb.installed") : t("android.adb.missing")
     : t("android.adb.unknown");
   const statusDetail = status?.message || (backendReady() ? t("android.adb.checkHint") : t("android.appModeRequired"));
+  const deviceProfile = android.deviceProfile || null;
+  const acquisitionProfile = android.logicalProfile || "full_logical";
 
   const isLogical = modeId === "logical";
   const isFilesystem = modeId === "filesystem";
@@ -62,11 +64,28 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
               ${deviceOptions(devices, selected, t, escapeHtml)}
             </select>
           </div>
+          <div class="button-row" style="margin-top:12px">
+            <button class="secondary-button" data-action="android-profile-fetch" ${selected ? "" : "disabled"}>${icon("search")} ${t("android.profile.fetch")}</button>
+          </div>
+          ${deviceProfile ? `
+            <div class="log-box" style="margin-top:12px">
+              ${deviceProfileSummary(deviceProfile, t, escapeHtml)}
+            </div>
+          ` : ""}
 
           ${isLogical ? `
             <div class="section-divider"></div>
             <p class="section-label">${t("android.logical.caseTitle")}</p>
             ${casePanel("android", t("android.logical.caseHint"))}
+
+            <div class="section-divider"></div>
+            <p class="section-label">${t("android.acquisition.profileTitle")}</p>
+            <div class="field">
+              <label>${t("android.acquisition.profile")}</label>
+              <select class="select" data-android-acquisition-profile>
+                ${acquisitionProfileOptions(acquisitionProfile, t)}
+              </select>
+            </div>
 
             <div class="section-divider"></div>
             <p class="section-label">${t("android.logical.acquisitionTitle")}</p>
@@ -136,12 +155,44 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
           <h3>${t("android.side.status")}</h3>
           ${sideInfo(t("android.side.adb"), statusTitle, installed ? "shield" : "android", icon)}
           ${sideInfo(t("android.side.device"), selected || t("android.devices.none"), "android", icon)}
+          ${deviceProfile ? sideInfo(t("android.side.profile"), sideProfileSummary(deviceProfile, t), "info", icon) : ""}
           ${(isLogical || isFilesystem || isRam) && job ? sideInfo(t("android.side.lastAction"), job.message || "—", "clock", icon) : ""}
           ${(isLogical || isFilesystem || isRam) && isDone && job.result ? sideInfo(t("android.side.totalBytes"), formatBytes(job.result.total_bytes || 0), "disk", icon) : ""}
         </aside>
       </div>
     </section>
   `;
+}
+
+function acquisitionProfileOptions(selected, t) {
+  const options = [
+    ["quick_logical", t("android.acquisition.quick")],
+    ["full_logical", t("android.acquisition.full")],
+    ["root_logical", t("android.acquisition.root")],
+    ["volatile", t("android.acquisition.volatile")]
+  ];
+  return options
+    .map(([value, label]) => `<option value="${value}"${value === selected ? " selected" : ""}>${label}</option>`)
+    .join("");
+}
+
+function deviceProfileSummary(profile, t, escapeHtml) {
+  const rows = [
+    [t("android.profile.model"), profile.model || profile.device || "—"],
+    [t("android.profile.api"), profile.api_level || "—"],
+    [t("android.profile.selinux"), profile.selinux || "—"],
+    [t("android.profile.encryption"), profile.encryption || "—"],
+    [t("android.profile.root"), profile.is_rooted ? t("android.profile.rooted") : t("android.profile.notRooted")]
+  ];
+  return rows
+    .map(([label, value]) => `<div class="tree-node"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(value)}</span></div>`)
+    .join("");
+}
+
+function sideProfileSummary(profile, t) {
+  const model = profile.model || profile.device || t("unknown");
+  const root = profile.is_rooted ? t("android.profile.rooted") : t("android.profile.notRooted");
+  return `${model} · API ${profile.api_level || "?"} · ${root}`;
 }
 
 function sideInfo(title, body, iconName, icon) {
@@ -215,6 +266,10 @@ export async function handleAndroidAction(button, deps) {
     await listDevices(button, deps);
     return true;
   }
+  if (action === "android-profile-fetch") {
+    await fetchDeviceProfile(button, deps);
+    return true;
+  }
   if (action === "android-start-logical") {
     await startLogicalAcquisition(button, deps);
     return true;
@@ -245,6 +300,7 @@ export async function handleAndroidAction(button, deps) {
 export function syncAndroidDeviceSelection(select, { state, t, showToast }) {
   if (!state.android) state.android = {};
   state.android.selectedDevice = select.value;
+  state.android.deviceProfile = null;
   if (select.value) {
     showToast(t("android.devices.selected", { serial: select.value }));
   }
@@ -291,6 +347,7 @@ async function listDevices(button, { apiRequest, backendReady, state, t, showToa
     if (!state.android) state.android = {};
     state.android.devices = devices;
     state.android.selectedDevice = devices[0]?.serial || "";
+    state.android.deviceProfile = null;
     render();
     showToast(devices.length
       ? t("android.devices.listed", { count: String(devices.length) })
@@ -299,6 +356,34 @@ async function listDevices(button, { apiRequest, backendReady, state, t, showToa
     );
   } catch (error) {
     showToast(t("android.devices.listFailed", { message: error.message }), "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function fetchDeviceProfile(button, { apiRequest, backendReady, state, t, showToast, render }) {
+  if (!backendReady()) {
+    showToast(t("android.appModeRequired"), "error");
+    return;
+  }
+  if (!state.android?.selectedDevice) {
+    showToast(t("android.logical.deviceRequired"), "error");
+    return;
+  }
+
+  button.disabled = true;
+  try {
+    const result = await apiRequest("/api/android-device-profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ serial: state.android.selectedDevice }),
+    });
+    if (!state.android) state.android = {};
+    state.android.deviceProfile = result.profile || null;
+    render();
+    showToast(t("android.profile.loaded"), "success");
+  } catch (error) {
+    showToast(t("android.profile.failed", { message: error.message }), "error");
   } finally {
     button.disabled = false;
   }
@@ -315,16 +400,19 @@ async function startLogicalAcquisition(button, { apiRequest, backendReady, state
   }
 
   const caseName = resolveCase?.() || null;
+  const profileSelect = document.querySelector("[data-android-acquisition-profile]");
+  const profile = profileSelect?.value || "full_logical";
   if (!state.android) state.android = {};
+  state.android.logicalProfile = profile;
   state.android.logicalLog = [t("android.logical.starting")];
   state.android.logicalJob = null;
   render();
 
   button.disabled = true;
   try {
-    const body = { serial: state.android.selectedDevice };
+    const body = { serial: state.android.selectedDevice, profile };
     if (caseName) body.case_name = caseName;
-    const result = await apiRequest("/api/android-logical-image", {
+    const result = await apiRequest("/api/android-profile-acquisition", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
