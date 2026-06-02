@@ -203,6 +203,9 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath }) {
           ["GitHub", "https://github.com/kafkaskrtl"],
           ["LinkedIn", "https://www.linkedin.com/in/muhammetali-g%C3%BCner/"]
         ], assetPath, icon)}
+        ${contributorCard("AA", "Abdulhalim Altuntaş", t("about.role.android"), "abdulhalim.jpg", [
+          ["GitHub", "https://github.com/abdulhalimaltunas"]
+        ], assetPath, icon)}
       </div>
 
       <div class="company-logo-card">
