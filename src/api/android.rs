@@ -107,7 +107,7 @@ fn run_android_profile_acquisition_job(
                 &format!("Toplaniyor: {category}"),
             );
         },
-        || control.is_cancelled(),
+        || android_job_should_stop(&control),
     ) {
         Ok(result) => {
             let success_count = result.items.iter().filter(|i| i.success).count();
@@ -192,7 +192,7 @@ fn run_android_logical_job(
                 &format!("Toplaniyor: {category}"),
             );
         },
-        || control.is_cancelled(),
+        || android_job_should_stop(&control),
     ) {
         Ok(result) => {
             let success_count = result.items.iter().filter(|i| i.success).count();
@@ -282,7 +282,7 @@ fn run_android_filesystem_job(
         |done, total, category| {
             update_acquisition_progress_message(&job_id, done as u64, total as u64, category);
         },
-        || control.is_cancelled(),
+        || android_job_should_stop(&control),
     ) {
         Ok(result) => {
             finish_acquisition_job_with_message(
@@ -384,7 +384,7 @@ fn run_android_ram_job(
         |done, total, category| {
             update_acquisition_progress_message(&job_id, done as u64, total as u64, category);
         },
-        || control.is_cancelled(),
+        || android_job_should_stop(&control),
     ) {
         Ok(result) => {
             finish_acquisition_job_with_message(
@@ -404,4 +404,14 @@ fn run_android_ram_job(
             fail_acquisition_job_with_message(&job_id, err, "Android RAM imaj alma basarisiz");
         }
     }
+}
+
+fn android_job_should_stop(control: &ram::CancellationToken) -> bool {
+    while control.is_paused() {
+        if control.is_cancelled() {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(250));
+    }
+    control.is_cancelled()
 }

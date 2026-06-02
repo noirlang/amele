@@ -33,6 +33,8 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
     ? (android.logicalJob || null) 
     : (isFilesystem ? (android.filesystemJob || null) : (android.ramJob || null));
   const isRunning = job?.status === "running";
+  const isPaused = job?.status === "paused";
+  const isActive = isRunning || isPaused;
   const isDone = job?.status === "completed";
   const isFailed = job?.status === "failed";
   const progressValue = job && job.total > 0 ? Math.round((job.done / job.total) * 100) : 0;
@@ -90,8 +92,10 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             <div class="section-divider"></div>
             <p class="section-label">${t("android.logical.acquisitionTitle")}</p>
             <div class="button-row">
-              <button class="primary-button" data-action="android-start-logical" ${isRunning ? "disabled" : ""}>${icon("android")} ${t("android.logical.start")}</button>
-              ${isRunning ? `<button class="danger-button" data-action="android-stop-logical">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
+              <button class="primary-button" data-action="android-start-logical" ${isActive ? "disabled" : ""}>${icon("android")} ${t("android.logical.start")}</button>
+              ${isRunning ? `<button class="secondary-button" data-action="android-pause-logical">${icon("pause")} ${t("workflow.pause")}</button>` : ""}
+              ${isPaused ? `<button class="secondary-button" data-action="android-resume-logical">${icon("play")} ${t("workflow.resume")}</button>` : ""}
+              ${isActive ? `<button class="danger-button" data-action="android-stop-logical">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
             </div>
 
             <div class="section-divider"></div>
@@ -115,8 +119,10 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             <div class="section-divider"></div>
             <p class="section-label">${t("android.filesystem.acquisitionTitle") || "Aktarım"}</p>
             <div class="button-row">
-              <button class="primary-button" data-action="android-start-filesystem" ${isRunning ? "disabled" : ""}>${icon("folder")} ${t("android.filesystem.start") || "Dosya Sistem İmajını Al"}</button>
-              ${isRunning ? `<button class="danger-button" data-action="android-stop-filesystem">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
+              <button class="primary-button" data-action="android-start-filesystem" ${isActive ? "disabled" : ""}>${icon("folder")} ${t("android.filesystem.start") || "Dosya Sistem İmajını Al"}</button>
+              ${isRunning ? `<button class="secondary-button" data-action="android-pause-filesystem">${icon("pause")} ${t("workflow.pause")}</button>` : ""}
+              ${isPaused ? `<button class="secondary-button" data-action="android-resume-filesystem">${icon("play")} ${t("workflow.resume")}</button>` : ""}
+              ${isActive ? `<button class="danger-button" data-action="android-stop-filesystem">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
             </div>
 
             <div class="section-divider"></div>
@@ -146,8 +152,10 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             <div class="section-divider"></div>
             <p class="section-label">${t("android.ram.acquisitionTitle") || "Aktarım"}</p>
             <div class="button-row">
-              <button class="primary-button" data-action="android-start-ram" ${isRunning ? "disabled" : ""}>${icon("cpu")} ${t("android.ram.start") || "RAM İmajını Al"}</button>
-              ${isRunning ? `<button class="danger-button" data-action="android-stop-ram">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
+              <button class="primary-button" data-action="android-start-ram" ${isActive ? "disabled" : ""}>${icon("cpu")} ${t("android.ram.start") || "RAM İmajını Al"}</button>
+              ${isRunning ? `<button class="secondary-button" data-action="android-pause-ram">${icon("pause")} ${t("workflow.pause")}</button>` : ""}
+              ${isPaused ? `<button class="secondary-button" data-action="android-resume-ram">${icon("play")} ${t("workflow.resume")}</button>` : ""}
+              ${isActive ? `<button class="danger-button" data-action="android-stop-ram">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
             </div>
 
             <div class="section-divider"></div>
@@ -298,6 +306,14 @@ export async function handleAndroidAction(button, deps) {
     await stopLogicalAcquisition(button, deps);
     return true;
   }
+  if (action === "android-pause-logical") {
+    await controlAndroidAcquisition(button, "logical", "pause", deps);
+    return true;
+  }
+  if (action === "android-resume-logical") {
+    await controlAndroidAcquisition(button, "logical", "resume", deps);
+    return true;
+  }
   if (action === "android-start-filesystem") {
     await startFilesystemAcquisition(button, deps);
     return true;
@@ -306,12 +322,28 @@ export async function handleAndroidAction(button, deps) {
     await stopFilesystemAcquisition(button, deps);
     return true;
   }
+  if (action === "android-pause-filesystem") {
+    await controlAndroidAcquisition(button, "filesystem", "pause", deps);
+    return true;
+  }
+  if (action === "android-resume-filesystem") {
+    await controlAndroidAcquisition(button, "filesystem", "resume", deps);
+    return true;
+  }
   if (action === "android-start-ram") {
     await startRamAcquisition(button, deps);
     return true;
   }
   if (action === "android-stop-ram") {
     await stopRamAcquisition(button, deps);
+    return true;
+  }
+  if (action === "android-pause-ram") {
+    await controlAndroidAcquisition(button, "ram", "pause", deps);
+    return true;
+  }
+  if (action === "android-resume-ram") {
+    await controlAndroidAcquisition(button, "ram", "resume", deps);
     return true;
   }
   return false;
@@ -452,21 +484,7 @@ async function startLogicalAcquisition(button, { apiRequest, backendReady, state
 }
 
 async function stopLogicalAcquisition(button, { apiRequest, backendReady, state, t, showToast, render }) {
-  if (!state.android?.logicalJob?.job_id) return;
-
-  button.disabled = true;
-  try {
-    await apiRequest("/api/acquisition-control", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ job_id: state.android.logicalJob.job_id, action: "stop" }),
-    });
-    showToast(t("android.logical.stopped"), "success");
-  } catch (error) {
-    showToast(error.message, "error");
-  } finally {
-    button.disabled = false;
-  }
+  await controlAndroidAcquisition(button, "logical", "stop", { apiRequest, backendReady, state, t, showToast, render });
 }
 
 function pollLogicalJob(jobId, { apiRequest, state, t, showToast, render }) {
@@ -559,21 +577,7 @@ async function startFilesystemAcquisition(button, { apiRequest, backendReady, st
 }
 
 async function stopFilesystemAcquisition(button, { apiRequest, backendReady, state, t, showToast, render }) {
-  if (!state.android?.filesystemJob?.job_id) return;
-
-  button.disabled = true;
-  try {
-    await apiRequest("/api/acquisition-control", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ job_id: state.android.filesystemJob.job_id, action: "stop" }),
-    });
-    showToast(t("android.logical.stopped"), "success");
-  } catch (error) {
-    showToast(error.message, "error");
-  } finally {
-    button.disabled = false;
-  }
+  await controlAndroidAcquisition(button, "filesystem", "stop", { apiRequest, backendReady, state, t, showToast, render });
 }
 
 function pollFilesystemJob(jobId, { apiRequest, state, t, showToast, render }) {
@@ -670,16 +674,22 @@ async function startRamAcquisition(button, { apiRequest, backendReady, state, t,
 }
 
 async function stopRamAcquisition(button, { apiRequest, backendReady, state, t, showToast, render }) {
-  if (!state.android?.ramJob?.job_id) return;
+  await controlAndroidAcquisition(button, "ram", "stop", { apiRequest, backendReady, state, t, showToast, render });
+}
+
+async function controlAndroidAcquisition(button, kind, action, { apiRequest, state, t, showToast, render }) {
+  const job = state.android?.[`${kind}Job`];
+  if (!job?.job_id) return;
 
   button.disabled = true;
   try {
-    await apiRequest("/api/acquisition-control", {
+    const result = await apiRequest("/api/acquisition-control", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ job_id: state.android.ramJob.job_id, action: "stop" }),
+      body: JSON.stringify({ job_id: job.job_id, action }),
     });
-    showToast(t("android.logical.stopped"), "success");
+    showToast(result.message || t("android.control.sent"), "success");
+    render();
   } catch (error) {
     showToast(error.message, "error");
   } finally {
