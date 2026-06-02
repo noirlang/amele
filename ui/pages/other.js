@@ -204,7 +204,8 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath }) {
           ["LinkedIn", "https://www.linkedin.com/in/muhammetali-g%C3%BCner/"]
         ], assetPath, icon)}
         ${contributorCard("AA", "Abdulhalim Altuntaş", t("about.role.android"), "abdulhalim.jpg", [
-          ["GitHub", "https://github.com/abdulhalimaltunas"]
+          ["GitHub", "https://github.com/abdulhalimaltuntas"],
+          ["LinkedIn", "https://www.linkedin.com/in/abdulhalim-altunta%C5%9F-7992672b5/"]
         ], assetPath, icon)}
       </div>
 
