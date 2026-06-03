@@ -1,13 +1,33 @@
 use crate::android;
+use crate::android_analysis;
 use crate::api::{
     create_acquisition_job, evidence_vault_for_output, fail_acquisition_job_with_message,
-    finish_acquisition_job_with_message, update_acquisition_progress_message,
+    finish_acquisition_job_with_message, report_evidence_vault,
+    update_acquisition_progress_message,
 };
 use crate::ram;
 use crate::server::{Response, json_error, json_ok};
 use serde::Deserialize;
 use serde_json::json;
 use std::thread;
+
+pub fn android_case_analysis_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct AndroidAnalysisRequest {
+        case_name: Option<String>,
+    }
+
+    let request: AndroidAnalysisRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let vault = match report_evidence_vault(request.case_name.as_deref()) {
+        Ok(vault) => vault,
+        Err(response) => return response,
+    };
+    let report = android_analysis::analyze_android_case(&vault.case_name, &vault.android_dir);
+    json_ok(serde_json::to_value(report).unwrap_or(serde_json::Value::Null))
+}
 
 pub fn android_device_profile_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]

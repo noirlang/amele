@@ -34,6 +34,7 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
             android::android_filesystem_image_endpoint(body)
         }
         ("POST", "/api/android-ram-image") => android::android_ram_image_endpoint(body),
+        ("POST", "/api/android-case-analysis") => android::android_case_analysis_endpoint(body),
         ("GET", "/api/ram-status") => json_ok(serde_json::json!({
             "avml": crate::ram::avml_status(None),
             "winpmem": crate::ram::winpmem_status(None),
