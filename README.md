@@ -50,7 +50,7 @@ Uygulama Rust backend üzerinde çalışır. Arayüz Linux'ta GTK/WebKit, Window
 | Vaka yönetimi | Sabit `~/Worm/Vakalar` altında vaka klasörleri, notlar, çıktılar ve raporlar |
 | Hash | MD5, SHA1, SHA256 ve SHA512 hesaplama |
 | İmaj görüntüleme | Linux salt-okunur loop mount, Windows salt-okunur disk mount |
-| Android araçları | ADB kontrolü ve Android edinim türleri için modüler araç sayfası |
+| Android araçları | ADB kontrolü, mantıksal/dosya sistemi/uçucu veri edinimi ve vaka çıktısı analizi |
 | Güncelleme | GitHub release kontrolü, paket indirme, SHA256 doğrulama ve installer başlatma |
 
 ### İndirme
@@ -152,7 +152,8 @@ Agent bağlantısı uygulama içinden IP, port ve opsiyonel token ile yapılır.
 ├── {ip}_{disk}_{tarih}.img.sha256
 ├── {ip}_{disk}_{tarih}.img.md5
 ├── ram_{tarih}.raw
-└── ram_{tarih}.raw.sha256
+├── ram_{tarih}.raw.sha256
+└── android/
 ```
 
 ### CI
@@ -216,7 +217,7 @@ The application runs on a Rust backend. The UI opens as a real desktop window: G
 | Case management | Case folders, notes, outputs, and reports under fixed `~/Worm/Vakalar` |
 | Hashing | MD5, SHA1, SHA256, and SHA512 calculation |
 | Image viewing | Linux read-only loop mount, Windows read-only disk mount |
-| Android tools | Modular Android page for ADB checks and Android acquisition types |
+| Android tools | ADB checks, logical/filesystem/volatile acquisition, and case output analysis |
 | Updates | GitHub release check, package download, SHA256 verification, installer launch |
 
 ### Downloads
@@ -318,7 +319,8 @@ Agent connections are configured in the application with IP, port, and optional 
 ├── {ip}_{disk}_{date}.img.sha256
 ├── {ip}_{disk}_{date}.img.md5
 ├── ram_{date}.raw
-└── ram_{date}.raw.sha256
+├── ram_{date}.raw.sha256
+└── android/
 ```
 
 ### CI

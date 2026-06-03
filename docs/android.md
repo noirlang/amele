@@ -9,8 +9,9 @@
 | Aşama | Yetki | Durum | Açıklama |
 |-------|-------|-------|----------|
 | **Mantıksal İmaj** | Root gerektirmez | ✅ Aktif | ADB ile erişilebilen tüm veriler |
-| **Dosya Sistemi İmajı** | Root / exploit | 🔜 Planlanıyor | Protected alanlar dahil dosya sistemi |
-| **Fiziksel İmaj** | Bootloader / EDL | 🔜 Planlanıyor | En düşük seviye bit-by-bit imaj |
+| **Dosya Sistemi İmajı** | Root / exploit | ✅ Aktif | `/data` blok imajı veya dosya sistemi arşivi |
+| **Uçucu Veri** | ADB / root opsiyonel | ✅ Aktif | Bellek, proses, procstats ve logcat özeti |
+| **Fiziksel İmaj** | Bootloader / EDL | 🔜 Yakında | En düşük seviye bit-by-bit imaj |
 
 ### Mantıksal İmaj — Toplanan Veriler (50 Adım)
 
@@ -121,7 +122,7 @@ WhatsApp Business, Instagram, Facebook Messenger, Facebook, Viber, Google Messag
 
 | Adım | Dosya | Açıklama |
 |------|-------|----------|
-| `bugreport` | `bugreport-*.zip` | Kapsamlı tanı dosyası (logcat + tüm dumpsys + kernel log + vs.) |
+| `bugreport` | `bugreport.zip` | Kapsamlı tanı dosyası (logcat + tüm dumpsys + kernel log + vs.) |
 | `shared_storage` | `shared_storage/` | Dahili depolamadaki tüm kullanıcı dosyaları: DCIM, Download, Documents, Pictures, Music vb. |
 
 #### Manifest
@@ -130,6 +131,31 @@ WhatsApp Business, Instagram, Facebook Messenger, Facebook, Viber, Google Messag
 |-------|----------|
 | `manifest.json` | Toplanan tüm verilerin özeti: kategori, dosya adı, boyut, başarı durumu |
 | `manifest.json.sha256` | Manifest dosyasının SHA-256 hash'i — bütünlük doğrulaması |
+
+#### Dosya Sistemi İmajı
+
+| Dosya | Açıklama |
+|-------|----------|
+| `userdata.img` | Root ile `/data` bölümünden alınan blok imajı |
+| `filesystem.tar` | Blok aygıtı çözülemediğinde root ile alınan dosya sistemi arşivi |
+| `*.sha256` | Alınan dosyanın SHA-256 bütünlük çıktısı |
+
+#### Uçucu Veri
+
+| Dosya | Açıklama |
+|-------|----------|
+| `android_volatile_data.txt` | `/proc/meminfo`, `/proc/vmstat`, uptime, proses listesi, `dumpsys meminfo`, `dumpsys procstats`, activity prosesleri ve son logcat çıktısı |
+| `android_volatile_data.txt.sha256` | Uçucu veri çıktısının SHA-256 hash'i |
+
+#### Analiz Çıktıları
+
+| Dosya | Açıklama |
+|-------|----------|
+| `evidence.json` | Mantıksal kayıtlardan oluşturulan yapılandırılmış kanıt verisi |
+| `mobile_report.txt` | Android edinimi için okunabilir özet rapor |
+| `timeline.json` | Arama, SMS, medya, ağ, konum ve proses olaylarından zaman çizelgesi |
+| `correlations.json` | Kişi, arama ve SMS korelasyonları |
+| `device_profile.json` | Cihaz üretici, model, Android sürümü, SDK ve güvenlik yaması bilgisi |
 
 
 ### Çıktı Klasör Yapısı
@@ -163,9 +189,9 @@ WhatsApp Business, Instagram, Facebook Messenger, Facebook, Viber, Google Messag
 ├── dumpsys_sensorservice.txt
 ├── dumpsys_power.txt
 ├── dumpsys_window.txt
-├── dumpsys_clipboard.txt         <-- YENİ (Kopyalanan veriler)
-├── dumpsys_batterystats.txt      <-- YENİ (Detaylı cihaz zaman çizelgesi)
-├── dumpsys_keystore.txt          <-- YENİ (Güvenlik & Key anahtar takma adları)
+├── dumpsys_clipboard.txt
+├── dumpsys_batterystats.txt
+├── dumpsys_keystore.txt
 ├── device_settings.txt
 ├── network_info.txt
 ├── content_sms.txt
@@ -175,9 +201,9 @@ WhatsApp Business, Instagram, Facebook Messenger, Facebook, Viber, Google Messag
 ├── content_calendar.txt
 ├── content_media_images.txt
 ├── content_media_videos.txt
-├── content_media_audio.txt       <-- YENİ (Ses kayıtları meta-verileri)
-├── content_media_files.txt       <-- YENİ (Tüm harici dosyaların indeksi)
-├── content_telephony_carriers.txt <-- YENİ (Operatör ve internet ayarları)
+├── content_media_audio.txt
+├── content_media_files.txt
+├── content_telephony_carriers.txt
 ├── screenshot.png
 ├── whatsapp_media/
 ├── telegram_media/
@@ -189,10 +215,17 @@ WhatsApp Business, Instagram, Facebook Messenger, Facebook, Viber, Google Messag
 │   └── ... (26 uygulama)
 ├── all_app_media/
 ├── adb_backup.ab
-├── bugreport-*.zip
+├── bugreport.zip
 ├── shared_storage/
 ├── manifest.json
-└── manifest.json.sha256
+├── manifest.json.sha256
+├── userdata.img veya filesystem.tar
+├── android_volatile_data.txt
+├── evidence.json
+├── mobile_report.txt
+├── timeline.json
+├── correlations.json
+└── device_profile.json
 ```
 
 ---
@@ -204,8 +237,9 @@ WhatsApp Business, Instagram, Facebook Messenger, Facebook, Viber, Google Messag
 | Phase | Privilege | Status | Description |
 |-------|-----------|--------|-------------|
 | **Logical Image** | No root required | ✅ Active | All data accessible via ADB |
-| **File System Image** | Root / exploit | 🔜 Planned | File system including protected areas |
-| **Physical Image** | Bootloader / EDL | 🔜 Planned | Lowest level bit-by-bit image |
+| **File System Image** | Root / exploit | ✅ Active | `/data` block image or file system archive |
+| **Volatile Data** | ADB / optional root | ✅ Active | Memory, process, procstats, and logcat summary |
+| **Physical Image** | Bootloader / EDL | 🔜 Soon | Lowest level bit-by-bit image |
 
 ### Logical Image — Collected Data (50 Steps)
 
@@ -316,7 +350,7 @@ WhatsApp Business, Instagram, Facebook Messenger, Facebook, Viber, Google Messag
 
 | Step | File | Description |
 |------|------|-------------|
-| `bugreport` | `bugreport-*.zip` | Comprehensive diagnostic (logcat + all dumpsys + kernel log + more) |
+| `bugreport` | `bugreport.zip` | Comprehensive diagnostic (logcat + all dumpsys + kernel log + more) |
 | `shared_storage` | `shared_storage/` | All user files from internal storage: DCIM, Download, Documents, Pictures, Music, etc. |
 
 #### Manifest
@@ -325,3 +359,28 @@ WhatsApp Business, Instagram, Facebook Messenger, Facebook, Viber, Google Messag
 |------|-------------|
 | `manifest.json` | Summary of all collected data: category, filename, size, success status |
 | `manifest.json.sha256` | SHA-256 hash of the manifest file — integrity verification |
+
+#### File System Image
+
+| File | Description |
+|------|-------------|
+| `userdata.img` | Block image captured from `/data` with root |
+| `filesystem.tar` | File system archive captured with root when the block device cannot be resolved |
+| `*.sha256` | SHA-256 integrity output for the acquired file |
+
+#### Volatile Data
+
+| File | Description |
+|------|-------------|
+| `android_volatile_data.txt` | `/proc/meminfo`, `/proc/vmstat`, uptime, process list, `dumpsys meminfo`, `dumpsys procstats`, activity processes, and recent logcat output |
+| `android_volatile_data.txt.sha256` | SHA-256 hash of the volatile output |
+
+#### Analysis Outputs
+
+| File | Description |
+|------|-------------|
+| `evidence.json` | Structured evidence generated from logical records |
+| `mobile_report.txt` | Readable Android acquisition summary |
+| `timeline.json` | Timeline from calls, SMS, media, network, location, and process events |
+| `correlations.json` | Contact, call, and SMS correlations |
+| `device_profile.json` | Manufacturer, model, Android release, SDK, and security patch details |
