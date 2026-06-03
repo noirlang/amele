@@ -11,7 +11,6 @@ pub struct EvidenceCaseState {
 
 #[derive(Clone)]
 pub struct ImageMountState {
-    #[cfg(windows)]
     pub image_path: PathBuf,
     pub mount_dir: PathBuf,
     #[cfg(target_os = "linux")]
