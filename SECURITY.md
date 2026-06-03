@@ -20,7 +20,7 @@ Older builds should be upgraded before reporting a defect unless the issue is ne
 
 Do not open a public issue for suspected security vulnerabilities.
 
-Send the report privately to the maintainer or use GitHub private vulnerability reporting if it is enabled for the repository.
+Send vulnerability reports to `security@noirlang.tr`.
 
 Include only the information needed to reproduce the issue:
 
