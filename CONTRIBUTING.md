@@ -2,11 +2,11 @@
 
 <img src="ui/assets/logo/logo.png" alt="Worm Logo" width="96" />
 
-# Contributors
+# Contributing
 
 *How to support Worm Forensic Tool.*
 
-[Repository](https://github.com/noirlang/worm) | [Website](https://worm.noirlang.tr) | [Issues](https://github.com/noirlang/worm/issues)
+[Repository](https://github.com/noirlang/worm) | [Website](https://worm.noirlang.tr) | [Issues](https://github.com/noirlang/worm/issues) | [Security](SECURITY.md)
 
 </div>
 
@@ -38,20 +38,8 @@ For platform-specific work, also test the affected flow:
 - Android ADB, logical, filesystem, volatile, or analysis flow
 - Image viewing, hashing, reporting, or update checks
 
-## Security
+## Security Reports
 
 Do not publish real case data, memory dumps, disk images, tokens, IP addresses, or private logs in issues or pull requests.
 
-Report suspected security issues privately to the maintainer before opening a public issue.
-
-## Contributor List
-
-Individual names are not maintained manually in this file. GitHub renders the live contributor list from repository history.
-
-<div align="center">
-
-<a href="https://github.com/noirlang/worm/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=noirlang/worm" alt="Worm GitHub contributors" />
-</a>
-
-</div>
+For suspected vulnerabilities, follow [SECURITY.md](SECURITY.md).

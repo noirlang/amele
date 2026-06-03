@@ -6,7 +6,7 @@
 
 *Collect digital evidence in one place. Disk, RAM, and Android acquisition.*
 
-[Website](https://worm.noirlang.tr) | [Releases](https://github.com/noirlang/worm/releases) | [Linux Agent](https://github.com/noirlang/worm-linux) | [Windows Agent](https://github.com/noirlang/worm-win)
+[Website](https://worm.noirlang.tr) | [Releases](https://github.com/noirlang/worm/releases) | [Contributing](CONTRIBUTING.md) | [Security](SECURITY.md) | [Linux Agent](https://github.com/noirlang/worm-linux) | [Windows Agent](https://github.com/noirlang/worm-win)
 
 <video src="https://github.com/user-attachments/assets/1b57bf23-cf54-4f0e-b3b3-f745d298ba09" width="700" controls></video>
 
