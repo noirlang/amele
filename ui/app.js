@@ -331,6 +331,9 @@ function render() {
   if (state.route === "other" && ["evidence", "reports"].includes(state.activeTab)) {
     loadEvidenceCases();
   }
+  if (state.route === "analysis") {
+    loadEvidenceCases();
+  }
   if (state.route.startsWith("workflow:")) {
     const workflow = workflows[state.route.split(":")[1]];
     if (workflow && workflow.mode.includes("disk")) loadEvidenceCases();
@@ -1066,6 +1069,96 @@ async function handleAction(button) {
       showToast(t("analysis.unmounted"));
     } catch (error) {
       showToast(t("analysis.unmountFailed", { message: error.message }), "error");
+    }
+    return;
+  }
+
+  if (action === "image-analyze") {
+    const imagePath = document.querySelector("#image-path")?.value.trim();
+    if (!imagePath || imagePath.startsWith(".")) {
+      showToast(t("analysis.imageRequired"), "error");
+      return;
+    }
+    const container = document.querySelector("#disk-analysis-results");
+    if (container) {
+      container.style.display = "block";
+      container.innerHTML = `<div class="log-box">${escapeHtml(t("analysis.runningAnalysis"))}</div>`;
+    }
+    try {
+      const result = await apiRequest("/api/image-analyze", {
+        method: "POST",
+        body: JSON.stringify({ path: imagePath })
+      });
+      if (container) {
+        container.innerHTML = renderDiskAnalysisSummary(result);
+        hydrateIcons(container);
+      }
+      showToast(t("analysis.doneAnalysis"));
+    } catch (error) {
+      if (container) container.innerHTML = `<div class="log-box" style="color:#ff5f68">${escapeHtml(t("analysis.summaryFailed", { message: error.message }))}</div>`;
+      showToast(t("analysis.summaryFailed", { message: error.message }), "error");
+    }
+    return;
+  }
+
+  if (action === "ram-summary") {
+    const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
+    if (!ramPath || ramPath.startsWith(".")) {
+      showToast("Önce geçerli bir RAM dosyası seçin / Select a valid RAM file first", "error");
+      return;
+    }
+    document.querySelector("#ram-analysis-results").style.display = "block";
+    document.querySelector("#ram-split-view").style.display = "none";
+    document.querySelector("#ram-flat-results-panel").style.display = "block";
+    const statusLbl = document.querySelector("#stat-status-lbl");
+    if (statusLbl) statusLbl.textContent = t("analysis.runningAnalysis");
+    const flatTitle = document.querySelector("#ram-flat-title");
+    const flatResults = document.querySelector("#ram-flat-results-list");
+    if (flatTitle) flatTitle.textContent = t("analysis.ramSummary");
+    if (flatResults) flatResults.innerHTML = `<div class="log-box">${escapeHtml(t("analysis.runningAnalysis"))}</div>`;
+    try {
+      const result = await apiRequest("/api/ram-analyze-summary", {
+        method: "POST",
+        body: JSON.stringify({ path: ramPath })
+      });
+      document.querySelector("#stat-strings-count").textContent = String(result.string_match_count || 0);
+      document.querySelector("#stat-carved-count").textContent = "-";
+      document.querySelector("#stat-procs-count").textContent = String(result.process_count || 0);
+      if (statusLbl) statusLbl.textContent = t("analysis.doneAnalysis");
+      if (flatResults) {
+        flatResults.innerHTML = renderRamAnalysisSummary(result);
+        hydrateIcons(flatResults);
+      }
+      showToast(t("analysis.doneAnalysis"));
+    } catch (error) {
+      if (statusLbl) statusLbl.textContent = "Hata / Failed";
+      if (flatResults) flatResults.innerHTML = `<div class="log-box" style="color:#ff5f68">${escapeHtml(t("analysis.summaryFailed", { message: error.message }))}</div>`;
+      showToast(t("analysis.summaryFailed", { message: error.message }), "error");
+    }
+    return;
+  }
+
+  if (action === "android-analysis") {
+    const caseName = document.querySelector("#android-analysis-case")?.value.trim();
+    if (!caseName) {
+      showToast(t("analysis.androidRequired"), "error");
+      return;
+    }
+    const container = document.querySelector("#android-analysis-results");
+    if (container) container.innerHTML = `<div class="log-box">${escapeHtml(t("analysis.runningAnalysis"))}</div>`;
+    try {
+      const result = await apiRequest("/api/android-case-analysis", {
+        method: "POST",
+        body: JSON.stringify({ case_name: caseName })
+      });
+      if (container) {
+        container.innerHTML = renderAndroidAnalysisSummary(result);
+        hydrateIcons(container);
+      }
+      showToast(t("analysis.doneAnalysis"));
+    } catch (error) {
+      if (container) container.innerHTML = `<div class="log-box" style="color:#ff5f68">${escapeHtml(t("analysis.summaryFailed", { message: error.message }))}</div>`;
+      showToast(t("analysis.summaryFailed", { message: error.message }), "error");
     }
     return;
   }
@@ -1890,6 +1983,101 @@ function setAnalysisStatus(status, log) {
   const logNode = document.querySelector("[data-analysis-log]");
   if (statusNode) statusNode.textContent = status;
   if (logNode) logNode.innerHTML = log;
+}
+
+function renderDiskAnalysisSummary(result) {
+  const partitions = Array.isArray(result.partitions) ? result.partitions : [];
+  const filesystems = Array.isArray(result.filesystems) ? result.filesystems : [];
+  const mounted = result.mounted || null;
+  return `
+    <p class="section-label">${t("analysis.diskSummary")}</p>
+    <div class="hash-grid">
+      ${analysisMetric("İmaj", escapeHtml(result.image_type || "-"))}
+      ${analysisMetric("Boyut", formatBytes(result.size || 0))}
+      ${analysisMetric("Bölüm", escapeHtml(result.partition_scheme || "-"))}
+      ${analysisMetric("FS", String(filesystems.length))}
+    </div>
+    ${analysisList("Bölümler", partitions.map((part) => `${part.index}. ${part.scheme} ${part.type_name} LBA ${part.start_lba} · ${formatBytes(part.size || 0)}`))}
+    ${analysisList("Dosya sistemi imzaları", filesystems.map((fs) => `${fs.source}: ${fs.fs_type} @ ${fs.offset}`))}
+    ${mounted ? `
+      <div class="section-divider"></div>
+      <div class="hash-grid">
+        ${analysisMetric("Dosya", String(mounted.file_count || 0))}
+        ${analysisMetric("Klasör", String(mounted.directory_count || 0))}
+        ${analysisMetric("Görünen veri", formatBytes(mounted.total_visible_bytes || 0))}
+        ${analysisMetric("Taranan", String(mounted.scanned_entries || 0))}
+      </div>
+      ${analysisList("Uzantılar", (mounted.top_extensions || []).map((item) => `${item.extension}: ${item.count}`))}
+      ${analysisList("En büyük dosyalar", (mounted.largest_files || []).map((item) => `${item.path} · ${formatBytes(item.size || 0)}`))}
+    ` : ""}
+    ${analysisList("Uyarılar", result.warnings || [], "warning")}
+    ${analysisList("Öneriler", result.recommendations || [])}
+  `;
+}
+
+function renderRamAnalysisSummary(result) {
+  return `
+    <div class="hash-grid">
+      ${analysisMetric("Tip", escapeHtml(result.dump_type || "-"))}
+      ${analysisMetric("Boyut", formatBytes(result.size || 0))}
+      ${analysisMetric("Entropi", Number(result.entropy_sample || 0).toFixed(2))}
+      ${analysisMetric("IOC", String(result.string_match_count || 0))}
+    </div>
+    ${analysisList("Kategori sayımları", (result.category_counts || []).map((item) => `${item.category}: ${item.count}`))}
+    ${analysisList("Proses özeti", (result.largest_processes || []).map((proc) => `${proc.pid} ${proc.name} · ${formatBytes(proc.dump_size || 0)}`))}
+    ${analysisList("Örnek bulgular", (result.sample_matches || []).slice(0, 20).map((item) => `${item.category} @ 0x${Number(item.offset || 0).toString(16).toUpperCase()}: ${item.value}`))}
+    ${analysisList("Uyarılar", result.warnings || [], "warning")}
+    ${analysisList("Öneriler", result.recommendations || [])}
+  `;
+}
+
+function renderAndroidAnalysisSummary(result) {
+  const profile = result.device_profile || {};
+  const profileBits = [
+    profile.manufacturer,
+    profile.model,
+    profile.android_release ? `Android ${profile.android_release}` : "",
+    profile.security_patch ? `Patch ${profile.security_patch}` : ""
+  ].filter(Boolean).join(" · ");
+  return `
+    <p class="section-label">${t("analysis.androidSummary")}</p>
+    <div class="hash-grid">
+      ${analysisMetric("Vaka", escapeHtml(result.case_name || "-"))}
+      ${analysisMetric("Kayıt", String(result.record_count || 0))}
+      ${analysisMetric("Timeline", String(result.timeline_event_count || 0))}
+      ${analysisMetric("Korelasyon", String(result.correlation_count || 0))}
+    </div>
+    ${profileBits ? `<div class="side-info"><span class="metric-icon">${icon("android")}</span><span><strong>Cihaz</strong><small>${escapeHtml(profileBits)}</small></span></div>` : ""}
+    ${analysisList("Kayıt türleri", (result.record_types || []).map((item) => `${item.record_type}: ${item.count}`))}
+    ${analysisList("Önemli timeline olayları", (result.recent_events || []).slice(0, 15).map((event) => `${event.type || "event"} [${event.severity || 0}] ${event.summary || ""}`))}
+    ${analysisList("Uçucu veri bölümleri", result.volatile_sections || [])}
+    ${analysisList("Dosyalar", (result.files || []).slice(0, 20).map((file) => `${file.name} · ${formatBytes(file.size || 0)}`))}
+    ${result.report_preview ? `<div class="section-divider"></div><pre class="log-box" style="white-space:pre-wrap;max-height:260px">${escapeHtml(result.report_preview)}</pre>` : ""}
+    ${analysisList("Uyarılar", result.warnings || [], "warning")}
+    ${analysisList("Öneriler", result.recommendations || [])}
+  `;
+}
+
+function analysisMetric(label, value) {
+  return `
+    <div class="hash-result">
+      <small>${escapeHtml(label)}</small>
+      <strong>${value}</strong>
+    </div>
+  `;
+}
+
+function analysisList(title, items, tone = "") {
+  const safeItems = Array.isArray(items) ? items.filter((item) => String(item || "").trim()) : [];
+  if (!safeItems.length) return "";
+  const color = tone === "warning" ? " style=\"color:#ffb86b\"" : "";
+  return `
+    <div class="section-divider"></div>
+    <p class="section-label"${color}>${escapeHtml(title)}</p>
+    <div class="strings-results-list">
+      ${safeItems.map((item) => `<div class="string-match-item"><div class="match-value">${escapeHtml(String(item))}</div></div>`).join("")}
+    </div>
+  `;
 }
 
 function renderTree(node, depth = 0) {

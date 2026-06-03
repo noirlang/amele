@@ -1,4 +1,4 @@
-export function analysisPage({ t, icon, state, pageTitle, pickerField }) {
+export function analysisPage({ t, icon, state, pageTitle, pickerField, caseSelectOptions }) {
   const activeTab = state.activeAnalysisTab || "image";
   return `
     <section class="page">
@@ -11,10 +11,15 @@ export function analysisPage({ t, icon, state, pageTitle, pickerField }) {
         <button class="analysis-tab-btn ${activeTab === "ram" ? "active" : ""}" data-analysis-tab="ram">
           ${icon("shield")} ${t("analysis.tabRam")}
         </button>
+        <button class="analysis-tab-btn ${activeTab === "android" ? "active" : ""}" data-analysis-tab="android">
+          ${icon("android")} ${t("analysis.tabAndroid")}
+        </button>
       </div>
 
       <div id="analysis-content">
-        ${activeTab === "image" ? renderImageAnalysis({ t, icon, state, pickerField }) : renderRamAnalysis({ t, icon, state, pickerField })}
+        ${activeTab === "image" ? renderImageAnalysis({ t, icon, state, pickerField }) : ""}
+        ${activeTab === "ram" ? renderRamAnalysis({ t, icon, state, pickerField }) : ""}
+        ${activeTab === "android" ? renderAndroidAnalysis({ t, icon, state, caseSelectOptions }) : ""}
       </div>
     </section>
   `;
@@ -29,6 +34,7 @@ function renderImageAnalysis({ t, icon, state, pickerField }) {
       <p class="field-hint">${t("analysis.hint")}</p>
       ${pickerField(t("analysis.imageFile"), "image-path", defaultPath, "file")}
       <div class="button-row">
+        <button class="primary-button" data-action="image-analyze">${icon("search")} ${t("analysis.btnDiskSummary")}</button>
         <button class="primary-button" data-action="mount-readonly">${icon("disk")} ${t("analysis.mount")}</button>
         <button class="danger-button" data-action="unmount-image">${icon("stop")} ${t("analysis.unmount")}</button>
       </div>
@@ -58,6 +64,7 @@ function renderImageAnalysis({ t, icon, state, pickerField }) {
           </div>
         </div>
       </div>
+      <div id="disk-analysis-results" class="workflow-panel" style="display:none;padding:16px;margin-top:14px"></div>
     </div>
   `;
 }
@@ -71,6 +78,7 @@ function renderRamAnalysis({ t, icon, state, pickerField }) {
       ${pickerField(t("analysis.ramFile"), "ram-analysis-path", defaultPath, "file")}
       
       <div class="button-row" style="margin-top:14px">
+        <button class="primary-button" data-action="ram-summary">${icon("search")} ${t("analysis.btnRamSummary")}</button>
         <button class="primary-button" data-action="ram-strings">${icon("shield")} ${t("analysis.btnStrings")}</button>
         <button class="primary-button" data-action="ram-carver">${icon("disk")} ${t("analysis.btnCarver")}</button>
         <button class="primary-button" data-action="ram-processes">${icon("menu")} ${t("analysis.btnProcess")}</button>
@@ -139,6 +147,31 @@ function renderRamAnalysis({ t, icon, state, pickerField }) {
             <!-- Matches list -->
           </div>
         </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAndroidAnalysis({ t, icon, state, caseSelectOptions }) {
+  return `
+    <div class="workflow-panel">
+      <p class="section-label">${t("analysis.tabAndroid")}</p>
+      <p class="field-hint">${t("analysis.androidHint")}</p>
+      <div class="form-grid">
+        <label class="field">
+          <span>${t("report.case")}</span>
+          <select id="android-analysis-case" class="select" data-case-select>
+            ${caseSelectOptions(state.activeCase?.case_name)}
+          </select>
+        </label>
+      </div>
+      <div class="button-row" style="margin-top:14px">
+        <button class="primary-button" data-action="android-analysis">${icon("android")} ${t("analysis.btnAndroidSummary")}</button>
+        <button class="secondary-button" data-action="refresh-cases">${icon("refresh")} ${t("case.refresh")}</button>
+      </div>
+      <div class="section-divider"></div>
+      <div id="android-analysis-results" class="workflow-panel" style="padding:16px">
+        <div class="log-box">${t("analysis.androidWaiting")}</div>
       </div>
     </div>
   `;
