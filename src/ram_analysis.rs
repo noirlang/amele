@@ -1,9 +1,13 @@
 use regex::bytes::Regex;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::Path;
 use tar::Archive;
+
+const RAM_SAMPLE_LIMIT: usize = 16 * 1024 * 1024;
+const RAM_MATCH_SAMPLE_LIMIT: usize = 80;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RamStringMatch {
@@ -40,6 +44,76 @@ pub struct MemoryMapEntry {
     pub pathname: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RamAnalysisSummary {
+    pub file_path: String,
+    pub file_name: String,
+    pub size: u64,
+    pub dump_type: String,
+    pub entropy_sample: f64,
+    pub string_match_count: usize,
+    pub category_counts: Vec<RamCategoryCount>,
+    pub sample_matches: Vec<RamStringMatch>,
+    pub process_count: usize,
+    pub largest_processes: Vec<ActiveProcessInfo>,
+    pub warnings: Vec<String>,
+    pub recommendations: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RamCategoryCount {
+    pub category: String,
+    pub count: usize,
+}
+
+pub fn analyze_ram_summary(file_path: &Path) -> io::Result<RamAnalysisSummary> {
+    let metadata = fs::metadata(file_path)?;
+    let dump_type = detect_ram_dump_type(file_path)?;
+    let entropy_sample = sample_entropy(file_path)?;
+    let matches = analyze_ram_strings(file_path)?;
+    let mut counts = BTreeMap::new();
+    for item in &matches {
+        *counts.entry(item.category.clone()).or_insert(0_usize) += 1;
+    }
+    let category_counts = counts
+        .into_iter()
+        .map(|(category, count)| RamCategoryCount { category, count })
+        .collect::<Vec<_>>();
+
+    let largest_processes = if dump_type == "Worm process archive" {
+        list_tar_processes(file_path).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    let process_count = largest_processes.len();
+    let sample_matches = matches
+        .iter()
+        .take(RAM_MATCH_SAMPLE_LIMIT)
+        .cloned()
+        .collect::<Vec<_>>();
+    let warnings = ram_warnings(metadata.len(), &dump_type, entropy_sample, &matches);
+    let recommendations = ram_recommendations(&dump_type, process_count, matches.len());
+
+    Ok(RamAnalysisSummary {
+        file_path: file_path.to_string_lossy().into_owned(),
+        file_name: file_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default()
+            .to_string(),
+        size: metadata.len(),
+        dump_type,
+        entropy_sample,
+        string_match_count: matches.len(),
+        category_counts,
+        sample_matches,
+        process_count,
+        largest_processes: largest_processes.into_iter().take(20).collect(),
+        warnings,
+        recommendations,
+    })
+}
+
 /// Analyze a memory dump (or process dump) for volatile string patterns.
 pub fn analyze_ram_strings(file_path: &Path) -> io::Result<Vec<RamStringMatch>> {
     let mut file = File::open(file_path)?;
@@ -58,6 +132,10 @@ pub fn analyze_ram_strings(file_path: &Path) -> io::Result<Vec<RamStringMatch>> 
             "URL / Web Adresi",
             Regex::new(r"https?://[a-zA-Z0-9./?=&_-]+").unwrap(),
         ),
+        (
+            "Alan Adı",
+            Regex::new(r"\b[a-zA-Z0-9.-]+\.(?:com|net|org|io|tr|dev|app|gov|edu)\b").unwrap(),
+        ),
         ("Telefon Numarası", Regex::new(r"\+?[0-9]{9,15}").unwrap()),
         (
             "Mesajlaşma İzleri",
@@ -65,6 +143,19 @@ pub fn analyze_ram_strings(file_path: &Path) -> io::Result<Vec<RamStringMatch>> 
                 r"(?:chat\.whatsapp\.com|telegram\.me|t\.me|wa\.me|whatsapp\.net|telegram\.org)",
             )
             .unwrap(),
+        ),
+        (
+            "Kimlik Bilgisi Anahtar Kelimesi",
+            Regex::new(r"(?i)(password|passwd|pwd|token|secret|apikey|api_key|authorization)")
+                .unwrap(),
+        ),
+        (
+            "JWT Benzeri Token",
+            Regex::new(r"eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}").unwrap(),
+        ),
+        (
+            "Dosya Yolu",
+            Regex::new(r"(?:[A-Za-z]:\\[A-Za-z0-9_ .\\/-]{6,}|/[A-Za-z0-9_./-]{6,})").unwrap(),
         ),
     ];
 
@@ -142,6 +233,101 @@ pub fn analyze_ram_strings(file_path: &Path) -> io::Result<Vec<RamStringMatch>> 
     }
 
     Ok(results)
+}
+
+fn detect_ram_dump_type(path: &Path) -> io::Result<String> {
+    let mut file = File::open(path)?;
+    let mut header = [0_u8; 512];
+    let read = file.read(&mut header)?;
+    let ext = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+
+    if read > 265 && &header[257..262] == b"ustar" {
+        Ok("Worm process archive".to_string())
+    } else if ext == "tar" {
+        Ok("TAR archive".to_string())
+    } else if read >= 4 && &header[0..4] == b"\x7FELF" {
+        Ok("Process memory segment".to_string())
+    } else if ext == "raw" || ext == "bin" || ext == "mem" {
+        Ok("Raw memory image".to_string())
+    } else {
+        Ok("Unknown memory artifact".to_string())
+    }
+}
+
+fn sample_entropy(path: &Path) -> io::Result<f64> {
+    let mut file = File::open(path)?;
+    let mut counts = [0_u64; 256];
+    let mut total = 0_u64;
+    let mut buffer = [0_u8; 64 * 1024];
+    while total < RAM_SAMPLE_LIMIT as u64 {
+        let read = file.read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        let remaining = RAM_SAMPLE_LIMIT.saturating_sub(total as usize);
+        let usable = read.min(remaining);
+        for byte in &buffer[..usable] {
+            counts[*byte as usize] += 1;
+        }
+        total += usable as u64;
+    }
+    if total == 0 {
+        return Ok(0.0);
+    }
+    let total_f = total as f64;
+    let entropy = counts
+        .iter()
+        .filter(|count| **count > 0)
+        .map(|count| {
+            let p = *count as f64 / total_f;
+            -p * p.log2()
+        })
+        .sum();
+    Ok(entropy)
+}
+
+fn ram_warnings(
+    size: u64,
+    dump_type: &str,
+    entropy: f64,
+    matches: &[RamStringMatch],
+) -> Vec<String> {
+    let mut warnings = Vec::new();
+    if size < 1024 * 1024 {
+        warnings.push("Bellek artefacti cok kucuk; tam RAM imaji olmayabilir.".to_string());
+    }
+    if dump_type == "Unknown memory artifact" {
+        warnings.push(
+            "Dosya tipi taninamadi; raw dump, proses segmenti veya tar arsivi olmayabilir."
+                .to_string(),
+        );
+    }
+    if entropy > 7.7 && matches.is_empty() {
+        warnings.push("Yuksek entropi ve az dizgi var; sikistirilmis/sifreli veri veya uyumsuz format olabilir.".to_string());
+    }
+    warnings
+}
+
+fn ram_recommendations(dump_type: &str, process_count: usize, match_count: usize) -> Vec<String> {
+    let mut recommendations = Vec::new();
+    if dump_type == "Worm process archive" && process_count > 0 {
+        recommendations
+            .push("Prosesleri tek tek secip maps ve proses ici arama ile inceleyin.".to_string());
+    }
+    if dump_type == "Raw memory image" {
+        recommendations.push(
+            "Raw imaj icin strings ve carving sonuclarini hashli rapora ekleyin.".to_string(),
+        );
+    }
+    if match_count > 0 {
+        recommendations
+            .push("IOC dizgilerini kategori ve offset bilgisiyle rapora tasiyin.".to_string());
+    }
+    recommendations
 }
 
 /// Carves files out of a raw RAM dump based on binary magic headers and footers.
