@@ -41,7 +41,7 @@ export function detailPanel({ tab, t, icon, state, pickerField, field, escapeHtm
       <div class="status-badge" data-case-status>${icon("info")} ${state.activeCase ? t("case.created", { path: state.activeCase.case_dir }) : t("case.notCreated")}</div>
       <div class="section-divider"></div>
       <p class="section-label">${t("case.files")}</p>
-      ${field(t("case.folder"), `<select id="case-folder" class="select"><option value="ciktilar">${t("case.outputs")}</option><option value="disk_imajlari">${t("case.diskImages")}</option><option value="ram">${t("case.ram")}</option><option value="raporlar">${t("case.reports")}</option><option value="hash">${t("case.hash")}</option><option value="notlar">${t("case.notes")}</option><option value="gunlukler">${t("case.logs")}</option></select>`)}
+      ${field(t("case.folder"), `<select id="case-folder" class="select"><option value="ciktilar">${t("case.outputs")}</option><option value="disk_imajlari">${t("case.diskImages")}</option><option value="ram">${t("case.ram")}</option><option value="android">${t("case.android")}</option><option value="raporlar">${t("case.reports")}</option><option value="hash">${t("case.hash")}</option><option value="notlar">${t("case.notes")}</option><option value="gunlukler">${t("case.logs")}</option></select>`)}
       ${field(t("case.file"), `<select id="case-file-list" class="select"><option>${t("case.listFilesPlaceholder")}</option></select>`)}
       <div class="button-row">
         <button class="secondary-button" data-action="list-files">${icon("search")} ${t("case.listFiles")}</button>
@@ -202,6 +202,10 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath }) {
         ${contributorCard("MG", "Muhammet Ali Güner", t("about.role.linux"), "muhammet-ali-guner.jpg", [
           ["GitHub", "https://github.com/kafkaskrtl"],
           ["LinkedIn", "https://www.linkedin.com/in/muhammetali-g%C3%BCner/"]
+        ], assetPath, icon)}
+        ${contributorCard("AA", "Abdulhalim Altuntaş", t("about.role.android"), "abdulhalim.jpg", [
+          ["GitHub", "https://github.com/abdulhalimaltuntas"],
+          ["LinkedIn", "https://www.linkedin.com/in/abdulhalim-altunta%C5%9F-7992672b5/"]
         ], assetPath, icon)}
       </div>
 

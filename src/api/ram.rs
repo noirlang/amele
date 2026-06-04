@@ -960,6 +960,25 @@ pub fn ram_analyze_strings_endpoint(body: &[u8]) -> Response {
     }
 }
 
+pub fn ram_analyze_summary_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = Path::new(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
+    }
+    match ram_analysis::analyze_ram_summary(path) {
+        Ok(summary) => json_ok(serde_json::to_value(summary).unwrap_or(Value::Null)),
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+
 pub fn ram_carve_files_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {

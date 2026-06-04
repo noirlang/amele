@@ -1,4 +1,7 @@
 import { androidModePage, androidPage, handleAndroidAction, syncAndroidDeviceSelection } from "./android.js";
+import { createApiRequest } from "./core/api.js";
+import { detectPlatform, platformLabel as platformName } from "./core/platform.js";
+import { canonicalRamFileName, compactLogLine, escapeHtml, formatBytes } from "./core/utils.js";
 import { icon, hydrateIcons, fontIcons } from "./icons.js";
 import { translate } from "./i18n.js";
 import { homePage, metric } from "./pages/home.js";
@@ -9,7 +12,7 @@ import { analysisPage } from "./pages/analysis.js";
 import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel } from "./pages/other.js";
 import { workflowPage, pickerField, field, pageTitle, casePanel } from "./pages/workflow.js";
 
-const APP_VERSION = "v0.0.9";
+const APP_VERSION = "v0.0.10";
 const assetPath = "./assets";
 const backendAvailable = location.protocol === "http:" || location.protocol === "https:";
 const urlParams = new URLSearchParams(window.location.search);
@@ -51,20 +54,11 @@ const state = {
   lastLog: initialLogMessages(preferredLanguage)
 };
 
-function detectPlatform() {
-  const override = new URLSearchParams(window.location.search).get("platform");
-  if (["windows", "linux", "android", "mac"].includes(override || "")) return override;
-  const text = `${navigator.userAgent} ${navigator.platform}`.toLowerCase();
-  if (text.includes("android")) return "android";
-  if (text.includes("win")) return "windows";
-  if (text.includes("linux")) return "linux";
-  if (text.includes("mac")) return "mac";
-  return "unknown";
-}
-
 function t(key, vars = {}) {
   return translate(state.language, key, vars);
 }
+
+const apiRequest = createApiRequest({ backendAvailable });
 
 function boundDetailPanel(tab) {
   return detailPanel({
@@ -337,6 +331,9 @@ function render() {
   if (state.route === "other" && ["evidence", "reports"].includes(state.activeTab)) {
     loadEvidenceCases();
   }
+  if (state.route === "analysis") {
+    loadEvidenceCases();
+  }
   if (state.route.startsWith("workflow:")) {
     const workflow = workflows[state.route.split(":")[1]];
     if (workflow && workflow.mode.includes("disk")) loadEvidenceCases();
@@ -395,11 +392,7 @@ function toolHub(platform) {
 }
 
 function platformLabel(platform) {
-  if (platform === "windows") return "Windows";
-  if (platform === "linux") return "Linux";
-  if (platform === "android") return "Android";
-  if (platform === "mac") return "macOS";
-  return t("unknown");
+  return platformName(platform, t("unknown"));
 }
 
 
@@ -432,66 +425,6 @@ const routes = {
   settings: settingsPage,
   about: aboutPage
 };
-
-async function apiRequest(path, options = {}) {
-  const headers = new Headers(options.headers || {});
-  if (options.body && !headers.has("content-type")) {
-    headers.set("content-type", "application/json");
-  }
-  let response;
-  try {
-    response = await fetch(path, { ...options, headers });
-  } catch (error) {
-    throw new Error(formatBackendConnectionError(path, error));
-  }
-  const text = await response.text();
-  let data = {};
-  if (text) {
-    try {
-      data = JSON.parse(text);
-    } catch {
-      throw new Error(formatInvalidResponseError(path, response, text));
-    }
-  }
-  if (!response.ok) {
-    throw new Error(formatApiError(path, response, data));
-  }
-  return data;
-}
-
-function formatBackendConnectionError(path, error) {
-  return [
-    "Backend bağlantısı kurulamadı.",
-    `İstek: ${path}`,
-    `Ayrıntı: ${error?.message || error || "fetch failed"}`,
-    backendAvailable
-      ? "Çözüm: Uygulama backend süreci kapanmış olabilir; Worm'u yeniden başlatın."
-      : "Çözüm: Bu işlem sadece masaüstü uygulama modunda çalışır."
-  ].join("\n");
-}
-
-function formatInvalidResponseError(path, response, text) {
-  const body = String(text || "").trim().slice(0, 900) || "(boş yanıt)";
-  return [
-    "Backend geçersiz yanıt döndürdü.",
-    `HTTP: ${response.status} ${response.statusText || ""}`.trim(),
-    `İstek: ${path}`,
-    `Yanıt: ${body}`,
-    "Çözüm: Uygulama dosyaları eksik olabilir veya endpoint beklenmeyen HTML/metin döndürmüş olabilir."
-  ].join("\n");
-}
-
-function formatApiError(path, response, data) {
-  const lines = [
-    data.error || response.statusText || "İşlem başarısız.",
-    `HTTP: ${response.status} ${response.statusText || ""}`.trim(),
-    `İstek: ${path}`
-  ];
-  if (data.code) lines.push(`Kod: ${data.code}`);
-  if (data.detail && data.detail !== data.error) lines.push(`Neden: ${data.detail}`);
-  if (data.suggestion) lines.push(`Çözüm: ${data.suggestion}`);
-  return lines.filter(Boolean).join("\n");
-}
 
 function isExternalUrl(url) {
   try {
@@ -642,23 +575,6 @@ function stableDefaultCaseName() {
   return state.cachedDefaultCaseName;
 }
 
-function timestampForFileName(date = new Date()) {
-  const pad = (value) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
-}
-
-function sanitizeFileStem(value) {
-  return String(value || "")
-    .trim()
-    .replace(/[<>:"/\\|?*\x00-\x1F\s]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-}
-
-function canonicalRamFileName(remoteIp = "", date = new Date()) {
-  const ip = sanitizeFileStem(remoteIp);
-  return `${ip ? `${ip}_` : ""}ram_${timestampForFileName(date)}.raw`;
-}
-
 function selectedTargetName() {
   const select = document.querySelector("[data-field='target']");
   const option = select?.selectedOptions?.[0];
@@ -738,28 +654,6 @@ function requireActiveConnection(workflow, payload) {
     return false;
   }
   return true;
-}
-
-function formatBytes(bytes) {
-  const value = Number(bytes || 0);
-  if (!Number.isFinite(value) || value <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
-  let size = value;
-  let unit = 0;
-  while (size >= 1024 && unit < units.length - 1) {
-    size /= 1024;
-    unit += 1;
-  }
-  return `${size.toFixed(size >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }
 
 document.addEventListener("click", (event) => {
@@ -1179,6 +1073,96 @@ async function handleAction(button) {
     return;
   }
 
+  if (action === "image-analyze") {
+    const imagePath = document.querySelector("#image-path")?.value.trim();
+    if (!imagePath || imagePath.startsWith(".")) {
+      showToast(t("analysis.imageRequired"), "error");
+      return;
+    }
+    const container = document.querySelector("#disk-analysis-results");
+    if (container) {
+      container.style.display = "block";
+      container.innerHTML = `<div class="log-box">${escapeHtml(t("analysis.runningAnalysis"))}</div>`;
+    }
+    try {
+      const result = await apiRequest("/api/image-analyze", {
+        method: "POST",
+        body: JSON.stringify({ path: imagePath })
+      });
+      if (container) {
+        container.innerHTML = renderDiskAnalysisSummary(result);
+        hydrateIcons(container);
+      }
+      showToast(t("analysis.doneAnalysis"));
+    } catch (error) {
+      if (container) container.innerHTML = `<div class="log-box" style="color:#ff5f68">${escapeHtml(t("analysis.summaryFailed", { message: error.message }))}</div>`;
+      showToast(t("analysis.summaryFailed", { message: error.message }), "error");
+    }
+    return;
+  }
+
+  if (action === "ram-summary") {
+    const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
+    if (!ramPath || ramPath.startsWith(".")) {
+      showToast("Önce geçerli bir RAM dosyası seçin / Select a valid RAM file first", "error");
+      return;
+    }
+    document.querySelector("#ram-analysis-results").style.display = "block";
+    document.querySelector("#ram-split-view").style.display = "none";
+    document.querySelector("#ram-flat-results-panel").style.display = "block";
+    const statusLbl = document.querySelector("#stat-status-lbl");
+    if (statusLbl) statusLbl.textContent = t("analysis.runningAnalysis");
+    const flatTitle = document.querySelector("#ram-flat-title");
+    const flatResults = document.querySelector("#ram-flat-results-list");
+    if (flatTitle) flatTitle.textContent = t("analysis.ramSummary");
+    if (flatResults) flatResults.innerHTML = `<div class="log-box">${escapeHtml(t("analysis.runningAnalysis"))}</div>`;
+    try {
+      const result = await apiRequest("/api/ram-analyze-summary", {
+        method: "POST",
+        body: JSON.stringify({ path: ramPath })
+      });
+      document.querySelector("#stat-strings-count").textContent = String(result.string_match_count || 0);
+      document.querySelector("#stat-carved-count").textContent = "-";
+      document.querySelector("#stat-procs-count").textContent = String(result.process_count || 0);
+      if (statusLbl) statusLbl.textContent = t("analysis.doneAnalysis");
+      if (flatResults) {
+        flatResults.innerHTML = renderRamAnalysisSummary(result);
+        hydrateIcons(flatResults);
+      }
+      showToast(t("analysis.doneAnalysis"));
+    } catch (error) {
+      if (statusLbl) statusLbl.textContent = "Hata / Failed";
+      if (flatResults) flatResults.innerHTML = `<div class="log-box" style="color:#ff5f68">${escapeHtml(t("analysis.summaryFailed", { message: error.message }))}</div>`;
+      showToast(t("analysis.summaryFailed", { message: error.message }), "error");
+    }
+    return;
+  }
+
+  if (action === "android-analysis") {
+    const caseName = document.querySelector("#android-analysis-case")?.value.trim();
+    if (!caseName) {
+      showToast(t("analysis.androidRequired"), "error");
+      return;
+    }
+    const container = document.querySelector("#android-analysis-results");
+    if (container) container.innerHTML = `<div class="log-box">${escapeHtml(t("analysis.runningAnalysis"))}</div>`;
+    try {
+      const result = await apiRequest("/api/android-case-analysis", {
+        method: "POST",
+        body: JSON.stringify({ case_name: caseName })
+      });
+      if (container) {
+        container.innerHTML = renderAndroidAnalysisSummary(result);
+        hydrateIcons(container);
+      }
+      showToast(t("analysis.doneAnalysis"));
+    } catch (error) {
+      if (container) container.innerHTML = `<div class="log-box" style="color:#ff5f68">${escapeHtml(t("analysis.summaryFailed", { message: error.message }))}</div>`;
+      showToast(t("analysis.summaryFailed", { message: error.message }), "error");
+    }
+    return;
+  }
+
   if (action === "ram-strings") {
     const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
     if (!ramPath || ramPath.startsWith(".")) {
@@ -1543,10 +1527,6 @@ async function pickFolder(targetSelector) {
     document.body.appendChild(input);
     input.click();
   });
-}
-
-function compactLogLine(message) {
-  return String(message || "").replace(/\s+/g, " ").trim();
 }
 
 function writeWorkflowLog(message) {
@@ -2003,6 +1983,101 @@ function setAnalysisStatus(status, log) {
   const logNode = document.querySelector("[data-analysis-log]");
   if (statusNode) statusNode.textContent = status;
   if (logNode) logNode.innerHTML = log;
+}
+
+function renderDiskAnalysisSummary(result) {
+  const partitions = Array.isArray(result.partitions) ? result.partitions : [];
+  const filesystems = Array.isArray(result.filesystems) ? result.filesystems : [];
+  const mounted = result.mounted || null;
+  return `
+    <p class="section-label">${t("analysis.diskSummary")}</p>
+    <div class="hash-grid">
+      ${analysisMetric("İmaj", escapeHtml(result.image_type || "-"))}
+      ${analysisMetric("Boyut", formatBytes(result.size || 0))}
+      ${analysisMetric("Bölüm", escapeHtml(result.partition_scheme || "-"))}
+      ${analysisMetric("FS", String(filesystems.length))}
+    </div>
+    ${analysisList("Bölümler", partitions.map((part) => `${part.index}. ${part.scheme} ${part.type_name} LBA ${part.start_lba} · ${formatBytes(part.size || 0)}`))}
+    ${analysisList("Dosya sistemi imzaları", filesystems.map((fs) => `${fs.source}: ${fs.fs_type} @ ${fs.offset}`))}
+    ${mounted ? `
+      <div class="section-divider"></div>
+      <div class="hash-grid">
+        ${analysisMetric("Dosya", String(mounted.file_count || 0))}
+        ${analysisMetric("Klasör", String(mounted.directory_count || 0))}
+        ${analysisMetric("Görünen veri", formatBytes(mounted.total_visible_bytes || 0))}
+        ${analysisMetric("Taranan", String(mounted.scanned_entries || 0))}
+      </div>
+      ${analysisList("Uzantılar", (mounted.top_extensions || []).map((item) => `${item.extension}: ${item.count}`))}
+      ${analysisList("En büyük dosyalar", (mounted.largest_files || []).map((item) => `${item.path} · ${formatBytes(item.size || 0)}`))}
+    ` : ""}
+    ${analysisList("Uyarılar", result.warnings || [], "warning")}
+    ${analysisList("Öneriler", result.recommendations || [])}
+  `;
+}
+
+function renderRamAnalysisSummary(result) {
+  return `
+    <div class="hash-grid">
+      ${analysisMetric("Tip", escapeHtml(result.dump_type || "-"))}
+      ${analysisMetric("Boyut", formatBytes(result.size || 0))}
+      ${analysisMetric("Entropi", Number(result.entropy_sample || 0).toFixed(2))}
+      ${analysisMetric("IOC", String(result.string_match_count || 0))}
+    </div>
+    ${analysisList("Kategori sayımları", (result.category_counts || []).map((item) => `${item.category}: ${item.count}`))}
+    ${analysisList("Proses özeti", (result.largest_processes || []).map((proc) => `${proc.pid} ${proc.name} · ${formatBytes(proc.dump_size || 0)}`))}
+    ${analysisList("Örnek bulgular", (result.sample_matches || []).slice(0, 20).map((item) => `${item.category} @ 0x${Number(item.offset || 0).toString(16).toUpperCase()}: ${item.value}`))}
+    ${analysisList("Uyarılar", result.warnings || [], "warning")}
+    ${analysisList("Öneriler", result.recommendations || [])}
+  `;
+}
+
+function renderAndroidAnalysisSummary(result) {
+  const profile = result.device_profile || {};
+  const profileBits = [
+    profile.manufacturer,
+    profile.model,
+    profile.android_release ? `Android ${profile.android_release}` : "",
+    profile.security_patch ? `Patch ${profile.security_patch}` : ""
+  ].filter(Boolean).join(" · ");
+  return `
+    <p class="section-label">${t("analysis.androidSummary")}</p>
+    <div class="hash-grid">
+      ${analysisMetric("Vaka", escapeHtml(result.case_name || "-"))}
+      ${analysisMetric("Kayıt", String(result.record_count || 0))}
+      ${analysisMetric("Timeline", String(result.timeline_event_count || 0))}
+      ${analysisMetric("Korelasyon", String(result.correlation_count || 0))}
+    </div>
+    ${profileBits ? `<div class="side-info"><span class="metric-icon">${icon("android")}</span><span><strong>Cihaz</strong><small>${escapeHtml(profileBits)}</small></span></div>` : ""}
+    ${analysisList("Kayıt türleri", (result.record_types || []).map((item) => `${item.record_type}: ${item.count}`))}
+    ${analysisList("Önemli timeline olayları", (result.recent_events || []).slice(0, 15).map((event) => `${event.type || "event"} [${event.severity || 0}] ${event.summary || ""}`))}
+    ${analysisList("Uçucu veri bölümleri", result.volatile_sections || [])}
+    ${analysisList("Dosyalar", (result.files || []).slice(0, 20).map((file) => `${file.name} · ${formatBytes(file.size || 0)}`))}
+    ${result.report_preview ? `<div class="section-divider"></div><pre class="log-box" style="white-space:pre-wrap;max-height:260px">${escapeHtml(result.report_preview)}</pre>` : ""}
+    ${analysisList("Uyarılar", result.warnings || [], "warning")}
+    ${analysisList("Öneriler", result.recommendations || [])}
+  `;
+}
+
+function analysisMetric(label, value) {
+  return `
+    <div class="hash-result">
+      <small>${escapeHtml(label)}</small>
+      <strong>${value}</strong>
+    </div>
+  `;
+}
+
+function analysisList(title, items, tone = "") {
+  const safeItems = Array.isArray(items) ? items.filter((item) => String(item || "").trim()) : [];
+  if (!safeItems.length) return "";
+  const color = tone === "warning" ? " style=\"color:#ffb86b\"" : "";
+  return `
+    <div class="section-divider"></div>
+    <p class="section-label"${color}>${escapeHtml(title)}</p>
+    <div class="strings-results-list">
+      ${safeItems.map((item) => `<div class="string-match-item"><div class="match-value">${escapeHtml(String(item))}</div></div>`).join("")}
+    </div>
+  `;
 }
 
 function renderTree(node, depth = 0) {

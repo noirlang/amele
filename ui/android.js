@@ -3,10 +3,10 @@ export function androidPage({ t, icon, pageTitle, state, escapeHtml, backendRead
     <section class="page">
       ${pageTitle(t("hub.android.title"), t("hub.android.desc"), "android")}
       <div class="tool-grid android-mode-grid">
-        ${androidImageModeCard("physical", t("android.mode.physical.title"), t("android.mode.physical.desc"), "disk", "var(--text)", t("android.mode.physical.badge"), icon, escapeHtml)}
+        ${androidImageModeCard("physical", t("android.mode.physical.title"), t("android.mode.physical.desc"), "disk", "var(--text)", t("android.mode.soon"), icon, escapeHtml, { disabled: true })}
         ${androidImageModeCard("logical", t("android.mode.logical.title"), t("android.mode.logical.desc"), "android", "var(--text)", t("android.mode.logical.badge"), icon, escapeHtml)}
         ${androidImageModeCard("filesystem", t("android.mode.filesystem.title"), t("android.mode.filesystem.desc"), "folder", "var(--text)", t("android.mode.filesystem.badge"), icon, escapeHtml)}
-        ${androidImageModeCard("ram", t("android.mode.ram.title") || "RAM İmajı", t("android.mode.ram.desc") || "Cihazın fiziksel belleğini (RAM) canlı olarak edinin.", "cpu", "var(--text)", t("android.mode.ram.badge") || "Fiziksel / Root", icon, escapeHtml)}
+        ${androidImageModeCard("ram", t("android.mode.ram.title"), t("android.mode.ram.desc"), "cpu", "var(--text)", t("android.mode.ram.badge"), icon, escapeHtml)}
       </div>
     </section>
   `;
@@ -23,6 +23,8 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
     ? installed ? t("android.adb.installed") : t("android.adb.missing")
     : t("android.adb.unknown");
   const statusDetail = status?.message || (backendReady() ? t("android.adb.checkHint") : t("android.appModeRequired"));
+  const deviceProfile = android.deviceProfile || null;
+  const acquisitionProfile = android.logicalProfile || "full_logical";
 
   const isLogical = modeId === "logical";
   const isFilesystem = modeId === "filesystem";
@@ -31,6 +33,8 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
     ? (android.logicalJob || null) 
     : (isFilesystem ? (android.filesystemJob || null) : (android.ramJob || null));
   const isRunning = job?.status === "running";
+  const isPaused = job?.status === "paused";
+  const isActive = isRunning || isPaused;
   const isDone = job?.status === "completed";
   const isFailed = job?.status === "failed";
   const progressValue = job && job.total > 0 ? Math.round((job.done / job.total) * 100) : 0;
@@ -62,6 +66,14 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
               ${deviceOptions(devices, selected, t, escapeHtml)}
             </select>
           </div>
+          <div class="button-row" style="margin-top:12px">
+            <button class="secondary-button" data-action="android-profile-fetch" ${selected ? "" : "disabled"}>${icon("search")} ${t("android.profile.fetch")}</button>
+          </div>
+          ${deviceProfile ? `
+            <div class="log-box" style="margin-top:12px">
+              ${deviceProfileSummary(deviceProfile, t, escapeHtml)}
+            </div>
+          ` : ""}
 
           ${isLogical ? `
             <div class="section-divider"></div>
@@ -69,10 +81,21 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             ${casePanel("android", t("android.logical.caseHint"))}
 
             <div class="section-divider"></div>
+            <p class="section-label">${t("android.acquisition.profileTitle")}</p>
+            <div class="field">
+              <label>${t("android.acquisition.profile")}</label>
+              <select class="select" data-android-acquisition-profile>
+                ${acquisitionProfileOptions(acquisitionProfile, t)}
+              </select>
+            </div>
+
+            <div class="section-divider"></div>
             <p class="section-label">${t("android.logical.acquisitionTitle")}</p>
             <div class="button-row">
-              <button class="primary-button" data-action="android-start-logical" ${isRunning ? "disabled" : ""}>${icon("android")} ${t("android.logical.start")}</button>
-              ${isRunning ? `<button class="danger-button" data-action="android-stop-logical">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
+              <button class="primary-button" data-action="android-start-logical" ${isActive ? "disabled" : ""}>${icon("android")} ${t("android.logical.start")}</button>
+              ${isRunning ? `<button class="secondary-button" data-action="android-pause-logical">${icon("pause")} ${t("workflow.pause")}</button>` : ""}
+              ${isPaused ? `<button class="secondary-button" data-action="android-resume-logical">${icon("play")} ${t("workflow.resume")}</button>` : ""}
+              ${isActive ? `<button class="danger-button" data-action="android-stop-logical">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
             </div>
 
             <div class="section-divider"></div>
@@ -96,8 +119,10 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             <div class="section-divider"></div>
             <p class="section-label">${t("android.filesystem.acquisitionTitle") || "Aktarım"}</p>
             <div class="button-row">
-              <button class="primary-button" data-action="android-start-filesystem" ${isRunning ? "disabled" : ""}>${icon("folder")} ${t("android.filesystem.start") || "Dosya Sistem İmajını Al"}</button>
-              ${isRunning ? `<button class="danger-button" data-action="android-stop-filesystem">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
+              <button class="primary-button" data-action="android-start-filesystem" ${isActive ? "disabled" : ""}>${icon("folder")} ${t("android.filesystem.start") || "Dosya Sistem İmajını Al"}</button>
+              ${isRunning ? `<button class="secondary-button" data-action="android-pause-filesystem">${icon("pause")} ${t("workflow.pause")}</button>` : ""}
+              ${isPaused ? `<button class="secondary-button" data-action="android-resume-filesystem">${icon("play")} ${t("workflow.resume")}</button>` : ""}
+              ${isActive ? `<button class="danger-button" data-action="android-stop-filesystem">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
             </div>
 
             <div class="section-divider"></div>
@@ -113,6 +138,12 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
 
             <div class="section-divider"></div>
             <p class="section-label">${t("android.ram.options") || "Seçenekler"}</p>
+            <div class="field">
+              <label>${t("android.ram.mode")}</label>
+              <select class="select" data-android-ram-mode>
+                ${ramModeOptions(android.ramMode || "volatile_data", t)}
+              </select>
+            </div>
             <div class="field" style="flex-direction: row; align-items: center; gap: 10px;">
               <input type="checkbox" id="android-ram-has-root" data-android-ram-has-root style="width: 18px; height: 18px; cursor: pointer;" />
               <label for="android-ram-has-root" style="cursor: pointer; user-select: none; font-size: 0.9rem; color: #acc0e4;">${t("android.filesystem.hasRoot") || "Cihazda Root Yetkisi Var (Doğrudan imaj al)"}</label>
@@ -121,8 +152,10 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             <div class="section-divider"></div>
             <p class="section-label">${t("android.ram.acquisitionTitle") || "Aktarım"}</p>
             <div class="button-row">
-              <button class="primary-button" data-action="android-start-ram" ${isRunning ? "disabled" : ""}>${icon("cpu")} ${t("android.ram.start") || "RAM İmajını Al"}</button>
-              ${isRunning ? `<button class="danger-button" data-action="android-stop-ram">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
+              <button class="primary-button" data-action="android-start-ram" ${isActive ? "disabled" : ""}>${icon("cpu")} ${t("android.ram.start") || "RAM İmajını Al"}</button>
+              ${isRunning ? `<button class="secondary-button" data-action="android-pause-ram">${icon("pause")} ${t("workflow.pause")}</button>` : ""}
+              ${isPaused ? `<button class="secondary-button" data-action="android-resume-ram">${icon("play")} ${t("workflow.resume")}</button>` : ""}
+              ${isActive ? `<button class="danger-button" data-action="android-stop-ram">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
             </div>
 
             <div class="section-divider"></div>
@@ -136,12 +169,44 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
           <h3>${t("android.side.status")}</h3>
           ${sideInfo(t("android.side.adb"), statusTitle, installed ? "shield" : "android", icon)}
           ${sideInfo(t("android.side.device"), selected || t("android.devices.none"), "android", icon)}
+          ${deviceProfile ? sideInfo(t("android.side.profile"), sideProfileSummary(deviceProfile, t), "info", icon) : ""}
           ${(isLogical || isFilesystem || isRam) && job ? sideInfo(t("android.side.lastAction"), job.message || "—", "clock", icon) : ""}
           ${(isLogical || isFilesystem || isRam) && isDone && job.result ? sideInfo(t("android.side.totalBytes"), formatBytes(job.result.total_bytes || 0), "disk", icon) : ""}
         </aside>
       </div>
     </section>
   `;
+}
+
+function acquisitionProfileOptions(selected, t) {
+  const options = [
+    ["quick_logical", t("android.acquisition.quick")],
+    ["full_logical", t("android.acquisition.full")],
+    ["root_logical", t("android.acquisition.root")],
+    ["volatile", t("android.acquisition.volatile")]
+  ];
+  return options
+    .map(([value, label]) => `<option value="${value}"${value === selected ? " selected" : ""}>${label}</option>`)
+    .join("");
+}
+
+function deviceProfileSummary(profile, t, escapeHtml) {
+  const rows = [
+    [t("android.profile.model"), profile.model || profile.device || "—"],
+    [t("android.profile.api"), profile.api_level || "—"],
+    [t("android.profile.selinux"), profile.selinux || "—"],
+    [t("android.profile.encryption"), profile.encryption || "—"],
+    [t("android.profile.root"), profile.is_rooted ? t("android.profile.rooted") : t("android.profile.notRooted")]
+  ];
+  return rows
+    .map(([label, value]) => `<div class="tree-node"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(value)}</span></div>`)
+    .join("");
+}
+
+function sideProfileSummary(profile, t) {
+  const model = profile.model || profile.device || t("unknown");
+  const root = profile.is_rooted ? t("android.profile.rooted") : t("android.profile.notRooted");
+  return `${model} · API ${profile.api_level || "?"} · ${root}`;
 }
 
 function sideInfo(title, body, iconName, icon) {
@@ -186,17 +251,31 @@ function androidMode(modeId, t) {
       icon: "folder"
     },
     ram: {
-      title: t("android.mode.ram.title") || "RAM İmajı",
-      desc: t("android.mode.ram.desc") || "Cihazın fiziksel belleğini (RAM) canlı olarak edinin.",
+      title: t("android.mode.ram.title"),
+      desc: t("android.mode.ram.desc"),
       icon: "cpu"
     }
   };
   return modes[modeId] || modes.logical;
 }
 
-function androidImageModeCard(modeId, title, desc, iconName, accent, badge, icon, escapeHtml) {
+function ramModeOptions(selected, t) {
+  const options = [
+    ["volatile_data", t("android.ram.mode.volatile")],
+    ["root_process_memory", t("android.ram.mode.rootProcess")],
+    ["physical_memory_probe", t("android.ram.mode.physicalProbe")]
+  ];
+  return options
+    .map(([value, label]) => `<option value="${value}"${value === selected ? " selected" : ""}>${label}</option>`)
+    .join("");
+}
+
+function androidImageModeCard(modeId, title, desc, iconName, accent, badge, icon, escapeHtml, options = {}) {
+  const disabled = options.disabled ? " disabled aria-disabled=\"true\"" : "";
+  const route = options.disabled ? "" : ` data-route="android:${modeId}"`;
+  const disabledClass = options.disabled ? " is-disabled" : "";
   return `
-    <button class="forensic-card" data-route="android:${modeId}" style="--accent:${accent}">
+    <button class="forensic-card${disabledClass}"${route}${disabled} style="--accent:${accent}">
       <span class="card-icon">${icon(iconName)}</span>
       <h3>${escapeHtml(title)}</h3>
       <p>${escapeHtml(desc)}</p>
@@ -215,12 +294,24 @@ export async function handleAndroidAction(button, deps) {
     await listDevices(button, deps);
     return true;
   }
+  if (action === "android-profile-fetch") {
+    await fetchDeviceProfile(button, deps);
+    return true;
+  }
   if (action === "android-start-logical") {
     await startLogicalAcquisition(button, deps);
     return true;
   }
   if (action === "android-stop-logical") {
     await stopLogicalAcquisition(button, deps);
+    return true;
+  }
+  if (action === "android-pause-logical") {
+    await controlAndroidAcquisition(button, "logical", "pause", deps);
+    return true;
+  }
+  if (action === "android-resume-logical") {
+    await controlAndroidAcquisition(button, "logical", "resume", deps);
     return true;
   }
   if (action === "android-start-filesystem") {
@@ -231,6 +322,14 @@ export async function handleAndroidAction(button, deps) {
     await stopFilesystemAcquisition(button, deps);
     return true;
   }
+  if (action === "android-pause-filesystem") {
+    await controlAndroidAcquisition(button, "filesystem", "pause", deps);
+    return true;
+  }
+  if (action === "android-resume-filesystem") {
+    await controlAndroidAcquisition(button, "filesystem", "resume", deps);
+    return true;
+  }
   if (action === "android-start-ram") {
     await startRamAcquisition(button, deps);
     return true;
@@ -239,12 +338,21 @@ export async function handleAndroidAction(button, deps) {
     await stopRamAcquisition(button, deps);
     return true;
   }
+  if (action === "android-pause-ram") {
+    await controlAndroidAcquisition(button, "ram", "pause", deps);
+    return true;
+  }
+  if (action === "android-resume-ram") {
+    await controlAndroidAcquisition(button, "ram", "resume", deps);
+    return true;
+  }
   return false;
 }
 
 export function syncAndroidDeviceSelection(select, { state, t, showToast }) {
   if (!state.android) state.android = {};
   state.android.selectedDevice = select.value;
+  state.android.deviceProfile = null;
   if (select.value) {
     showToast(t("android.devices.selected", { serial: select.value }));
   }
@@ -291,6 +399,7 @@ async function listDevices(button, { apiRequest, backendReady, state, t, showToa
     if (!state.android) state.android = {};
     state.android.devices = devices;
     state.android.selectedDevice = devices[0]?.serial || "";
+    state.android.deviceProfile = null;
     render();
     showToast(devices.length
       ? t("android.devices.listed", { count: String(devices.length) })
@@ -299,6 +408,34 @@ async function listDevices(button, { apiRequest, backendReady, state, t, showToa
     );
   } catch (error) {
     showToast(t("android.devices.listFailed", { message: error.message }), "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function fetchDeviceProfile(button, { apiRequest, backendReady, state, t, showToast, render }) {
+  if (!backendReady()) {
+    showToast(t("android.appModeRequired"), "error");
+    return;
+  }
+  if (!state.android?.selectedDevice) {
+    showToast(t("android.logical.deviceRequired"), "error");
+    return;
+  }
+
+  button.disabled = true;
+  try {
+    const result = await apiRequest("/api/android-device-profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ serial: state.android.selectedDevice }),
+    });
+    if (!state.android) state.android = {};
+    state.android.deviceProfile = result.profile || null;
+    render();
+    showToast(t("android.profile.loaded"), "success");
+  } catch (error) {
+    showToast(t("android.profile.failed", { message: error.message }), "error");
   } finally {
     button.disabled = false;
   }
@@ -315,16 +452,19 @@ async function startLogicalAcquisition(button, { apiRequest, backendReady, state
   }
 
   const caseName = resolveCase?.() || null;
+  const profileSelect = document.querySelector("[data-android-acquisition-profile]");
+  const profile = profileSelect?.value || "full_logical";
   if (!state.android) state.android = {};
+  state.android.logicalProfile = profile;
   state.android.logicalLog = [t("android.logical.starting")];
   state.android.logicalJob = null;
   render();
 
   button.disabled = true;
   try {
-    const body = { serial: state.android.selectedDevice };
+    const body = { serial: state.android.selectedDevice, profile };
     if (caseName) body.case_name = caseName;
-    const result = await apiRequest("/api/android-logical-image", {
+    const result = await apiRequest("/api/android-profile-acquisition", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -344,21 +484,7 @@ async function startLogicalAcquisition(button, { apiRequest, backendReady, state
 }
 
 async function stopLogicalAcquisition(button, { apiRequest, backendReady, state, t, showToast, render }) {
-  if (!state.android?.logicalJob?.job_id) return;
-
-  button.disabled = true;
-  try {
-    await apiRequest("/api/acquisition-control", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ job_id: state.android.logicalJob.job_id, action: "stop" }),
-    });
-    showToast(t("android.logical.stopped"), "success");
-  } catch (error) {
-    showToast(error.message, "error");
-  } finally {
-    button.disabled = false;
-  }
+  await controlAndroidAcquisition(button, "logical", "stop", { apiRequest, backendReady, state, t, showToast, render });
 }
 
 function pollLogicalJob(jobId, { apiRequest, state, t, showToast, render }) {
@@ -451,21 +577,7 @@ async function startFilesystemAcquisition(button, { apiRequest, backendReady, st
 }
 
 async function stopFilesystemAcquisition(button, { apiRequest, backendReady, state, t, showToast, render }) {
-  if (!state.android?.filesystemJob?.job_id) return;
-
-  button.disabled = true;
-  try {
-    await apiRequest("/api/acquisition-control", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ job_id: state.android.filesystemJob.job_id, action: "stop" }),
-    });
-    showToast(t("android.logical.stopped"), "success");
-  } catch (error) {
-    showToast(error.message, "error");
-  } finally {
-    button.disabled = false;
-  }
+  await controlAndroidAcquisition(button, "filesystem", "stop", { apiRequest, backendReady, state, t, showToast, render });
 }
 
 function pollFilesystemJob(jobId, { apiRequest, state, t, showToast, render }) {
@@ -524,9 +636,12 @@ async function startRamAcquisition(button, { apiRequest, backendReady, state, t,
 
   const hasRootCheckbox = document.querySelector("[data-android-ram-has-root]");
   const hasRoot = hasRootCheckbox ? Boolean(hasRootCheckbox.checked) : false;
+  const modeSelect = document.querySelector("[data-android-ram-mode]");
+  const mode = modeSelect?.value || "volatile_data";
 
   const caseName = resolveCase?.() || null;
   if (!state.android) state.android = {};
+  state.android.ramMode = mode;
   state.android.ramLog = [t("android.ram.starting") || "RAM aktarımı başlatılıyor..."];
   state.android.ramJob = null;
   render();
@@ -535,7 +650,8 @@ async function startRamAcquisition(button, { apiRequest, backendReady, state, t,
   try {
     const body = { 
       serial: state.android.selectedDevice,
-      has_root: hasRoot
+      has_root: hasRoot,
+      mode
     };
     if (caseName) body.case_name = caseName;
     const result = await apiRequest("/api/android-ram-image", {
@@ -558,16 +674,22 @@ async function startRamAcquisition(button, { apiRequest, backendReady, state, t,
 }
 
 async function stopRamAcquisition(button, { apiRequest, backendReady, state, t, showToast, render }) {
-  if (!state.android?.ramJob?.job_id) return;
+  await controlAndroidAcquisition(button, "ram", "stop", { apiRequest, backendReady, state, t, showToast, render });
+}
+
+async function controlAndroidAcquisition(button, kind, action, { apiRequest, state, t, showToast, render }) {
+  const job = state.android?.[`${kind}Job`];
+  if (!job?.job_id) return;
 
   button.disabled = true;
   try {
-    await apiRequest("/api/acquisition-control", {
+    const result = await apiRequest("/api/acquisition-control", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ job_id: state.android.ramJob.job_id, action: "stop" }),
+      body: JSON.stringify({ job_id: job.job_id, action }),
     });
-    showToast(t("android.logical.stopped"), "success");
+    showToast(result.message || t("android.control.sent"), "success");
+    render();
   } catch (error) {
     showToast(error.message, "error");
   } finally {

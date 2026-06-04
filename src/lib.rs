@@ -1,7 +1,10 @@
 pub mod android;
+pub mod android_analysis;
+pub mod android_mft;
 pub mod api;
 pub mod diagnostics;
 pub mod disk;
+pub mod disk_analysis;
 pub mod error;
 pub mod evidence;
 pub mod hash;

@@ -9,6 +9,7 @@ use std::thread;
 
 use crate::disk;
 use crate::disk::{DiskAcquisitionControl, DiskAcquisitionTask};
+use crate::disk_analysis;
 use crate::evidence::EvidenceVault;
 use crate::hash;
 use crate::hash::HashAlgorithm;
@@ -627,6 +628,7 @@ pub fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
             Ok(loop_device) => {
                 let tree = directory_tree_json(&mount_dir, 3, 400);
                 let state = ImageMountState {
+                    image_path: image_path.clone(),
                     mount_dir: mount_dir.clone(),
                     loop_device,
                 };
@@ -715,6 +717,47 @@ pub fn image_unmount_endpoint() -> Response {
         Ok(Some(mount_dir)) => json_ok(json!({ "mount_dir": mount_dir })),
         Ok(None) => json_ok(json!({ "mount_dir": Value::Null })),
         Err(err) => json_error(500, err),
+    }
+}
+
+pub fn image_analyze_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct AnalyzeRequest {
+        path: Option<String>,
+    }
+
+    let request: AnalyzeRequest = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+
+    let current_mount = current_image_mount()
+        .lock()
+        .ok()
+        .and_then(|state| state.clone());
+    let image_path = request
+        .path
+        .as_deref()
+        .map(str::trim)
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| current_mount.as_ref().map(|state| state.image_path.clone()));
+
+    let Some(image_path) = image_path else {
+        return json_error(400, "İmaj yolu gerekli / Image path required");
+    };
+    if !image_path.exists() {
+        return json_error(404, "İmaj dosyası bulunamadı / Image file not found");
+    }
+
+    let mount_dir = current_mount
+        .as_ref()
+        .filter(|state| state.image_path == image_path)
+        .map(|state| state.mount_dir.as_path());
+
+    match disk_analysis::analyze_disk_image(&image_path, mount_dir) {
+        Ok(report) => json_ok(serde_json::to_value(report).unwrap_or(Value::Null)),
+        Err(err) => json_error(500, err.to_string()),
     }
 }
 

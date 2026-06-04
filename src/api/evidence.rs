@@ -41,7 +41,9 @@ pub fn evidence_create_endpoint(body: &[u8]) -> Response {
                 "base_dir": default_case_base_dir(),
                 "output_dir": vault.outputs_dir,
                 "ram_dir": vault.ram_dir,
+                "android_dir": vault.android_dir,
                 "output_count": summary.output_count,
+                "android_count": summary.android_count,
                 "hash_count": summary.hash_count,
                 "report_count": summary.report_count,
             }))
@@ -110,6 +112,7 @@ pub fn evidence_summary_endpoint() -> Response {
             "case_name": summary.case_name,
             "case_dir": summary.case_dir,
             "output_count": summary.output_count,
+            "android_count": summary.android_count,
             "hash_count": summary.hash_count,
             "report_count": summary.report_count,
         })),
@@ -162,6 +165,7 @@ pub fn evidence_cases_endpoint() -> Response {
                 "base_dir": state.base_dir,
                 "output_dir": case_dir.join("ciktilar"),
                 "ram_dir": case_dir.join("ram"),
+                "android_dir": case_dir.join("android"),
             })
         });
 
@@ -242,8 +246,10 @@ fn case_listing_json(case_name: &str, case_dir: &Path) -> Value {
         "case_dir": case_dir,
         "output_dir": case_dir.join("ciktilar"),
         "ram_dir": case_dir.join("ram"),
+        "android_dir": case_dir.join("android"),
         "output_count": count_directory_entries(&case_dir.join("ciktilar")),
         "ram_count": count_directory_entries(&case_dir.join("ram")),
+        "android_count": count_directory_entries(&case_dir.join("android")),
         "hash_count": count_directory_entries(&case_dir.join("hash")),
         "report_count": count_directory_entries(&case_dir.join("raporlar")),
     })
