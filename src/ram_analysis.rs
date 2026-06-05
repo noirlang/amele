@@ -111,6 +111,24 @@ pub fn analyze_ram_summary_logged(
             if let Some(log) = &log {
                 log(format!("Volatility3 proses analizi uyarısı: {err}"));
             }
+            if os == "linux" {
+                if let Some(log) = &log {
+                    log("Linux sembol eşleşmesi için kernel banner adayları aranıyor.".to_string());
+                }
+                match crate::volatility::get_banners_logged(file_path, log.clone()) {
+                    Ok(banners) if !banners.is_empty() => warnings.push(format!(
+                        "Linux kernel banner adayları bulundu: {}",
+                        banners.join(" | ")
+                    )),
+                    Ok(_) => warnings.push(
+                        "Linux kernel banner adayı bulunamadı; imaj türü veya temiz edinim kontrol edilmeli."
+                            .to_string(),
+                    ),
+                    Err(banner_err) => warnings.push(format!(
+                        "Linux banner taraması da başarısız oldu: {banner_err}"
+                    )),
+                }
+            }
             warnings.push(format!("Volatility3 error: {}", err));
             Vec::new()
         }

@@ -235,6 +235,35 @@ pub fn get_processes(file_path: &Path, os_type: &str) -> Result<Vec<VolatilityPr
     get_processes_logged(file_path, os_type, None)
 }
 
+pub fn get_banners_logged(
+    file_path: &Path,
+    log: Option<Arc<dyn Fn(String) + Send + Sync>>,
+) -> Result<Vec<String>, String> {
+    let value = run_volatility_plugin_logged(file_path, "banners.Banners", &[], log.clone())?;
+    let rows = json_rows(&value)?;
+    let banners = rows
+        .iter()
+        .filter_map(|item| {
+            let offset = value_string(item, &["Offset"]).unwrap_or_else(|| "-".to_string());
+            let banner = value_string(item, &["Banner"])?;
+            Some(format!("{offset}: {banner}"))
+        })
+        .collect::<Vec<_>>();
+
+    if let Some(log) = &log {
+        if banners.is_empty() {
+            log("Linux banner taraması sonuç döndürmedi.".to_string());
+        } else {
+            log("Bulunan Linux kernel banner adayları:".to_string());
+            for banner in banners.iter().take(8) {
+                log(format!("banner: {banner}"));
+            }
+        }
+    }
+
+    Ok(banners)
+}
+
 pub fn get_processes_logged(
     file_path: &Path,
     os_type: &str,
