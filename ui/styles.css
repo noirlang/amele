@@ -913,6 +913,10 @@ button {
   font-size: 12px;
 }
 
+.progress-bar.is-past-half b {
+  color: #050505 !important;
+}
+
 .side-panel {
   display: grid;
   gap: 14px;
@@ -2564,5 +2568,4 @@ code {
   opacity: 1;
   animation: glow-spin 1.8s linear infinite;
 }
-
 

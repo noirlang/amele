@@ -1156,6 +1156,19 @@ pub fn pick_path_endpoint(directory: bool) -> Response {
 }
 
 fn pick_path(directory: bool) -> Result<Option<String>, String> {
+    #[cfg(windows)]
+    {
+        pick_path_windows(directory)
+    }
+
+    #[cfg(not(windows))]
+    {
+        pick_path_unix(directory)
+    }
+}
+
+#[cfg(not(windows))]
+fn pick_path_unix(directory: bool) -> Result<Option<String>, String> {
     let candidates: &[(&str, &[&str])] = if directory {
         &[
             ("zenity", &["--file-selection", "--directory"]),
@@ -1193,6 +1206,66 @@ fn pick_path(directory: bool) -> Result<Option<String>, String> {
     } else {
         last_error
     })
+}
+
+#[cfg(windows)]
+fn pick_path_windows(directory: bool) -> Result<Option<String>, String> {
+    let script = if directory {
+        r#"
+Add-Type -AssemblyName System.Windows.Forms
+$dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+$dialog.ShowNewFolderButton = $true
+if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+  [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+  Write-Output $dialog.SelectedPath
+  exit 0
+}
+exit 1
+"#
+    } else {
+        r#"
+Add-Type -AssemblyName System.Windows.Forms
+$dialog = New-Object System.Windows.Forms.OpenFileDialog
+$dialog.CheckFileExists = $true
+$dialog.Multiselect = $false
+$dialog.Filter = 'All files (*.*)|*.*'
+if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+  [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+  Write-Output $dialog.FileName
+  exit 0
+}
+exit 1
+"#
+    };
+
+    let output = Command::new("powershell")
+        .arg("-NoProfile")
+        .arg("-ExecutionPolicy")
+        .arg("Bypass")
+        .arg("-STA")
+        .arg("-Command")
+        .arg(script)
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|err| format!("Windows file picker baslatilamadi: {err}"))?;
+
+    if output.status.success() {
+        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if path.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(path))
+        }
+    } else if output.status.code() == Some(1) {
+        Ok(None)
+    } else {
+        let error = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(if error.is_empty() {
+            "Windows file picker acilamadi".to_string()
+        } else {
+            error
+        })
+    }
 }
 
 fn open_external_url(url: &str) -> Result<(), String> {

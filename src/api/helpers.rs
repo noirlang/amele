@@ -150,7 +150,7 @@ pub fn download_file_to_path(url: &str, target: &Path, fallback: &str) -> Result
 pub fn sha256_file(path: &Path) -> Result<String, String> {
     let mut file = fs::File::open(path).map_err(|err| err.to_string())?;
     let mut hasher = Sha256::new();
-    let mut buffer = [0_u8; 1024 * 64];
+    let mut buffer = vec![0_u8; crate::hash::HASH_BUFFER_SIZE];
     loop {
         let read = file.read(&mut buffer).map_err(|err| err.to_string())?;
         if read == 0 {

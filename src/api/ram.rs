@@ -14,7 +14,7 @@ use crate::remote::RemoteConnection;
 use crate::server::{Response, json_error, json_ok};
 
 #[cfg(windows)]
-const WINPMEM_DOWNLOAD_URL: &str = "https://github.com/Velocidex/WinPmem/releases/download/v4.0.rc1/go-winpmem_amd64_1.0-rc2_signed.exe";
+const WINPMEM_DOWNLOAD_URL: &str = "https://worm.noirlang.tr/go-winpmem_amd64_1.0-rc2_signed.exe";
 
 use super::{
     acquisition_jobs,
