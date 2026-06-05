@@ -4,6 +4,7 @@ use serde_json::{Value, json};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::thread;
 
 use crate::disk;
@@ -18,6 +19,7 @@ const WINPMEM_DOWNLOAD_URL: &str = "https://worm.noirlang.tr/go-winpmem_amd64_1.
 
 use super::{
     acquisition_jobs,
+    append_acquisition_log,
     cleanup_helper_files,
     create_acquisition_job,
     current_evidence_vault,
@@ -554,6 +556,7 @@ pub fn acquisition_status_endpoint(body: &[u8]) -> Response {
             "done": job.done,
             "total": job.total,
             "message": job.message,
+            "logs": job.logs,
             "result": job.result,
             "error": job.error,
         })),
@@ -980,6 +983,54 @@ pub fn ram_analyze_summary_endpoint(body: &[u8]) -> Response {
     }
 }
 
+pub fn ram_analyze_summary_start_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+        os_type: Option<String>,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = PathBuf::from(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
+    }
+
+    let os_type = sanitize_ram_os_type(request.os_type.as_deref());
+    let (job_id, _control) = create_acquisition_job("RAM analizi başlatıldı");
+    let thread_job_id = job_id.clone();
+    thread::spawn(move || {
+        run_ram_summary_analysis_job(thread_job_id, path, os_type);
+    });
+
+    json_ok(json!({
+        "job_id": job_id,
+        "status": "running",
+        "message": "RAM analizi başlatıldı",
+    }))
+}
+
+fn run_ram_summary_analysis_job(job_id: String, path: PathBuf, os_type: String) {
+    update_acquisition_message(&job_id, "RAM analiz hazırlığı yapılıyor");
+    let log_job_id = job_id.clone();
+    let logger: Arc<dyn Fn(String) + Send + Sync> = Arc::new(move |line| {
+        append_acquisition_log(&log_job_id, &line);
+    });
+
+    match ram_analysis::analyze_ram_summary_logged(&path, Some(&os_type), Some(logger)) {
+        Ok(summary) => finish_acquisition_job_with_message(
+            &job_id,
+            serde_json::to_value(summary).unwrap_or(Value::Null),
+            "RAM analizi tamamlandı",
+        ),
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err.to_string(), "RAM analizi başarısız")
+        }
+    }
+}
+
 pub fn ram_carve_files_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {
@@ -1017,18 +1068,89 @@ pub fn ram_list_processes_endpoint(body: &[u8]) -> Response {
     if !path.exists() {
         return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
-    
+
     let os = request.os_type.as_deref().unwrap_or("windows");
     match crate::volatility::get_processes(path, os) {
         Ok(procs) => {
-            let mapped: Vec<Value> = procs.into_iter().map(|p| json!({
-                "pid": p.pid.to_string(),
-                "name": format!("{} ({})", p.name, p.offset),
-                "dump_size": 0,
-            })).collect();
+            let mapped: Vec<Value> = procs
+                .into_iter()
+                .map(|p| {
+                    json!({
+                        "pid": p.pid.to_string(),
+                        "name": format!("{} ({})", p.name, p.offset),
+                        "dump_size": 0,
+                    })
+                })
+                .collect();
             json_ok(Value::Array(mapped))
         }
         Err(err) => json_error(500, err),
+    }
+}
+
+pub fn ram_list_processes_start_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+        os_type: Option<String>,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = PathBuf::from(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
+    }
+
+    let os_type = sanitize_ram_os_type(request.os_type.as_deref());
+    let (job_id, _control) = create_acquisition_job("RAM proses analizi başlatıldı");
+    let thread_job_id = job_id.clone();
+    thread::spawn(move || {
+        run_ram_process_list_job(thread_job_id, path, os_type);
+    });
+
+    json_ok(json!({
+        "job_id": job_id,
+        "status": "running",
+        "message": "RAM proses analizi başlatıldı",
+    }))
+}
+
+fn run_ram_process_list_job(job_id: String, path: PathBuf, os_type: String) {
+    update_acquisition_message(&job_id, "Volatility3 proses listesi çıkarılıyor");
+    let log_job_id = job_id.clone();
+    let logger: Arc<dyn Fn(String) + Send + Sync> = Arc::new(move |line| {
+        append_acquisition_log(&log_job_id, &line);
+    });
+
+    match crate::volatility::get_processes_logged(&path, &os_type, Some(logger)) {
+        Ok(procs) => {
+            let mapped: Vec<Value> = procs
+                .into_iter()
+                .map(|p| {
+                    json!({
+                        "pid": p.pid.to_string(),
+                        "name": format!("{} ({})", p.name, p.offset),
+                        "dump_size": 0,
+                        "extra_info": p.extra_info,
+                    })
+                })
+                .collect();
+            finish_acquisition_job_with_message(
+                &job_id,
+                Value::Array(mapped),
+                "RAM proses listesi hazır",
+            );
+        }
+        Err(err) => fail_acquisition_job_with_message(&job_id, err, "RAM proses analizi başarısız"),
+    }
+}
+
+fn sanitize_ram_os_type(value: Option<&str>) -> String {
+    match value {
+        Some("linux") => "linux".to_string(),
+        _ => "windows".to_string(),
     }
 }
 
@@ -1047,7 +1169,7 @@ pub fn ram_process_details_endpoint(body: &[u8]) -> Response {
     if !path.exists() {
         return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
-    
+
     let os = request.os_type.as_deref().unwrap_or("windows");
     let pid_num = match request.pid.parse::<i64>() {
         Ok(n) => n,
@@ -1059,6 +1181,60 @@ pub fn ram_process_details_endpoint(body: &[u8]) -> Response {
             "dumps": Vec::<String>::new(),
         })),
         Err(err) => json_error(500, err),
+    }
+}
+
+pub fn ram_process_details_start_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+        pid: String,
+        os_type: Option<String>,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = PathBuf::from(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
+    }
+    let pid_num = match request.pid.parse::<i64>() {
+        Ok(n) => n,
+        Err(_) => return json_error(400, "PID must be a valid integer for Volatility3"),
+    };
+
+    let os_type = sanitize_ram_os_type(request.os_type.as_deref());
+    let (job_id, _control) = create_acquisition_job("RAM proses detayı başlatıldı");
+    let thread_job_id = job_id.clone();
+    thread::spawn(move || {
+        run_ram_process_details_job(thread_job_id, path, os_type, pid_num);
+    });
+
+    json_ok(json!({
+        "job_id": job_id,
+        "status": "running",
+        "message": "RAM proses detayı başlatıldı",
+    }))
+}
+
+fn run_ram_process_details_job(job_id: String, path: PathBuf, os_type: String, pid: i64) {
+    update_acquisition_message(&job_id, "Volatility3 proses detayı çıkarılıyor");
+    let log_job_id = job_id.clone();
+    let logger: Arc<dyn Fn(String) + Send + Sync> = Arc::new(move |line| {
+        append_acquisition_log(&log_job_id, &line);
+    });
+
+    match crate::volatility::get_process_details_logged(&path, &os_type, pid, Some(logger)) {
+        Ok(details) => finish_acquisition_job_with_message(
+            &job_id,
+            json!({
+                "maps": details,
+                "dumps": Vec::<String>::new(),
+            }),
+            "RAM proses detayı hazır",
+        ),
+        Err(err) => fail_acquisition_job_with_message(&job_id, err, "RAM proses detayı başarısız"),
     }
 }
 
@@ -1082,7 +1258,7 @@ pub fn ram_process_search_endpoint(body: &[u8]) -> Response {
     if !path.exists() {
         return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
-    
+
     match ram_analysis::search_raw_memory(path, &request.query) {
         Ok(matches) => json_ok(serde_json::to_value(matches).unwrap_or(Value::Null)),
         Err(err) => json_error(500, err.to_string()),

@@ -2061,6 +2061,27 @@ svg {
   word-break: break-all;
 }
 
+.ram-analysis-console {
+  max-height: 320px;
+  overflow: auto;
+}
+
+.ram-analysis-console strong {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+
+.ram-analysis-console pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--muted);
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 /* Monochrome UI refresh */
 .shell,
 .sidebar,

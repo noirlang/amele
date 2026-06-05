@@ -47,6 +47,9 @@ const state = {
   cases: [],
   caseBaseDir: "",
   imageMount: null,
+  imagePathInput: "",
+  ramAnalysisPathInput: "",
+  ramOsProfile: "windows",
   latestUpdate: null,
   android: {
     adbStatus: null,
@@ -722,6 +725,8 @@ document.addEventListener("click", (event) => {
     if (imgInput) state.imagePathInput = imgInput.value.trim();
     const ramInput = document.querySelector("#ram-analysis-path");
     if (ramInput) state.ramAnalysisPathInput = ramInput.value.trim();
+    const ramOsSelect = document.querySelector("#ram-os-profile");
+    if (ramOsSelect) state.ramOsProfile = ramOsSelect.value || "windows";
 
     state.activeAnalysisTab = analysisTabButton.dataset.analysisTab;
     render();
@@ -814,6 +819,11 @@ document.addEventListener("change", (event) => {
   const androidDeviceSelect = event.target.closest("[data-android-device-select]");
   if (androidDeviceSelect) {
     syncAndroidDeviceSelection(androidDeviceSelect, { state, t, showToast });
+  }
+
+  const ramOsSelect = event.target.closest("#ram-os-profile");
+  if (ramOsSelect) {
+    state.ramOsProfile = ramOsSelect.value || "windows";
   }
 });
 
@@ -1145,13 +1155,21 @@ async function handleAction(button) {
     const flatResults = document.querySelector("#ram-flat-results-list");
     if (flatTitle) flatTitle.textContent = t("analysis.ramSummary");
     
-    const loadingMessage = `⌛ Volatility3 ile uçucu bellek analiz ediliyor... (İlk çalıştırmada sembollerin yüklenmesi 30-40 sn sürebilir)<br/>Analyzing memory with Volatility3... (This may take a while during the first run)`;
-      
-    if (flatResults) flatResults.innerHTML = `<div class="log-box">${loadingMessage}</div>`;
+    if (flatResults) flatResults.innerHTML = ramConsoleHtml("Canlı Analiz Konsolu", [
+      "Volatility3 ile uçucu bellek analizi başlatılıyor...",
+      "İlk çalıştırmada sembol çözümleme/indirme sürebilir."
+    ]);
     try {
-      const result = await apiRequest("/api/ram-analyze-summary", {
+      const start = await apiRequest("/api/ram-analyze-summary-start", {
         method: "POST",
         body: JSON.stringify({ path: ramPath, os_type: osProfile })
+      });
+      if (!start.job_id) throw new Error(t("workflow.jobIdMissing"));
+      const result = await waitForAcquisitionJob(start.job_id, {
+        onUpdate(job) {
+          updateRamConsole("#ram-flat-results-list", job, "Canlı Analiz Konsolu");
+          if (statusLbl && job.message) statusLbl.textContent = job.message;
+        }
       });
       document.querySelector("#stat-strings-count").textContent = String(result.string_match_count || 0);
       document.querySelector("#stat-carved-count").textContent = "-";
@@ -1164,7 +1182,9 @@ async function handleAction(button) {
       showToast(t("analysis.doneAnalysis"));
     } catch (error) {
       if (statusLbl) statusLbl.textContent = "Hata / Failed";
-      if (flatResults) flatResults.innerHTML = `<div class="log-box" style="color:#ff5f68">${escapeHtml(t("analysis.summaryFailed", { message: error.message }))}</div>`;
+      if (flatResults) {
+        flatResults.innerHTML += `<div class="log-box" style="color:#ff5f68">${escapeHtml(t("analysis.summaryFailed", { message: error.message }))}</div>`;
+      }
       showToast(t("analysis.summaryFailed", { message: error.message }), "error");
     }
     return;
@@ -1323,8 +1343,9 @@ async function handleAction(button) {
     document.querySelector("#ram-right-panel-title").textContent = "Proses Detayları / Process Inspector";
 
     const leftList = document.querySelector("#ram-left-list");
-    const loadingMessage = `⌛ Volatility3 ile proses tablosu çıkartılıyor...<br/>Extracting process list with Volatility3...`;
-    leftList.innerHTML = `<div class="log-box" style="text-align:center;padding:20px">${loadingMessage}</div>`;
+    leftList.innerHTML = ramConsoleHtml("Canlı Proses Analiz Konsolu", [
+      "Volatility3 ile proses tablosu çıkartılıyor..."
+    ]);
     const rightContent = document.querySelector("#ram-right-content");
     rightContent.innerHTML = `<div class="log-box" style="display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center">Proses seçildiğinde bellek haritası ve arama alanları burada açılacak.<br/>Select a process from the left to inspect memory maps.</div>`;
 
@@ -1332,9 +1353,16 @@ async function handleAction(button) {
     if (statusLbl) statusLbl.textContent = t("analysis.runningAnalysis");
 
     try {
-      const result = await apiRequest("/api/ram-list-processes", {
+      const start = await apiRequest("/api/ram-list-processes-start", {
         method: "POST",
         body: JSON.stringify({ path: ramPath, os_type: osProfile })
+      });
+      if (!start.job_id) throw new Error(t("workflow.jobIdMissing"));
+      const result = await waitForAcquisitionJob(start.job_id, {
+        onUpdate(job) {
+          updateRamConsole("#ram-left-list", job, "Canlı Proses Analiz Konsolu");
+          if (statusLbl && job.message) statusLbl.textContent = job.message;
+        }
       });
 
       const count = result.length || 0;
@@ -1827,12 +1855,13 @@ function acquisitionPercent(job) {
   return Math.max(0, Math.min(100, Math.floor((done * 100) / total)));
 }
 
-async function waitForAcquisitionJob(jobId) {
+async function waitForAcquisitionJob(jobId, options = {}) {
   while (true) {
     const job = await apiRequest("/api/acquisition-status", {
       method: "POST",
       body: JSON.stringify({ job_id: jobId })
     });
+    if (typeof options.onUpdate === "function") options.onUpdate(job);
     const percent = acquisitionPercent(job);
     setProgress(percent, `${percent}%`);
     if (job.message) updateSide("last-action", job.message);
@@ -1847,6 +1876,26 @@ async function waitForAcquisitionJob(jobId) {
 
     await new Promise((resolve) => window.setTimeout(resolve, 500));
   }
+}
+
+function ramConsoleHtml(title, logs = []) {
+  const entries = Array.isArray(logs) && logs.length
+    ? logs
+    : ["Analiz başlatıldı. Volatility3 çıktısı bekleniyor..."];
+  return `
+    <div class="log-box ram-analysis-console">
+      <strong>${escapeHtml(title)}</strong>
+      <pre>${entries.map((line) => escapeHtml(line)).join("\n")}</pre>
+    </div>
+  `;
+}
+
+function updateRamConsole(selector, job, title = "Canlı Analiz Konsolu") {
+  const container = document.querySelector(selector);
+  if (!container) return;
+  const logs = Array.isArray(job.logs) ? job.logs : [];
+  container.innerHTML = ramConsoleHtml(title, logs);
+  container.scrollTop = container.scrollHeight;
 }
 
 async function sendAcquisitionControl(action) {
@@ -2434,15 +2483,22 @@ async function inspectProcessDetails(pid, name) {
   if (!rightContent) return;
   
   const osProfile = document.querySelector("#ram-os-profile")?.value || "windows";
-  const loadingMessage = `⌛ Volatility3 ile proses detayları yükleniyor... (DLL listesi veya açık dosyalar)<br/>Loading process details with Volatility3...`;
-  
-  rightContent.innerHTML = `<div class="log-box" style="text-align:center;padding:20px">${loadingMessage}</div>`;
+  rightContent.innerHTML = ramConsoleHtml("Canlı Proses Detay Konsolu", [
+    "Volatility3 ile proses detayları yükleniyor...",
+    osProfile === "windows" ? "DLL listesi çıkarılıyor." : "Açık dosyalar listeleniyor."
+  ]);
   
   const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
   try {
-    const result = await apiRequest("/api/ram-process-details", {
+    const start = await apiRequest("/api/ram-process-details-start", {
       method: "POST",
       body: JSON.stringify({ path: ramPath, pid, os_type: osProfile })
+    });
+    if (!start.job_id) throw new Error(t("workflow.jobIdMissing"));
+    const result = await waitForAcquisitionJob(start.job_id, {
+      onUpdate(job) {
+        updateRamConsole("#ram-right-content", job, "Canlı Proses Detay Konsolu");
+      }
     });
     
     const label = osProfile === "windows" ? "Yüklenen DLL Modülleri (Loaded DLLs)" : 

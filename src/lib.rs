@@ -13,12 +13,12 @@ pub mod logging;
 pub mod native_window;
 pub mod ram;
 pub mod ram_analysis;
-pub mod volatility;
 pub mod remote;
 pub mod report;
 pub mod router;
 pub mod server;
 pub mod settings;
+pub mod volatility;
 pub mod wireguard;
 
 pub use error::{ErrorInfo, HataKodu, WormError, WormResult};

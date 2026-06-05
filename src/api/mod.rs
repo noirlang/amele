@@ -18,8 +18,8 @@ pub use helpers::{
     spawn_elevated_helper, write_helper_control_state, write_json_file,
 };
 pub use jobs::{
-    AcquisitionJob, NEXT_ACQUISITION_JOB_ID, acquisition_jobs, create_acquisition_job,
-    fail_acquisition_job_with_message, finish_acquisition_job_with_message,
+    AcquisitionJob, NEXT_ACQUISITION_JOB_ID, acquisition_jobs, append_acquisition_log,
+    create_acquisition_job, fail_acquisition_job_with_message, finish_acquisition_job_with_message,
     update_acquisition_message, update_acquisition_progress, update_acquisition_progress_message,
 };
 pub use mount::image_unmount_current;

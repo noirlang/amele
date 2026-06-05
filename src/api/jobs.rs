@@ -11,6 +11,7 @@ pub struct AcquisitionJob {
     pub done: u64,
     pub total: u64,
     pub message: String,
+    pub logs: Vec<String>,
     pub result: Option<Value>,
     pub error: Option<String>,
     pub control: crate::ram::CancellationToken,
@@ -30,6 +31,7 @@ pub fn create_acquisition_job(message: &str) -> (String, crate::ram::Cancellatio
         done: 0,
         total: 0,
         message: message.to_string(),
+        logs: vec![message.to_string()],
         result: None,
         error: None,
         control: control.clone(),
@@ -64,6 +66,15 @@ pub fn update_acquisition_message(job_id: &str, message: &str) {
         && let Some(job) = jobs.get_mut(job_id)
     {
         job.message = message.to_string();
+        push_log(job, message);
+    }
+}
+
+pub fn append_acquisition_log(job_id: &str, message: &str) {
+    if let Ok(mut jobs) = acquisition_jobs().lock()
+        && let Some(job) = jobs.get_mut(job_id)
+    {
+        push_log(job, message);
     }
 }
 
@@ -79,6 +90,7 @@ pub fn finish_acquisition_job_with_message(job_id: &str, result: Value, message:
             job.done = job.total;
         }
         job.message = message.to_string();
+        push_log(job, message);
         job.result = Some(result);
         job.error = None;
     }
@@ -90,7 +102,24 @@ pub fn fail_acquisition_job_with_message(job_id: &str, error: String, message: &
     {
         job.status = "failed".to_string();
         job.message = message.to_string();
+        push_log(job, message);
+        push_log(job, &error);
         job.error = Some(error);
+    }
+}
+
+fn push_log(job: &mut AcquisitionJob, message: &str) {
+    let clean = message.trim();
+    if clean.is_empty() {
+        return;
+    }
+    if job.logs.last().is_some_and(|last| last == clean) {
+        return;
+    }
+    job.logs.push(clean.to_string());
+    let overflow = job.logs.len().saturating_sub(400);
+    if overflow > 0 {
+        job.logs.drain(0..overflow);
     }
 }
 

@@ -1,7 +1,11 @@
-use std::path::{Path, PathBuf};
-use std::process::Command;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::env;
+use std::io::{BufRead, BufReader, Read};
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VolatilityProcess {
@@ -13,18 +17,46 @@ pub struct VolatilityProcess {
 }
 
 pub fn locate_vol_py() -> Option<PathBuf> {
-    let paths = [
-        PathBuf::from("/home/raodrin/Belgeler/forensic/volatility3/vol.py"),
-        PathBuf::from("../volatility3/vol.py"),
-        PathBuf::from("./volatility3/vol.py"),
-    ];
+    let mut paths = Vec::new();
 
-    for path in &paths {
-        if path.exists() {
-            return Some(path.clone());
-        }
+    if let Ok(value) = env::var("WORM_VOLATILITY3_PATH") {
+        push_volatility_candidate(&mut paths, PathBuf::from(value));
     }
-    None
+    if let Ok(value) = env::var("VOLATILITY3_PATH") {
+        push_volatility_candidate(&mut paths, PathBuf::from(value));
+    }
+
+    if let Ok(cwd) = env::current_dir() {
+        push_volatility_candidate(&mut paths, cwd.join("volatility3"));
+        push_volatility_candidate(&mut paths, cwd.join("../volatility3"));
+        push_volatility_candidate(&mut paths, cwd.join("../../volatility3"));
+    }
+
+    if let Ok(exe) = env::current_exe()
+        && let Some(dir) = exe.parent()
+    {
+        push_volatility_candidate(&mut paths, dir.join("volatility3"));
+        push_volatility_candidate(&mut paths, dir.join("../volatility3"));
+        push_volatility_candidate(&mut paths, dir.join("../../volatility3"));
+    }
+
+    push_volatility_candidate(
+        &mut paths,
+        PathBuf::from("/home/raodrin/Belgeler/forensic/volatility3"),
+    );
+
+    paths
+        .into_iter()
+        .find(|path| path.exists())
+        .and_then(|path| path.canonicalize().ok().or(Some(path)))
+}
+
+fn push_volatility_candidate(paths: &mut Vec<PathBuf>, path: PathBuf) {
+    if path.file_name().is_some_and(|name| name == "vol.py") {
+        paths.push(path);
+    } else {
+        paths.push(path.join("vol.py"));
+    }
 }
 
 pub fn run_volatility_plugin(
@@ -32,214 +64,384 @@ pub fn run_volatility_plugin(
     plugin: &str,
     extra_args: &[&str],
 ) -> Result<Value, String> {
+    run_volatility_plugin_logged(file_path, plugin, extra_args, None)
+}
+
+pub fn run_volatility_plugin_logged(
+    file_path: &Path,
+    plugin: &str,
+    extra_args: &[&str],
+    log: Option<Arc<dyn Fn(String) + Send + Sync>>,
+) -> Result<Value, String> {
     let Some(vol_py) = locate_vol_py() else {
-        return Err("Volatility3 (vol.py) could not be located on the system.".to_string());
+        return Err(
+            "Volatility3 vol.py bulunamadı. WORM_VOLATILITY3_PATH ile vol.py veya volatility3 klasörünü belirtin."
+                .to_string(),
+        );
     };
 
     let vol_dir = vol_py.parent().unwrap_or(Path::new("."));
-
-    // Build args: python3 vol.py -f <file_path> -r json <plugin> <extra_args>
     let mut args = vec![
         vol_py.to_string_lossy().into_owned(),
+        "-q".to_string(),
         "-f".to_string(),
         file_path.to_string_lossy().into_owned(),
         "-r".to_string(),
         "json".to_string(),
         plugin.to_string(),
     ];
-    for arg in extra_args {
-        args.push(arg.to_string());
+    args.extend(extra_args.iter().map(|arg| arg.to_string()));
+
+    if let Some(log) = &log {
+        log(format!("Volatility3 çalışıyor: {plugin}"));
+        log(format!("vol.py: {}", vol_py.display()));
+        log(format!("RAM imajı: {}", file_path.display()));
     }
 
-    let output = Command::new("python3")
+    let mut child = Command::new("python3")
         .args(&args)
         .current_dir(vol_dir)
-        .output();
+        .env("PYTHONUTF8", "1")
+        .env("PYTHONIOENCODING", "utf-8")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|err| format!("python3 çalıştırılamadı: {err}"))?;
 
-    match output {
-        Ok(out) => {
-            let stdout_str = String::from_utf8_lossy(&out.stdout);
-            if out.status.success() {
-                // Find where the JSON array starts. Sometimes there are Progress lines or headers
-                let clean_json = if let Some(idx) = stdout_str.find('[') {
-                    &stdout_str[idx..]
-                } else {
-                    &stdout_str
-                };
+    let stdout_buffer = Arc::new(Mutex::new(String::new()));
+    let stderr_buffer = Arc::new(Mutex::new(String::new()));
+    let stdout_thread = child
+        .stdout
+        .take()
+        .map(|stdout| spawn_reader(stdout, "stdout", stdout_buffer.clone(), log.clone(), false));
+    let stderr_thread = child
+        .stderr
+        .take()
+        .map(|stderr| spawn_reader(stderr, "stderr", stderr_buffer.clone(), log.clone(), true));
 
-                serde_json::from_str(clean_json)
-                    .map_err(|e| format!("Failed to parse Volatility3 JSON output: {} (Raw: {})", e, stdout_str))
-            } else {
-                let stderr_str = String::from_utf8_lossy(&out.stderr);
-                let stdout_str = String::from_utf8_lossy(&out.stdout);
-                let mut err_msg = format!(
-                    "Volatility3 exited with error. Stderr: {}\nStdout: {}",
-                    stderr_str.trim(),
-                    stdout_str.trim()
-                );
-                
-                if err_msg.contains("layer_name") || err_msg.contains("symbol_table_name") || err_msg.contains("Unsatisfied requirement") {
-                    err_msg.push_str("\n\n--------------------------------------------------\n\
-                      [!] OLASI NEDENLER & ÇÖZÜMLER / POSSIBLE CAUSES & SOLUTIONS:\n\
-                      1. Seçilen dosya geçerli bir fiziksel RAM imajı (.raw, .bin, .mem) olmayabilir.\n\
-                         Eğer bir proses arşivi (.tar) inceliyorsanız, lütfen 'Otomatik Algıla (Yerel Tarayıcı)' seçeneğini kullanın.\n\
-                      2. Volatility3 bu işletim sistemi sürümü için sembolleri bulamamış veya indirememiş olabilir.\n\
-                         İnternet bağlantınızın aktif olduğunu ve Microsoft sembol sunucularına erişebildiğinizi doğrulayın.\n\
-                      3. RAM imajı uyumsuz veya bozuk alınmış olabilir.\n\
-                      --------------------------------------------------");
-                }
-                
-                Err(err_msg)
+    let status = child
+        .wait()
+        .map_err(|err| format!("Volatility3 süreci beklenemedi: {err}"))?;
+    if let Some(handle) = stdout_thread {
+        let _ = handle.join();
+    }
+    if let Some(handle) = stderr_thread {
+        let _ = handle.join();
+    }
+
+    let stdout = stdout_buffer
+        .lock()
+        .map(|value| value.clone())
+        .unwrap_or_default();
+    let stderr = stderr_buffer
+        .lock()
+        .map(|value| value.clone())
+        .unwrap_or_default();
+
+    if !status.success() {
+        return Err(format_volatility_error(plugin, &stdout, &stderr));
+    }
+
+    let clean_json = trim_to_json(&stdout).ok_or_else(|| {
+        format!(
+            "Volatility3 JSON çıktısı bulunamadı. Plugin: {plugin}. Çıktı: {}",
+            stdout.trim()
+        )
+    })?;
+
+    let parsed = serde_json::from_str(clean_json).map_err(|err| {
+        format!(
+            "Volatility3 JSON çıktısı parse edilemedi: {err}. Plugin: {plugin}. Ham çıktı: {}",
+            stdout.trim()
+        )
+    })?;
+    if let Some(log) = &log {
+        log(format!("Volatility3 tamamlandı: {plugin}"));
+    }
+    Ok(parsed)
+}
+
+fn spawn_reader<R>(
+    reader: R,
+    stream: &'static str,
+    buffer: Arc<Mutex<String>>,
+    log: Option<Arc<dyn Fn(String) + Send + Sync>>,
+    log_all: bool,
+) -> thread::JoinHandle<()>
+where
+    R: Read + Send + 'static,
+{
+    thread::spawn(move || {
+        let reader = BufReader::new(reader);
+        for line in reader.lines().map_while(Result::ok) {
+            if let Ok(mut output) = buffer.lock() {
+                output.push_str(&line);
+                output.push('\n');
+            }
+            let clean = line.trim();
+            if clean.is_empty() {
+                continue;
+            }
+            let is_json_payload = clean.starts_with('[') || clean.starts_with('{');
+            if (log_all || !is_json_payload)
+                && let Some(log) = &log
+            {
+                log(format!("[volatility:{stream}] {clean}"));
             }
         }
-        Err(e) => Err(format!("Failed to execute python3: {}", e)),
+    })
+}
+
+fn trim_to_json(output: &str) -> Option<&str> {
+    let array_idx = output.find('[');
+    let object_idx = output.find('{');
+    let idx = match (array_idx, object_idx) {
+        (Some(a), Some(o)) => a.min(o),
+        (Some(a), None) => a,
+        (None, Some(o)) => o,
+        (None, None) => return None,
+    };
+    Some(output[idx..].trim())
+}
+
+fn format_volatility_error(plugin: &str, stdout: &str, stderr: &str) -> String {
+    let mut message = format!(
+        "Volatility3 hata verdi. Plugin: {plugin}\nStderr: {}\nStdout: {}",
+        stderr.trim(),
+        stdout.trim()
+    );
+
+    let lower = format!("{stdout}\n{stderr}").to_ascii_lowercase();
+    if lower.contains("invalid choice") {
+        message.push_str("\n\nSeçilen Volatility3 kurulumunda bu plugin bulunmuyor. volatility3 klasörünü güncelleyin veya WORM_VOLATILITY3_PATH ile doğru vol.py yolunu verin.");
     }
+    if lower.contains("unsatisfied requirement")
+        || lower.contains("layer_name")
+        || lower.contains("symbol_table_name")
+        || lower.contains("automagic")
+    {
+        message.push_str(
+            "\n\nOlası nedenler:\n\
+             1. RAM imajı seçilen işletim sistemi profiliyle uyumlu değil.\n\
+             2. Volatility3 sembol tablosu bulunamadı veya indirilemedi.\n\
+             3. Dosya fiziksel RAM imajı değil ya da imaj eksik/bozuk.\n\
+             4. Linux imajları için kernel banner/sembol eşleşmesi gerekebilir.",
+        );
+    }
+    message
 }
 
 pub fn get_processes(file_path: &Path, os_type: &str) -> Result<Vec<VolatilityProcess>, String> {
+    get_processes_logged(file_path, os_type, None)
+}
+
+pub fn get_processes_logged(
+    file_path: &Path,
+    os_type: &str,
+    log: Option<Arc<dyn Fn(String) + Send + Sync>>,
+) -> Result<Vec<VolatilityProcess>, String> {
     let plugin = match os_type {
-        "windows" => "windows.pslist",
-        "linux" => "linux.pslist",
-        _ => return Err(format!("Unsupported OS type for Volatility3: {}", os_type)),
+        "windows" => "windows.pslist.PsList",
+        "linux" => "linux.pslist.PsList",
+        _ => return Err(format!("Desteklenmeyen RAM işletim sistemi: {os_type}")),
     };
 
-    let val = run_volatility_plugin(file_path, plugin, &[])?;
-    let arr = val.as_array().ok_or("Volatility3 did not return a JSON array")?;
+    let value = run_volatility_plugin_logged(file_path, plugin, &[], log)?;
+    let rows = json_rows(&value)?;
 
-    let mut procs = Vec::new();
-    for item in arr {
-        if os_type == "windows" {
-            let pid = item.get("PID").and_then(Value::as_i64).unwrap_or(0);
-            let ppid = item.get("PPID").and_then(Value::as_i64).unwrap_or(0);
-            let name = item.get("ImageFileName")
-                .and_then(Value::as_str)
-                .unwrap_or("Unknown")
-                .to_string();
-            
-            let offset_val = item.get("Offset(V)");
-            let offset = match offset_val {
-                Some(Value::Number(n)) => format!("0x{:X}", n.as_u64().unwrap_or(0)),
-                Some(Value::String(s)) => s.clone(),
-                _ => {
-                    if let Some(offset_p) = item.get("Offset(P)") {
-                        match offset_p {
-                            Value::Number(n) => format!("0x{:X} (P)", n.as_u64().unwrap_or(0)),
-                            Value::String(s) => format!("{} (P)", s),
-                            _ => "N/A".to_string(),
-                        }
-                    } else {
-                        "N/A".to_string()
-                    }
-                }
-            };
+    Ok(rows
+        .iter()
+        .map(|item| {
+            if os_type == "linux" {
+                linux_process(item)
+            } else {
+                windows_process(item)
+            }
+        })
+        .filter(|process| process.pid > 0 || process.name != "Unknown")
+        .collect())
+}
 
-            let threads = item.get("Threads").and_then(Value::as_i64).unwrap_or(0);
-            let handles = item.get("Handles").and_then(Value::as_i64).unwrap_or(0);
-            let session = item.get("SessionId").and_then(Value::as_i64).unwrap_or(-1);
-            let create_time = item.get("CreateTime").and_then(Value::as_str).unwrap_or("-");
+fn windows_process(item: &Value) -> VolatilityProcess {
+    let pid = value_i64(item, &["PID"]).unwrap_or(0);
+    let ppid = value_i64(item, &["PPID"]).unwrap_or(0);
+    let name = value_string(item, &["ImageFileName", "Image File Name", "Process"])
+        .unwrap_or_else(|| "Unknown".to_string());
+    let offset = value_string(
+        item,
+        &["Offset(V)", "Offset (V)", "Offset(P)", "Offset (P)"],
+    )
+    .unwrap_or_else(|| "N/A".to_string());
+    let threads = value_string(item, &["Threads"]).unwrap_or_else(|| "0".to_string());
+    let handles = value_string(item, &["Handles"]).unwrap_or_else(|| "0".to_string());
+    let session = value_string(item, &["SessionId"]).unwrap_or_else(|| "-".to_string());
+    let create_time = value_string(item, &["CreateTime"]).unwrap_or_else(|| "-".to_string());
 
-            let extra_info = format!(
-                "Threads: {} · Handles: {} · Session: {} · Created: {}",
-                threads, handles, session, create_time
-            );
-
-            procs.push(VolatilityProcess {
-                pid,
-                ppid,
-                name,
-                offset,
-                extra_info,
-            });
-        } else {
-            let pid = item.get("PID").and_then(Value::as_i64).unwrap_or(0);
-            let ppid = item.get("PPID").and_then(Value::as_i64).unwrap_or(0);
-            let name = item.get("COMM")
-                .and_then(Value::as_str)
-                .unwrap_or("Unknown")
-                .to_string();
-            
-            let offset_val = item.get("OFFSET (V)");
-            let offset = match offset_val {
-                Some(Value::Number(n)) => format!("0x{:X}", n.as_u64().unwrap_or(0)),
-                Some(Value::String(s)) => s.clone(),
-                _ => "N/A".to_string(),
-            };
-
-            let uid = item.get("UID").and_then(Value::as_i64).unwrap_or(-1);
-            let gid = item.get("GID").and_then(Value::as_i64).unwrap_or(-1);
-            let create_time = item.get("CREATION TIME").and_then(Value::as_str).unwrap_or("-");
-
-            let extra_info = format!(
-                "UID: {} · GID: {} · Created: {}",
-                uid, gid, create_time
-            );
-
-            procs.push(VolatilityProcess {
-                pid,
-                ppid,
-                name,
-                offset,
-                extra_info,
-            });
-        }
+    VolatilityProcess {
+        pid,
+        ppid,
+        name,
+        offset,
+        extra_info: format!(
+            "Threads: {threads} · Handles: {handles} · Session: {session} · Created: {create_time}"
+        ),
     }
+}
 
-    Ok(procs)
+fn linux_process(item: &Value) -> VolatilityProcess {
+    let pid = value_i64(item, &["PID"]).unwrap_or(0);
+    let ppid = value_i64(item, &["PPID"]).unwrap_or(0);
+    let name = value_string(item, &["COMM", "Command", "Process"])
+        .unwrap_or_else(|| "Unknown".to_string());
+    let offset = value_string(item, &["OFFSET (V)", "Offset(V)", "Offset (V)"])
+        .unwrap_or_else(|| "N/A".to_string());
+    let uid = value_string(item, &["UID"]).unwrap_or_else(|| "-".to_string());
+    let gid = value_string(item, &["GID"]).unwrap_or_else(|| "-".to_string());
+    let euid = value_string(item, &["EUID"]).unwrap_or_else(|| "-".to_string());
+    let egid = value_string(item, &["EGID"]).unwrap_or_else(|| "-".to_string());
+    let create_time =
+        value_string(item, &["CREATION TIME", "CreateTime"]).unwrap_or_else(|| "-".to_string());
+
+    VolatilityProcess {
+        pid,
+        ppid,
+        name,
+        offset,
+        extra_info: format!(
+            "UID/GID: {uid}/{gid} · EUID/EGID: {euid}/{egid} · Created: {create_time}"
+        ),
+    }
 }
 
 pub fn get_process_details(file_path: &Path, os_type: &str, pid: i64) -> Result<String, String> {
+    get_process_details_logged(file_path, os_type, pid, None)
+}
+
+pub fn get_process_details_logged(
+    file_path: &Path,
+    os_type: &str,
+    pid: i64,
+    log: Option<Arc<dyn Fn(String) + Send + Sync>>,
+) -> Result<String, String> {
     let pid_str = pid.to_string();
     let (plugin, extra_args) = match os_type {
-        "windows" => ("windows.dlllist", vec!["--pid", &pid_str]),
-        "linux" => ("linux.lsof", vec!["--pid", &pid_str]),
-        _ => return Err(format!("Unsupported OS type for Volatility3 details: {}", os_type)),
+        "windows" => ("windows.dlllist.DllList", vec!["--pid", pid_str.as_str()]),
+        "linux" => ("linux.lsof.Lsof", vec!["--pid", pid_str.as_str()]),
+        _ => return Err(format!("Desteklenmeyen RAM işletim sistemi: {os_type}")),
     };
 
-    let val = run_volatility_plugin(file_path, plugin, &extra_args)?;
-    
-    // Format the json array as a readable text block
-    let arr = val.as_array().ok_or("Volatility3 details did not return a JSON array")?;
-    
-    let mut details = String::new();
-    if os_type == "windows" {
-        details.push_str("LOADED DLL LIST:\n%-12s %-18s %-10s %s\n");
-        details = format!("LOADED DLL LIST:\n{:<10} {:<18} {:<10} {}\n", "Base", "Size", "LoadCount", "Path");
-        details.push_str("--------------------------------------------------------------------------------\n");
-        for item in arr {
-            let base = item.get("Base").and_then(Value::as_i64).unwrap_or(0);
-            let size = item.get("Size").and_then(Value::as_i64).unwrap_or(0);
-            let load_count = item.get("LoadCount").and_then(Value::as_i64).unwrap_or(0);
-            let path = item.get("Path").and_then(Value::as_str).unwrap_or("-");
-            
-            details.push_str(&format!(
-                "0x{:<8X} {:<18} {:<10} {}\n",
-                base, size, load_count, path
-            ));
-        }
+    let value = run_volatility_plugin_logged(file_path, plugin, &extra_args, log)?;
+    let rows = json_rows(&value)?;
+
+    if os_type == "linux" {
+        Ok(format_linux_open_files(&rows))
     } else {
-        details = format!("{:<10} {:<10} {:<10} {:<10} {}\n", "PID", "FD", "Type", "Offset", "Path");
-        details.push_str("--------------------------------------------------------------------------------\n");
-        for item in arr {
-            let fd = item.get("FD").and_then(|v| match v {
-                Value::Number(n) => Some(n.to_string()),
-                Value::String(s) => Some(s.clone()),
-                _ => None,
-            }).unwrap_or("-".to_string());
-            let fd_type = item.get("Type").and_then(Value::as_str).unwrap_or("-");
-            let offset_val = item.get("Offset");
-            let offset = match offset_val {
-                Some(Value::Number(n)) => format!("0x{:X}", n.as_u64().unwrap_or(0)),
-                Some(Value::String(s)) => s.clone(),
-                _ => "-".to_string(),
-            };
-            let path = item.get("Path").and_then(Value::as_str).unwrap_or("-");
-            
-            details.push_str(&format!(
-                "{:<10} {:<10} {:<10} {:<10} {}\n",
-                pid, fd, fd_type, offset, path
-            ));
+        Ok(format_windows_dlls(&rows))
+    }
+}
+
+fn format_windows_dlls(rows: &[Value]) -> String {
+    let mut details = format!(
+        "LOADED DLL LIST\n{:<8} {:<22} {:<14} {:<10} {}\n",
+        "PID", "Base", "Size", "LoadCount", "Path"
+    );
+    details.push_str(
+        "--------------------------------------------------------------------------------\n",
+    );
+
+    for item in rows {
+        let pid = value_string(item, &["PID"]).unwrap_or_else(|| "-".to_string());
+        let base = value_string(item, &["Base"]).unwrap_or_else(|| "-".to_string());
+        let size = value_string(item, &["Size"]).unwrap_or_else(|| "-".to_string());
+        let load_count = value_string(item, &["LoadCount"]).unwrap_or_else(|| "-".to_string());
+        let path = value_string(item, &["Path", "Name"]).unwrap_or_else(|| "-".to_string());
+
+        details.push_str(&format!(
+            "{:<8} {:<22} {:<14} {:<10} {}\n",
+            pid, base, size, load_count, path
+        ));
+    }
+
+    if rows.is_empty() {
+        details.push_str("No DLL rows returned.\n");
+    }
+    details
+}
+
+fn format_linux_open_files(rows: &[Value]) -> String {
+    let mut details = format!(
+        "OPEN FILES\n{:<8} {:<8} {:<20} {:<8} {:<10} {}\n",
+        "PID", "FD", "Process", "Type", "Size", "Path"
+    );
+    details.push_str(
+        "--------------------------------------------------------------------------------\n",
+    );
+
+    for item in rows {
+        let pid = value_string(item, &["PID"]).unwrap_or_else(|| "-".to_string());
+        let fd = value_string(item, &["FD"]).unwrap_or_else(|| "-".to_string());
+        let process = value_string(item, &["Process", "COMM"]).unwrap_or_else(|| "-".to_string());
+        let inode_type = value_string(item, &["Type"]).unwrap_or_else(|| "-".to_string());
+        let size = value_string(item, &["Size"]).unwrap_or_else(|| "-".to_string());
+        let path = value_string(item, &["Path"]).unwrap_or_else(|| "-".to_string());
+
+        details.push_str(&format!(
+            "{:<8} {:<8} {:<20} {:<8} {:<10} {}\n",
+            pid, fd, process, inode_type, size, path
+        ));
+    }
+
+    if rows.is_empty() {
+        details.push_str("No open file rows returned.\n");
+    }
+    details
+}
+
+fn json_rows(value: &Value) -> Result<Vec<Value>, String> {
+    if let Some(arr) = value.as_array() {
+        return Ok(arr.clone());
+    }
+    for key in ["rows", "data", "tree"] {
+        if let Some(arr) = value.get(key).and_then(Value::as_array) {
+            return Ok(arr.clone());
         }
     }
-    
-    Ok(details)
+    Err("Volatility3 JSON çıktısı satır listesi içermiyor.".to_string())
+}
+
+fn value_i64(item: &Value, keys: &[&str]) -> Option<i64> {
+    keys.iter().find_map(|key| {
+        let value = item.get(*key)?;
+        match value {
+            Value::Number(number) => number
+                .as_i64()
+                .or_else(|| number.as_u64().map(|n| n as i64)),
+            Value::String(text) => text.trim().parse::<i64>().ok(),
+            _ => None,
+        }
+    })
+}
+
+fn value_string(item: &Value, keys: &[&str]) -> Option<String> {
+    keys.iter().find_map(|key| {
+        let value = item.get(*key)?;
+        match value {
+            Value::String(text) => Some(text.clone()),
+            Value::Number(number) => number
+                .as_u64()
+                .map(|n| {
+                    if key.to_ascii_lowercase().contains("offset")
+                        || matches!(*key, "Base" | "Size")
+                    {
+                        format!("0x{n:X}")
+                    } else {
+                        n.to_string()
+                    }
+                })
+                .or_else(|| number.as_i64().map(|n| n.to_string())),
+            Value::Bool(value) => Some(value.to_string()),
+            Value::Null => None,
+            other => Some(other.to_string()),
+        }
+    })
 }

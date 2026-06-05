@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::Path;
+use std::sync::Arc;
 
 const RAM_SAMPLE_LIMIT: usize = 16 * 1024 * 1024;
 const RAM_MATCH_SAMPLE_LIMIT: usize = 80;
@@ -65,21 +66,51 @@ pub struct RamCategoryCount {
     pub count: usize,
 }
 
-pub fn analyze_ram_summary(file_path: &Path, os_type: Option<&str>) -> io::Result<RamAnalysisSummary> {
+pub fn analyze_ram_summary(
+    file_path: &Path,
+    os_type: Option<&str>,
+) -> io::Result<RamAnalysisSummary> {
+    analyze_ram_summary_logged(file_path, os_type, None)
+}
+
+pub fn analyze_ram_summary_logged(
+    file_path: &Path,
+    os_type: Option<&str>,
+    log: Option<Arc<dyn Fn(String) + Send + Sync>>,
+) -> io::Result<RamAnalysisSummary> {
+    if let Some(log) = &log {
+        log(format!(
+            "RAM analiz dosyası okunuyor: {}",
+            file_path.display()
+        ));
+    }
     let metadata = fs::metadata(file_path)?;
     let mut warnings = Vec::new();
     let mut recommendations = Vec::new();
 
     let os = os_type.unwrap_or("windows");
-    let label = if os == "linux" { "Linux Memory (Volatility3)" } else { "Windows Memory (Volatility3)" };
-    
-    let procs = match crate::volatility::get_processes(file_path, os) {
-        Ok(plist) => plist.into_iter().map(|p| ActiveProcessInfo {
-            pid: p.pid.to_string(),
-            name: format!("{} ({})", p.name, p.offset),
-            dump_size: 0,
-        }).collect(),
+    let label = if os == "linux" {
+        "Linux Memory (Volatility3)"
+    } else {
+        "Windows Memory (Volatility3)"
+    };
+
+    if let Some(log) = &log {
+        log(format!("{label} proses listesi çıkarılıyor"));
+    }
+    let procs = match crate::volatility::get_processes_logged(file_path, os, log.clone()) {
+        Ok(plist) => plist
+            .into_iter()
+            .map(|p| ActiveProcessInfo {
+                pid: p.pid.to_string(),
+                name: format!("{} ({})", p.name, p.offset),
+                dump_size: 0,
+            })
+            .collect(),
         Err(err) => {
+            if let Some(log) = &log {
+                log(format!("Volatility3 proses analizi uyarısı: {err}"));
+            }
             warnings.push(format!("Volatility3 error: {}", err));
             Vec::new()
         }
@@ -87,7 +118,13 @@ pub fn analyze_ram_summary(file_path: &Path, os_type: Option<&str>) -> io::Resul
     let largest_processes = procs;
     let dump_type = label.to_string();
 
+    if let Some(log) = &log {
+        log("Entropy örneği hesaplanıyor".to_string());
+    }
     let entropy_sample = sample_entropy(file_path)?;
+    if let Some(log) = &log {
+        log("IOC/dizgi taraması başlatıldı".to_string());
+    }
     let matches = analyze_ram_strings(file_path)?;
     let mut counts = BTreeMap::new();
     for item in &matches {
@@ -110,6 +147,14 @@ pub fn analyze_ram_summary(file_path: &Path, os_type: Option<&str>) -> io::Resul
 
     let mut native_recommendations = ram_recommendations(matches.len());
     recommendations.append(&mut native_recommendations);
+
+    if let Some(log) = &log {
+        log(format!(
+            "RAM analiz özeti hazır: {} proses, {} IOC/dizgi",
+            process_count,
+            matches.len()
+        ));
+    }
 
     Ok(RamAnalysisSummary {
         file_path: file_path.to_string_lossy().into_owned(),
@@ -284,17 +329,16 @@ fn sample_entropy(path: &Path) -> io::Result<f64> {
     Ok(entropy)
 }
 
-fn ram_warnings(
-    size: u64,
-    entropy: f64,
-    matches: &[RamStringMatch],
-) -> Vec<String> {
+fn ram_warnings(size: u64, entropy: f64, matches: &[RamStringMatch]) -> Vec<String> {
     let mut warnings = Vec::new();
     if size < 16 * 1024 * 1024 {
         warnings.push("Bellek dosyası çok küçük; tam bir RAM imajı olmayabilir.".to_string());
     }
     if entropy > 7.7 && matches.is_empty() {
-        warnings.push("Yüksek entropi ve az dizgi bulundu; bellek şifrelenmiş veya sıkıştırılmış olabilir.".to_string());
+        warnings.push(
+            "Yüksek entropi ve az dizgi bulundu; bellek şifrelenmiş veya sıkıştırılmış olabilir."
+                .to_string(),
+        );
     }
     warnings
 }
@@ -455,13 +499,8 @@ pub fn carve_files(file_path: &Path, output_dir: &Path) -> io::Result<Vec<Carved
     Ok(carved_files)
 }
 
-
-
 /// Search volatile strings within a raw memory image (fallback when not a process tar archive).
-pub fn search_raw_memory(
-    file_path: &Path,
-    query: &str,
-) -> io::Result<Vec<RamStringMatch>> {
+pub fn search_raw_memory(file_path: &Path, query: &str) -> io::Result<Vec<RamStringMatch>> {
     let mut file = File::open(file_path)?;
     let mut results = Vec::new();
     let query_lower = query.to_ascii_lowercase();
@@ -502,7 +541,8 @@ pub fn search_raw_memory(
 
                 results.push(RamStringMatch {
                     category: "Raw Match".to_string(),
-                    value: String::from_utf8_lossy(&current_chunk[pos..pos + query_bytes.len()]).into_owned(),
+                    value: String::from_utf8_lossy(&current_chunk[pos..pos + query_bytes.len()])
+                        .into_owned(),
                     offset: offset + pos as u64,
                     context: context_str,
                 });
