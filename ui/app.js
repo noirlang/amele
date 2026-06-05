@@ -40,6 +40,7 @@ const state = {
   remoteConnections: {},
   activeAcquisition: null,
   activeCase: null,
+  pendingCaseName: "",
   cases: [],
   caseBaseDir: "",
   imageMount: null,
@@ -221,8 +222,7 @@ const workflows = {
     title: L("Windows Yerel RAM Edinimi", "Windows Local RAM Acquisition"),
     desc: L("WinPMEM kontrolü ve yerel RAM imajı.", "Check WinPMEM and acquire local RAM."),
     mode: "local-ram",
-    output: "memory_dump_local.raw",
-    diskLabel: L("WinPMEM local", "Local WinPMEM")
+    output: "memory_dump_local.raw"
   },
   "linux-local-ram": {
     platform: "Linux",
@@ -230,8 +230,7 @@ const workflows = {
     title: L("Linux Yerel RAM Edinimi", "Linux Local RAM Acquisition"),
     desc: L("AVML kontrolü ve root ile RAM imajı.", "Check AVML and acquire RAM as root."),
     mode: "local-ram",
-    output: "linux_memory_dump.raw",
-    diskLabel: L("AVML local", "Local AVML")
+    output: "linux_memory_dump.raw"
   }
 };
 
@@ -455,12 +454,15 @@ async function loadEvidenceCases({ silent = true } = {}) {
     state.caseBaseDir = result.base_dir || "";
     state.cases = Array.isArray(result.cases) ? result.cases : [];
     
-    // Keep frontend selected case active if it still exists
-    const activeCaseName = state.activeCase?.case_name;
+    // Keep frontend selected/pending case active even before it exists on disk.
+    const activeCaseName = state.pendingCaseName || state.activeCase?.case_name;
     if (activeCaseName) {
       const stillExists = state.cases.find(c => c.case_name === activeCaseName);
       if (stillExists) {
         state.activeCase = stillExists;
+        state.pendingCaseName = "";
+      } else if (state.pendingCaseName) {
+        state.activeCase = { case_name: state.pendingCaseName };
       } else if (result.current_case) {
         state.activeCase = result.current_case;
       }
@@ -482,7 +484,7 @@ function updateCaseControls() {
     node.textContent = state.caseBaseDir || "~/Worm/Vakalar";
   });
 
-  const selected = state.activeCase?.case_name || "";
+  const selected = state.pendingCaseName || state.activeCase?.case_name || "";
   document.querySelectorAll("[data-case-select]").forEach((select) => {
     const allowNew = select.dataset.allowNewCase === "1";
     select.innerHTML = caseSelectOptions(selected, { allowNew });
@@ -496,6 +498,12 @@ function caseSelectOptions(selected = "", { allowNew = false } = {}) {
   if (!state.cases.length && !allowNew) {
     return `<option value="">${t("case.noCases")}</option>`;
   }
+  const hasSelected = effectiveSelected && effectiveSelected !== "__new__"
+    ? state.cases.some((item) => item.case_name === effectiveSelected)
+    : true;
+  const pendingOption = !hasSelected
+    ? `<option value="${escapeHtml(effectiveSelected)}" selected>${escapeHtml(effectiveSelected)}</option>`
+    : "";
   const options = state.cases
     .map((item) => {
       const name = escapeHtml(item.case_name || "");
@@ -505,7 +513,7 @@ function caseSelectOptions(selected = "", { allowNew = false } = {}) {
     .join("");
   const newSelected = effectiveSelected === "__new__" || (allowNew && !state.cases.length) ? " selected" : "";
   const newOption = allowNew ? `<option value="__new__"${newSelected}>${t("workflow.newCase")}</option>` : "";
-  return `${options}${newOption}`;
+  return `${pendingOption}${options}${newOption}`;
 }
 
 function toggleCaseCreateInput(select) {
@@ -519,26 +527,43 @@ function imageCaseOutputLabel(caseName) {
 }
 
 function caseOutputLabel(caseName, subdir = "ciktilar") {
+  if (caseName === "__new__") caseName = state.pendingCaseName || "";
   const selected = state.cases.find((item) => item.case_name === caseName)
     || (state.activeCase?.case_name === caseName ? state.activeCase : null);
-  const key = subdir === "ram" ? "ram_dir" : "output_dir";
+  const keyBySubdir = {
+    android: "android_dir",
+    ram: "ram_dir",
+    ciktilar: "output_dir"
+  };
+  const key = keyBySubdir[subdir] || "output_dir";
   if (caseName && caseName !== "__new__" && selected?.[key]) return selected[key];
-  const folder = subdir === "ram" ? "ram" : "ciktilar";
+  const folderBySubdir = {
+    android: "android",
+    ram: "ram",
+    ciktilar: "ciktilar"
+  };
+  const folder = folderBySubdir[subdir] || "ciktilar";
   if (state.caseBaseDir) return `${state.caseBaseDir}/${caseName || "vaka"}/${folder}`;
   return `~/Worm/Vakalar/${caseName || "vaka"}/${folder}`;
 }
 
 function reportCaseName() {
-  const selected = document.querySelector("#report-case")?.value.trim() || "";
-  return selected || defaultCaseName();
+  return resolveSelectedCaseName("#report-case", { fallbackToDefault: true });
+}
+
+function resolveSelectedCaseName(selector = "#workflow-case", { fallbackToDefault = false } = {}) {
+  const selected = document.querySelector(selector)?.value.trim() || "";
+  if (selected && selected !== "__new__") return selected;
+  if (state.pendingCaseName) return state.pendingCaseName;
+  if (state.activeCase?.case_name) return state.activeCase.case_name;
+  return fallbackToDefault ? defaultCaseName() : "";
 }
 
 async function ensureImageCase() {
-  const select = document.querySelector("#workflow-case");
-  const selected = select?.value || "";
-  if (selected && selected !== "__new__") {
+  const selected = resolveSelectedCaseName("#workflow-case");
+  if (selected) {
     const existing = state.cases.find((item) => item.case_name === selected);
-    if (existing && existing.case_path) return existing;
+    if (existing && (existing.case_dir || existing.case_path)) return existing;
     
     // Create new case folder on backend disk if not already existing
     const created = await apiRequest("/api/evidence-create", {
@@ -546,6 +571,7 @@ async function ensureImageCase() {
       body: JSON.stringify({ case_name: selected })
     });
     state.activeCase = created;
+    state.pendingCaseName = "";
     state.cachedDefaultCaseName = "";
     await loadEvidenceCases();
     return created;
@@ -557,6 +583,7 @@ async function ensureImageCase() {
     body: JSON.stringify({ case_name: caseName })
   });
   state.activeCase = created;
+  state.pendingCaseName = "";
   state.cachedDefaultCaseName = "";
   await loadEvidenceCases();
   return created;
@@ -750,12 +777,8 @@ document.addEventListener("change", (event) => {
       const newName = prompt(promptTitle);
       if (newName && newName.trim()) {
         const cleanName = newName.trim();
-        const exists = state.cases.some((c) => c.case_name.toLowerCase() === cleanName.toLowerCase());
-        if (!exists) {
-          state.cases.push({ case_name: cleanName });
-        }
+        state.pendingCaseName = cleanName;
         state.activeCase = { case_name: cleanName };
-        caseSelect.value = cleanName;
         
         // Mirror to all data-case-select fields on the page
         document.querySelectorAll("[data-case-select]").forEach((el) => {
@@ -771,12 +794,15 @@ document.addEventListener("change", (event) => {
       } else {
         // Revert to first case or empty if cancelled
         const fallback = state.cases.length ? state.cases[0].case_name : "";
+        state.pendingCaseName = "";
+        state.activeCase = state.cases.find((c) => c.case_name === fallback) || null;
         caseSelect.value = fallback;
         document.querySelectorAll("[data-case-select]").forEach((el) => {
           el.value = fallback;
         });
       }
     } else {
+      state.pendingCaseName = "";
       state.activeCase = state.cases.find((c) => c.case_name === caseSelect.value) || { case_name: caseSelect.value };
     }
     toggleCaseCreateInput(caseSelect);
@@ -803,8 +829,7 @@ async function handleAction(button) {
       showToast,
       render,
       resolveCase() {
-        const select = document.querySelector("#workflow-case");
-        return select?.value || null;
+        return resolveSelectedCaseName("#workflow-case") || null;
       }
     });
     if (handled) return;
@@ -1554,8 +1579,6 @@ function setAcquisitionControlsVisible(active, startButton = document.querySelec
 }
 
 async function scanTargets() {
-  const select = document.querySelector("[data-field='target']");
-  if (!select) return;
   const routeId = state.route.split(":")[1];
   const workflow = workflows[routeId];
   const isRam = workflow?.mode.includes("ram");
@@ -1586,18 +1609,14 @@ async function scanTargets() {
         const statusMessage = String(status?.message || "");
         const missingTool = status?.tool_present === false || /not found|bulunamad/i.test(statusMessage);
         if (missingTool) {
-          const fallback = localText(workflow.diskLabel);
-          select.innerHTML = `<option value="${escapeHtml(fallback)}">${escapeHtml(fallback)}</option>`;
           updateSide("target", t("scan.toolMissing", { tool: toolName }));
           writeWorkflowLog(t("scan.toolMissing", { tool: toolName }));
           showToast(t("scan.toolMissing", { tool: toolName }), "error");
           return;
         }
-        const label = status?.tool_path || statusMessage || localText(workflow.diskLabel);
-        const targets = [localText(workflow.diskLabel), label].filter(Boolean);
-        select.innerHTML = targets.map((target) => `<option value="${escapeHtml(target)}">${escapeHtml(target)}</option>`).join("");
-        updateSide("target", targets[0]);
-        writeWorkflowLog(t("scan.toolDoneLog", { target: localText(workflow.diskLabel), message: statusMessage || t("ready") }));
+        const label = status?.tool_path || statusMessage || t("scan.toolReady", { tool: toolName });
+        updateSide("target", escapeHtml(label));
+        writeWorkflowLog(t("scan.toolDoneLog", { target: toolName, message: statusMessage || t("ready") }));
         showToast(t("scan.toolReady", { tool: toolName }));
       } catch (error) {
         if (workflow?.mode.startsWith("remote")) {
@@ -1610,13 +1629,14 @@ async function scanTargets() {
       return;
     }
 
-    const fallbackTargets = [localText(workflow.diskLabel), workflow.platform === "Windows" ? "WinPMEM portable" : "AVML local"];
-    select.innerHTML = fallbackTargets.map((target) => `<option value="${target}">${target}</option>`).join("");
-    updateSide("target", fallbackTargets[0]);
-    writeWorkflowLog(t("scan.toolListUpdated"));
-    showToast(t("scan.done"));
+    updateSide("target", t("localCheckWaiting"));
+    writeWorkflowLog(t("scan.appModeRequired"));
+    showToast(t("workflow.appModeRequired"), "error");
     return;
   }
+
+  const select = document.querySelector("[data-field='target']");
+  if (!select) return;
 
   if (backendReady()) {
     try {
@@ -1726,15 +1746,6 @@ async function installAvml(button) {
     const status = result.status || {};
     const path = status.tool_path || result.path || "/usr/bin/avml";
     const label = status.message || result.message || "AVML ready";
-    const select = document.querySelector("[data-field='target']");
-    if (select) {
-      const localLabel = localText(workflow.diskLabel);
-      select.innerHTML = [
-        `<option value="${escapeHtml(localLabel)}">${escapeHtml(localLabel)}</option>`,
-        `<option value="${escapeHtml(path)}">${escapeHtml(path)}</option>`
-      ].join("");
-      select.value = path;
-    }
     updateSide("target", escapeHtml(path));
     writeWorkflowLog(t("scan.toolDoneLog", { target: "AVML", message: escapeHtml(label) }));
     writeWorkflowLog(t("workflow.avmlInstalled", { path: escapeHtml(path) }));
@@ -1772,15 +1783,6 @@ async function installWinpmem(button) {
     const status = result.status || {};
     const path = status.tool_path || result.path || "C:\\Tools\\go-winpmem_amd64_1.0-rc2_signed.exe";
     const label = status.message || result.message || "WinPMEM ready";
-    const select = document.querySelector("[data-field='target']");
-    if (select) {
-      const localLabel = localText(workflow.diskLabel);
-      select.innerHTML = [
-        `<option value="${escapeHtml(localLabel)}">${escapeHtml(localLabel)}</option>`,
-        `<option value="${escapeHtml(path)}">${escapeHtml(path)}</option>`
-      ].join("");
-      select.value = path;
-    }
     updateSide("target", escapeHtml(path));
     writeWorkflowLog(t("scan.toolDoneLog", { target: "WinPMEM", message: escapeHtml(label) }));
     writeWorkflowLog(t("workflow.winpmemInstalled", { path: escapeHtml(path) }));
@@ -2192,6 +2194,7 @@ async function createEvidenceCase() {
       body: JSON.stringify({ case_name: caseName })
     });
     state.activeCase = result;
+    state.pendingCaseName = "";
     await loadEvidenceCases();
     setStatus("[data-case-status]", `${icon("info")} ${t("case.created", { path: escapeHtml(result.case_dir) })}`);
     showToast(t("case.created", { path: result.case_dir }));
