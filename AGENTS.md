@@ -4,6 +4,10 @@
 
 This repository contains the Rust implementation of Worm Forensic Tool. Core backend code is in `src/`: acquisition logic lives in `disk.rs`, `ram.rs`, `android.rs`, `remote.rs`, and API handlers are under `src/api/`. The native/web UI is in `ui/`, with route pages in `ui/pages/`, shared icons/i18n in `ui/icons.js` and `ui/i18n.js`, and static assets under `ui/assets/`. Rust unit tests are colocated in source modules; JavaScript route and translation checks live in `tests/`. CI configuration is in `.github/workflows/ci.yml`; packaging helpers are in `scripts/` and `packaging/`.
 
+## Repository & Branch Notes
+
+The local app directory is `worm-next`. Its `origin` remote points to `favilances/worm-next` and currently uses the `rewrite-rust` branch. The upstream production repository is `noirlang/worm`; it now uses only the `main` branch. Do not push `rewrite-rust` to `noirlang/worm` unless explicitly requested; use `main` for that repository.
+
 ## Build, Test, and Development Commands
 
 - `cargo build --locked`: build a debug binary using the locked dependency graph.
