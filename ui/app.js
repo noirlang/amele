@@ -1797,8 +1797,14 @@ async function installWinpmem(button) {
 function setProgress(value, labelText = `${value}%`) {
   const progress = document.querySelector("[data-progress]");
   if (!progress) return;
-  const next = `${value}%`;
+  setProgressElement(progress, value, labelText);
+}
+
+function setProgressElement(progress, value, labelText = `${value}%`) {
+  const numericValue = Math.max(0, Math.min(100, Number(value) || 0));
+  const next = `${numericValue}%`;
   progress.style.setProperty("--value", next);
+  progress.classList.toggle("is-past-half", numericValue >= 50);
   const label = progress.querySelector("b");
   if (label) label.textContent = labelText;
 }
@@ -2271,9 +2277,7 @@ async function downloadUpdatePackage() {
     return;
   }
   if (progress) {
-    progress.style.setProperty("--value", "35%");
-    const label = progress.querySelector("b");
-    if (label) label.textContent = "35%";
+    setProgressElement(progress, 35, "35%");
   }
   if (status) status.innerHTML = `${icon("download")} ${t("settings.downloading")}`;
   try {
@@ -2286,9 +2290,7 @@ async function downloadUpdatePackage() {
       })
     });
     if (progress) {
-      progress.style.setProperty("--value", "75%");
-      const label = progress.querySelector("b");
-      if (label) label.textContent = "75%";
+      setProgressElement(progress, 75, "75%");
     }
     if (status) status.innerHTML = `${icon("download")} ${t("settings.installing")}`;
     const install = await apiRequest("/api/update-install", {
@@ -2296,9 +2298,7 @@ async function downloadUpdatePackage() {
       body: JSON.stringify({ path: result.path })
     });
     if (progress) {
-      progress.style.setProperty("--value", "100%");
-      const label = progress.querySelector("b");
-      if (label) label.textContent = "100%";
+      setProgressElement(progress, 100, "100%");
     }
     if (status) status.innerHTML = `${icon("shield")} ${t("settings.installStarted")}`;
     setStatus(
@@ -2308,9 +2308,7 @@ async function downloadUpdatePackage() {
     showToast(t("settings.installStarted"));
   } catch (error) {
     if (progress) {
-      progress.style.setProperty("--value", "0%");
-      const label = progress.querySelector("b");
-      if (label) label.textContent = "0%";
+      setProgressElement(progress, 0, "0%");
     }
     const failedKey = String(error.message || "").toLowerCase().includes("installer")
       ? "settings.installFailed"

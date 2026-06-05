@@ -38,6 +38,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
   const isDone = job?.status === "completed";
   const isFailed = job?.status === "failed";
   const progressValue = job && job.total > 0 ? Math.round((job.done / job.total) * 100) : 0;
+  const progressClass = progressValue >= 50 ? " progress-bar is-past-half" : " progress-bar";
 
   return `
     <section class="page">
@@ -100,7 +101,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
 
             <div class="section-divider"></div>
             <p class="section-label">${t("android.logical.progress")}</p>
-            <div class="progress-bar" data-progress style="--value:${progressValue}%"><span></span><b>${progressValue}%</b></div>
+            <div class="${progressClass.trim()}" data-progress style="--value:${progressValue}%"><span></span><b>${progressValue}%</b></div>
             <div class="log-box" id="android-log">${androidLogContent(android, t, modeId)}</div>
           ` : ""}
 
@@ -127,7 +128,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
 
             <div class="section-divider"></div>
             <p class="section-label">${t("android.logical.progress")}</p>
-            <div class="progress-bar" data-progress style="--value:${progressValue}%"><span></span><b>${progressValue}%</b></div>
+            <div class="${progressClass.trim()}" data-progress style="--value:${progressValue}%"><span></span><b>${progressValue}%</b></div>
             <div class="log-box" id="android-log">${androidLogContent(android, t, modeId)}</div>
           ` : ""}
 
@@ -160,7 +161,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
 
             <div class="section-divider"></div>
             <p class="section-label">${t("android.logical.progress")}</p>
-            <div class="progress-bar" data-progress style="--value:${progressValue}%"><span></span><b>${progressValue}%</b></div>
+            <div class="${progressClass.trim()}" data-progress style="--value:${progressValue}%"><span></span><b>${progressValue}%</b></div>
             <div class="log-box" id="android-log">${androidLogContent(android, t, modeId)}</div>
           ` : ""}
         </div>
