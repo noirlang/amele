@@ -4,7 +4,6 @@ use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::Path;
-use tar::Archive;
 
 const RAM_SAMPLE_LIMIT: usize = 16 * 1024 * 1024;
 const RAM_MATCH_SAMPLE_LIMIT: usize = 80;
@@ -71,39 +70,22 @@ pub fn analyze_ram_summary(file_path: &Path, os_type: Option<&str>) -> io::Resul
     let mut warnings = Vec::new();
     let mut recommendations = Vec::new();
 
-    let (largest_processes, dump_type) = if let Some(os) = os_type {
-        if os == "windows" || os == "linux" {
-            let label = if os == "windows" { "Windows Memory (Volatility3)" } else { "Linux Memory (Volatility3)" };
-            let procs = match crate::volatility::get_processes(file_path, os) {
-                Ok(plist) => plist.into_iter().map(|p| ActiveProcessInfo {
-                    pid: p.pid.to_string(),
-                    name: format!("{} ({})", p.name, p.offset),
-                    dump_size: 0,
-                }).collect(),
-                Err(err) => {
-                    warnings.push(format!("Volatility3 error: {}", err));
-                    Vec::new()
-                }
-            };
-            (procs, label.to_string())
-        } else {
-            let dt = detect_ram_dump_type(file_path)?;
-            let lp = if dt == "Worm process archive" {
-                list_tar_processes(file_path).unwrap_or_default()
-            } else {
-                Vec::new()
-            };
-            (lp, dt)
-        }
-    } else {
-        let dt = detect_ram_dump_type(file_path)?;
-        let lp = if dt == "Worm process archive" {
-            list_tar_processes(file_path).unwrap_or_default()
-        } else {
+    let os = os_type.unwrap_or("windows");
+    let label = if os == "linux" { "Linux Memory (Volatility3)" } else { "Windows Memory (Volatility3)" };
+    
+    let procs = match crate::volatility::get_processes(file_path, os) {
+        Ok(plist) => plist.into_iter().map(|p| ActiveProcessInfo {
+            pid: p.pid.to_string(),
+            name: format!("{} ({})", p.name, p.offset),
+            dump_size: 0,
+        }).collect(),
+        Err(err) => {
+            warnings.push(format!("Volatility3 error: {}", err));
             Vec::new()
-        };
-        (lp, dt)
+        }
     };
+    let largest_processes = procs;
+    let dump_type = label.to_string();
 
     let entropy_sample = sample_entropy(file_path)?;
     let matches = analyze_ram_strings(file_path)?;
@@ -123,10 +105,10 @@ pub fn analyze_ram_summary(file_path: &Path, os_type: Option<&str>) -> io::Resul
         .cloned()
         .collect::<Vec<_>>();
 
-    let mut native_warnings = ram_warnings(metadata.len(), &dump_type, entropy_sample, &matches);
+    let mut native_warnings = ram_warnings(metadata.len(), entropy_sample, &matches);
     warnings.append(&mut native_warnings);
 
-    let mut native_recommendations = ram_recommendations(&dump_type, process_count, matches.len());
+    let mut native_recommendations = ram_recommendations(matches.len());
     recommendations.append(&mut native_recommendations);
 
     Ok(RamAnalysisSummary {
@@ -270,29 +252,6 @@ pub fn analyze_ram_strings(file_path: &Path) -> io::Result<Vec<RamStringMatch>> 
     Ok(results)
 }
 
-fn detect_ram_dump_type(path: &Path) -> io::Result<String> {
-    let mut file = File::open(path)?;
-    let mut header = [0_u8; 512];
-    let read = file.read(&mut header)?;
-    let ext = path
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .unwrap_or_default()
-        .to_ascii_lowercase();
-
-    if read > 265 && &header[257..262] == b"ustar" {
-        Ok("Worm process archive".to_string())
-    } else if ext == "tar" {
-        Ok("TAR archive".to_string())
-    } else if read >= 4 && &header[0..4] == b"\x7FELF" {
-        Ok("Process memory segment".to_string())
-    } else if ext == "raw" || ext == "bin" || ext == "mem" {
-        Ok("Raw memory image".to_string())
-    } else {
-        Ok("Unknown memory artifact".to_string())
-    }
-}
-
 fn sample_entropy(path: &Path) -> io::Result<f64> {
     let mut file = File::open(path)?;
     let mut counts = [0_u64; 256];
@@ -327,40 +286,27 @@ fn sample_entropy(path: &Path) -> io::Result<f64> {
 
 fn ram_warnings(
     size: u64,
-    dump_type: &str,
     entropy: f64,
     matches: &[RamStringMatch],
 ) -> Vec<String> {
     let mut warnings = Vec::new();
-    if size < 1024 * 1024 {
-        warnings.push("Bellek artefacti cok kucuk; tam RAM imaji olmayabilir.".to_string());
-    }
-    if dump_type == "Unknown memory artifact" {
-        warnings.push(
-            "Dosya tipi taninamadi; raw dump, proses segmenti veya tar arsivi olmayabilir."
-                .to_string(),
-        );
+    if size < 16 * 1024 * 1024 {
+        warnings.push("Bellek dosyası çok küçük; tam bir RAM imajı olmayabilir.".to_string());
     }
     if entropy > 7.7 && matches.is_empty() {
-        warnings.push("Yuksek entropi ve az dizgi var; sikistirilmis/sifreli veri veya uyumsuz format olabilir.".to_string());
+        warnings.push("Yüksek entropi ve az dizgi bulundu; bellek şifrelenmiş veya sıkıştırılmış olabilir.".to_string());
     }
     warnings
 }
 
-fn ram_recommendations(dump_type: &str, process_count: usize, match_count: usize) -> Vec<String> {
+fn ram_recommendations(match_count: usize) -> Vec<String> {
     let mut recommendations = Vec::new();
-    if dump_type == "Worm process archive" && process_count > 0 {
-        recommendations
-            .push("Prosesleri tek tek secip maps ve proses ici arama ile inceleyin.".to_string());
-    }
-    if dump_type == "Raw memory image" {
-        recommendations.push(
-            "Raw imaj icin strings ve carving sonuclarini hashli rapora ekleyin.".to_string(),
-        );
-    }
+    recommendations.push(
+        "Bulunan ham RAM imajı üzerinde Volatility3 ile süreçleri listeleme ve analiz araçlarını çalıştırın.".to_string()
+    );
     if match_count > 0 {
         recommendations
-            .push("IOC dizgilerini kategori ve offset bilgisiyle rapora tasiyin.".to_string());
+            .push("IOC dizgilerini kategori ve offset bilgisiyle rapora taşıyın.".to_string());
     }
     recommendations
 }
@@ -509,156 +455,7 @@ pub fn carve_files(file_path: &Path, output_dir: &Path) -> io::Result<Vec<Carved
     Ok(carved_files)
 }
 
-/// Lists active processes present inside a WORM logical RAM tar archive.
-pub fn list_tar_processes(tar_path: &Path) -> io::Result<Vec<ActiveProcessInfo>> {
-    let file = File::open(tar_path)?;
-    let mut archive = Archive::new(file);
-    let mut processes = std::collections::HashMap::new();
 
-    for entry in archive.entries()? {
-        let mut entry = entry?;
-        let path_str = entry.path()?.to_string_lossy().into_owned();
-
-        // Path structure: worm_ram_dumps/<pid>/... or similar
-        let parts: Vec<&str> = path_str.split('/').collect();
-        if parts.len() >= 3 && parts[0] == "worm_ram_dumps" {
-            let pid = parts[1].to_string();
-            let file_name = parts[2];
-
-            let state = processes
-                .entry(pid.clone())
-                .or_insert((String::new(), 0_u64));
-
-            if file_name == "name.txt" {
-                let mut content = String::new();
-                entry.read_to_string(&mut content)?;
-                state.0 = content.trim().to_string();
-            } else if file_name.ends_with(".bin") {
-                state.1 += entry.header().size()?;
-            }
-        }
-    }
-
-    let mut result: Vec<ActiveProcessInfo> = processes
-        .into_iter()
-        .map(|(pid, (name, dump_size))| ActiveProcessInfo {
-            pid,
-            name: if name.is_empty() {
-                "Unknown".to_string()
-            } else {
-                name
-            },
-            dump_size,
-        })
-        .collect();
-
-    // Sort by dump size descending
-    result.sort_by(|a, b| b.dump_size.cmp(&a.dump_size));
-    Ok(result)
-}
-
-/// Reads the `maps` content and returns dump filenames for a specific PID inside the logical RAM tar.
-pub fn get_process_maps_and_dump_files(
-    tar_path: &Path,
-    target_pid: &str,
-) -> io::Result<(String, Vec<String>)> {
-    let file = File::open(tar_path)?;
-    let mut archive = Archive::new(file);
-
-    let mut maps_content = String::new();
-    let mut bin_files = Vec::new();
-
-    for entry in archive.entries()? {
-        let mut entry = entry?;
-        let path_str = entry.path()?.to_string_lossy().into_owned();
-
-        let parts: Vec<&str> = path_str.split('/').collect();
-        if parts.len() >= 3 && parts[0] == "worm_ram_dumps" && parts[1] == target_pid {
-            let file_name = parts[2];
-            if file_name == "maps" {
-                entry.read_to_string(&mut maps_content)?;
-            } else if file_name.ends_with(".bin") {
-                bin_files.push(file_name.to_string());
-            }
-        }
-    }
-
-    Ok((maps_content, bin_files))
-}
-
-/// Search volatile strings within a specific PID's dynamic memory segments inside the tar.
-pub fn search_process_memory(
-    tar_path: &Path,
-    target_pid: &str,
-    query: &str,
-) -> io::Result<Vec<RamStringMatch>> {
-    let file = File::open(tar_path)?;
-    let mut archive = Archive::new(file);
-
-    let mut results = Vec::new();
-    let query_lower = query.to_ascii_lowercase();
-
-    for entry in archive.entries()? {
-        let mut entry = entry?;
-        let path_str = entry.path()?.to_string_lossy().into_owned();
-
-        let parts: Vec<&str> = path_str.split('/').collect();
-        if parts.len() >= 3 && parts[0] == "worm_ram_dumps" && parts[1] == target_pid {
-            let file_name = parts[2];
-            if file_name.ends_with(".bin") {
-                // Parse dump region offset from filename (e.g. "7f8840_7f89b0.bin")
-                let segment_name = file_name.trim_end_matches(".bin");
-                let segment_start = segment_name
-                    .split('_')
-                    .next()
-                    .and_then(|h| u64::from_str_radix(h, 16).ok())
-                    .unwrap_or(0);
-
-                let mut data = Vec::new();
-                entry.read_to_end(&mut data)?;
-
-                let query_bytes = query_lower.as_bytes();
-                let mut pos = 0;
-
-                while pos < data.len().saturating_sub(query_bytes.len()) {
-                    let window = &data[pos..pos + query_bytes.len()];
-                    if window.eq_ignore_ascii_case(query_bytes) {
-                        // Found a match! Let's build a context string
-                        let context_start = pos.saturating_sub(20);
-                        let context_end = (pos + query_bytes.len() + 20).min(data.len());
-                        let context_bytes = &data[context_start..context_end];
-
-                        let context_str = String::from_utf8_lossy(context_bytes)
-                            .chars()
-                            .map(|c| {
-                                if c.is_ascii_graphic() || c == ' ' {
-                                    c
-                                } else {
-                                    '.'
-                                }
-                            })
-                            .collect::<String>();
-
-                        results.push(RamStringMatch {
-                            category: format!("Segment: {segment_name}"),
-                            value: String::from_utf8_lossy(&data[pos..pos + query_bytes.len()])
-                                .into_owned(),
-                            offset: segment_start + pos as u64,
-                            context: context_str,
-                        });
-
-                        if results.len() >= 300 {
-                            return Ok(results); // Cap results to avoid crashing UI
-                        }
-                    }
-                    pos += 1;
-                }
-            }
-        }
-    }
-
-    Ok(results)
-}
 
 /// Search volatile strings within a raw memory image (fallback when not a process tar archive).
 pub fn search_raw_memory(

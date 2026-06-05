@@ -1015,28 +1015,20 @@ pub fn ram_list_processes_endpoint(body: &[u8]) -> Response {
     };
     let path = Path::new(&request.path);
     if !path.exists() {
-        return json_error(404, "Bellek arşivi bulunamadı / Memory archive not found");
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
     
-    if let Some(os) = request.os_type.as_ref() {
-        if os == "windows" || os == "linux" {
-            match crate::volatility::get_processes(path, os) {
-                Ok(procs) => {
-                    let mapped: Vec<Value> = procs.into_iter().map(|p| json!({
-                        "pid": p.pid.to_string(),
-                        "name": format!("{} ({})", p.name, p.offset),
-                        "dump_size": 0,
-                    })).collect();
-                    return json_ok(Value::Array(mapped));
-                }
-                Err(err) => return json_error(500, err),
-            }
+    let os = request.os_type.as_deref().unwrap_or("windows");
+    match crate::volatility::get_processes(path, os) {
+        Ok(procs) => {
+            let mapped: Vec<Value> = procs.into_iter().map(|p| json!({
+                "pid": p.pid.to_string(),
+                "name": format!("{} ({})", p.name, p.offset),
+                "dump_size": 0,
+            })).collect();
+            json_ok(Value::Array(mapped))
         }
-    }
-    
-    match ram_analysis::list_tar_processes(path) {
-        Ok(procs) => json_ok(serde_json::to_value(procs).unwrap_or(Value::Null)),
-        Err(err) => json_error(500, err.to_string()),
+        Err(err) => json_error(500, err),
     }
 }
 
@@ -1053,35 +1045,25 @@ pub fn ram_process_details_endpoint(body: &[u8]) -> Response {
     };
     let path = Path::new(&request.path);
     if !path.exists() {
-        return json_error(404, "Bellek arşivi bulunamadı / Memory archive not found");
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
     
-    if let Some(os) = request.os_type.as_ref() {
-        if os == "windows" || os == "linux" {
-            let pid_num = match request.pid.parse::<i64>() {
-                Ok(n) => n,
-                Err(_) => return json_error(400, "PID must be a valid integer for Volatility3"),
-            };
-            match crate::volatility::get_process_details(path, os, pid_num) {
-                Ok(details) => return json_ok(json!({
-                    "maps": details,
-                    "dumps": Vec::<String>::new(),
-                })),
-                Err(err) => return json_error(500, err),
-            }
-        }
-    }
-    
-    match ram_analysis::get_process_maps_and_dump_files(path, &request.pid) {
-        Ok((maps, bin_files)) => json_ok(json!({
-            "maps": maps,
-            "dumps": bin_files,
+    let os = request.os_type.as_deref().unwrap_or("windows");
+    let pid_num = match request.pid.parse::<i64>() {
+        Ok(n) => n,
+        Err(_) => return json_error(400, "PID must be a valid integer for Volatility3"),
+    };
+    match crate::volatility::get_process_details(path, os, pid_num) {
+        Ok(details) => json_ok(json!({
+            "maps": details,
+            "dumps": Vec::<String>::new(),
         })),
-        Err(err) => json_error(500, err.to_string()),
+        Err(err) => json_error(500, err),
     }
 }
 
 pub fn ram_process_search_endpoint(body: &[u8]) -> Response {
+    #[allow(dead_code)]
     #[derive(Deserialize)]
     struct Request {
         path: String,
@@ -1098,25 +1080,12 @@ pub fn ram_process_search_endpoint(body: &[u8]) -> Response {
     }
     let path = Path::new(&request.path);
     if !path.exists() {
-        return json_error(404, "Bellek arşivi bulunamadı / Memory archive not found");
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
     
-    let is_volatility = request.os_type.as_ref().map(|os| os == "windows" || os == "linux").unwrap_or(false);
-    if is_volatility {
-        match ram_analysis::search_raw_memory(path, &request.query) {
-            Ok(matches) => json_ok(serde_json::to_value(matches).unwrap_or(Value::Null)),
-            Err(err) => json_error(500, err.to_string()),
-        }
-    } else {
-        match ram_analysis::search_process_memory(path, &request.pid, &request.query) {
-            Ok(matches) => json_ok(serde_json::to_value(matches).unwrap_or(Value::Null)),
-            Err(err) => {
-                match ram_analysis::search_raw_memory(path, &request.query) {
-                    Ok(matches) => json_ok(serde_json::to_value(matches).unwrap_or(Value::Null)),
-                    Err(_) => json_error(500, err.to_string()),
-                }
-            }
-        }
+    match ram_analysis::search_raw_memory(path, &request.query) {
+        Ok(matches) => json_ok(serde_json::to_value(matches).unwrap_or(Value::Null)),
+        Err(err) => json_error(500, err.to_string()),
     }
 }
 

@@ -1135,7 +1135,7 @@ async function handleAction(button) {
       showToast("Önce geçerli bir RAM dosyası seçin / Select a valid RAM file first", "error");
       return;
     }
-    const osProfile = document.querySelector("#ram-os-profile")?.value || "auto";
+    const osProfile = document.querySelector("#ram-os-profile")?.value || "windows";
     document.querySelector("#ram-analysis-results").style.display = "block";
     document.querySelector("#ram-split-view").style.display = "none";
     document.querySelector("#ram-flat-results-panel").style.display = "block";
@@ -1145,15 +1145,13 @@ async function handleAction(button) {
     const flatResults = document.querySelector("#ram-flat-results-list");
     if (flatTitle) flatTitle.textContent = t("analysis.ramSummary");
     
-    const loadingMessage = osProfile !== "auto" 
-      ? `⌛ Volatility3 ile uçucu bellek analiz ediliyor... (İlk çalıştırmada sembollerin yüklenmesi 30-40 sn sürebilir)<br/>Analyzing memory with Volatility3... (This may take a while during the first run)`
-      : escapeHtml(t("analysis.runningAnalysis"));
+    const loadingMessage = `⌛ Volatility3 ile uçucu bellek analiz ediliyor... (İlk çalıştırmada sembollerin yüklenmesi 30-40 sn sürebilir)<br/>Analyzing memory with Volatility3... (This may take a while during the first run)`;
       
     if (flatResults) flatResults.innerHTML = `<div class="log-box">${loadingMessage}</div>`;
     try {
       const result = await apiRequest("/api/ram-analyze-summary", {
         method: "POST",
-        body: JSON.stringify({ path: ramPath, os_type: osProfile === "auto" ? null : osProfile })
+        body: JSON.stringify({ path: ramPath, os_type: osProfile })
       });
       document.querySelector("#stat-strings-count").textContent = String(result.string_match_count || 0);
       document.querySelector("#stat-carved-count").textContent = "-";
@@ -1315,7 +1313,7 @@ async function handleAction(button) {
       showToast("Önce geçerli bir RAM dosyası seçin / Select a valid RAM file first", "error");
       return;
     }
-    const osProfile = document.querySelector("#ram-os-profile")?.value || "auto";
+    const osProfile = document.querySelector("#ram-os-profile")?.value || "windows";
 
     document.querySelector("#ram-analysis-results").style.display = "block";
     document.querySelector("#ram-split-view").style.display = "grid";
@@ -1325,9 +1323,7 @@ async function handleAction(button) {
     document.querySelector("#ram-right-panel-title").textContent = "Proses Detayları / Process Inspector";
 
     const leftList = document.querySelector("#ram-left-list");
-    const loadingMessage = osProfile !== "auto"
-      ? `⌛ Volatility3 ile proses tablosu çıkartılıyor...<br/>Extracting process list with Volatility3...`
-      : `⌛ Proses tablosu çıkartılıyor... / Reading process lists...`;
+    const loadingMessage = `⌛ Volatility3 ile proses tablosu çıkartılıyor...<br/>Extracting process list with Volatility3...`;
     leftList.innerHTML = `<div class="log-box" style="text-align:center;padding:20px">${loadingMessage}</div>`;
     const rightContent = document.querySelector("#ram-right-content");
     rightContent.innerHTML = `<div class="log-box" style="display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center">Proses seçildiğinde bellek haritası ve arama alanları burada açılacak.<br/>Select a process from the left to inspect memory maps.</div>`;
@@ -1338,7 +1334,7 @@ async function handleAction(button) {
     try {
       const result = await apiRequest("/api/ram-list-processes", {
         method: "POST",
-        body: JSON.stringify({ path: ramPath, os_type: osProfile === "auto" ? null : osProfile })
+        body: JSON.stringify({ path: ramPath, os_type: osProfile })
       });
 
       const count = result.length || 0;
@@ -2437,10 +2433,8 @@ async function inspectProcessDetails(pid, name) {
   const rightContent = document.querySelector("#ram-right-content");
   if (!rightContent) return;
   
-  const osProfile = document.querySelector("#ram-os-profile")?.value || "auto";
-  const loadingMessage = osProfile !== "auto"
-    ? `⌛ Volatility3 ile proses detayları yükleniyor... (DLL listesi veya açık dosyalar)<br/>Loading process details with Volatility3...`
-    : `⌛ Proses bellek haritası yükleniyor...`;
+  const osProfile = document.querySelector("#ram-os-profile")?.value || "windows";
+  const loadingMessage = `⌛ Volatility3 ile proses detayları yükleniyor... (DLL listesi veya açık dosyalar)<br/>Loading process details with Volatility3...`;
   
   rightContent.innerHTML = `<div class="log-box" style="text-align:center;padding:20px">${loadingMessage}</div>`;
   
@@ -2448,12 +2442,11 @@ async function inspectProcessDetails(pid, name) {
   try {
     const result = await apiRequest("/api/ram-process-details", {
       method: "POST",
-      body: JSON.stringify({ path: ramPath, pid, os_type: osProfile === "auto" ? null : osProfile })
+      body: JSON.stringify({ path: ramPath, pid, os_type: osProfile })
     });
     
     const label = osProfile === "windows" ? "Yüklenen DLL Modülleri (Loaded DLLs)" : 
-                  osProfile === "linux" ? "Açık Dosyalar (Open Files / lsof)" : 
-                  "Bellek Haritaları (Maps)";
+                  "Açık Dosyalar (Open Files / lsof)";
     
     rightContent.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:14px;padding:12px">
@@ -2499,17 +2492,14 @@ async function runProcessMemorySearch(pid) {
     return;
   }
   
-  const osProfile = document.querySelector("#ram-os-profile")?.value || "auto";
-  const loadingMessage = osProfile !== "auto"
-    ? `⌛ Uçucu bellek taranıyor...`
-    : `⌛ Proses hafızası taranıyor...`;
-  resultsDiv.innerHTML = `<div class="log-box" style="text-align:center;padding:10px">${loadingMessage}</div>`;
+  const osProfile = document.querySelector("#ram-os-profile")?.value || "windows";
+  resultsDiv.innerHTML = `<div class="log-box" style="text-align:center;padding:10px">⌛ Uçucu bellek taranıyor...</div>`;
   
   const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
   try {
     const result = await apiRequest("/api/ram-process-search", {
       method: "POST",
-      body: JSON.stringify({ path: ramPath, pid, query, os_type: osProfile === "auto" ? null : osProfile })
+      body: JSON.stringify({ path: ramPath, pid, query, os_type: osProfile })
     });
     
     const count = result.length || 0;
