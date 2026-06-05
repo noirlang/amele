@@ -8,7 +8,7 @@
 
 [Website](https://worm.noirlang.tr) | [Releases](https://github.com/noirlang/worm/releases) | [Contributing](CONTRIBUTING.md) | [Security](SECURITY.md) | [Linux Agent](https://github.com/noirlang/worm-linux) | [Windows Agent](https://github.com/noirlang/worm-win)
 
-<video src="https://github.com/user-attachments/assets/1b57bf23-cf54-4f0e-b3b3-f745d298ba09" width="700" controls></video>
+<video src="https://github.com/user-attachments/assets/a2094bcf-3488-4983-b47f-02e240d503bb" width="700" controls></video>
 
 </div>
 
