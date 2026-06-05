@@ -71,11 +71,25 @@ pub fn run_volatility_plugin(
                     .map_err(|e| format!("Failed to parse Volatility3 JSON output: {} (Raw: {})", e, stdout_str))
             } else {
                 let stderr_str = String::from_utf8_lossy(&out.stderr);
-                Err(format!(
+                let stdout_str = String::from_utf8_lossy(&out.stdout);
+                let mut err_msg = format!(
                     "Volatility3 exited with error. Stderr: {}\nStdout: {}",
                     stderr_str.trim(),
                     stdout_str.trim()
-                ))
+                );
+                
+                if err_msg.contains("layer_name") || err_msg.contains("symbol_table_name") || err_msg.contains("Unsatisfied requirement") {
+                    err_msg.push_str("\n\n--------------------------------------------------\n\
+                      [!] OLASI NEDENLER & ÇÖZÜMLER / POSSIBLE CAUSES & SOLUTIONS:\n\
+                      1. Seçilen dosya geçerli bir fiziksel RAM imajı (.raw, .bin, .mem) olmayabilir.\n\
+                         Eğer bir proses arşivi (.tar) inceliyorsanız, lütfen 'Otomatik Algıla (Yerel Tarayıcı)' seçeneğini kullanın.\n\
+                      2. Volatility3 bu işletim sistemi sürümü için sembolleri bulamamış veya indirememiş olabilir.\n\
+                         İnternet bağlantınızın aktif olduğunu ve Microsoft sembol sunucularına erişebildiğinizi doğrulayın.\n\
+                      3. RAM imajı uyumsuz veya bozuk alınmış olabilir.\n\
+                      --------------------------------------------------");
+                }
+                
+                Err(err_msg)
             }
         }
         Err(e) => Err(format!("Failed to execute python3: {}", e)),
