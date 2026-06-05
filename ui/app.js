@@ -17,7 +17,10 @@ const assetPath = "./assets";
 const backendAvailable = location.protocol === "http:" || location.protocol === "https:";
 const urlParams = new URLSearchParams(window.location.search);
 const isNativeWebView = urlParams.get("native") === "1";
+const isNativeLinux =
+  isNativeWebView && /linux/i.test(`${navigator.platform || ""} ${navigator.userAgent || ""}`);
 if (isNativeWebView) document.documentElement.classList.add("native-webview");
+if (isNativeLinux) document.documentElement.classList.add("native-linux");
 
 const app = document.querySelector("#app");
 const view = document.querySelector("#view");

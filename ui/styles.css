@@ -2569,3 +2569,104 @@ code {
   animation: glow-spin 1.8s linear infinite;
 }
 
+/* WebKitGTK struggles with constantly animated masked conic gradients.
+   Keep the native Linux window visually close, but avoid idle repaint loops. */
+.native-linux .action-tile,
+.native-linux .forensic-card,
+.native-linux .workflow-panel,
+.native-linux .side-panel,
+.native-linux .status-strip,
+.native-linux .doc-card,
+.native-linux .settings-card,
+.native-linux .tree-panel,
+.native-linux .preview-panel,
+.native-linux .about-hero,
+.native-linux .worm-art,
+.native-linux .contributor-card,
+.native-linux .company-logo-card,
+.native-linux .ram-stat-card,
+.native-linux .carved-card,
+.native-linux .modal-content,
+.native-linux .status-badge,
+.native-linux .primary-button,
+.native-linux .secondary-button,
+.native-linux .danger-button,
+.native-linux .icon-button,
+.native-linux .top-action,
+.native-linux .input,
+.native-linux .select,
+.native-linux .textarea {
+  box-shadow: none !important;
+  transition-duration: 120ms !important;
+}
+
+.native-linux .action-tile::before,
+.native-linux .forensic-card::before,
+.native-linux .workflow-panel::before,
+.native-linux .side-panel::before,
+.native-linux .status-strip::before,
+.native-linux .doc-card::before,
+.native-linux .settings-card::before,
+.native-linux .tree-panel::before,
+.native-linux .preview-panel::before,
+.native-linux .about-hero::before,
+.native-linux .worm-art::before,
+.native-linux .contributor-card::before,
+.native-linux .company-logo-card::before,
+.native-linux .ram-stat-card::before,
+.native-linux .carved-card::before,
+.native-linux .modal-content::before,
+.native-linux .status-badge::before,
+.native-linux .primary-button::before,
+.native-linux .secondary-button::before,
+.native-linux .danger-button::before,
+.native-linux .icon-button::before,
+.native-linux .top-action::before,
+.native-linux .nav-item::after {
+  animation: none !important;
+  opacity: 0.28 !important;
+  will-change: auto !important;
+}
+
+.native-linux .action-tile:hover::before,
+.native-linux .forensic-card:hover::before,
+.native-linux .workflow-panel:hover::before,
+.native-linux .side-panel:hover::before,
+.native-linux .status-strip:hover::before,
+.native-linux .doc-card:hover::before,
+.native-linux .settings-card:hover::before,
+.native-linux .tree-panel:hover::before,
+.native-linux .preview-panel:hover::before,
+.native-linux .about-hero:hover::before,
+.native-linux .worm-art:hover::before,
+.native-linux .contributor-card:hover::before,
+.native-linux .company-logo-card:hover::before,
+.native-linux .ram-stat-card:hover::before,
+.native-linux .carved-card:hover::before,
+.native-linux .modal-content:hover::before,
+.native-linux .status-badge:hover::before,
+.native-linux .primary-button:hover::before,
+.native-linux .secondary-button:hover::before,
+.native-linux .danger-button:hover::before,
+.native-linux .icon-button:hover::before,
+.native-linux .top-action:hover::before,
+.native-linux .nav-item:hover::after {
+  animation: glow-spin 2.8s linear infinite !important;
+  opacity: 0.85 !important;
+  will-change: --glow-angle !important;
+}
+
+.native-linux .topbar,
+.native-linux .toast,
+.native-linux .modal-overlay,
+.native-linux .monitor-brand {
+  backdrop-filter: none !important;
+}
+
+.native-linux .page {
+  animation: none !important;
+}
+
+.native-linux .spark {
+  filter: none !important;
+}
