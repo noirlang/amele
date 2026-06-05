@@ -5,11 +5,11 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
   const isRemote = data.mode.startsWith("remote");
   const isRam = data.mode.includes("ram");
   const toolCheck = data.platform === "Windows" ? "WinPMEM" : "AVML";
-  const initialTarget = isRam ? localText(data.diskLabel) : "";
-  const initialTargetLabel = isRam ? localText(data.diskLabel) : t("scanDisksFirst");
+  const initialTarget = "";
+  const initialTargetLabel = t("scanDisksFirst");
   const outputField = isRam ? ramCasePanel({ t, icon, state, caseSelectOptions, caseOutputLabel, escapeHtml, canonicalRamFileName }) : imageCasePanel({ t, icon, state, caseSelectOptions, caseOutputLabel, escapeHtml });
   const targetSelect = isRam
-    ? field(t("workflow.tool"), `<select class="select" data-field="target"><option value="${initialTarget}">${initialTargetLabel}</option></select>`)
+    ? ""
     : field(t("workflow.disk"), `<select class="select" data-field="target"><option value="" disabled selected>${initialTargetLabel}</option></select>`);
   const scanLabel = isRam
     ? (isRemote ? t("workflow.checkTool", { tool: toolCheck }) : t("workflow.checkToolAction", { tool: toolCheck }))
@@ -88,7 +88,7 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
           <h3>${t("workflow.status")}</h3>
           ${sideInfo(t("workflow.platform"), `${data.platform} • ${isRemote ? t("remoteAgent") : t("localOperation")}`, data.icon, "", icon)}
           ${sideInfo(t("workflow.connection"), isRemote ? t("notConnected") : t("localCheckWaiting"), "monitor", "connection", icon)}
-          ${sideInfo(isRam ? t("workflow.tool") : t("workflow.target"), initialTarget || t("targetNotSelected"), isRam ? "chip" : "disk", "target", icon)}
+          ${sideInfo(isRam ? t("workflow.tool") : t("workflow.target"), isRam ? t("localCheckWaiting") : t("targetNotSelected"), isRam ? "chip" : "disk", "target", icon)}
           ${sideInfo(t("workflow.lastAction"), t("lastActionReady"), "clock", "last-action", icon)}
         </aside>
       </div>
