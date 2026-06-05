@@ -77,6 +77,15 @@ function renderRamAnalysis({ t, icon, state, pickerField }) {
       <p class="field-hint">${t("analysis.ramHint")}</p>
       ${pickerField(t("analysis.ramFile"), "ram-analysis-path", defaultPath, "file")}
       
+      <div style="margin-top: 14px; max-width: 400px; display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">İşletim Sistemi Profili / OS Profile</span>
+        <select id="ram-os-profile" class="select" style="background: rgba(0,0,0,0.2); border: 1px solid var(--line); color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: 13px; outline: none; width: 100%;">
+          <option value="auto">Otomatik Algıla (Yerel Tarayıcı) / Auto Detect (Quick Local)</option>
+          <option value="windows">Windows (Volatility3)</option>
+          <option value="linux">Linux (Volatility3)</option>
+        </select>
+      </div>
+
       <div class="button-row" style="margin-top:14px">
         <button class="primary-button" data-action="ram-summary">${icon("search")} ${t("analysis.btnRamSummary")}</button>
         <button class="primary-button" data-action="ram-strings">${icon("shield")} ${t("analysis.btnStrings")}</button>

@@ -66,9 +66,45 @@ pub struct RamCategoryCount {
     pub count: usize,
 }
 
-pub fn analyze_ram_summary(file_path: &Path) -> io::Result<RamAnalysisSummary> {
+pub fn analyze_ram_summary(file_path: &Path, os_type: Option<&str>) -> io::Result<RamAnalysisSummary> {
     let metadata = fs::metadata(file_path)?;
-    let dump_type = detect_ram_dump_type(file_path)?;
+    let mut warnings = Vec::new();
+    let mut recommendations = Vec::new();
+
+    let (largest_processes, dump_type) = if let Some(os) = os_type {
+        if os == "windows" || os == "linux" {
+            let label = if os == "windows" { "Windows Memory (Volatility3)" } else { "Linux Memory (Volatility3)" };
+            let procs = match crate::volatility::get_processes(file_path, os) {
+                Ok(plist) => plist.into_iter().map(|p| ActiveProcessInfo {
+                    pid: p.pid.to_string(),
+                    name: format!("{} ({})", p.name, p.offset),
+                    dump_size: 0,
+                }).collect(),
+                Err(err) => {
+                    warnings.push(format!("Volatility3 error: {}", err));
+                    Vec::new()
+                }
+            };
+            (procs, label.to_string())
+        } else {
+            let dt = detect_ram_dump_type(file_path)?;
+            let lp = if dt == "Worm process archive" {
+                list_tar_processes(file_path).unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+            (lp, dt)
+        }
+    } else {
+        let dt = detect_ram_dump_type(file_path)?;
+        let lp = if dt == "Worm process archive" {
+            list_tar_processes(file_path).unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        (lp, dt)
+    };
+
     let entropy_sample = sample_entropy(file_path)?;
     let matches = analyze_ram_strings(file_path)?;
     let mut counts = BTreeMap::new();
@@ -80,19 +116,18 @@ pub fn analyze_ram_summary(file_path: &Path) -> io::Result<RamAnalysisSummary> {
         .map(|(category, count)| RamCategoryCount { category, count })
         .collect::<Vec<_>>();
 
-    let largest_processes = if dump_type == "Worm process archive" {
-        list_tar_processes(file_path).unwrap_or_default()
-    } else {
-        Vec::new()
-    };
     let process_count = largest_processes.len();
     let sample_matches = matches
         .iter()
         .take(RAM_MATCH_SAMPLE_LIMIT)
         .cloned()
         .collect::<Vec<_>>();
-    let warnings = ram_warnings(metadata.len(), &dump_type, entropy_sample, &matches);
-    let recommendations = ram_recommendations(&dump_type, process_count, matches.len());
+
+    let mut native_warnings = ram_warnings(metadata.len(), &dump_type, entropy_sample, &matches);
+    warnings.append(&mut native_warnings);
+
+    let mut native_recommendations = ram_recommendations(&dump_type, process_count, matches.len());
+    recommendations.append(&mut native_recommendations);
 
     Ok(RamAnalysisSummary {
         file_path: file_path.to_string_lossy().into_owned(),
@@ -108,7 +143,7 @@ pub fn analyze_ram_summary(file_path: &Path) -> io::Result<RamAnalysisSummary> {
         category_counts,
         sample_matches,
         process_count,
-        largest_processes: largest_processes.into_iter().take(20).collect(),
+        largest_processes: largest_processes.into_iter().take(40).collect(),
         warnings,
         recommendations,
     })
@@ -620,6 +655,72 @@ pub fn search_process_memory(
                 }
             }
         }
+    }
+
+    Ok(results)
+}
+
+/// Search volatile strings within a raw memory image (fallback when not a process tar archive).
+pub fn search_raw_memory(
+    file_path: &Path,
+    query: &str,
+) -> io::Result<Vec<RamStringMatch>> {
+    let mut file = File::open(file_path)?;
+    let mut results = Vec::new();
+    let query_lower = query.to_ascii_lowercase();
+    let query_bytes = query_lower.as_bytes();
+
+    let chunk_size = 4 * 1024 * 1024; // 4 MB chunks
+    let overlap = query_bytes.len().saturating_sub(1);
+    let mut buffer = vec![0_u8; chunk_size];
+    let mut offset = 0_u64;
+
+    loop {
+        file.seek(SeekFrom::Start(offset))?;
+        let bytes_read = file.read(&mut buffer)?;
+        if bytes_read == 0 {
+            break;
+        }
+
+        let current_chunk = &buffer[..bytes_read];
+        let mut pos = 0;
+
+        while pos < current_chunk.len().saturating_sub(query_bytes.len()) {
+            let window = &current_chunk[pos..pos + query_bytes.len()];
+            if window.eq_ignore_ascii_case(query_bytes) {
+                let context_start = pos.saturating_sub(20);
+                let context_end = (pos + query_bytes.len() + 20).min(bytes_read);
+                let context_bytes = &current_chunk[context_start..context_end];
+
+                let context_str = String::from_utf8_lossy(context_bytes)
+                    .chars()
+                    .map(|c| {
+                        if c.is_ascii_graphic() || c == ' ' {
+                            c
+                        } else {
+                            '.'
+                        }
+                    })
+                    .collect::<String>();
+
+                results.push(RamStringMatch {
+                    category: "Raw Match".to_string(),
+                    value: String::from_utf8_lossy(&current_chunk[pos..pos + query_bytes.len()]).into_owned(),
+                    offset: offset + pos as u64,
+                    context: context_str,
+                });
+
+                if results.len() >= 300 {
+                    return Ok(results);
+                }
+            }
+            pos += 1;
+        }
+
+        if bytes_read < chunk_size {
+            break;
+        }
+        offset += (chunk_size - overlap) as u64;
     }
 
     Ok(results)
