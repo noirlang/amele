@@ -47,6 +47,7 @@ const state = {
   cases: [],
   caseBaseDir: "",
   imageMount: null,
+  imageMountLogHTML: "",
   imagePathInput: "",
   ramAnalysisPathInput: "",
   ramOsProfile: "windows",
@@ -737,11 +738,19 @@ document.addEventListener("click", (event) => {
   }
 
   const treeNode = event.target.closest(".tree-node");
-  if (treeNode) {
+  if (treeNode && treeNode.closest("#image-tree-root")) {
     const isDir = treeNode.dataset.isDir === "true";
     const relativePath = treeNode.dataset.path;
+    const isVirtual = treeNode.dataset.virtual === "true";
     document.querySelectorAll(".tree-node").forEach(el => el.classList.remove("active"));
     treeNode.classList.add("active");
+    if (isVirtual) {
+      if (isDir && treeNode.dataset.hasChildren === "true") {
+        toggleExistingTreeChildren(treeNode);
+      }
+      showVirtualTreeInfo(treeNode);
+      return;
+    }
     if (isDir) {
       expandTreeNode(treeNode, relativePath);
     } else {
@@ -1075,19 +1084,31 @@ async function handleAction(button) {
       });
       state.imageMount = {
         imagePath: result.image_path,
-        mountDir: result.mount_dir
+        mountDir: result.mount_dir || "",
+        mountMode: result.mount_mode || "mounted",
+        label: result.mount_mode === "analysis-only"
+          ? t("analysis.analysisOnlyStatus")
+          : t("analysis.mounted", { path: result.mount_dir })
       };
+      state.imageMountLogHTML = renderMountResultInfo(result);
       state.imageMountTreeHTML = renderTree(result.tree);
       const container = document.querySelector("#image-tree-root");
       if (container) {
         container.innerHTML = state.imageMountTreeHTML;
       }
+      const summaryContainer = document.querySelector("#disk-analysis-results");
+      if (summaryContainer && result.analysis) {
+        summaryContainer.style.display = "block";
+        summaryContainer.innerHTML = renderDiskAnalysisSummary(result.analysis);
+        hydrateIcons(summaryContainer);
+      }
       setAnalysisStatus(
-        t("analysis.mounted", { path: result.mount_dir }),
-        t("analysis.mountedLog")
+        state.imageMount.label,
+        state.imageMountLogHTML
       );
-      showToast(t("analysis.mountPrepared"));
+      showToast(result.mount_mode === "analysis-only" ? t("analysis.analysisOnlyPrepared") : t("analysis.mountPrepared"));
     } catch (error) {
+      state.imageMountLogHTML = "";
       setAnalysisStatus(t("analysis.noImage"), t("analysis.mountFailed", { message: error.message }));
       showToast(t("analysis.mountFailed", { message: error.message }), "error");
     }
@@ -1099,6 +1120,7 @@ async function handleAction(button) {
       await apiRequest("/api/image-unmount", { method: "POST" });
       state.imageMount = null;
       state.imageMountTreeHTML = "";
+      state.imageMountLogHTML = "";
       const container = document.querySelector("#image-tree-root");
       if (container) {
         container.innerHTML = `<div class="log-box">${t("analysis.outputWaiting")}</div>`;
@@ -1110,6 +1132,11 @@ async function handleAction(button) {
             Klasör yapısında bir dosyaya tıklayarak içeriğini inceleyebilirsiniz.<br/>Click a file on the left to preview it.
           </div>
         `;
+      }
+      const summary = document.querySelector("#disk-analysis-results");
+      if (summary) {
+        summary.style.display = "none";
+        summary.innerHTML = "";
       }
       setAnalysisStatus(t("analysis.unmounted"), t("analysis.noActiveMount"));
       showToast(t("analysis.unmounted"));
@@ -2133,7 +2160,35 @@ function setAnalysisStatus(status, log) {
   const statusNode = document.querySelector("[data-analysis-status]");
   const logNode = document.querySelector("[data-analysis-log]");
   if (statusNode) statusNode.textContent = status;
-  if (logNode) logNode.innerHTML = log;
+  state.imageMountLogHTML = log || "";
+  if (logNode) {
+    logNode.innerHTML = log || "";
+    logNode.style.display = log ? "" : "none";
+  }
+}
+
+function renderMountResultInfo(result) {
+  const mode = result.mount_mode || "mounted";
+  const analysis = result.analysis || {};
+  const filesystems = Array.isArray(analysis.filesystems) ? analysis.filesystems : [];
+  const partitions = Array.isArray(analysis.partitions) ? analysis.partitions : [];
+  const status = mode === "analysis-only"
+    ? t("analysis.analysisOnlyLog")
+    : t("analysis.mountedLog");
+  const details = [
+    analysis.image_type ? `${t("analysis.imageType")}: ${analysis.image_type}` : "",
+    analysis.size ? `${t("analysis.imageSize")}: ${formatBytes(analysis.size)}` : "",
+    analysis.partition_scheme ? `${t("analysis.partitionScheme")}: ${analysis.partition_scheme}` : "",
+    `${t("analysis.partitionCount")}: ${partitions.length}`,
+    `${t("analysis.filesystemCount")}: ${filesystems.length}`
+  ].filter(Boolean);
+  return `
+    <div class="mount-info-panel">
+      <strong>${escapeHtml(status)}</strong>
+      ${result.mount_error ? `<pre>${escapeHtml(result.mount_error)}</pre>` : ""}
+      ${details.length ? `<div class="mount-info-grid">${details.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}
+    </div>
+  `;
 }
 
 function renderDiskAnalysisSummary(result) {
@@ -2233,19 +2288,23 @@ function analysisList(title, items, tone = "") {
 
 function renderTree(node, depth = 0) {
   if (!node) return `<div class="log-box">${escapeHtml(t("analysis.outputWaiting"))}</div>`;
+  const isVirtual = Boolean(node.virtual);
+  const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+  const expanded = isVirtual && depth === 0;
   const fileIcon = node.is_dir ? "📁" : "📄";
-  const toggle = node.is_dir ? `<span class="toggle-icon">▸</span>` : "";
+  const toggle = node.is_dir ? `<span class="toggle-icon">${expanded ? "▾" : "▸"}</span>` : "";
   const sizeStr = node.is_dir ? "" : `<span class="node-size">${formatBytes(node.size)}</span>`;
+  const note = node.note || node.name || "";
   
   let relativePath = node.path;
-  if (state.imageMount && state.imageMount.mountDir) {
+  if (!isVirtual && state.imageMount && state.imageMount.mountDir) {
     if (node.path.startsWith(state.imageMount.mountDir)) {
       relativePath = node.path.substring(state.imageMount.mountDir.length);
     }
   }
 
   const current = `
-    <div class="tree-node" data-path="${escapeHtml(relativePath)}" data-is-dir="${node.is_dir}">
+    <div class="tree-node" data-path="${escapeHtml(relativePath)}" data-is-dir="${node.is_dir}" data-virtual="${isVirtual}" data-has-children="${hasChildren}" data-note="${escapeHtml(note)}">
       <span style="width:16px;display:inline-block">${toggle}</span>
       <span class="node-icon">${fileIcon}</span>
       <span class="node-name">${escapeHtml(node.name || node.path.split('/').pop() || "/")}</span>
@@ -2254,8 +2313,8 @@ function renderTree(node, depth = 0) {
     <div class="tree-children-container"></div>
   `;
 
-  const children = Array.isArray(node.children) && node.children.length > 0
-    ? `<div class="tree-children" style="padding-left:14px; display:none">${node.children.map(child => renderTree(child, depth + 1)).join("")}</div>`
+  const children = hasChildren
+    ? `<div class="tree-children" style="padding-left:14px; display:${expanded ? "block" : "none"}">${node.children.map(child => renderTree(child, depth + 1)).join("")}</div>`
     : "";
 
   return current + children;
@@ -2465,22 +2524,17 @@ async function downloadUpdatePackage() {
 }
 
 async function expandTreeNode(nodeElement, relativePath) {
-  const childrenContainer = nodeElement.nextElementSibling;
-  if (childrenContainer && childrenContainer.classList.contains("tree-children")) {
-    if (childrenContainer.style.display === "none") {
-      childrenContainer.style.display = "block";
-      nodeElement.querySelector(".toggle-icon").innerHTML = "▾";
-    } else {
-      childrenContainer.style.display = "none";
-      nodeElement.querySelector(".toggle-icon").innerHTML = "▸";
-    }
+  if (toggleExistingTreeChildren(nodeElement)) {
     return;
   }
 
   const tempContainer = document.createElement("div");
   tempContainer.className = "tree-children";
   tempContainer.style.paddingLeft = "14px";
-  nodeElement.parentNode.insertBefore(tempContainer, nodeElement.nextSibling.nextSibling);
+  const placeholder = nodeElement.nextElementSibling?.classList.contains("tree-children-container")
+    ? nodeElement.nextElementSibling
+    : null;
+  nodeElement.parentNode.insertBefore(tempContainer, placeholder ? placeholder.nextSibling : nodeElement.nextSibling);
 
   try {
     nodeElement.querySelector(".toggle-icon").innerHTML = "⌛";
@@ -2517,6 +2571,42 @@ async function expandTreeNode(nodeElement, relativePath) {
     tempContainer.remove();
     showToast("Klasör açma başarısız: " + error.message, "error");
   }
+}
+
+function findExistingTreeChildren(nodeElement) {
+  let sibling = nodeElement.nextElementSibling;
+  if (sibling?.classList.contains("tree-children-container")) {
+    sibling = sibling.nextElementSibling;
+  }
+  return sibling?.classList.contains("tree-children") ? sibling : null;
+}
+
+function toggleExistingTreeChildren(nodeElement) {
+  const childrenContainer = findExistingTreeChildren(nodeElement);
+  if (!childrenContainer) return false;
+  const toggleIcon = nodeElement.querySelector(".toggle-icon");
+  if (childrenContainer.style.display === "none") {
+    childrenContainer.style.display = "block";
+    if (toggleIcon) toggleIcon.innerHTML = "▾";
+  } else {
+    childrenContainer.style.display = "none";
+    if (toggleIcon) toggleIcon.innerHTML = "▸";
+  }
+  return true;
+}
+
+function showVirtualTreeInfo(nodeElement) {
+  const container = document.querySelector("#image-file-preview");
+  if (!container) return;
+  const title = nodeElement.querySelector(".node-name")?.textContent?.trim() || t("analysis.virtualInfo");
+  const note = nodeElement.dataset.note || title;
+  container.innerHTML = `
+    <div class="log-box" style="padding:20px;white-space:pre-wrap">
+      <strong>${escapeHtml(title)}</strong>
+      <div class="section-divider"></div>
+      ${escapeHtml(note)}
+    </div>
+  `;
 }
 
 async function previewImageFile(relativePath) {

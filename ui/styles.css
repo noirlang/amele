@@ -1679,6 +1679,40 @@ svg {
   max-height: 480px;
 }
 
+.mount-info-panel {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.mount-info-panel pre {
+  margin: 10px 0 0;
+  max-height: 130px;
+  overflow: auto;
+  white-space: pre-wrap;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.mount-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.mount-info-grid span {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--muted);
+}
+
 .tree-node {
   display: flex;
   align-items: center;

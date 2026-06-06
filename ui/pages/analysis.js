@@ -26,7 +26,7 @@ export function analysisPage({ t, icon, state, pageTitle, pickerField, caseSelec
 }
 
 function renderImageAnalysis({ t, icon, state, pickerField }) {
-  const activeMount = state.imageMount?.mountDir || t("analysis.noImage");
+  const activeMount = state.imageMount?.label || state.imageMount?.mountDir || t("analysis.noImage");
   const defaultPath = state.imagePathInput || ".img, .dd, .raw, .iso ...";
   return `
     <div class="workflow-panel">
@@ -42,6 +42,9 @@ function renderImageAnalysis({ t, icon, state, pickerField }) {
       <div class="side-info">
         <span class="metric-icon">${icon("info")}</span>
         <span><strong>${t("analysis.status")}</strong><small data-analysis-status>${activeMount}</small></span>
+      </div>
+      <div data-analysis-log style="${state.imageMountLogHTML ? "" : "display:none"}">
+        ${state.imageMountLogHTML || ""}
       </div>
       
       <div class="forensic-split">
