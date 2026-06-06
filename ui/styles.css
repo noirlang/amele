@@ -2691,3 +2691,59 @@ code {
 .native-linux .spark {
   filter: none !important;
 }
+
+.analysis-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.summary-grid > div {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  min-width: 0;
+}
+
+.summary-grid strong,
+.summary-grid span {
+  display: block;
+}
+
+.summary-grid strong {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.summary-grid span {
+  overflow-wrap: anywhere;
+}
+
+.status-pill {
+  display: inline-flex !important;
+  width: fit-content;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.status-pill.ok {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.status-pill.danger {
+  color: #ffb4b4;
+  border-color: rgba(255, 95, 104, 0.5);
+  background: rgba(255, 95, 104, 0.08);
+}

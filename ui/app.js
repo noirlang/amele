@@ -50,6 +50,7 @@ const state = {
   imagePathInput: "",
   ramAnalysisPathInput: "",
   ramOsProfile: "windows",
+  ramSymbolDirInput: "",
   latestUpdate: null,
   android: {
     adbStatus: null,
@@ -727,6 +728,8 @@ document.addEventListener("click", (event) => {
     if (ramInput) state.ramAnalysisPathInput = ramInput.value.trim();
     const ramOsSelect = document.querySelector("#ram-os-profile");
     if (ramOsSelect) state.ramOsProfile = ramOsSelect.value || "windows";
+    const ramSymbolDir = document.querySelector("#ram-symbol-dir");
+    if (ramSymbolDir) state.ramSymbolDirInput = ramSymbolDir.value.trim();
 
     state.activeAnalysisTab = analysisTabButton.dataset.analysisTab;
     render();
@@ -824,6 +827,11 @@ document.addEventListener("change", (event) => {
   const ramOsSelect = event.target.closest("#ram-os-profile");
   if (ramOsSelect) {
     state.ramOsProfile = ramOsSelect.value || "windows";
+  }
+
+  const ramSymbolDir = event.target.closest("#ram-symbol-dir");
+  if (ramSymbolDir) {
+    state.ramSymbolDirInput = ramSymbolDir.value.trim();
   }
 });
 
@@ -1146,6 +1154,7 @@ async function handleAction(button) {
       return;
     }
     const osProfile = document.querySelector("#ram-os-profile")?.value || "windows";
+    const symbolDir = ramSymbolDirValue();
     document.querySelector("#ram-analysis-results").style.display = "block";
     document.querySelector("#ram-split-view").style.display = "none";
     document.querySelector("#ram-flat-results-panel").style.display = "block";
@@ -1162,7 +1171,7 @@ async function handleAction(button) {
     try {
       const start = await apiRequest("/api/ram-analyze-summary-start", {
         method: "POST",
-        body: JSON.stringify({ path: ramPath, os_type: osProfile })
+        body: JSON.stringify({ path: ramPath, os_type: osProfile, symbol_dir: symbolDir })
       });
       if (!start.job_id) throw new Error(t("workflow.jobIdMissing"));
       const result = await waitForAcquisitionJob(start.job_id, {
@@ -1186,6 +1195,41 @@ async function handleAction(button) {
         flatResults.innerHTML += `<div class="log-box" style="color:#ff5f68">${escapeHtml(t("analysis.summaryFailed", { message: error.message }))}</div>`;
       }
       showToast(t("analysis.summaryFailed", { message: error.message }), "error");
+    }
+    return;
+  }
+
+  if (action === "ram-preflight") {
+    const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
+    if (!ramPath || ramPath.startsWith(".")) {
+      showToast("Önce geçerli bir RAM dosyası seçin / Select a valid RAM file first", "error");
+      return;
+    }
+    const osProfile = document.querySelector("#ram-os-profile")?.value || "windows";
+    const symbolDir = ramSymbolDirValue();
+    document.querySelector("#ram-analysis-results").style.display = "block";
+    document.querySelector("#ram-split-view").style.display = "none";
+    document.querySelector("#ram-flat-results-panel").style.display = "block";
+    const flatTitle = document.querySelector("#ram-flat-title");
+    const flatResults = document.querySelector("#ram-flat-results-list");
+    const statusLbl = document.querySelector("#stat-status-lbl");
+    if (flatTitle) flatTitle.textContent = t("analysis.preflightTitle");
+    if (statusLbl) statusLbl.textContent = "Ön kontrol / Preflight";
+    if (flatResults) flatResults.innerHTML = ramConsoleHtml(t("analysis.preflightTitle"), [
+      "Volatility yolu, symbol dizini ve Linux kernel banner bilgisi kontrol ediliyor..."
+    ]);
+    try {
+      const result = await apiRequest("/api/ram-volatility-preflight", {
+        method: "POST",
+        body: JSON.stringify({ path: ramPath, os_type: osProfile, symbol_dir: symbolDir })
+      });
+      if (statusLbl) statusLbl.textContent = result.ready ? "Hazır / Ready" : "Eksik / Missing";
+      if (flatResults) flatResults.innerHTML = renderVolatilityPreflight(result);
+      showToast(result.ready ? "Volatility ön kontrol hazır." : "Volatility ön kontrol eksik uyarılar verdi.", result.ready ? "success" : "error");
+    } catch (error) {
+      if (statusLbl) statusLbl.textContent = "Hata / Failed";
+      if (flatResults) flatResults.innerHTML = `<div class="log-box" style="color:#ff5f68">${escapeHtml(error.message)}</div>`;
+      showToast("Volatility ön kontrol başarısız: " + error.message, "error");
     }
     return;
   }
@@ -1334,6 +1378,7 @@ async function handleAction(button) {
       return;
     }
     const osProfile = document.querySelector("#ram-os-profile")?.value || "windows";
+    const symbolDir = ramSymbolDirValue();
 
     document.querySelector("#ram-analysis-results").style.display = "block";
     document.querySelector("#ram-split-view").style.display = "grid";
@@ -1355,7 +1400,7 @@ async function handleAction(button) {
     try {
       const start = await apiRequest("/api/ram-list-processes-start", {
         method: "POST",
-        body: JSON.stringify({ path: ramPath, os_type: osProfile })
+        body: JSON.stringify({ path: ramPath, os_type: osProfile, symbol_dir: symbolDir })
       });
       if (!start.job_id) throw new Error(t("workflow.jobIdMissing"));
       const result = await waitForAcquisitionJob(start.job_id, {
@@ -1896,6 +1941,46 @@ function updateRamConsole(selector, job, title = "Canlı Analiz Konsolu") {
   const logs = Array.isArray(job.logs) ? job.logs : [];
   container.innerHTML = ramConsoleHtml(title, logs);
   container.scrollTop = container.scrollHeight;
+}
+
+function ramSymbolDirValue() {
+  const value = document.querySelector("#ram-symbol-dir")?.value.trim() || "";
+  if (!value || value.startsWith(".")) return null;
+  state.ramSymbolDirInput = value;
+  return value;
+}
+
+function renderVolatilityPreflight(result) {
+  const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+  const recommendations = Array.isArray(result.recommendations) ? result.recommendations : [];
+  const banners = Array.isArray(result.banners) ? result.banners : [];
+  const symbolDirs = Array.isArray(result.symbol_dirs) ? result.symbol_dirs : [];
+  const matches = Array.isArray(result.matching_symbols) ? result.matching_symbols : [];
+  const badge = result.ready
+    ? `<span class="status-pill ok">${escapeHtml(t("analysis.preflightReady"))}</span>`
+    : `<span class="status-pill danger">${escapeHtml(t("analysis.preflightMissing"))}</span>`;
+  return `
+    <div class="analysis-summary">
+      <p class="section-label">${escapeHtml(t("analysis.preflightTitle"))}</p>
+      <div class="summary-grid">
+        <div><strong>${escapeHtml(t("analysis.preflightStatus"))}</strong><span>${badge}</span></div>
+        <div><strong>vol.py</strong><span>${escapeHtml(result.vol_py || t("analysis.preflightNotFound"))}</span></div>
+        <div><strong>${escapeHtml(t("analysis.preflightSymbols"))}</strong><span>${Number(result.symbol_count || 0)} ${escapeHtml(t("analysis.preflightTotal"))} · ${Number(result.linux_symbol_count || 0)} Linux</span></div>
+        <div><strong>${escapeHtml(t("analysis.preflightMatch"))}</strong><span>${matches.length ? `${matches.length} symbol` : escapeHtml(t("analysis.preflightNoMatch"))}</span></div>
+      </div>
+      <div class="section-divider"></div>
+      <div class="log-box">
+        <strong>${escapeHtml(t("analysis.preflightBanners"))}</strong>
+        <pre>${banners.length ? banners.map(escapeHtml).join("\n") : escapeHtml(t("analysis.preflightNoBanner"))}</pre>
+      </div>
+      <div class="log-box">
+        <strong>${escapeHtml(t("analysis.preflightSymbolDirs"))}</strong>
+        <pre>${symbolDirs.length ? symbolDirs.map(escapeHtml).join("\n") : escapeHtml(t("analysis.preflightNoSymbolDir"))}</pre>
+      </div>
+      ${warnings.length ? `<div class="log-box" style="color:#ffb4b4"><strong>${escapeHtml(t("analysis.preflightWarnings"))}</strong><pre>${warnings.map(escapeHtml).join("\n")}</pre></div>` : ""}
+      ${recommendations.length ? `<div class="log-box"><strong>${escapeHtml(t("analysis.preflightRecommendations"))}</strong><pre>${recommendations.map(escapeHtml).join("\n")}</pre></div>` : ""}
+    </div>
+  `;
 }
 
 async function sendAcquisitionControl(action) {
@@ -2489,10 +2574,11 @@ async function inspectProcessDetails(pid, name) {
   ]);
   
   const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
+  const symbolDir = ramSymbolDirValue();
   try {
     const start = await apiRequest("/api/ram-process-details-start", {
       method: "POST",
-      body: JSON.stringify({ path: ramPath, pid, os_type: osProfile })
+      body: JSON.stringify({ path: ramPath, pid, os_type: osProfile, symbol_dir: symbolDir })
     });
     if (!start.job_id) throw new Error(t("workflow.jobIdMissing"));
     const result = await waitForAcquisitionJob(start.job_id, {

@@ -72,6 +72,7 @@ function renderImageAnalysis({ t, icon, state, pickerField }) {
 function renderRamAnalysis({ t, icon, state, pickerField }) {
   const defaultPath = state.ramAnalysisPathInput || ".raw, .bin, .mem ...";
   const osProfile = state.ramOsProfile || "windows";
+  const symbolDir = state.ramSymbolDirInput || ".symbols";
   return `
     <div class="workflow-panel">
       <p class="section-label">${t("analysis.tabRam")}</p>
@@ -86,7 +87,12 @@ function renderRamAnalysis({ t, icon, state, pickerField }) {
         </select>
       </div>
 
+      <div style="margin-top: 14px;">
+        ${pickerField(t("analysis.symbolDir"), "ram-symbol-dir", symbolDir, "folder")}
+      </div>
+
       <div class="button-row" style="margin-top:14px">
+        <button class="secondary-button" data-action="ram-preflight">${icon("info")} ${t("analysis.btnPreflight")}</button>
         <button class="primary-button" data-action="ram-summary">${icon("search")} ${t("analysis.btnRamSummary")}</button>
         <button class="primary-button" data-action="ram-strings">${icon("shield")} ${t("analysis.btnStrings")}</button>
         <button class="primary-button" data-action="ram-carver">${icon("disk")} ${t("analysis.btnCarver")}</button>

@@ -968,6 +968,7 @@ pub fn ram_analyze_summary_endpoint(body: &[u8]) -> Response {
     struct Request {
         path: String,
         os_type: Option<String>,
+        symbol_dir: Option<String>,
     }
     let request: Request = match serde_json::from_slice(body) {
         Ok(req) => req,
@@ -977,10 +978,44 @@ pub fn ram_analyze_summary_endpoint(body: &[u8]) -> Response {
     if !path.exists() {
         return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
-    match ram_analysis::analyze_ram_summary(path, request.os_type.as_deref()) {
+    let symbol_dir = match request_symbol_dir(request.symbol_dir.as_deref()) {
+        Ok(dir) => dir,
+        Err(err) => return json_error(404, err),
+    };
+    match ram_analysis::analyze_ram_summary_logged_with_symbol_dir(
+        path,
+        request.os_type.as_deref(),
+        symbol_dir.as_deref(),
+        None,
+    ) {
         Ok(summary) => json_ok(serde_json::to_value(summary).unwrap_or(Value::Null)),
         Err(err) => json_error(500, err.to_string()),
     }
+}
+
+pub fn ram_volatility_preflight_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+        os_type: Option<String>,
+        symbol_dir: Option<String>,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = Path::new(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
+    }
+    let os_type = sanitize_ram_os_type(request.os_type.as_deref());
+    let symbol_dir = match request_symbol_dir(request.symbol_dir.as_deref()) {
+        Ok(dir) => dir,
+        Err(err) => return json_error(404, err),
+    };
+    let preflight =
+        crate::volatility::preflight_ram_image(path, &os_type, symbol_dir.as_deref(), None);
+    json_ok(serde_json::to_value(preflight).unwrap_or(Value::Null))
 }
 
 pub fn ram_analyze_summary_start_endpoint(body: &[u8]) -> Response {
@@ -988,6 +1023,7 @@ pub fn ram_analyze_summary_start_endpoint(body: &[u8]) -> Response {
     struct Request {
         path: String,
         os_type: Option<String>,
+        symbol_dir: Option<String>,
     }
     let request: Request = match serde_json::from_slice(body) {
         Ok(req) => req,
@@ -997,12 +1033,16 @@ pub fn ram_analyze_summary_start_endpoint(body: &[u8]) -> Response {
     if !path.exists() {
         return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
+    let symbol_dir = match request_symbol_dir(request.symbol_dir.as_deref()) {
+        Ok(dir) => dir,
+        Err(err) => return json_error(404, err),
+    };
 
     let os_type = sanitize_ram_os_type(request.os_type.as_deref());
     let (job_id, _control) = create_acquisition_job("RAM analizi başlatıldı");
     let thread_job_id = job_id.clone();
     thread::spawn(move || {
-        run_ram_summary_analysis_job(thread_job_id, path, os_type);
+        run_ram_summary_analysis_job(thread_job_id, path, os_type, symbol_dir);
     });
 
     json_ok(json!({
@@ -1012,14 +1052,24 @@ pub fn ram_analyze_summary_start_endpoint(body: &[u8]) -> Response {
     }))
 }
 
-fn run_ram_summary_analysis_job(job_id: String, path: PathBuf, os_type: String) {
+fn run_ram_summary_analysis_job(
+    job_id: String,
+    path: PathBuf,
+    os_type: String,
+    symbol_dir: Option<PathBuf>,
+) {
     update_acquisition_message(&job_id, "RAM analiz hazırlığı yapılıyor");
     let log_job_id = job_id.clone();
     let logger: Arc<dyn Fn(String) + Send + Sync> = Arc::new(move |line| {
         append_acquisition_log(&log_job_id, &line);
     });
 
-    match ram_analysis::analyze_ram_summary_logged(&path, Some(&os_type), Some(logger)) {
+    match ram_analysis::analyze_ram_summary_logged_with_symbol_dir(
+        &path,
+        Some(&os_type),
+        symbol_dir.as_deref(),
+        Some(logger),
+    ) {
         Ok(summary) => finish_acquisition_job_with_message(
             &job_id,
             serde_json::to_value(summary).unwrap_or(Value::Null),
@@ -1059,6 +1109,7 @@ pub fn ram_list_processes_endpoint(body: &[u8]) -> Response {
     struct Request {
         path: String,
         os_type: Option<String>,
+        symbol_dir: Option<String>,
     }
     let request: Request = match serde_json::from_slice(body) {
         Ok(req) => req,
@@ -1070,7 +1121,16 @@ pub fn ram_list_processes_endpoint(body: &[u8]) -> Response {
     }
 
     let os = request.os_type.as_deref().unwrap_or("windows");
-    match crate::volatility::get_processes(path, os) {
+    let symbol_dir = match request_symbol_dir(request.symbol_dir.as_deref()) {
+        Ok(dir) => dir,
+        Err(err) => return json_error(404, err),
+    };
+    match crate::volatility::get_processes_logged_with_symbol_dir(
+        path,
+        os,
+        symbol_dir.as_deref(),
+        None,
+    ) {
         Ok(procs) => {
             let mapped: Vec<Value> = procs
                 .into_iter()
@@ -1093,6 +1153,7 @@ pub fn ram_list_processes_start_endpoint(body: &[u8]) -> Response {
     struct Request {
         path: String,
         os_type: Option<String>,
+        symbol_dir: Option<String>,
     }
     let request: Request = match serde_json::from_slice(body) {
         Ok(req) => req,
@@ -1102,12 +1163,16 @@ pub fn ram_list_processes_start_endpoint(body: &[u8]) -> Response {
     if !path.exists() {
         return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
+    let symbol_dir = match request_symbol_dir(request.symbol_dir.as_deref()) {
+        Ok(dir) => dir,
+        Err(err) => return json_error(404, err),
+    };
 
     let os_type = sanitize_ram_os_type(request.os_type.as_deref());
     let (job_id, _control) = create_acquisition_job("RAM proses analizi başlatıldı");
     let thread_job_id = job_id.clone();
     thread::spawn(move || {
-        run_ram_process_list_job(thread_job_id, path, os_type);
+        run_ram_process_list_job(thread_job_id, path, os_type, symbol_dir);
     });
 
     json_ok(json!({
@@ -1117,14 +1182,24 @@ pub fn ram_list_processes_start_endpoint(body: &[u8]) -> Response {
     }))
 }
 
-fn run_ram_process_list_job(job_id: String, path: PathBuf, os_type: String) {
+fn run_ram_process_list_job(
+    job_id: String,
+    path: PathBuf,
+    os_type: String,
+    symbol_dir: Option<PathBuf>,
+) {
     update_acquisition_message(&job_id, "Volatility3 proses listesi çıkarılıyor");
     let log_job_id = job_id.clone();
     let logger: Arc<dyn Fn(String) + Send + Sync> = Arc::new(move |line| {
         append_acquisition_log(&log_job_id, &line);
     });
 
-    match crate::volatility::get_processes_logged(&path, &os_type, Some(logger)) {
+    match crate::volatility::get_processes_logged_with_symbol_dir(
+        &path,
+        &os_type,
+        symbol_dir.as_deref(),
+        Some(logger),
+    ) {
         Ok(procs) => {
             let mapped: Vec<Value> = procs
                 .into_iter()
@@ -1154,12 +1229,27 @@ fn sanitize_ram_os_type(value: Option<&str>) -> String {
     }
 }
 
+fn request_symbol_dir(value: Option<&str>) -> Result<Option<PathBuf>, String> {
+    let Some(raw) = value.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    let path = PathBuf::from(raw);
+    if !path.exists() {
+        return Err(format!("Volatility symbol dizini bulunamadı: {raw}"));
+    }
+    if !path.is_dir() {
+        return Err(format!("Volatility symbol yolu klasör değil: {raw}"));
+    }
+    Ok(Some(path))
+}
+
 pub fn ram_process_details_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {
         path: String,
         pid: String,
         os_type: Option<String>,
+        symbol_dir: Option<String>,
     }
     let request: Request = match serde_json::from_slice(body) {
         Ok(req) => req,
@@ -1175,7 +1265,17 @@ pub fn ram_process_details_endpoint(body: &[u8]) -> Response {
         Ok(n) => n,
         Err(_) => return json_error(400, "PID must be a valid integer for Volatility3"),
     };
-    match crate::volatility::get_process_details(path, os, pid_num) {
+    let symbol_dir = match request_symbol_dir(request.symbol_dir.as_deref()) {
+        Ok(dir) => dir,
+        Err(err) => return json_error(404, err),
+    };
+    match crate::volatility::get_process_details_logged_with_symbol_dir(
+        path,
+        os,
+        pid_num,
+        symbol_dir.as_deref(),
+        None,
+    ) {
         Ok(details) => json_ok(json!({
             "maps": details,
             "dumps": Vec::<String>::new(),
@@ -1190,6 +1290,7 @@ pub fn ram_process_details_start_endpoint(body: &[u8]) -> Response {
         path: String,
         pid: String,
         os_type: Option<String>,
+        symbol_dir: Option<String>,
     }
     let request: Request = match serde_json::from_slice(body) {
         Ok(req) => req,
@@ -1203,12 +1304,16 @@ pub fn ram_process_details_start_endpoint(body: &[u8]) -> Response {
         Ok(n) => n,
         Err(_) => return json_error(400, "PID must be a valid integer for Volatility3"),
     };
+    let symbol_dir = match request_symbol_dir(request.symbol_dir.as_deref()) {
+        Ok(dir) => dir,
+        Err(err) => return json_error(404, err),
+    };
 
     let os_type = sanitize_ram_os_type(request.os_type.as_deref());
     let (job_id, _control) = create_acquisition_job("RAM proses detayı başlatıldı");
     let thread_job_id = job_id.clone();
     thread::spawn(move || {
-        run_ram_process_details_job(thread_job_id, path, os_type, pid_num);
+        run_ram_process_details_job(thread_job_id, path, os_type, pid_num, symbol_dir);
     });
 
     json_ok(json!({
@@ -1218,14 +1323,26 @@ pub fn ram_process_details_start_endpoint(body: &[u8]) -> Response {
     }))
 }
 
-fn run_ram_process_details_job(job_id: String, path: PathBuf, os_type: String, pid: i64) {
+fn run_ram_process_details_job(
+    job_id: String,
+    path: PathBuf,
+    os_type: String,
+    pid: i64,
+    symbol_dir: Option<PathBuf>,
+) {
     update_acquisition_message(&job_id, "Volatility3 proses detayı çıkarılıyor");
     let log_job_id = job_id.clone();
     let logger: Arc<dyn Fn(String) + Send + Sync> = Arc::new(move |line| {
         append_acquisition_log(&log_job_id, &line);
     });
 
-    match crate::volatility::get_process_details_logged(&path, &os_type, pid, Some(logger)) {
+    match crate::volatility::get_process_details_logged_with_symbol_dir(
+        &path,
+        &os_type,
+        pid,
+        symbol_dir.as_deref(),
+        Some(logger),
+    ) {
         Ok(details) => finish_acquisition_job_with_message(
             &job_id,
             json!({

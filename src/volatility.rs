@@ -1,11 +1,17 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::BTreeSet;
 use std::env;
+use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
+
+const LINUX_BANNER_NEEDLE: &[u8] = b"Linux version ";
+const LINUX_BANNER_MAX_LEN: usize = 320;
+const LINUX_BANNER_SCAN_CHUNK: usize = 8 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VolatilityProcess {
@@ -14,6 +20,19 @@ pub struct VolatilityProcess {
     pub name: String,
     pub offset: String,
     pub extra_info: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VolatilityPreflight {
+    pub ready: bool,
+    pub vol_py: Option<String>,
+    pub symbol_dirs: Vec<String>,
+    pub symbol_count: usize,
+    pub linux_symbol_count: usize,
+    pub banners: Vec<String>,
+    pub matching_symbols: Vec<String>,
+    pub warnings: Vec<String>,
+    pub recommendations: Vec<String>,
 }
 
 pub fn locate_vol_py() -> Option<PathBuf> {
@@ -28,22 +47,62 @@ pub fn locate_vol_py() -> Option<PathBuf> {
 
     if let Ok(cwd) = env::current_dir() {
         push_volatility_candidate(&mut paths, cwd.join("volatility3"));
+        push_volatility_candidate(&mut paths, cwd.join("vendor/volatility3"));
         push_volatility_candidate(&mut paths, cwd.join("../volatility3"));
+        push_volatility_candidate(&mut paths, cwd.join("../vendor/volatility3"));
         push_volatility_candidate(&mut paths, cwd.join("../../volatility3"));
+        push_volatility_candidate(&mut paths, cwd.join("../../vendor/volatility3"));
     }
 
     if let Ok(exe) = env::current_exe()
         && let Some(dir) = exe.parent()
     {
         push_volatility_candidate(&mut paths, dir.join("volatility3"));
+        push_volatility_candidate(&mut paths, dir.join("vendor/volatility3"));
+        push_volatility_candidate(&mut paths, dir.join("../share/worm/vendor/volatility3"));
         push_volatility_candidate(&mut paths, dir.join("../volatility3"));
+        push_volatility_candidate(&mut paths, dir.join("../vendor/volatility3"));
         push_volatility_candidate(&mut paths, dir.join("../../volatility3"));
+        push_volatility_candidate(&mut paths, dir.join("../../vendor/volatility3"));
     }
 
     push_volatility_candidate(
         &mut paths,
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("vendor/volatility3"),
+    );
+    push_volatility_candidate(
+        &mut paths,
         PathBuf::from("/home/raodrin/Belgeler/forensic/volatility3"),
     );
+
+    paths
+        .into_iter()
+        .find(|path| path.exists())
+        .and_then(|path| path.canonicalize().ok().or(Some(path)))
+}
+
+pub fn locate_worker_py() -> Option<PathBuf> {
+    let mut paths = Vec::new();
+    if let Ok(value) = env::var("WORM_VOLATILITY_WORKER_PATH") {
+        paths.push(PathBuf::from(value));
+    }
+
+    if let Ok(cwd) = env::current_dir() {
+        paths.push(cwd.join("tools/worm_volatility_worker.py"));
+        paths.push(cwd.join("../tools/worm_volatility_worker.py"));
+        paths.push(cwd.join("../../tools/worm_volatility_worker.py"));
+    }
+
+    if let Ok(exe) = env::current_exe()
+        && let Some(dir) = exe.parent()
+    {
+        paths.push(dir.join("tools/worm_volatility_worker.py"));
+        paths.push(dir.join("../tools/worm_volatility_worker.py"));
+        paths.push(dir.join("../share/worm/tools/worm_volatility_worker.py"));
+        paths.push(dir.join("../../tools/worm_volatility_worker.py"));
+    }
+
+    paths.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tools/worm_volatility_worker.py"));
 
     paths
         .into_iter()
@@ -73,34 +132,115 @@ pub fn run_volatility_plugin_logged(
     extra_args: &[&str],
     log: Option<Arc<dyn Fn(String) + Send + Sync>>,
 ) -> Result<Value, String> {
+    run_volatility_plugin_logged_with_symbol_dir(file_path, plugin, extra_args, None, log)
+}
+
+pub fn run_volatility_plugin_logged_with_symbol_dir(
+    file_path: &Path,
+    plugin: &str,
+    extra_args: &[&str],
+    symbol_dir: Option<&Path>,
+    log: Option<Arc<dyn Fn(String) + Send + Sync>>,
+) -> Result<Value, String> {
+    if let Some(worker_py) = locate_worker_py() {
+        return run_worker_plugin_logged(
+            file_path, plugin, extra_args, symbol_dir, &worker_py, log,
+        );
+    }
+
     let Some(vol_py) = locate_vol_py() else {
         return Err(
-            "Volatility3 vol.py bulunamadı. WORM_VOLATILITY3_PATH ile vol.py veya volatility3 klasörünü belirtin."
+            "Volatility3 vol.py bulunamadı. WORM_VOLATILITY3_PATH ile vol.py/volatility3 klasörünü veya WORM_VOLATILITY_WORKER_PATH ile worker yolunu belirtin."
                 .to_string(),
         );
     };
 
     let vol_dir = vol_py.parent().unwrap_or(Path::new("."));
-    let mut args = vec![
-        vol_py.to_string_lossy().into_owned(),
+    let mut args = vec![vol_py.to_string_lossy().into_owned()];
+    if let Some(symbols_arg) = symbol_dirs_arg(symbol_dir) {
+        args.push("-s".to_string());
+        args.push(symbols_arg);
+    }
+    if let Some(cache_path) = volatility_cache_path() {
+        args.push("--cache-path".to_string());
+        args.push(cache_path.to_string_lossy().into_owned());
+    }
+    args.extend([
         "-q".to_string(),
         "-f".to_string(),
         file_path.to_string_lossy().into_owned(),
         "-r".to_string(),
         "json".to_string(),
         plugin.to_string(),
-    ];
+    ]);
     args.extend(extra_args.iter().map(|arg| arg.to_string()));
 
     if let Some(log) = &log {
         log(format!("Volatility3 çalışıyor: {plugin}"));
         log(format!("vol.py: {}", vol_py.display()));
         log(format!("RAM imajı: {}", file_path.display()));
+        let symbol_dirs = configured_symbol_dirs(symbol_dir);
+        if !symbol_dirs.is_empty() {
+            log(format!(
+                "Volatility symbol dizinleri: {}",
+                symbol_dirs
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            ));
+        }
     }
 
+    run_volatility_command(vol_dir, args, plugin, log)
+}
+
+fn run_worker_plugin_logged(
+    file_path: &Path,
+    plugin: &str,
+    extra_args: &[&str],
+    symbol_dir: Option<&Path>,
+    worker_py: &Path,
+    log: Option<Arc<dyn Fn(String) + Send + Sync>>,
+) -> Result<Value, String> {
+    let mut args = vec![
+        worker_py.to_string_lossy().into_owned(),
+        "plugin".to_string(),
+        "--file".to_string(),
+        file_path.to_string_lossy().into_owned(),
+    ];
+    if let Some(vol_py) = locate_vol_py() {
+        args.push("--vol-py".to_string());
+        args.push(vol_py.to_string_lossy().into_owned());
+    }
+    for dir in configured_symbol_dirs(symbol_dir) {
+        args.push("--symbol-dir".to_string());
+        args.push(dir.to_string_lossy().into_owned());
+    }
+    args.push("--".to_string());
+    args.push(plugin.to_string());
+    args.extend(extra_args.iter().map(|arg| arg.to_string()));
+
+    if let Some(log) = &log {
+        log(format!(
+            "Volatility worker çalışıyor: {}",
+            worker_py.display()
+        ));
+        log(format!("Volatility3 plugin: {plugin}"));
+    }
+
+    run_volatility_command(Path::new("."), args, plugin, log)
+}
+
+fn run_volatility_command(
+    workdir: &Path,
+    args: Vec<String>,
+    plugin: &str,
+    log: Option<Arc<dyn Fn(String) + Send + Sync>>,
+) -> Result<Value, String> {
     let mut child = Command::new("python3")
         .args(&args)
-        .current_dir(vol_dir)
+        .current_dir(workdir)
         .env("PYTHONUTF8", "1")
         .env("PYTHONIOENCODING", "utf-8")
         .stdout(Stdio::piped())
@@ -159,6 +299,71 @@ pub fn run_volatility_plugin_logged(
         log(format!("Volatility3 tamamlandı: {plugin}"));
     }
     Ok(parsed)
+}
+
+fn configured_symbol_dirs(symbol_dir: Option<&Path>) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    if let Some(path) = symbol_dir.filter(|path| !path.as_os_str().is_empty()) {
+        dirs.push(path.to_path_buf());
+    }
+
+    for key in [
+        "WORM_VOLATILITY3_SYMBOL_DIRS",
+        "WORM_VOLATILITY3_SYMBOL_DIR",
+    ] {
+        if let Ok(value) = env::var(key) {
+            for item in value
+                .split(';')
+                .map(str::trim)
+                .filter(|item| !item.is_empty())
+            {
+                dirs.push(PathBuf::from(item));
+            }
+        }
+    }
+
+    if let Some(vol_py) = locate_vol_py()
+        && let Some(root) = vol_py.parent()
+    {
+        dirs.push(root.join("volatility3").join("symbols"));
+        dirs.push(root.join("symbols"));
+    }
+
+    let mut seen = BTreeSet::new();
+    dirs.into_iter()
+        .filter(|path| path.exists())
+        .filter(|path| seen.insert(path.to_string_lossy().to_string()))
+        .collect()
+}
+
+fn volatility_cache_path() -> Option<PathBuf> {
+    let mut roots = Vec::new();
+    if let Ok(value) = env::var("XDG_CACHE_HOME") {
+        roots.push(PathBuf::from(value));
+    }
+    if let Ok(home) = env::var("HOME") {
+        roots.push(PathBuf::from(home).join(".cache"));
+    }
+    roots.push(env::temp_dir());
+
+    roots.into_iter().find_map(|root| {
+        let path = root.join("worm").join("volatility3");
+        fs::create_dir_all(&path).ok().map(|_| path)
+    })
+}
+
+fn symbol_dirs_arg(symbol_dir: Option<&Path>) -> Option<String> {
+    let dirs = configured_symbol_dirs(symbol_dir);
+    if dirs.is_empty() {
+        None
+    } else {
+        Some(
+            dirs.iter()
+                .map(|path| path.to_string_lossy().to_string())
+                .collect::<Vec<_>>()
+                .join(";"),
+        )
+    }
 }
 
 fn spawn_reader<R>(
@@ -264,9 +469,246 @@ pub fn get_banners_logged(
     Ok(banners)
 }
 
+pub fn scan_linux_banners(
+    file_path: &Path,
+    limit: usize,
+    log: Option<Arc<dyn Fn(String) + Send + Sync>>,
+) -> Result<Vec<String>, String> {
+    let mut file = File::open(file_path).map_err(|err| format!("RAM imajı açılamadı: {err}"))?;
+    let mut buffer = vec![0_u8; LINUX_BANNER_SCAN_CHUNK];
+    let mut carry = Vec::new();
+    let mut found = BTreeSet::new();
+    let mut scanned = 0_u64;
+
+    loop {
+        let read = file
+            .read(&mut buffer)
+            .map_err(|err| format!("RAM imajı okunamadı: {err}"))?;
+        if read == 0 {
+            break;
+        }
+        scanned += read as u64;
+
+        let mut data = Vec::with_capacity(carry.len() + read);
+        data.extend_from_slice(&carry);
+        data.extend_from_slice(&buffer[..read]);
+
+        let mut cursor = 0;
+        while let Some(relative) = find_bytes(&data[cursor..], LINUX_BANNER_NEEDLE) {
+            let start = cursor + relative;
+            if let Some(banner) = extract_linux_banner(&data[start..])
+                && looks_like_kernel_banner(&banner)
+            {
+                found.insert(banner);
+                if found.len() >= limit {
+                    let banners = found.into_iter().collect::<Vec<_>>();
+                    if let Some(log) = &log {
+                        log(format!(
+                            "Native Linux banner taraması tamamlandı: {} aday bulundu",
+                            banners.len()
+                        ));
+                    }
+                    return Ok(banners);
+                }
+            }
+            cursor = start + LINUX_BANNER_NEEDLE.len();
+        }
+
+        let keep = LINUX_BANNER_MAX_LEN + LINUX_BANNER_NEEDLE.len();
+        carry.clear();
+        if data.len() > keep {
+            carry.extend_from_slice(&data[data.len() - keep..]);
+        } else {
+            carry.extend_from_slice(&data);
+        }
+    }
+
+    let banners = found.into_iter().collect::<Vec<_>>();
+    if let Some(log) = &log {
+        log(format!(
+            "Native Linux banner taraması tamamlandı: {} aday, {} MB tarandı",
+            banners.len(),
+            scanned / 1024 / 1024
+        ));
+    }
+    Ok(banners)
+}
+
+pub fn preflight_ram_image(
+    file_path: &Path,
+    os_type: &str,
+    symbol_dir: Option<&Path>,
+    log: Option<Arc<dyn Fn(String) + Send + Sync>>,
+) -> VolatilityPreflight {
+    let vol_py = locate_vol_py();
+    let mut warnings = Vec::new();
+    let mut recommendations = Vec::new();
+    let mut banners = Vec::new();
+    let mut matching_symbols = Vec::new();
+    let mut symbol_count = 0;
+    let mut linux_symbol_count = 0;
+
+    if vol_py.is_none() {
+        warnings.push("Volatility3 vol.py bulunamadı.".to_string());
+        recommendations.push(
+            "WORM_VOLATILITY3_PATH ile vol.py veya volatility3 klasörünü tanımlayın.".to_string(),
+        );
+    }
+
+    if os_type == "linux" {
+        if let Some(log) = &log {
+            log("Native Linux kernel banner taraması başlatıldı.".to_string());
+        }
+        match scan_linux_banners(file_path, 1, log.clone()) {
+            Ok(items) => banners = items,
+            Err(err) => warnings.push(format!("Linux banner taraması başarısız: {err}")),
+        }
+    }
+
+    if let Some(vol_py_path) = &vol_py {
+        match run_isfinfo(vol_py_path, symbol_dir, log.clone()) {
+            Ok(rows) => {
+                symbol_count = rows.len();
+                let banner_needles = banners
+                    .iter()
+                    .map(|banner| banner.to_ascii_lowercase())
+                    .collect::<Vec<_>>();
+                for row in rows {
+                    let raw = serde_json::to_string(&row).unwrap_or_default();
+                    let lower = raw.to_ascii_lowercase();
+                    if lower.contains("linux") {
+                        linux_symbol_count += 1;
+                    }
+                    for banner in &banner_needles {
+                        if lower.contains(banner) {
+                            matching_symbols.push(raw.clone());
+                            break;
+                        }
+                    }
+                }
+            }
+            Err(err) => warnings.push(format!("Volatility ISF bilgisi alınamadı: {err}")),
+        }
+    }
+
+    if os_type == "linux" {
+        if banners.is_empty() {
+            warnings.push("RAM imajında Linux kernel banner adayı bulunamadı.".to_string());
+            recommendations.push(
+                "Dosyanın ham fiziksel RAM imajı olduğundan ve edinimin temiz tamamlandığından emin olun."
+                    .to_string(),
+            );
+        } else if matching_symbols.is_empty() {
+            warnings.push(format!(
+                "Linux kernel banner bulundu ama eşleşen Volatility3 ISF symbol dosyası yok: {}",
+                banners[0]
+            ));
+            recommendations.push(
+                "Bu kernel için dwarf2json ile ISF üretip volatility3/symbols/linux altına koyun."
+                    .to_string(),
+            );
+        }
+    }
+
+    let symbol_dirs = configured_symbol_dirs(symbol_dir)
+        .into_iter()
+        .map(|path| path.display().to_string())
+        .collect::<Vec<_>>();
+    if symbol_dirs.is_empty() {
+        warnings.push("Volatility symbol dizini bulunamadı.".to_string());
+    }
+
+    let ready = if os_type == "linux" {
+        vol_py.is_some() && !banners.is_empty() && !matching_symbols.is_empty()
+    } else {
+        vol_py.is_some()
+    };
+
+    VolatilityPreflight {
+        ready,
+        vol_py: vol_py.map(|path| path.display().to_string()),
+        symbol_dirs,
+        symbol_count,
+        linux_symbol_count,
+        banners,
+        matching_symbols,
+        warnings,
+        recommendations,
+    }
+}
+
+fn run_isfinfo(
+    vol_py: &Path,
+    symbol_dir: Option<&Path>,
+    log: Option<Arc<dyn Fn(String) + Send + Sync>>,
+) -> Result<Vec<Value>, String> {
+    let vol_dir = vol_py.parent().unwrap_or(Path::new("."));
+    let mut args = vec![vol_py.to_string_lossy().into_owned()];
+    if let Some(symbols_arg) = symbol_dirs_arg(symbol_dir) {
+        args.push("-s".to_string());
+        args.push(symbols_arg);
+    }
+    if let Some(cache_path) = volatility_cache_path() {
+        args.push("--cache-path".to_string());
+        args.push(cache_path.to_string_lossy().into_owned());
+    }
+    args.extend([
+        "-q".to_string(),
+        "-r".to_string(),
+        "json".to_string(),
+        "isfinfo.IsfInfo".to_string(),
+    ]);
+    if let Some(log) = &log {
+        log("Volatility ISF/symbol bilgisi kontrol ediliyor.".to_string());
+    }
+    let value = run_volatility_command(vol_dir, args, "isfinfo.IsfInfo", log)?;
+    json_rows(&value)
+}
+
+fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
+}
+
+fn extract_linux_banner(data: &[u8]) -> Option<String> {
+    let end = data
+        .iter()
+        .take(LINUX_BANNER_MAX_LEN)
+        .position(|byte| matches!(*byte, 0 | b'\n' | b'\r'))
+        .unwrap_or_else(|| data.len().min(LINUX_BANNER_MAX_LEN));
+    let raw = &data[..end];
+    let text = String::from_utf8_lossy(raw)
+        .chars()
+        .take_while(|ch| ch.is_ascii_graphic() || *ch == ' ')
+        .collect::<String>();
+    let clean = text.trim().to_string();
+    if clean.is_empty() { None } else { Some(clean) }
+}
+
+fn looks_like_kernel_banner(text: &str) -> bool {
+    text.starts_with("Linux version ")
+        && !text.contains("%s")
+        && !text.contains("http")
+        && (text.contains(" SMP ")
+            || text.contains("PREEMPT")
+            || text.contains("GNU ld")
+            || text.contains("gcc")
+            || text.contains("#1"))
+}
+
 pub fn get_processes_logged(
     file_path: &Path,
     os_type: &str,
+    log: Option<Arc<dyn Fn(String) + Send + Sync>>,
+) -> Result<Vec<VolatilityProcess>, String> {
+    get_processes_logged_with_symbol_dir(file_path, os_type, None, log)
+}
+
+pub fn get_processes_logged_with_symbol_dir(
+    file_path: &Path,
+    os_type: &str,
+    symbol_dir: Option<&Path>,
     log: Option<Arc<dyn Fn(String) + Send + Sync>>,
 ) -> Result<Vec<VolatilityProcess>, String> {
     let plugin = match os_type {
@@ -275,7 +717,8 @@ pub fn get_processes_logged(
         _ => return Err(format!("Desteklenmeyen RAM işletim sistemi: {os_type}")),
     };
 
-    let value = run_volatility_plugin_logged(file_path, plugin, &[], log)?;
+    let value =
+        run_volatility_plugin_logged_with_symbol_dir(file_path, plugin, &[], symbol_dir, log)?;
     let rows = json_rows(&value)?;
 
     Ok(rows
@@ -352,6 +795,16 @@ pub fn get_process_details_logged(
     pid: i64,
     log: Option<Arc<dyn Fn(String) + Send + Sync>>,
 ) -> Result<String, String> {
+    get_process_details_logged_with_symbol_dir(file_path, os_type, pid, None, log)
+}
+
+pub fn get_process_details_logged_with_symbol_dir(
+    file_path: &Path,
+    os_type: &str,
+    pid: i64,
+    symbol_dir: Option<&Path>,
+    log: Option<Arc<dyn Fn(String) + Send + Sync>>,
+) -> Result<String, String> {
     let pid_str = pid.to_string();
     let (plugin, extra_args) = match os_type {
         "windows" => ("windows.dlllist.DllList", vec!["--pid", pid_str.as_str()]),
@@ -359,7 +812,13 @@ pub fn get_process_details_logged(
         _ => return Err(format!("Desteklenmeyen RAM işletim sistemi: {os_type}")),
     };
 
-    let value = run_volatility_plugin_logged(file_path, plugin, &extra_args, log)?;
+    let value = run_volatility_plugin_logged_with_symbol_dir(
+        file_path,
+        plugin,
+        &extra_args,
+        symbol_dir,
+        log,
+    )?;
     let rows = json_rows(&value)?;
 
     if os_type == "linux" {

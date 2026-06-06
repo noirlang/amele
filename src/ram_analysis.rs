@@ -78,6 +78,15 @@ pub fn analyze_ram_summary_logged(
     os_type: Option<&str>,
     log: Option<Arc<dyn Fn(String) + Send + Sync>>,
 ) -> io::Result<RamAnalysisSummary> {
+    analyze_ram_summary_logged_with_symbol_dir(file_path, os_type, None, log)
+}
+
+pub fn analyze_ram_summary_logged_with_symbol_dir(
+    file_path: &Path,
+    os_type: Option<&str>,
+    symbol_dir: Option<&Path>,
+    log: Option<Arc<dyn Fn(String) + Send + Sync>>,
+) -> io::Result<RamAnalysisSummary> {
     if let Some(log) = &log {
         log(format!(
             "RAM analiz dosyası okunuyor: {}",
@@ -98,7 +107,12 @@ pub fn analyze_ram_summary_logged(
     if let Some(log) = &log {
         log(format!("{label} proses listesi çıkarılıyor"));
     }
-    let procs = match crate::volatility::get_processes_logged(file_path, os, log.clone()) {
+    let procs = match crate::volatility::get_processes_logged_with_symbol_dir(
+        file_path,
+        os,
+        symbol_dir,
+        log.clone(),
+    ) {
         Ok(plist) => plist
             .into_iter()
             .map(|p| ActiveProcessInfo {
@@ -115,7 +129,7 @@ pub fn analyze_ram_summary_logged(
                 if let Some(log) = &log {
                     log("Linux sembol eşleşmesi için kernel banner adayları aranıyor.".to_string());
                 }
-                match crate::volatility::get_banners_logged(file_path, log.clone()) {
+                match crate::volatility::scan_linux_banners(file_path, 1, log.clone()) {
                     Ok(banners) if !banners.is_empty() => warnings.push(format!(
                         "Linux kernel banner adayları bulundu: {}",
                         banners.join(" | ")
