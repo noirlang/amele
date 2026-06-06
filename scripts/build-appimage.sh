@@ -40,11 +40,15 @@ rm -rf "$APPDIR" "$APPIMAGE"
 mkdir -p \
   "$APPDIR/usr/bin" \
   "$APPDIR/usr/share/worm/ui" \
+  "$APPDIR/usr/share/worm/tools" \
+  "$APPDIR/usr/share/worm/vendor" \
   "$APPDIR/usr/share/applications" \
   "$APPDIR/usr/share/icons/hicolor/256x256/apps"
 
 install -m 755 "$ROOT_DIR/target/release/worm" "$APPDIR/usr/bin/worm"
 cp -a "$ROOT_DIR/ui/." "$APPDIR/usr/share/worm/ui/"
+cp -a "$ROOT_DIR/tools/." "$APPDIR/usr/share/worm/tools/"
+cp -a "$ROOT_DIR/vendor/volatility3" "$APPDIR/usr/share/worm/vendor/"
 install -m 755 "$ROOT_DIR/packaging/appimage/AppRun" "$APPDIR/AppRun"
 install -m 644 "$ROOT_DIR/packaging/appimage/worm.desktop" "$APPDIR/worm.desktop"
 install -m 644 "$ROOT_DIR/packaging/appimage/worm.desktop" "$APPDIR/usr/share/applications/worm.desktop"

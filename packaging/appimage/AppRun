@@ -3,6 +3,8 @@ APPDIR="$(dirname "$(readlink -f "$0")")"
 
 export WORM_UI_ROOT="${WORM_UI_ROOT:-$APPDIR/usr/share/worm/ui}"
 export WORM_APP_ICON="${WORM_APP_ICON:-$APPDIR/usr/share/icons/hicolor/256x256/apps/worm.png}"
+export WORM_VOLATILITY_WORKER_PATH="${WORM_VOLATILITY_WORKER_PATH:-$APPDIR/usr/share/worm/tools/worm_volatility_worker.py}"
+export WORM_VOLATILITY3_PATH="${WORM_VOLATILITY3_PATH:-$APPDIR/usr/share/worm/vendor/volatility3}"
 
 WEBKIT_BUNDLE_DIR="$APPDIR/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1"
 if [ -d "$WEBKIT_BUNDLE_DIR" ]; then
