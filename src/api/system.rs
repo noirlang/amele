@@ -659,22 +659,55 @@ pub fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
             .arg(
                 "$ErrorActionPreference='Stop'; \
                  $image = $args[0]; \
-                 $disk = Mount-DiskImage -ImagePath $image -Access ReadOnly -PassThru; \
+                 Mount-DiskImage -ImagePath $image -Access ReadOnly | Out-Null; \
                  Start-Sleep -Milliseconds 500; \
-                 $volume = $disk | Get-Volume | Select-Object -First 1; \
+                 $diskImage = Get-DiskImage -ImagePath $image; \
+                 $disk = $diskImage | Get-Disk -ErrorAction Stop; \
+                 $partition = $disk | Get-Partition | Where-Object { $_.Type -ne 'Reserved' } | Select-Object -First 1; \
+                 $volume = $partition | Get-Volume -ErrorAction SilentlyContinue; \
+                 if ($volume -and $volume.DriveLetter) { \
+                   Write-Output ($volume.DriveLetter + ':\\'); \
+                   exit 0; \
+                 }; \
+                 $accessPath = $partition.AccessPaths | Where-Object { $_ -like '*:\\*' -or $_ -like '\\\\?\\Volume*' } | Select-Object -First 1; \
+                 if ($accessPath) { \
+                   Write-Output $accessPath; \
+                   exit 0; \
+                 }; \
                  if (-not $volume -or -not $volume.DriveLetter) { \
                    Dismount-DiskImage -ImagePath $image -ErrorAction SilentlyContinue; \
                    throw 'Mounted image has no drive letter. Windows supports ISO/VHD/VHDX here; raw DD/IMG needs a forensic image driver.' \
-                 }; \
-                 Write-Output ($volume.DriveLetter + ':\\')",
+                 }",
             )
             .arg(&image_path)
             .output();
 
         match output {
             Ok(output) if output.status.success() => {
-                let mount_dir = PathBuf::from(String::from_utf8_lossy(&output.stdout).trim());
+                let mount_dir_text = String::from_utf8_lossy(&output.stdout);
+                let mount_dir = mount_dir_text
+                    .lines()
+                    .map(str::trim)
+                    .filter(|line| !line.is_empty())
+                    .last()
+                    .map(PathBuf::from);
+                let Some(mount_dir) = mount_dir else {
+                    return image_analysis_only_response(
+                        &image_path,
+                        "Windows mount succeeded but did not return a readable mount path.",
+                    );
+                };
+                if !mount_dir.exists() {
+                    return image_analysis_only_response(
+                        &image_path,
+                        format!(
+                            "Windows mount returned an unreadable path: {}",
+                            mount_dir.display()
+                        ),
+                    );
+                }
                 let tree = directory_tree_json(&mount_dir, 3, 400);
+                let analysis = disk_analysis_value(&image_path, Some(&mount_dir));
                 let state = ImageMountState {
                     image_path: image_path.clone(),
                     mount_dir: mount_dir.clone(),
@@ -685,21 +718,28 @@ pub fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
                 json_ok(json!({
                     "image_path": image_path,
                     "mount_dir": mount_dir,
+                    "mount_mode": "mounted",
                     "tree": tree,
+                    "analysis": analysis,
                 }))
             }
             Ok(output) => {
                 let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-                json_error(
-                    500,
+                let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                image_analysis_only_response(
+                    &image_path,
                     if stderr.is_empty() {
-                        "Windows image mount failed".to_string()
+                        if stdout.is_empty() {
+                            "Windows image mount failed".to_string()
+                        } else {
+                            stdout
+                        }
                     } else {
                         stderr
                     },
                 )
             }
-            Err(err) => json_error(500, err.to_string()),
+            Err(err) => image_analysis_only_response(&image_path, err.to_string()),
         }
     }
 
@@ -709,6 +749,243 @@ pub fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
             400,
             "read-only image mount is not supported on this platform",
         )
+    }
+}
+
+#[cfg(windows)]
+fn disk_analysis_value(image_path: &Path, mount_dir: Option<&Path>) -> Value {
+    match disk_analysis::analyze_disk_image(image_path, mount_dir) {
+        Ok(report) => serde_json::to_value(report).unwrap_or(Value::Null),
+        Err(err) => json!({
+            "analysis_error": err.to_string(),
+            "warnings": [err.to_string()],
+            "recommendations": ["Imaj dosyası okunabilirliğini ve dosya izinlerini kontrol edin."],
+        }),
+    }
+}
+
+#[cfg(windows)]
+fn image_analysis_only_response(image_path: &Path, mount_error: impl Into<String>) -> Response {
+    let mount_error = mount_error.into();
+    match disk_analysis::analyze_disk_image(image_path, None) {
+        Ok(report) => {
+            let tree = virtual_image_tree_json(image_path, Some(&report), Some(&mount_error));
+            let analysis = serde_json::to_value(&report).unwrap_or(Value::Null);
+            json_ok(json!({
+                "image_path": image_path,
+                "mount_dir": Value::Null,
+                "mount_mode": "analysis-only",
+                "mount_error": mount_error,
+                "message": "İmaj doğrudan bağlanamadı; bölüm ve dosya sistemi analiz görünümü açıldı.",
+                "tree": tree,
+                "analysis": analysis,
+            }))
+        }
+        Err(err) => json_ok(json!({
+            "image_path": image_path,
+            "mount_dir": Value::Null,
+            "mount_mode": "analysis-only",
+            "mount_error": mount_error,
+            "analysis_error": err.to_string(),
+            "message": "İmaj doğrudan bağlanamadı ve analiz özeti çıkarılamadı.",
+            "tree": virtual_image_tree_json(image_path, None, Some(&mount_error)),
+            "analysis": Value::Null,
+        })),
+    }
+}
+
+#[cfg(windows)]
+fn virtual_image_tree_json(
+    image_path: &Path,
+    report: Option<&disk_analysis::DiskImageAnalysis>,
+    mount_error: Option<&str>,
+) -> Value {
+    let file_name = image_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("image")
+        .to_string();
+    let mut root_children = Vec::new();
+
+    if let Some(error) = mount_error.filter(|value| !value.trim().is_empty()) {
+        root_children.push(virtual_dir(
+            "Bağlama Durumu / Mount Status",
+            "virtual:/mount-status",
+            vec![
+                virtual_leaf("Doğrudan bağlama başarısız", "virtual:/mount-status/error", error),
+                virtual_leaf(
+                    "Windows notu",
+                    "virtual:/mount-status/windows-note",
+                    "ISO/VHD/VHDX imajları Windows tarafından bağlanabilir. Raw DD/IMG imajlarında içerik gezmek için dosya sistemi sürücüsü veya forensic image driver gerekebilir.",
+                ),
+            ],
+        ));
+    }
+
+    if let Some(report) = report {
+        root_children.push(virtual_dir(
+            "İmaj Bilgileri / Image Info",
+            "virtual:/image-info",
+            vec![
+                virtual_leaf(
+                    format!("Tip: {}", report.image_type),
+                    "virtual:/image-info/type",
+                    &report.image_type,
+                ),
+                virtual_leaf(
+                    format!("Boyut: {}", format_bytes_for_report(report.size)),
+                    "virtual:/image-info/size",
+                    format!("{} byte", report.size),
+                ),
+                virtual_leaf(
+                    format!("Bölüm şeması: {}", report.partition_scheme),
+                    "virtual:/image-info/partition-scheme",
+                    &report.partition_scheme,
+                ),
+            ],
+        ));
+
+        let partition_children = if report.partitions.is_empty() {
+            vec![virtual_leaf(
+                "Bölüm bulunamadı",
+                "virtual:/partitions/empty",
+                "MBR/GPT bölüm kaydı bulunamadı. İmaj tek bölüm/raw volume olabilir.",
+            )]
+        } else {
+            report
+                .partitions
+                .iter()
+                .map(|part| {
+                    virtual_dir(
+                        format!("{}. {} {}", part.index, part.scheme, part.type_name),
+                        format!("virtual:/partitions/{}", part.index),
+                        vec![
+                            virtual_leaf(
+                                format!("Başlangıç LBA: {}", part.start_lba),
+                                format!("virtual:/partitions/{}/start-lba", part.index),
+                                format!("Start LBA: {}", part.start_lba),
+                            ),
+                            virtual_leaf(
+                                format!("Boyut: {}", format_bytes_for_report(part.size)),
+                                format!("virtual:/partitions/{}/size", part.index),
+                                format!("{} sektör · {}", part.sectors, part.type_code),
+                            ),
+                            virtual_leaf(
+                                format!(
+                                    "Ad: {}",
+                                    if part.name.is_empty() {
+                                        "-"
+                                    } else {
+                                        &part.name
+                                    }
+                                ),
+                                format!("virtual:/partitions/{}/name", part.index),
+                                if part.name.is_empty() {
+                                    "-"
+                                } else {
+                                    &part.name
+                                },
+                            ),
+                        ],
+                    )
+                })
+                .collect()
+        };
+        root_children.push(virtual_dir(
+            "Bölümler / Partitions",
+            "virtual:/partitions",
+            partition_children,
+        ));
+
+        let filesystem_children = if report.filesystems.is_empty() {
+            vec![virtual_leaf(
+                "Dosya sistemi imzası bulunamadı",
+                "virtual:/filesystems/empty",
+                "NTFS, FAT, exFAT, ext veya ISO9660 imzası yakalanamadı.",
+            )]
+        } else {
+            report
+                .filesystems
+                .iter()
+                .enumerate()
+                .map(|(index, fs)| {
+                    virtual_leaf(
+                        format!("{} @ {} ({})", fs.fs_type, fs.offset, fs.source),
+                        format!("virtual:/filesystems/{}", index + 1),
+                        format!(
+                            "{} imzası {} byte offsetinde bulundu.",
+                            fs.fs_type, fs.offset
+                        ),
+                    )
+                })
+                .collect()
+        };
+        root_children.push(virtual_dir(
+            "Dosya Sistemleri / Filesystems",
+            "virtual:/filesystems",
+            filesystem_children,
+        ));
+
+        if !report.warnings.is_empty() {
+            root_children.push(virtual_dir(
+                "Uyarılar / Warnings",
+                "virtual:/warnings",
+                report
+                    .warnings
+                    .iter()
+                    .enumerate()
+                    .map(|(index, warning)| {
+                        virtual_leaf(warning, format!("virtual:/warnings/{}", index + 1), warning)
+                    })
+                    .collect(),
+            ));
+        }
+    }
+
+    virtual_dir(file_name, "virtual:/image", root_children)
+}
+
+#[cfg(windows)]
+fn virtual_dir(name: impl Into<String>, path: impl Into<String>, children: Vec<Value>) -> Value {
+    json!({
+        "name": name.into(),
+        "path": path.into(),
+        "is_dir": true,
+        "size": 0,
+        "virtual": true,
+        "children": children,
+    })
+}
+
+#[cfg(windows)]
+fn virtual_leaf(
+    name: impl Into<String>,
+    path: impl Into<String>,
+    note: impl Into<String>,
+) -> Value {
+    json!({
+        "name": name.into(),
+        "path": path.into(),
+        "is_dir": false,
+        "size": 0,
+        "virtual": true,
+        "note": note.into(),
+    })
+}
+
+#[cfg(windows)]
+fn format_bytes_for_report(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
+    let mut size = bytes as f64;
+    let mut unit = 0_usize;
+    while size >= 1024.0 && unit < UNITS.len() - 1 {
+        size /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{bytes} {}", UNITS[unit])
+    } else {
+        format!("{size:.1} {}", UNITS[unit])
     }
 }
 
