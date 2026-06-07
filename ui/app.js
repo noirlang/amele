@@ -1,5 +1,6 @@
 import { androidModePage, androidPage, handleAndroidAction, syncAndroidDeviceSelection } from "./android.js";
 import { createApiRequest } from "./core/api.js";
+import { errorBoxHtml, normalizeErrorMessage } from "./core/errors.js";
 import { detectPlatform, platformLabel as platformName } from "./core/platform.js";
 import { canonicalRamFileName, compactLogLine, escapeHtml, formatBytes } from "./core/utils.js";
 import { icon, hydrateIcons, fontIcons } from "./icons.js";
@@ -1109,7 +1110,7 @@ async function handleAction(button) {
       showToast(result.mount_mode === "analysis-only" ? t("analysis.analysisOnlyPrepared") : t("analysis.mountPrepared"));
     } catch (error) {
       state.imageMountLogHTML = "";
-      setAnalysisStatus(t("analysis.noImage"), t("analysis.mountFailed", { message: error.message }));
+      setAnalysisStatus(t("analysis.noImage"), renderErrorPanel(t("analysis.errorTitle"), error));
       showToast(t("analysis.mountFailed", { message: error.message }), "error");
     }
     return;
@@ -1168,7 +1169,7 @@ async function handleAction(button) {
       }
       showToast(t("analysis.doneAnalysis"));
     } catch (error) {
-      if (container) container.innerHTML = `<div class="log-box" style="color:#ff5f68">${escapeHtml(t("analysis.summaryFailed", { message: error.message }))}</div>`;
+      if (container) container.innerHTML = renderErrorPanel(t("analysis.errorTitle"), error);
       showToast(t("analysis.summaryFailed", { message: error.message }), "error");
     }
     return;
@@ -1219,7 +1220,7 @@ async function handleAction(button) {
     } catch (error) {
       if (statusLbl) statusLbl.textContent = "Hata / Failed";
       if (flatResults) {
-        flatResults.innerHTML += `<div class="log-box" style="color:#ff5f68">${escapeHtml(t("analysis.summaryFailed", { message: error.message }))}</div>`;
+        flatResults.innerHTML += renderErrorPanel(t("analysis.errorTitle"), error);
       }
       showToast(t("analysis.summaryFailed", { message: error.message }), "error");
     }
@@ -1255,7 +1256,7 @@ async function handleAction(button) {
       showToast(result.ready ? "Volatility ön kontrol hazır." : "Volatility ön kontrol eksik uyarılar verdi.", result.ready ? "success" : "error");
     } catch (error) {
       if (statusLbl) statusLbl.textContent = "Hata / Failed";
-      if (flatResults) flatResults.innerHTML = `<div class="log-box" style="color:#ff5f68">${escapeHtml(error.message)}</div>`;
+      if (flatResults) flatResults.innerHTML = renderErrorPanel(t("analysis.preflightFailedTitle"), error);
       showToast("Volatility ön kontrol başarısız: " + error.message, "error");
     }
     return;
@@ -1280,7 +1281,7 @@ async function handleAction(button) {
       }
       showToast(t("analysis.doneAnalysis"));
     } catch (error) {
-      if (container) container.innerHTML = `<div class="log-box" style="color:#ff5f68">${escapeHtml(t("analysis.summaryFailed", { message: error.message }))}</div>`;
+      if (container) container.innerHTML = renderErrorPanel(t("analysis.errorTitle"), error);
       showToast(t("analysis.summaryFailed", { message: error.message }), "error");
     }
     return;
@@ -1332,7 +1333,7 @@ async function handleAction(button) {
       showToast("Dizgi analizi başarıyla tamamlandı.");
     } catch (error) {
       if (statusLbl) statusLbl.textContent = "Hata / Failed";
-      flatResults.innerHTML = `<div class="log-box" style="color:#ff5f68">Analiz başarısız: ${escapeHtml(error.message)}</div>`;
+      flatResults.innerHTML = renderErrorPanel(t("analysis.stringsFailedTitle"), error);
       showToast("RAM dizgi analizi başarısız oldu: " + error.message, "error");
     }
     return;
@@ -1392,7 +1393,7 @@ async function handleAction(button) {
       showToast("Dosya kurtarma (carving) başarıyla tamamlandı.");
     } catch (error) {
       if (statusLbl) statusLbl.textContent = "Hata / Failed";
-      leftList.innerHTML = `<div class="log-box" style="color:#ff5f68">Kurtarma başarısız: ${escapeHtml(error.message)}</div>`;
+      leftList.innerHTML = renderErrorPanel(t("analysis.carvingFailedTitle"), error);
       showToast("RAM dosya kurtarma başarısız: " + error.message, "error");
     }
     return;
@@ -1456,7 +1457,7 @@ async function handleAction(button) {
       }
     } catch (error) {
       if (statusLbl) statusLbl.textContent = "Hata / Failed";
-      leftList.innerHTML = `<div class="log-box" style="color:#ff5f68">Proses tablosu alınamadı: ${escapeHtml(error.message)}</div>`;
+      leftList.innerHTML = renderErrorPanel(t("analysis.processFailedTitle"), error);
       showToast("Proses listeleme başarısız: " + error.message, "error");
     }
     return;
@@ -1537,15 +1538,21 @@ function showToast(message, type = "success") {
     toast.className = "toast";
     document.body.appendChild(toast);
   }
-  toast.textContent = message;
-  toast.title = message;
+  const displayMessage = type === "error" ? normalizeErrorMessage(message) : String(message ?? "");
+  toast.textContent = displayMessage;
+  toast.title = displayMessage;
   toast.dataset.type = type;
   toast.classList.add("visible");
   window.clearTimeout(showToast.timer);
   showToast.timer = window.setTimeout(
     () => toast.classList.remove("visible"),
-    type === "error" ? 12000 : 3200
+    type === "error" ? Math.min(18000, 9000 + displayMessage.length * 18) : 3200
   );
+}
+
+function renderErrorPanel(title, errorOrMessage) {
+  const message = errorOrMessage?.message || errorOrMessage || t("unknown");
+  return errorBoxHtml(title, message);
 }
 
 function installUiErrorHandlers() {
@@ -2649,7 +2656,7 @@ async function previewImageFile(relativePath) {
       </div>
     `;
   } catch (error) {
-    container.innerHTML = `<div class="log-box" style="color:#ff5f68;padding:20px">Hata / Error: ${escapeHtml(error.message)}</div>`;
+    container.innerHTML = renderErrorPanel(t("analysis.previewFailedTitle"), error);
   }
 }
 
@@ -2703,7 +2710,7 @@ async function inspectProcessDetails(pid, name) {
     `;
     hydrateIcons(rightContent);
   } catch (error) {
-    rightContent.innerHTML = `<div class="log-box" style="color:#ff5f68">Hata: ${escapeHtml(error.message)}</div>`;
+    rightContent.innerHTML = renderErrorPanel(t("analysis.processDetailFailedTitle"), error);
   }
 }
 
@@ -2754,7 +2761,7 @@ async function runProcessMemorySearch(pid) {
       `;
     }
   } catch (error) {
-    resultsDiv.innerHTML = `<div class="log-box" style="color:#ff5f68">Arama başarısız: ${escapeHtml(error.message)}</div>`;
+    resultsDiv.innerHTML = renderErrorPanel(t("analysis.searchFailedTitle"), error);
   }
 }
 
@@ -2799,7 +2806,7 @@ async function previewCarvedFile(filePath) {
       </div>
     `;
   } catch (error) {
-    rightContent.innerHTML = `<div class="log-box" style="color:#ff5f68;padding:20px">Önizleme başarısız: ${escapeHtml(error.message)}</div>`;
+    rightContent.innerHTML = renderErrorPanel(t("analysis.previewFailedTitle"), error);
   }
 }
 

@@ -34,6 +34,22 @@ pub fn classify_error(message: &str) -> ErrorAdvice {
         };
     }
 
+    if lower.contains("glibc") || lower.contains("glibc_") || lower.contains("libm.so.6") {
+        return ErrorAdvice {
+            code: "LINUX_RUNTIME_INCOMPATIBLE",
+            detail: "Linux paketi sistemdeki glibc/runtime surumuyle uyumlu degil.",
+            suggestion: "Daha eski glibc ile derlenmis Worm paketini, .deb/.rpm paketini veya desteklenen dagitim surumunu kullanin.",
+        };
+    }
+
+    if lower.contains("cannot mount appimage") || lower.contains("fuse") {
+        return ErrorAdvice {
+            code: "APPIMAGE_FUSE_MISSING",
+            detail: "AppImage dosyasi FUSE destegi olmadigi icin baglanamadi.",
+            suggestion: "FUSE paketini kurun veya APPIMAGE_EXTRACT_AND_RUN=1 ile calistirmayi deneyin.",
+        };
+    }
+
     if lower.contains("gtk")
         && (lower.contains("display") || lower.contains("cannot open") || lower.contains("ekran"))
     {
@@ -81,15 +97,59 @@ pub fn classify_error(message: &str) -> ErrorAdvice {
         };
     }
 
+    if lower.contains("symbol_table_name")
+        || lower.contains("layer_name")
+        || lower.contains("unsatisfied requirement")
+        || lower.contains("translation layer")
+        || lower.contains("kernel banner")
+        || lower.contains("volatility3")
+    {
+        return ErrorAdvice {
+            code: "VOLATILITY_SYMBOLS_REQUIRED",
+            detail: "Volatility3 bellek imaji icin gereken profil/sembol eslesmesini kuramadi.",
+            suggestion: "Dogru isletim sistemi profilini secin. Linux RAM imajlari icin kernel banner ile uyumlu ISF sembol dosyasini .symbols klasorune ekleyin.",
+        };
+    }
+
     if lower.contains("wrong fs type")
         || lower.contains("bad superblock")
         || lower.contains("mount failed")
         || lower.contains("losetup failed")
+        || lower.contains("mounted image has no drive letter")
+        || lower.contains("raw dd/img")
     {
         return ErrorAdvice {
             code: "IMAGE_MOUNT_FAILED",
             detail: "Disk imaji salt-okunur baglanamadi; imaj bolum tablosu, dosya sistemi veya yetki sorunu icerebilir.",
             suggestion: "Imajin tamamlandigini/hash dogrulamasini kontrol edin. Linux'ta mount/losetup icin root yetkisi ve gerekli dosya sistemi paketleri gerekir.",
+        };
+    }
+
+    if lower.contains("adb")
+        && (lower.contains("unauthorized")
+            || lower.contains("offline")
+            || lower.contains("no devices")
+            || lower.contains("device not found")
+            || lower.contains("more than one device"))
+    {
+        return ErrorAdvice {
+            code: "ADB_DEVICE_NOT_READY",
+            detail: "Android cihaz ADB tarafinda hazir degil veya hedef cihaz net secilemedi.",
+            suggestion: "USB hata ayiklamayi acin, cihazdaki RSA onayini kabul edin ve tek hedef cihazi secerek tekrar deneyin.",
+        };
+    }
+
+    if lower.contains("avml")
+        || lower.contains("winpmem")
+        || lower.contains("command not found")
+        || lower.contains("not installed")
+        || lower.contains("arac bulunamadi")
+        || lower.contains("araç bulunamadı")
+    {
+        return ErrorAdvice {
+            code: "ACQUISITION_TOOL_MISSING",
+            detail: "Gerekli edinim araci bulunamadi veya calistirilamadi.",
+            suggestion: "Arac kontrolunu tekrar calistirin ve indir/kur butonuyla AVML veya WinPMEM'i Worm'un bekledigi konuma kurun.",
         };
     }
 
@@ -104,6 +164,14 @@ pub fn classify_error(message: &str) -> ErrorAdvice {
             code: "CONNECTION_FAILED",
             detail: "Agent veya yerel backend ile ag baglantisi kurulamadi ya da islem zaman asimina ugradi.",
             suggestion: "IP/port/token bilgisini, firewall kurallarini, agent'in calistigini ve ayni ag/VPN erisimini kontrol edin.",
+        };
+    }
+
+    if lower.contains("hash") || lower.contains("sha256") || lower.contains("md5") {
+        return ErrorAdvice {
+            code: "HASH_CALCULATION_FAILED",
+            detail: "Dosya hash hesabi tamamlanamadi.",
+            suggestion: "Dosyanin mevcut ve okunabilir oldugunu, imaj alma isleminin bitmis oldugunu ve diskin uyku/ayrilma durumunda olmadigini kontrol edin.",
         };
     }
 
@@ -187,6 +255,30 @@ mod tests {
         assert_eq!(
             classify_error("WebView2 view could not be created").code,
             "WEBVIEW2_RUNTIME"
+        );
+    }
+
+    #[test]
+    fn classifies_volatility_symbol_errors() {
+        assert_eq!(
+            classify_error("Unsatisfied requirement plugins.PsList.kernel.symbol_table_name").code,
+            "VOLATILITY_SYMBOLS_REQUIRED"
+        );
+    }
+
+    #[test]
+    fn classifies_appimage_fuse_errors() {
+        assert_eq!(
+            classify_error("Cannot mount AppImage, please check your FUSE setup").code,
+            "APPIMAGE_FUSE_MISSING"
+        );
+    }
+
+    #[test]
+    fn classifies_adb_device_errors() {
+        assert_eq!(
+            classify_error("adb: device unauthorized").code,
+            "ADB_DEVICE_NOT_READY"
         );
     }
 }
