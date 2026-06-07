@@ -1,6 +1,7 @@
 use chrono::Local;
 use serde::Deserialize;
 use serde_json::{Value, json};
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -16,6 +17,9 @@ use crate::server::{Response, json_error, json_ok};
 
 #[cfg(windows)]
 const WINPMEM_DOWNLOAD_URL: &str = "https://worm.noirlang.tr/go-winpmem_amd64_1.0-rc2_signed.exe";
+const VOLATILITY_LINUX_BANNERS_URL: &str = "https://raw.githubusercontent.com/Abyss-W4tcher/volatility3-symbols/master/banners/banners_plain.json";
+const VOLATILITY_LINUX_SYMBOL_RAW_BASE: &str =
+    "https://github.com/Abyss-W4tcher/volatility3-symbols/raw/master/";
 
 use super::{
     acquisition_jobs,
@@ -31,6 +35,7 @@ use super::{
     helper_file_stem,
     helper_owner_gid,
     helper_owner_uid,
+    home_dir,
     process_is_root,
     read_helper_error,
     read_helper_json,
@@ -1018,6 +1023,171 @@ pub fn ram_volatility_preflight_endpoint(body: &[u8]) -> Response {
     json_ok(serde_json::to_value(preflight).unwrap_or(Value::Null))
 }
 
+pub fn ram_volatility_symbol_install_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+        os_type: Option<String>,
+        symbol_dir: Option<String>,
+    }
+
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = Path::new(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
+    }
+
+    let os_type = sanitize_ram_os_type(request.os_type.as_deref());
+    if os_type != "linux" {
+        return json_ok(json!({
+            "status": "windows-automatic",
+            "installed": false,
+            "message": "Windows sembolleri Volatility3 tarafından Microsoft symbol cache üzerinden otomatik yönetilir.",
+            "symbol_dir": Value::Null,
+            "banners": [],
+            "matches": [],
+        }));
+    }
+
+    let symbol_root = match writable_symbol_dir(request.symbol_dir.as_deref()) {
+        Ok(path) => path,
+        Err(err) => return json_error(500, err),
+    };
+    let linux_symbol_dir = symbol_root.join("linux");
+    if let Err(err) = fs::create_dir_all(&linux_symbol_dir) {
+        return json_error(
+            500,
+            format!(
+                "Volatility Linux symbol dizini oluşturulamadı: {} - {err}",
+                linux_symbol_dir.display()
+            ),
+        );
+    }
+
+    let banners = match crate::volatility::scan_linux_banners(path, 3, None) {
+        Ok(items) => items,
+        Err(err) => {
+            return json_error(
+                500,
+                format!("Linux kernel banner taraması başarısız: {err}"),
+            );
+        }
+    };
+    if banners.is_empty() {
+        return json_error(
+            404,
+            "RAM imajında Linux kernel banner adayı bulunamadı. Dosyanın ham fiziksel RAM imajı olduğundan ve edinimin temiz tamamlandığından emin olun.",
+        );
+    }
+
+    let mapping = match download_linux_symbol_mapping() {
+        Ok(mapping) => mapping,
+        Err(err) => {
+            return json_error(
+                500,
+                format!(
+                    "Linux symbol eşleme verisi indirilemedi: {err}. Kaynak: {VOLATILITY_LINUX_BANNERS_URL}"
+                ),
+            );
+        }
+    };
+
+    let mut found = Vec::new();
+    for banner in &banners {
+        if let Some(paths) = mapping.get(banner) {
+            for path in paths {
+                found.push(json!({
+                    "banner": banner,
+                    "remote_path": path,
+                    "url": linux_symbol_url(path),
+                }));
+            }
+        }
+    }
+
+    if found.is_empty() {
+        return json_ok(json!({
+            "status": "not-found",
+            "installed": false,
+            "message": "Kernel banner bulundu ancak hazır remote ISF sembol veritabanında birebir eşleşme yok.",
+            "source": VOLATILITY_LINUX_BANNERS_URL,
+            "symbol_dir": symbol_root,
+            "banners": banners,
+            "matches": [],
+            "recommendations": [
+                "Kernel banner birebir eşleşmelidir; sadece sürüm numarası yeterli değildir.",
+                "Bu kernel için debug vmlinux/System.map bulunup dwarf2json ile ISF üretilebilir.",
+                "Üretilen .json veya .json.xz dosyasını symbol dizini altındaki linux klasörüne koyun."
+            ],
+        }));
+    }
+
+    let selected_path = found
+        .first()
+        .and_then(|item| item.get("remote_path"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let file_name = Path::new(&selected_path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or("linux-symbol.json.xz");
+    let target = linux_symbol_dir.join(file_name);
+    let mut downloaded = false;
+    if !target.exists() {
+        let url = linux_symbol_url(&selected_path);
+        let download_target = target.with_extension("download");
+        if let Err(err) = download_file_to_path(
+            &url,
+            &download_target,
+            "Volatility Linux symbol download failed",
+        ) {
+            let _ = fs::remove_file(&download_target);
+            return json_error(
+                500,
+                format!("Volatility Linux symbol dosyası indirilemedi: {err}. URL: {url}"),
+            );
+        }
+        if let Err(err) = fs::rename(&download_target, &target) {
+            let _ = fs::remove_file(&download_target);
+            return json_error(
+                500,
+                format!(
+                    "Volatility Linux symbol dosyası taşınamadı: {} - {err}",
+                    target.display()
+                ),
+            );
+        }
+        downloaded = true;
+    }
+
+    let sha256 = sha256_file(&target).ok();
+    let preflight = crate::volatility::preflight_ram_image(path, "linux", Some(&symbol_root), None);
+
+    json_ok(json!({
+        "status": if preflight.ready { "ready" } else { "installed" },
+        "installed": true,
+        "downloaded": downloaded,
+        "message": if downloaded {
+            "Linux Volatility3 symbol dosyası indirildi."
+        } else {
+            "Linux Volatility3 symbol dosyası zaten mevcut."
+        },
+        "source": VOLATILITY_LINUX_BANNERS_URL,
+        "symbol_dir": symbol_root,
+        "linux_symbol_dir": linux_symbol_dir,
+        "target": target,
+        "sha256": sha256,
+        "banners": banners,
+        "matches": found,
+        "preflight": preflight,
+    }))
+}
+
 pub fn ram_analyze_summary_start_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {
@@ -1241,6 +1411,58 @@ fn request_symbol_dir(value: Option<&str>) -> Result<Option<PathBuf>, String> {
         return Err(format!("Volatility symbol yolu klasör değil: {raw}"));
     }
     Ok(Some(path))
+}
+
+fn writable_symbol_dir(value: Option<&str>) -> Result<PathBuf, String> {
+    let path = value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .filter(|value| *value != ".symbols")
+        .map(PathBuf::from)
+        .unwrap_or_else(default_worm_symbol_dir);
+    fs::create_dir_all(&path).map_err(|err| {
+        format!(
+            "Volatility symbol dizini oluşturulamadı: {} - {err}",
+            path.display()
+        )
+    })?;
+    if !path.is_dir() {
+        return Err(format!(
+            "Volatility symbol yolu klasör değil: {}",
+            path.display()
+        ));
+    }
+    Ok(path)
+}
+
+fn default_worm_symbol_dir() -> PathBuf {
+    home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("Worm")
+        .join(".symbols")
+}
+
+fn download_linux_symbol_mapping() -> Result<BTreeMap<String, Vec<String>>, String> {
+    let temp_dir = std::env::temp_dir().join("worm-volatility-symbols");
+    fs::create_dir_all(&temp_dir).map_err(|err| err.to_string())?;
+    let mapping_path = temp_dir.join("banners_plain.json");
+    download_file_to_path(
+        VOLATILITY_LINUX_BANNERS_URL,
+        &mapping_path,
+        "Volatility Linux symbol mapping download failed",
+    )?;
+    let content = fs::read_to_string(&mapping_path).map_err(|err| err.to_string())?;
+    let _ = fs::remove_file(&mapping_path);
+    serde_json::from_str::<BTreeMap<String, Vec<String>>>(&content)
+        .map_err(|err| format!("Volatility Linux symbol eşleme JSON'u okunamadı: {err}"))
+}
+
+fn linux_symbol_url(remote_path: &str) -> String {
+    format!(
+        "{}{}",
+        VOLATILITY_LINUX_SYMBOL_RAW_BASE,
+        remote_path.trim_start_matches('/').replace(' ', "%20")
+    )
 }
 
 pub fn ram_process_details_endpoint(body: &[u8]) -> Response {

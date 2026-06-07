@@ -96,6 +96,7 @@ function renderRamAnalysis({ t, icon, state, pickerField }) {
 
       <div class="button-row" style="margin-top:14px">
         <button class="secondary-button" data-action="ram-preflight">${icon("info")} ${t("analysis.btnPreflight")}</button>
+        <button class="secondary-button" data-action="ram-symbol-install">${icon("download")} ${t("analysis.btnSymbolInstall")}</button>
         <button class="primary-button" data-action="ram-summary">${icon("search")} ${t("analysis.btnRamSummary")}</button>
         <button class="primary-button" data-action="ram-strings">${icon("shield")} ${t("analysis.btnStrings")}</button>
         <button class="primary-button" data-action="ram-carver">${icon("disk")} ${t("analysis.btnCarver")}</button>

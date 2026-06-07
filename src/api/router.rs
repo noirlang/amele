@@ -64,6 +64,9 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
         ("POST", "/api/image-read-file") => system::image_read_file_endpoint(body),
         ("POST", "/api/ram-analyze-summary") => ram::ram_analyze_summary_endpoint(body),
         ("POST", "/api/ram-volatility-preflight") => ram::ram_volatility_preflight_endpoint(body),
+        ("POST", "/api/ram-volatility-symbol-install") => {
+            ram::ram_volatility_symbol_install_endpoint(body)
+        }
         ("POST", "/api/ram-analyze-summary-start") => ram::ram_analyze_summary_start_endpoint(body),
         ("POST", "/api/ram-analyze-strings") => ram::ram_analyze_strings_endpoint(body),
         ("POST", "/api/ram-carve-files") => ram::ram_carve_files_endpoint(body),

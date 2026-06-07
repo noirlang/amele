@@ -1262,6 +1262,48 @@ async function handleAction(button) {
     return;
   }
 
+  if (action === "ram-symbol-install") {
+    const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
+    if (!ramPath || ramPath.startsWith(".")) {
+      showToast("Önce geçerli bir RAM dosyası seçin / Select a valid RAM file first", "error");
+      return;
+    }
+    const osProfile = document.querySelector("#ram-os-profile")?.value || "windows";
+    const symbolDir = ramSymbolDirValue();
+    document.querySelector("#ram-analysis-results").style.display = "block";
+    document.querySelector("#ram-split-view").style.display = "none";
+    document.querySelector("#ram-flat-results-panel").style.display = "block";
+    const flatTitle = document.querySelector("#ram-flat-title");
+    const flatResults = document.querySelector("#ram-flat-results-list");
+    const statusLbl = document.querySelector("#stat-status-lbl");
+    if (flatTitle) flatTitle.textContent = t("analysis.symbolInstallTitle");
+    if (statusLbl) statusLbl.textContent = t("analysis.symbolInstallRunning");
+    if (flatResults) flatResults.innerHTML = ramConsoleHtml(t("analysis.symbolInstallTitle"), [
+      t("analysis.symbolInstallScanning"),
+      t("analysis.symbolInstallExact")
+    ]);
+    try {
+      const result = await apiRequest("/api/ram-volatility-symbol-install", {
+        method: "POST",
+        body: JSON.stringify({ path: ramPath, os_type: osProfile, symbol_dir: symbolDir })
+      });
+      if (result.symbol_dir) {
+        state.ramSymbolDirInput = result.symbol_dir;
+        const input = document.querySelector("#ram-symbol-dir");
+        if (input) input.value = result.symbol_dir;
+      }
+      const symbolReady = result.installed || result.status === "windows-automatic";
+      if (statusLbl) statusLbl.textContent = symbolReady ? t("analysis.symbolInstallDone") : t("analysis.symbolInstallMissing");
+      if (flatResults) flatResults.innerHTML = renderVolatilitySymbolInstall(result);
+      showToast(result.message || t("analysis.symbolInstallDone"), symbolReady ? "success" : "error");
+    } catch (error) {
+      if (statusLbl) statusLbl.textContent = "Hata / Failed";
+      if (flatResults) flatResults.innerHTML = renderErrorPanel(t("analysis.symbolInstallFailedTitle"), error);
+      showToast(t("analysis.symbolInstallFailed", { message: error.message }), "error");
+    }
+    return;
+  }
+
   if (action === "android-analysis") {
     const caseName = document.querySelector("#android-analysis-case")?.value.trim();
     if (!caseName) {
@@ -2012,6 +2054,47 @@ function renderVolatilityPreflight(result) {
         <pre>${symbolDirs.length ? symbolDirs.map(escapeHtml).join("\n") : escapeHtml(t("analysis.preflightNoSymbolDir"))}</pre>
       </div>
       ${warnings.length ? `<div class="log-box" style="color:#ffb4b4"><strong>${escapeHtml(t("analysis.preflightWarnings"))}</strong><pre>${warnings.map(escapeHtml).join("\n")}</pre></div>` : ""}
+      ${recommendations.length ? `<div class="log-box"><strong>${escapeHtml(t("analysis.preflightRecommendations"))}</strong><pre>${recommendations.map(escapeHtml).join("\n")}</pre></div>` : ""}
+    </div>
+  `;
+}
+
+function renderVolatilitySymbolInstall(result) {
+  const banners = Array.isArray(result.banners) ? result.banners : [];
+  const matches = Array.isArray(result.matches) ? result.matches : [];
+  const recommendations = Array.isArray(result.recommendations) ? result.recommendations : [];
+  const preflight = result.preflight || null;
+  const ready = Boolean(preflight?.ready || result.status === "windows-automatic");
+  const badge = ready
+    ? `<span class="status-pill ok">${escapeHtml(t("analysis.preflightReady"))}</span>`
+    : `<span class="status-pill danger">${escapeHtml(t("analysis.preflightMissing"))}</span>`;
+  const matchLines = matches.map((item) => {
+    const remotePath = item.remote_path || item.url || "";
+    return `${item.banner || "-"}\n  -> ${remotePath}`;
+  });
+  return `
+    <div class="analysis-summary">
+      <p class="section-label">${escapeHtml(t("analysis.symbolInstallTitle"))}</p>
+      <div class="summary-grid">
+        <div><strong>${escapeHtml(t("analysis.preflightStatus"))}</strong><span>${badge}</span></div>
+        <div><strong>${escapeHtml(t("analysis.symbolDir"))}</strong><span>${escapeHtml(result.symbol_dir || "-")}</span></div>
+        <div><strong>${escapeHtml(t("analysis.symbolInstallTarget"))}</strong><span>${escapeHtml(result.target || "-")}</span></div>
+        <div><strong>SHA256</strong><span>${escapeHtml(result.sha256 || "-")}</span></div>
+      </div>
+      <div class="section-divider"></div>
+      <div class="log-box">
+        <strong>${escapeHtml(t("analysis.symbolInstallMessage"))}</strong>
+        <pre>${escapeHtml(result.message || "-")}</pre>
+      </div>
+      <div class="log-box">
+        <strong>${escapeHtml(t("analysis.preflightBanners"))}</strong>
+        <pre>${banners.length ? banners.map(escapeHtml).join("\n") : escapeHtml(t("analysis.preflightNoBanner"))}</pre>
+      </div>
+      <div class="log-box">
+        <strong>${escapeHtml(t("analysis.symbolInstallMatches"))}</strong>
+        <pre>${matchLines.length ? matchLines.map(escapeHtml).join("\n") : escapeHtml(t("analysis.preflightNoMatch"))}</pre>
+      </div>
+      ${preflight ? renderVolatilityPreflight(preflight) : ""}
       ${recommendations.length ? `<div class="log-box"><strong>${escapeHtml(t("analysis.preflightRecommendations"))}</strong><pre>${recommendations.map(escapeHtml).join("\n")}</pre></div>` : ""}
     </div>
   `;
