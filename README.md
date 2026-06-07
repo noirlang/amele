@@ -38,6 +38,7 @@ Release builds are published on GitHub Releases and on the website.
 - Linux AppImage: `worm-linux-x64.AppImage`
 - Linux DEB: `worm-linux-x64.deb`
 - Linux RPM: `worm-linux-x64.rpm`
+- Arch Linux package: `worm-linux-x64.pkg.tar.zst`
 - Windows MSI: `worm-windows-x64.msi`
 
 Agent binaries:
@@ -91,6 +92,12 @@ Build the Linux AppImage:
 
 ```bash
 ./scripts/build-appimage.sh
+```
+
+Build Linux DEB, RPM, and Arch packages:
+
+```bash
+./scripts/build-linux-packages.sh
 ```
 
 ## Run
