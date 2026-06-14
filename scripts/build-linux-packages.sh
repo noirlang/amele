@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="${DIST_DIR:-$ROOT_DIR/dist}"
 STAGE_DIR="$DIST_DIR/linux-package-root"
+PACKAGE_NAME="worm-forensic-tool"
 VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' "$ROOT_DIR/Cargo.toml" | head -n1)"
 
 if [[ -z "$VERSION" ]]; then
@@ -51,7 +52,7 @@ build_deb() {
   cp -a "$STAGE_DIR/." "$root/"
 
   cat >"$root/DEBIAN/control" <<EOF
-Package: worm-forensic-tool
+Package: $PACKAGE_NAME
 Version: $VERSION
 Section: utils
 Priority: optional
@@ -70,7 +71,7 @@ build_rpm() {
   require_tool rpmbuild
 
   local rpm_top="$DIST_DIR/rpmbuild"
-  local spec="$rpm_top/SPECS/worm-forensic-tool.spec"
+  local spec="$rpm_top/SPECS/$PACKAGE_NAME.spec"
   rm -rf "$rpm_top"
   mkdir -p "$rpm_top/BUILD" "$rpm_top/BUILDROOT" "$rpm_top/RPMS" "$rpm_top/SOURCES" "$rpm_top/SPECS" "$rpm_top/SRPMS"
 
@@ -133,8 +134,8 @@ build_arch() {
   installed_size="$(du -sb "$root" | awk '{print $1}')"
 
   cat >"$root/.PKGINFO" <<EOF
-pkgname = worm
-pkgbase = worm
+pkgname = $PACKAGE_NAME
+pkgbase = $PACKAGE_NAME
 pkgver = $VERSION-1
 pkgdesc = Desktop forensic acquisition tool
 url = https://worm.noirlang.tr
