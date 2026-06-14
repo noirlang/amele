@@ -13,7 +13,17 @@ pub fn explain_android_error(error: impl AsRef<str>) -> String {
         Some(
             "Cihaz ADB icin yetkilendirilmemis. Telefonda USB hata ayiklama onayini kabul edin ve tekrar deneyin.",
         )
-    } else if contains_any(&lower, &["no devices/emulators found", "device not found"]) {
+    } else if contains_any(
+        &lower,
+        &[
+            "no devices/emulators found",
+            "no devices",
+            "no device found",
+            "device not found",
+            "cihaz bulunamadi",
+            "cihaz bulunamadı",
+        ],
+    ) {
         Some(
             "ADB cihazi bulamadi. USB kablosunu, USB hata ayiklamayi ve cihaz secimini kontrol edin.",
         )
@@ -85,6 +95,12 @@ mod tests {
     fn explains_missing_adb() {
         let message = explain_android_error("ADB bulunamadi");
         assert!(message.contains("Platform Tools"));
+    }
+
+    #[test]
+    fn explains_missing_device() {
+        let message = explain_android_error("Cihaz bulunamadı");
+        assert!(message.contains("ADB cihazi bulamadi"));
     }
 
     #[test]

@@ -18,7 +18,9 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
   const status = android.adbStatus || null;
   const installed = Boolean(status?.installed);
   const devices = Array.isArray(android.devices) ? android.devices : [];
-  const selected = android.selectedDevice || devices[0]?.serial || "";
+  const selectedDevice = selectedAndroidDevice(devices, android.selectedDevice);
+  const selected = selectedDevice?.serial || "";
+  const selectedReady = isReadyAndroidDevice(selectedDevice);
   const statusTitle = status
     ? installed ? t("android.adb.installed") : t("android.adb.missing")
     : t("android.adb.unknown");
@@ -68,7 +70,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             </select>
           </div>
           <div class="button-row" style="margin-top:12px">
-            <button class="secondary-button" data-action="android-profile-fetch" ${selected ? "" : "disabled"}>${icon("search")} ${t("android.profile.fetch")}</button>
+            <button class="secondary-button" data-action="android-profile-fetch" ${selectedReady ? "" : "disabled"}>${icon("search")} ${t("android.profile.fetch")}</button>
           </div>
           ${deviceProfile ? `
             <div class="log-box" style="margin-top:12px">
@@ -93,7 +95,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             <div class="section-divider"></div>
             <p class="section-label">${t("android.logical.acquisitionTitle")}</p>
             <div class="button-row">
-              <button class="primary-button" data-action="android-start-logical" ${isActive ? "disabled" : ""}>${icon("android")} ${t("android.logical.start")}</button>
+              <button class="primary-button" data-action="android-start-logical" ${isActive || !selectedReady ? "disabled" : ""}>${icon("android")} ${t("android.logical.start")}</button>
               ${isRunning ? `<button class="secondary-button" data-action="android-pause-logical">${icon("pause")} ${t("workflow.pause")}</button>` : ""}
               ${isPaused ? `<button class="secondary-button" data-action="android-resume-logical">${icon("play")} ${t("workflow.resume")}</button>` : ""}
               ${isActive ? `<button class="danger-button" data-action="android-stop-logical">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
@@ -120,7 +122,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             <div class="section-divider"></div>
             <p class="section-label">${t("android.filesystem.acquisitionTitle") || "Aktarım"}</p>
             <div class="button-row">
-              <button class="primary-button" data-action="android-start-filesystem" ${isActive ? "disabled" : ""}>${icon("folder")} ${t("android.filesystem.start") || "Dosya Sistem İmajını Al"}</button>
+              <button class="primary-button" data-action="android-start-filesystem" ${isActive || !selectedReady ? "disabled" : ""}>${icon("folder")} ${t("android.filesystem.start") || "Dosya Sistem İmajını Al"}</button>
               ${isRunning ? `<button class="secondary-button" data-action="android-pause-filesystem">${icon("pause")} ${t("workflow.pause")}</button>` : ""}
               ${isPaused ? `<button class="secondary-button" data-action="android-resume-filesystem">${icon("play")} ${t("workflow.resume")}</button>` : ""}
               ${isActive ? `<button class="danger-button" data-action="android-stop-filesystem">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
@@ -153,7 +155,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             <div class="section-divider"></div>
             <p class="section-label">${t("android.ram.acquisitionTitle") || "Aktarım"}</p>
             <div class="button-row">
-              <button class="primary-button" data-action="android-start-ram" ${isActive ? "disabled" : ""}>${icon("cpu")} ${t("android.ram.start") || "RAM İmajını Al"}</button>
+              <button class="primary-button" data-action="android-start-ram" ${isActive || !selectedReady ? "disabled" : ""}>${icon("cpu")} ${t("android.ram.start") || "RAM İmajını Al"}</button>
               ${isRunning ? `<button class="secondary-button" data-action="android-pause-ram">${icon("pause")} ${t("workflow.pause")}</button>` : ""}
               ${isPaused ? `<button class="secondary-button" data-action="android-resume-ram">${icon("play")} ${t("workflow.resume")}</button>` : ""}
               ${isActive ? `<button class="danger-button" data-action="android-stop-ram">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
@@ -232,6 +234,31 @@ function formatBytes(bytes) {
   const units = ["B", "KB", "MB", "GB"];
   const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   return `${(bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
+}
+
+function selectedAndroidDevice(devices, selectedSerial) {
+  const list = Array.isArray(devices) ? devices : [];
+  const selected = list.find((device) => device.serial === selectedSerial);
+  return selected || list.find(isReadyAndroidDevice) || list[0] || null;
+}
+
+function isReadyAndroidDevice(device) {
+  return String(device?.state || "").toLowerCase() === "device";
+}
+
+function requireReadyAndroidDevice(state, t, showToast) {
+  const device = selectedAndroidDevice(state.android?.devices || [], state.android?.selectedDevice);
+  if (!device?.serial) {
+    showToast(t("android.logical.deviceRequired"), "warning");
+    return null;
+  }
+  if (!isReadyAndroidDevice(device)) {
+    showToast(t("android.devices.notReady", { state: device.state || t("unknown") }), "warning");
+    return null;
+  }
+  if (!state.android) state.android = {};
+  state.android.selectedDevice = device.serial;
+  return device;
 }
 
 function androidMode(modeId, t) {
@@ -355,13 +382,15 @@ export function syncAndroidDeviceSelection(select, { state, t, showToast }) {
   state.android.selectedDevice = select.value;
   state.android.deviceProfile = null;
   if (select.value) {
-    showToast(t("android.devices.selected", { serial: select.value }));
+    const device = selectedAndroidDevice(state.android.devices || [], select.value);
+    const type = isReadyAndroidDevice(device) ? "success" : "warning";
+    showToast(t("android.devices.selected", { serial: select.value }), type);
   }
 }
 
 async function checkAdb(button, { apiRequest, backendReady, state, t, showToast, render }) {
   if (!backendReady()) {
-    showToast(t("android.appModeRequired"), "error");
+    showToast(t("android.appModeRequired"), "warning");
     return;
   }
 
@@ -385,11 +414,11 @@ async function checkAdb(button, { apiRequest, backendReady, state, t, showToast,
 
 async function listDevices(button, { apiRequest, backendReady, state, t, showToast, render }) {
   if (!backendReady()) {
-    showToast(t("android.appModeRequired"), "error");
+    showToast(t("android.appModeRequired"), "warning");
     return;
   }
   if (!state.android?.adbStatus?.installed) {
-    showToast(t("android.adb.checkFirst"), "error");
+    showToast(t("android.adb.checkFirst"), "warning");
     return;
   }
 
@@ -399,13 +428,13 @@ async function listDevices(button, { apiRequest, backendReady, state, t, showToa
     const devices = Array.isArray(result.devices) ? result.devices : [];
     if (!state.android) state.android = {};
     state.android.devices = devices;
-    state.android.selectedDevice = devices[0]?.serial || "";
+    state.android.selectedDevice = selectedAndroidDevice(devices, state.android.selectedDevice)?.serial || "";
     state.android.deviceProfile = null;
     render();
     showToast(devices.length
       ? t("android.devices.listed", { count: String(devices.length) })
       : t("android.devices.none"),
-      devices.length ? "success" : "error"
+      devices.length ? "success" : "warning"
     );
   } catch (error) {
     showToast(t("android.devices.listFailed", { message: error.message }), "error");
@@ -416,11 +445,11 @@ async function listDevices(button, { apiRequest, backendReady, state, t, showToa
 
 async function fetchDeviceProfile(button, { apiRequest, backendReady, state, t, showToast, render }) {
   if (!backendReady()) {
-    showToast(t("android.appModeRequired"), "error");
+    showToast(t("android.appModeRequired"), "warning");
     return;
   }
-  if (!state.android?.selectedDevice) {
-    showToast(t("android.logical.deviceRequired"), "error");
+  const device = requireReadyAndroidDevice(state, t, showToast);
+  if (!device) {
     return;
   }
 
@@ -429,7 +458,7 @@ async function fetchDeviceProfile(button, { apiRequest, backendReady, state, t, 
     const result = await apiRequest("/api/android-device-profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ serial: state.android.selectedDevice }),
+      body: JSON.stringify({ serial: device.serial }),
     });
     if (!state.android) state.android = {};
     state.android.deviceProfile = result.profile || null;
@@ -444,11 +473,11 @@ async function fetchDeviceProfile(button, { apiRequest, backendReady, state, t, 
 
 async function startLogicalAcquisition(button, { apiRequest, backendReady, state, t, showToast, render, resolveCase }) {
   if (!backendReady()) {
-    showToast(t("android.appModeRequired"), "error");
+    showToast(t("android.appModeRequired"), "warning");
     return;
   }
-  if (!state.android?.selectedDevice) {
-    showToast(t("android.logical.deviceRequired"), "error");
+  const device = requireReadyAndroidDevice(state, t, showToast);
+  if (!device) {
     return;
   }
 
@@ -463,7 +492,7 @@ async function startLogicalAcquisition(button, { apiRequest, backendReady, state
 
   button.disabled = true;
   try {
-    const body = { serial: state.android.selectedDevice, profile };
+    const body = { serial: device.serial, profile };
     if (caseName) body.case_name = caseName;
     const result = await apiRequest("/api/android-profile-acquisition", {
       method: "POST",
@@ -534,11 +563,11 @@ function pollLogicalJob(jobId, { apiRequest, state, t, showToast, render }) {
 
 async function startFilesystemAcquisition(button, { apiRequest, backendReady, state, t, showToast, render, resolveCase }) {
   if (!backendReady()) {
-    showToast(t("android.appModeRequired"), "error");
+    showToast(t("android.appModeRequired"), "warning");
     return;
   }
-  if (!state.android?.selectedDevice) {
-    showToast(t("android.logical.deviceRequired"), "error");
+  const device = requireReadyAndroidDevice(state, t, showToast);
+  if (!device) {
     return;
   }
 
@@ -554,7 +583,7 @@ async function startFilesystemAcquisition(button, { apiRequest, backendReady, st
   button.disabled = true;
   try {
     const body = { 
-      serial: state.android.selectedDevice,
+      serial: device.serial,
       has_root: hasRoot
     };
     if (caseName) body.case_name = caseName;
@@ -627,11 +656,11 @@ function pollFilesystemJob(jobId, { apiRequest, state, t, showToast, render }) {
 
 async function startRamAcquisition(button, { apiRequest, backendReady, state, t, showToast, render, resolveCase }) {
   if (!backendReady()) {
-    showToast(t("android.appModeRequired"), "error");
+    showToast(t("android.appModeRequired"), "warning");
     return;
   }
-  if (!state.android?.selectedDevice) {
-    showToast(t("android.logical.deviceRequired"), "error");
+  const device = requireReadyAndroidDevice(state, t, showToast);
+  if (!device) {
     return;
   }
 
@@ -650,7 +679,7 @@ async function startRamAcquisition(button, { apiRequest, backendReady, state, t,
   button.disabled = true;
   try {
     const body = { 
-      serial: state.android.selectedDevice,
+      serial: device.serial,
       has_root: hasRoot,
       mode
     };

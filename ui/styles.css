@@ -1447,6 +1447,11 @@ code {
   color: #ffd7da;
 }
 
+.toast[data-type="warning"] {
+  border-color: color-mix(in srgb, var(--amber) 62%, transparent);
+  color: var(--amber);
+}
+
 .theme-light .toast[data-type="error"] {
   color: #9d1f2b;
 }
@@ -2336,6 +2341,11 @@ code {
 .toast[data-type="error"] {
   color: var(--red) !important;
   border-color: color-mix(in srgb, var(--red) 72%, transparent) !important;
+}
+
+.toast[data-type="warning"] {
+  color: var(--amber) !important;
+  border-color: color-mix(in srgb, var(--amber) 72%, transparent) !important;
 }
 
 :root {

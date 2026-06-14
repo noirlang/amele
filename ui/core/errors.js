@@ -26,8 +26,14 @@ const KNOWN_ERROR_RULES = [
     suggestion: "Doğru OS profilini seçin. Linux imajlarında kernel banner ile uyumlu sembol dosyasını .symbols klasörüne koyun."
   },
   {
+    code: "ANDROID_ADB_MISSING",
+    patterns: ["adb bulunamadı", "adb bulunamadi", "android debug bridge bulunamadı", "android debug bridge bulunamadi", "platform tools", "failed to execute adb"],
+    detail: "Android Debug Bridge bulunamadı veya çalıştırılamadı.",
+    suggestion: "Android Platform Tools kurulu olmalı ve adb komutu PATH içinde görünmelidir. ADB kontrolünü tekrar çalıştırın."
+  },
+  {
     code: "ADB_DEVICE",
-    patterns: ["adb", "unauthorized", "offline", "no devices", "device not found", "more than one device"],
+    patterns: ["unauthorized", "offline", "no devices", "no device found", "device not found", "cihaz bulunamadı", "cihaz bulunamadi", "more than one device", "more than one emulator"],
     detail: "Android cihaz ADB üzerinden hazır değil.",
     suggestion: "USB hata ayıklamayı açın, cihazdaki RSA onayını kabul edin ve tek hedef cihaz bağlıyken listelemeyi tekrar çalıştırın."
   },

@@ -165,7 +165,13 @@ pub(super) fn run_adb_file_command(serial: &str, args: &[&str]) -> Result<(), St
         .args(["-s", serial])
         .args(args)
         .output()
-        .map_err(|err| format!("ADB komutu calistirilamadi: {err}"))?;
+        .map_err(|err| {
+            if err.kind() == io::ErrorKind::NotFound {
+                "ADB bulunamadi".to_string()
+            } else {
+                format!("ADB komutu calistirilamadi: {err}")
+            }
+        })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
