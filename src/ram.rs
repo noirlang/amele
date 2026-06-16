@@ -1,3 +1,4 @@
+//! AVML/WinPMEM durum kontrolü, RAM edinimi ve süreç kontrolünü yönetir.
 use crate::error::{HataKodu, WormError, WormResult};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -13,6 +14,7 @@ const CONTROL_PAUSED: u8 = 1;
 const CONTROL_CANCELLED: u8 = 2;
 pub const WINPMEM_NAME: &str = "go-winpmem_amd64_1.0-rc2_signed.exe";
 
+/// RAM araçlarının bulunma, yetki ve fiziksel RAM durumunu UI'ye taşır.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RamToolStatus {
     pub tool_present: bool,
@@ -22,12 +24,14 @@ pub struct RamToolStatus {
     pub message: String,
 }
 
+/// RAM edinimi tamamlandığında çıktı dosyası ve yazılan bayt bilgisini taşır.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RamAcquisitionResult {
     pub output_file: PathBuf,
     pub bytes_written: u64,
 }
 
+/// RAM edinimi için duraklatma, devam ve iptal kontrolünü thread-safe taşır.
 #[derive(Clone)]
 pub struct CancellationToken {
     state: Arc<AtomicU8>,
@@ -42,27 +46,33 @@ impl Default for CancellationToken {
 }
 
 impl CancellationToken {
+    /// Edinim sürecine iptal sinyali gönderir.
     pub fn cancel(&self) {
         self.state.store(CONTROL_CANCELLED, Ordering::SeqCst);
     }
 
+    /// Edinim sürecini duraklatma durumuna alır.
     pub fn pause(&self) {
         self.state.store(CONTROL_PAUSED, Ordering::SeqCst);
     }
 
+    /// Duraklatılmış edinim sürecini devam ettirir.
     pub fn resume(&self) {
         self.state.store(CONTROL_RUNNING, Ordering::SeqCst);
     }
 
+    /// İptal sinyali gönderilip gönderilmediğini kontrol eder.
     pub fn is_cancelled(&self) -> bool {
         self.state.load(Ordering::SeqCst) == CONTROL_CANCELLED
     }
 
+    /// Duraklatma sinyali aktif mi diye kontrol eder.
     pub fn is_paused(&self) -> bool {
         self.state.load(Ordering::SeqCst) == CONTROL_PAUSED
     }
 }
 
+/// Linux tarafında AVML aracının kurulu ve kullanılabilir olup olmadığını kontrol eder.
 pub fn avml_status(candidate: Option<&Path>) -> RamToolStatus {
     let tool = find_avml(candidate);
     RamToolStatus {
@@ -78,6 +88,7 @@ pub fn avml_status(candidate: Option<&Path>) -> RamToolStatus {
     }
 }
 
+/// AVML ile Linux RAM imajı alır ve çıktı dosyasının büyümesine göre ilerleme döndürür.
 pub fn acquire_with_avml<F>(
     output_file: impl AsRef<Path>,
     candidate: Option<&Path>,
@@ -139,6 +150,7 @@ where
     }
 }
 
+/// Windows tarafında WinPMEM aracının kurulu ve kullanılabilir olup olmadığını kontrol eder.
 pub fn winpmem_status(candidate: Option<&Path>) -> RamToolStatus {
     let tool = find_winpmem(candidate);
     RamToolStatus {
@@ -154,6 +166,7 @@ pub fn winpmem_status(candidate: Option<&Path>) -> RamToolStatus {
     }
 }
 
+/// WinPMEM ile Windows RAM imajı alır ve çıktı dosyasının büyümesine göre ilerleme döndürür.
 pub fn acquire_with_winpmem<F>(
     output_file: impl AsRef<Path>,
     candidate: Option<&Path>,
@@ -254,6 +267,7 @@ where
     }
 }
 
+/// Harici RAM aracını izler; pause/resume/stop ve timeout davranışını uygular.
 fn monitor_child_file<F>(
     child: &mut Child,
     output_file: &Path,
@@ -322,6 +336,7 @@ where
     }
 }
 
+/// Harici RAM aracını işletim sistemi sinyaliyle duraklatır.
 fn pause_child(child: &Child) {
     #[cfg(unix)]
     unsafe {
@@ -345,6 +360,7 @@ fn pause_child(child: &Child) {
     }
 }
 
+/// Duraklatılmış harici RAM aracını devam ettirir.
 fn resume_child(child: &Child) {
     #[cfg(unix)]
     unsafe {
@@ -368,6 +384,7 @@ fn resume_child(child: &Child) {
     }
 }
 
+/// Linux'ta PATH veya bilinen konumlarda AVML binary'sini arar.
 pub fn find_avml(candidate: Option<&Path>) -> Option<PathBuf> {
     if let Some(path) = candidate
         && path.exists()
@@ -383,6 +400,7 @@ pub fn find_avml(candidate: Option<&Path>) -> Option<PathBuf> {
     })
 }
 
+/// Windows'ta PATH veya bilinen konumlarda WinPMEM binary'sini arar.
 pub fn find_winpmem(candidate: Option<&Path>) -> Option<PathBuf> {
     if let Some(path) = candidate
         && path.exists()
@@ -395,7 +413,7 @@ pub fn find_winpmem(candidate: Option<&Path>) -> Option<PathBuf> {
             PathBuf::from(r"C:\Tools\go-winpmem_amd64_1.0-rc2_signed.exe"),
             PathBuf::from(r"C:\Forensics\go-winpmem_amd64_1.0-rc2_signed.exe"),
         ];
-        // Also check next to the running executable
+        // Çalışan uygulamanın yanındaki WinPMEM kopyası da kontrol edilir.
         if let Ok(exe) = std::env::current_exe() {
             if let Some(exe_dir) = exe.parent() {
                 candidates.insert(0, exe_dir.join(WINPMEM_NAME));
@@ -405,6 +423,7 @@ pub fn find_winpmem(candidate: Option<&Path>) -> Option<PathBuf> {
     })
 }
 
+/// PATH içindeki binary adayını bulur.
 fn find_in_path(binary: &str) -> Option<PathBuf> {
     let paths = std::env::var_os("PATH")?;
     std::env::split_paths(&paths)
@@ -412,6 +431,7 @@ fn find_in_path(binary: &str) -> Option<PathBuf> {
         .find(|path| path.exists())
 }
 
+/// Sistemdeki fiziksel RAM miktarını platforma göre hesaplar.
 pub fn physical_ram_size() -> u64 {
     #[cfg(target_os = "linux")]
     {
@@ -454,6 +474,7 @@ pub fn physical_ram_size() -> u64 {
     }
 }
 
+/// Sürecin root/admin yetkisiyle çalışıp çalışmadığını kontrol eder.
 pub fn is_root_or_admin() -> bool {
     #[cfg(windows)]
     {

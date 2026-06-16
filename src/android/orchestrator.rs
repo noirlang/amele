@@ -1,3 +1,4 @@
+//! Android edinim adımlarını profil, dosya sistemi ve RAM akışları için koordine eder.
 use super::{
     AcquisitionItem, AndroidAcquisitionProfile, AndroidDeviceProfile, AndroidRamAcquisitionResult,
     AndroidRamMode, FilesystemAcquisitionResult, LogicalAcquisitionResult, detect_device_profile,
@@ -8,6 +9,7 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize)]
+/// Profil destekli Android mantıksal ediniminin cihaz profiliyle birleştirilmiş sonucudur.
 pub struct AndroidOrchestratedAcquisitionResult {
     pub profile: AndroidAcquisitionProfile,
     pub device_profile: AndroidDeviceProfile,
@@ -19,6 +21,7 @@ pub struct AndroidOrchestratedAcquisitionResult {
 }
 
 #[derive(Debug, Clone, Serialize)]
+/// Android dosya sistemi edinimini cihaz profiliyle birlikte döndüren sonuç modelidir.
 pub struct AndroidOrchestratedFilesystemResult {
     pub device_profile: AndroidDeviceProfile,
     pub output_file: PathBuf,
@@ -27,6 +30,7 @@ pub struct AndroidOrchestratedFilesystemResult {
 }
 
 #[derive(Debug, Clone, Serialize)]
+/// Android RAM/uçucu veri edinimini cihaz profiliyle birlikte döndüren sonuç modelidir.
 pub struct AndroidOrchestratedRamResult {
     pub device_profile: AndroidDeviceProfile,
     pub output_file: PathBuf,
@@ -35,6 +39,7 @@ pub struct AndroidOrchestratedRamResult {
     pub mode: AndroidRamMode,
 }
 
+/// Cihaz profilini yazar, seçilen mantıksal profili çalıştırır ve sonucu birleştirir.
 pub fn orchestrated_acquisition<F, C>(
     serial: &str,
     output_dir: &Path,
@@ -74,6 +79,7 @@ where
     Ok(from_logical_result(profile, device_profile, logical))
 }
 
+/// Android dosya sistemi edinimini profil kaydıyla birlikte yürütür.
 pub fn orchestrated_filesystem_acquisition<F, C>(
     serial: &str,
     output_dir: &Path,
@@ -104,6 +110,7 @@ where
     Ok(from_filesystem_result(device_profile, result))
 }
 
+/// Android RAM/uçucu veri edinimini profil kaydıyla birlikte yürütür.
 pub fn orchestrated_ram_acquisition<F, C>(
     serial: &str,
     output_dir: &Path,
@@ -136,6 +143,7 @@ where
     Ok(from_ram_result(device_profile, result))
 }
 
+/// Algılanan cihaz profilini edinim klasörüne JSON olarak yazar.
 fn write_device_profile(
     output_dir: &Path,
     device_profile: &AndroidDeviceProfile,
@@ -145,6 +153,7 @@ fn write_device_profile(
     std::fs::write(&path, content).map_err(|err| format!("Cihaz profili yazilamadi: {err}"))
 }
 
+/// Dosya sistemi edinim sonucunu orkestrasyon modeline çevirir.
 fn from_filesystem_result(
     device_profile: AndroidDeviceProfile,
     result: FilesystemAcquisitionResult,
@@ -157,6 +166,7 @@ fn from_filesystem_result(
     }
 }
 
+/// RAM edinim sonucunu orkestrasyon modeline çevirir.
 fn from_ram_result(
     device_profile: AndroidDeviceProfile,
     result: AndroidRamAcquisitionResult,
@@ -170,6 +180,7 @@ fn from_ram_result(
     }
 }
 
+/// Mantıksal edinim sonucunu orkestrasyon modeline çevirir.
 fn from_logical_result(
     profile: AndroidAcquisitionProfile,
     device_profile: AndroidDeviceProfile,

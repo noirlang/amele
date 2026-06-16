@@ -1,3 +1,4 @@
+//! Komut satırı girişini işler ve UI, browser veya helper modlarını başlatır.
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::fs;
@@ -15,6 +16,7 @@ use worm::server;
 use worm::settings::AppSettings;
 use worm::wireguard::{self, WireGuardConfig};
 
+/// CLI argümanını okuyup ilgili alt komutu veya UI modunu çalıştırır.
 fn main() {
     install_error_reporting();
 
@@ -59,6 +61,7 @@ fn default_command() -> Result<(), String> {
     server::run_native()
 }
 
+/// Windows dışındaki sistemlerde argüman verilmezse sadece yardım metnini gösterir.
 #[cfg(not(target_os = "windows"))]
 fn default_command() -> Result<(), String> {
     print_help();
@@ -89,6 +92,7 @@ fn report_fatal_error(message: &str) {
 #[cfg(not(target_os = "windows"))]
 fn report_fatal_error(_message: &str) {}
 
+/// Windows başlangıç hatalarını log dosyasına ve mesaj kutusuna yazdırır.
 #[cfg(target_os = "windows")]
 mod windows_error {
     use std::fs::OpenOptions;
@@ -149,6 +153,7 @@ mod windows_error {
     }
 }
 
+/// Kullanıcıya desteklenen teknik CLI komutlarını gösterir.
 fn print_help() {
     println!(
         "worm teknik CLI\n\n\
@@ -175,6 +180,7 @@ fn print_help() {
     );
 }
 
+/// Varsayılan uygulama ayarlarını JSON olarak stdout'a yazar.
 fn print_default_settings() -> Result<(), String> {
     let settings = AppSettings::default();
     println!(
@@ -184,6 +190,7 @@ fn print_default_settings() -> Result<(), String> {
     Ok(())
 }
 
+/// Verilen dosya için seçilen hash algoritmasını çalıştırır.
 fn hash_command(args: Vec<String>) -> Result<(), String> {
     if args.is_empty() {
         return Err("Kullanim: hash <dosya> [algoritma]".to_string());
@@ -198,6 +205,7 @@ fn hash_command(args: Vec<String>) -> Result<(), String> {
     Ok(())
 }
 
+/// Yerel disk listesini JSON olarak üretir.
 fn disk_list_command() -> Result<(), String> {
     let disks = disk::list_disks().map_err(|err| err.to_string())?;
     println!(
@@ -207,6 +215,7 @@ fn disk_list_command() -> Result<(), String> {
     Ok(())
 }
 
+/// Yetkili helper sürecinde diskleri listeleyip sonucu dosyaya yazar.
 fn disk_list_helper_command(args: Vec<String>) -> Result<(), String> {
     let Some(output) = args.first() else {
         return Err("Kullanim: disk-list-helper <json-cikti>".to_string());
@@ -222,6 +231,7 @@ fn disk_list_helper_command(args: Vec<String>) -> Result<(), String> {
     .map_err(|err| err.to_string())
 }
 
+/// Yetkili imaj alma helper'ının JSON istek alanlarını taşır.
 #[derive(Deserialize)]
 struct ImageHelperRequest {
     source: PathBuf,
@@ -230,6 +240,7 @@ struct ImageHelperRequest {
     owner_gid: Option<u32>,
 }
 
+/// Root/admin yetkisiyle disk imajı alır ve ilerlemeyi/result dosyalarını günceller.
 fn image_helper_command(args: Vec<String>) -> Result<(), String> {
     if !(3..=4).contains(&args.len()) {
         return Err(
@@ -280,6 +291,7 @@ fn image_helper_command(args: Vec<String>) -> Result<(), String> {
     write_json_file(&result_path, &payload)
 }
 
+/// Helper root olarak çalıştıysa çıkan dosyaları asıl kullanıcıya geri verir.
 fn restore_helper_output_owner(target: &Path, owner_uid: Option<u32>, owner_gid: Option<u32>) {
     let (Some(owner_uid), Some(owner_gid)) = (owner_uid, owner_gid) else {
         return;
@@ -294,6 +306,7 @@ fn restore_helper_output_owner(target: &Path, owner_uid: Option<u32>, owner_gid:
     }
 }
 
+/// İmaj dosyasının yanında oluşturulan SHA256 sidecar yolunu hesaplar.
 fn sha256_sidecar_path(target: &Path) -> PathBuf {
     target.with_extension(format!(
         "{}sha256",
@@ -305,6 +318,7 @@ fn sha256_sidecar_path(target: &Path) -> PathBuf {
     ))
 }
 
+/// UI'dan gelen pause/resume/stop kontrol dosyasını disk edinim durumuna çevirir.
 fn image_helper_control(control_path: Option<&Path>) -> disk::DiskAcquisitionControl {
     let Some(control_path) = control_path else {
         return disk::DiskAcquisitionControl::Continue;
@@ -326,6 +340,7 @@ fn image_helper_control(control_path: Option<&Path>) -> disk::DiskAcquisitionCon
     }
 }
 
+/// Yetkili RAM helper'ının çalıştıracağı araç ve çıktı bilgilerini taşır.
 #[derive(Deserialize)]
 struct RamHelperRequest {
     output_file: PathBuf,
@@ -335,6 +350,7 @@ struct RamHelperRequest {
     owner_gid: Option<u32>,
 }
 
+/// Root/admin yetkisiyle AVML veya WinPMEM çalıştırıp RAM çıktısını üretir.
 fn ram_helper_command(args: Vec<String>) -> Result<(), String> {
     if args.len() != 4 {
         return Err(
@@ -413,6 +429,7 @@ fn ram_helper_command(args: Vec<String>) -> Result<(), String> {
     write_json_file(&result_path, &payload)
 }
 
+/// RAM helper kontrol dosyasındaki pause/resume/stop durumunu token'a uygular.
 fn apply_ram_helper_control(token: &ram::CancellationToken, control_path: &Path) {
     let Some(value) = fs::read(control_path)
         .ok()

@@ -1,7 +1,9 @@
+//! Android mantıksal edinim profillerini ve çalıştırılacak adımları tanımlar.
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+/// Android mantıksal edinimde kullanılacak kapsam profilini belirtir.
 pub enum AndroidAcquisitionProfile {
     QuickLogical,
     FullLogical,
@@ -10,6 +12,7 @@ pub enum AndroidAcquisitionProfile {
 }
 
 impl AndroidAcquisitionProfile {
+    /// UI veya API'den gelen profil kimliğini güvenli varsayılanla enum değerine çevirir.
     pub fn from_id(value: &str) -> Self {
         match value.trim() {
             "quick_logical" | "quick" => Self::QuickLogical,
@@ -21,12 +24,14 @@ impl AndroidAcquisitionProfile {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Tek bir Android toplama adımının kategori ve çıktı dosyası eşleşmesini tutar.
 pub struct AndroidExtractorStep {
     pub category: &'static str,
     pub file_name: &'static str,
 }
 
 impl AndroidExtractorStep {
+    /// Sabit edinim adımı tanımlar.
     pub const fn new(category: &'static str, file_name: &'static str) -> Self {
         Self {
             category,
@@ -134,6 +139,7 @@ pub const FULL_LOGICAL_STEPS: &[AndroidExtractorStep] = &[
     AndroidExtractorStep::new("shared_storage", "shared_storage"),
 ];
 
+/// Seçilen profile göre çalıştırılacak Android edinim adımlarını döndürür.
 pub fn logical_steps_for_profile(profile: AndroidAcquisitionProfile) -> Vec<AndroidExtractorStep> {
     match profile {
         AndroidAcquisitionProfile::QuickLogical => filter_steps(QUICK_LOGICAL),
@@ -155,6 +161,7 @@ pub fn logical_steps_for_profile(profile: AndroidAcquisitionProfile) -> Vec<Andr
     }
 }
 
+/// Sabit kategori listesini tam adım tanımlarına indirger.
 fn filter_steps(categories: &[&str]) -> Vec<AndroidExtractorStep> {
     categories
         .iter()

@@ -1,3 +1,4 @@
+//! Yerel HTTP sunucusunu ve native pencere açılışını yönetir.
 use crate::router;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -7,6 +8,7 @@ use std::thread;
 
 const DEV_UI_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/ui");
 
+/// HTTP cevabının durum kodu, içerik tipi ve gövdesini taşır.
 #[derive(Clone, Debug)]
 pub struct Response {
     pub status: u16,
@@ -15,6 +17,7 @@ pub struct Response {
 }
 
 impl Response {
+    /// Gövdesiz HTTP cevabı üretir.
     pub fn empty(status: u16) -> Self {
         Self {
             status,
@@ -24,6 +27,7 @@ impl Response {
     }
 }
 
+/// Başarılı JSON API cevabı üretir.
 pub fn json_ok(value: serde_json::Value) -> Response {
     Response {
         status: 200,
@@ -32,6 +36,7 @@ pub fn json_ok(value: serde_json::Value) -> Response {
     }
 }
 
+/// Hata mesajını sınıflandırıp ayrıntılı JSON hata cevabına dönüştürür.
 pub fn json_error(status: u16, message: impl Into<String>) -> Response {
     let message = message.into();
     let advice = crate::diagnostics::classify_error(&message);
@@ -49,6 +54,7 @@ pub fn json_error(status: u16, message: impl Into<String>) -> Response {
     }
 }
 
+/// Yerel backend'i başlatır ve native WebView penceresini açar.
 pub fn run_native() -> Result<(), String> {
     crate::native_window::prepare_environment()?;
     let url = start_background()?;
@@ -57,6 +63,7 @@ pub fn run_native() -> Result<(), String> {
     crate::native_window::run(&native_url)
 }
 
+/// Yerel backend'i başlatır ve debug için sistem tarayıcısını açar.
 pub fn run_browser() -> Result<(), String> {
     let url = start_background()?;
     println!("Worm UI backend: {url}");
@@ -66,6 +73,7 @@ pub fn run_browser() -> Result<(), String> {
     }
 }
 
+/// Rastgele boş localhost portunda UI backend thread'ini başlatır.
 fn start_background() -> Result<String, String> {
     validate_ui_assets()?;
     let listener = TcpListener::bind("127.0.0.1:0").map_err(|err| {
@@ -89,6 +97,7 @@ fn start_background() -> Result<String, String> {
     Ok(url)
 }
 
+/// UI dosyalarının paket içinde veya geliştirme klasöründe bulunduğunu doğrular.
 fn validate_ui_assets() -> Result<(), String> {
     let root = ui_root();
     if root.join("index.html").is_file() {
@@ -98,6 +107,7 @@ fn validate_ui_assets() -> Result<(), String> {
     }
 }
 
+/// TCP listener üzerinden gelen istekleri ayrı thread'lerde karşılar.
 fn serve(listener: TcpListener) {
     for stream in listener.incoming() {
         match stream {
@@ -113,6 +123,7 @@ fn serve(listener: TcpListener) {
     }
 }
 
+/// Debug/browser modunda uygun tarayıcı komutunu seçip pencere açar.
 fn open_window(url: &str) {
     let browsers: &[(&str, &[&str])] = &[
         (
@@ -151,6 +162,7 @@ fn open_window(url: &str) {
     eprintln!("Browser could not be opened automatically. Use: {url}");
 }
 
+/// Ham TCP stream'den HTTP isteğini okur, router'a verir ve cevabı yazar.
 fn handle_stream(stream: TcpStream) -> Result<(), String> {
     let peer = stream.peer_addr().ok();
     if peer.map(|addr| !addr.ip().is_loopback()).unwrap_or(true) {
@@ -210,6 +222,7 @@ fn handle_stream(stream: TcpStream) -> Result<(), String> {
     write_response(stream, response)
 }
 
+/// HTTP header ve gövdesini TCP stream'e yazar.
 fn write_response(mut stream: TcpStream, response: Response) -> Result<(), String> {
     let reason = match response.status {
         200 => "OK",
@@ -235,6 +248,7 @@ fn write_response(mut stream: TcpStream, response: Response) -> Result<(), Strin
         .map_err(|err| err.to_string())
 }
 
+/// UI dosyalarının paketlenmiş veya geliştirme ortamındaki kök klasörünü bulur.
 pub fn ui_root() -> PathBuf {
     if let Some(path) = std::env::var_os("WORM_UI_ROOT") {
         let path = PathBuf::from(path);
@@ -256,6 +270,7 @@ pub fn ui_root() -> PathBuf {
     PathBuf::from(DEV_UI_ROOT)
 }
 
+/// Dosya uzantısına göre HTTP Content-Type döndürür.
 pub fn mime_for(path: &Path) -> &'static str {
     match path
         .extension()
@@ -276,6 +291,7 @@ pub fn mime_for(path: &Path) -> &'static str {
     }
 }
 
+/// URL path içindeki yüzde kodlamasını UTF-8 stringe çevirir.
 pub fn percent_decode(input: &str) -> Result<String, ()> {
     let bytes = input.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
@@ -301,6 +317,7 @@ pub fn percent_decode(input: &str) -> Result<String, ()> {
     String::from_utf8(out).map_err(|_| ())
 }
 
+/// Tek hex karakterini sayısal nibble değerine çevirir.
 fn hex_value(byte: u8) -> Option<u8> {
     match byte {
         b'0'..=b'9' => Some(byte - b'0'),

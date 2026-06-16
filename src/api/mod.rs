@@ -1,3 +1,4 @@
+//! HTTP API modüllerini ve ortak API yardımcılarını dışarı açar.
 pub mod android;
 pub mod evidence;
 mod helpers;

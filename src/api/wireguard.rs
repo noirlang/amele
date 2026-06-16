@@ -1,9 +1,11 @@
+//! WireGuard yapılandırma dosyası üretimi ve bağlantı API uçlarını yönetir.
 use super::wireguard_manager;
 use crate::server::{Response, json_error, json_ok};
 use crate::wireguard::{self, WireGuardConfig};
 use serde::Deserialize;
 use serde_json::json;
 
+/// WireGuard config isteğini doğrular ve config dosyasını üretir.
 pub fn wireguard_config_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct WireGuardConfigRequest {
@@ -43,6 +45,7 @@ pub fn wireguard_config_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Seçilen WireGuard config dosyasıyla bağlantıyı başlatır.
 pub fn wireguard_start_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct WireGuardStartRequest {
@@ -70,6 +73,7 @@ pub fn wireguard_start_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Aktif WireGuard bağlantısını durdurur.
 pub fn wireguard_stop_endpoint() -> Response {
     let manager = wireguard_manager();
     let mut guard = match manager.lock() {
@@ -82,6 +86,7 @@ pub fn wireguard_stop_endpoint() -> Response {
     }
 }
 
+/// WireGuard manager'ın mevcut aktiflik durumunu döndürür.
 pub fn wireguard_status_endpoint() -> Response {
     let manager = wireguard_manager();
     let guard = match manager.lock() {

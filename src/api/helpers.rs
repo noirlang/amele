@@ -1,3 +1,4 @@
+//! Yetki yükseltme, dosya indirme, JSON yardımcıları ve ortak API araçlarını içerir.
 use chrono::Local;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -6,6 +7,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 
+/// Komut stderr çıktısını yoksa fallback mesajını döndürür.
 pub fn command_error_message(output: &std::process::Output, fallback: &str) -> String {
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
     if stderr.is_empty() {
@@ -15,6 +17,7 @@ pub fn command_error_message(output: &std::process::Output, fallback: &str) -> S
     }
 }
 
+/// Sürecin root/admin yetkisiyle çalışıp çalışmadığını kontrol eder.
 pub fn process_is_root() -> bool {
     #[cfg(target_os = "linux")]
     {
@@ -32,6 +35,7 @@ pub fn process_is_root() -> bool {
     }
 }
 
+/// Linux pkexec veya Windows UAC ile aynı binary'yi yetkili helper olarak başlatır.
 pub fn spawn_elevated_helper(args: &[String]) -> Result<Child, String> {
     #[cfg(target_os = "linux")]
     {
@@ -89,6 +93,7 @@ pub fn spawn_elevated_helper(args: &[String]) -> Result<Child, String> {
 }
 
 #[cfg(target_os = "linux")]
+/// AppImage içindeyken doğru helper binary yolunu döndürür.
 pub fn elevated_helper_executable() -> Result<PathBuf, String> {
     if let Some(path) = std::env::var_os("APPIMAGE") {
         let path = PathBuf::from(path);
@@ -99,6 +104,7 @@ pub fn elevated_helper_executable() -> Result<PathBuf, String> {
     std::env::current_exe().map_err(|err| err.to_string())
 }
 
+/// Yetkili helper sürecini başlatır ve tamamlanmasını bekler.
 pub fn run_elevated_helper_wait(args: &[String]) -> Result<(), String> {
     let mut child = spawn_elevated_helper(args)?;
     let status = child.wait().map_err(|err| err.to_string())?;
@@ -109,6 +115,7 @@ pub fn run_elevated_helper_wait(args: &[String]) -> Result<(), String> {
     }
 }
 
+/// URL'den dosya indirir; Windows'ta PowerShell, diğerlerinde curl kullanır.
 pub fn download_file_to_path(url: &str, target: &Path, fallback: &str) -> Result<(), String> {
     #[cfg(windows)]
     let output = {
@@ -147,6 +154,7 @@ pub fn download_file_to_path(url: &str, target: &Path, fallback: &str) -> Result
     }
 }
 
+/// Dosya için SHA-256 hash hesaplar.
 pub fn sha256_file(path: &Path) -> Result<String, String> {
     let mut file = fs::File::open(path).map_err(|err| err.to_string())?;
     let mut hasher = Sha256::new();
@@ -161,6 +169,7 @@ pub fn sha256_file(path: &Path) -> Result<String, String> {
     Ok(crate::hash::to_hex(&hasher.finalize()))
 }
 
+/// Geçici helper dosyaları için çakışmayan zaman damgalı ad kökü üretir.
 pub fn helper_file_stem(prefix: &str) -> String {
     format!(
         "{}-{}-{}",
@@ -170,6 +179,7 @@ pub fn helper_file_stem(prefix: &str) -> String {
     )
 }
 
+/// JSON değeri pretty formatla belirtilen dosyaya yazar.
 pub fn write_json_file(path: &Path, value: &Value) -> Result<(), String> {
     fs::write(
         path,
@@ -178,15 +188,18 @@ pub fn write_json_file(path: &Path, value: &Value) -> Result<(), String> {
     .map_err(|err| err.to_string())
 }
 
+/// Helper kontrol dosyasına running/pause/stop durumunu yazar.
 pub fn write_helper_control_state(path: &Path, state: &str) -> Result<(), String> {
     write_json_file(path, &json!({ "state": state }))
 }
 
+/// Helper sonucunu JSON olarak okur.
 pub fn read_helper_json(path: &Path) -> Result<Value, String> {
     serde_json::from_slice(&fs::read(path).map_err(|err| err.to_string())?)
         .map_err(|err| err.to_string())
 }
 
+/// Helper hata dosyasından hata metnini okur.
 pub fn read_helper_error(path: &Path) -> Option<String> {
     read_helper_json(path).ok().and_then(|value| {
         value
@@ -196,6 +209,7 @@ pub fn read_helper_error(path: &Path) -> Option<String> {
     })
 }
 
+/// Helper ilerleme dosyasından done/total/message değerlerini okur.
 pub fn read_helper_progress(path: &Path) -> Option<(u64, u64, String)> {
     let value = read_helper_json(path).ok()?;
     let done = value
@@ -214,6 +228,7 @@ pub fn read_helper_progress(path: &Path) -> Option<(u64, u64, String)> {
     Some((done, total, message))
 }
 
+/// Geçici helper dosyalarını sessizce temizler.
 pub fn cleanup_helper_files(paths: &[&Path]) {
     for path in paths {
         let _ = fs::remove_file(path);
@@ -221,25 +236,30 @@ pub fn cleanup_helper_files(paths: &[&Path]) {
 }
 
 #[cfg(unix)]
+/// Yetkili helper çıktılarının sahibini düzeltmek için çağıran UID değerini döndürür.
 pub fn helper_owner_uid() -> Option<u32> {
     Some(unsafe { libc::geteuid() })
 }
 
 #[cfg(not(unix))]
+/// Unix dışı platformlarda helper UID bilgisi yoktur.
 pub fn helper_owner_uid() -> Option<u32> {
     None
 }
 
 #[cfg(unix)]
+/// Yetkili helper çıktılarının sahibini düzeltmek için çağıran GID değerini döndürür.
 pub fn helper_owner_gid() -> Option<u32> {
     Some(unsafe { libc::getegid() })
 }
 
 #[cfg(not(unix))]
+/// Unix dışı platformlarda helper GID bilgisi yoktur.
 pub fn helper_owner_gid() -> Option<u32> {
     None
 }
 
+/// Disk listesi için yetkili helper çağırır ve sonucu parse eder.
 pub fn elevated_disk_list() -> Result<Vec<crate::disk::DiskInfo>, String> {
     let output_path = std::env::temp_dir().join(format!(
         "worm-disk-list-{}-{}.json",
@@ -273,6 +293,7 @@ pub fn elevated_disk_list() -> Result<Vec<crate::disk::DiskInfo>, String> {
 }
 
 #[cfg(target_os = "linux")]
+/// Linux disk listeleme helper komutunu çalıştırır.
 fn run_elevated_disk_list_helper(output_path: &Path) -> Result<(), String> {
     run_elevated_helper_wait(&[
         "disk-list-helper".to_string(),
@@ -281,6 +302,7 @@ fn run_elevated_disk_list_helper(output_path: &Path) -> Result<(), String> {
 }
 
 #[cfg(windows)]
+/// Windows disk listeleme helper komutunu çalıştırır.
 fn run_elevated_disk_list_helper(output_path: &Path) -> Result<(), String> {
     run_elevated_helper_wait(&[
         "disk-list-helper".to_string(),
@@ -289,6 +311,7 @@ fn run_elevated_disk_list_helper(output_path: &Path) -> Result<(), String> {
 }
 
 #[cfg(not(any(target_os = "linux", windows)))]
+/// Desteklenmeyen platformlarda yetkili disk listelemeyi hata olarak döndürür.
 fn run_elevated_disk_list_helper(_output_path: &Path) -> Result<(), String> {
     Err("yetki yükseltmeli disk listeleme bu platformda desteklenmiyor".to_string())
 }

@@ -1,3 +1,4 @@
+//! Vaka ve edinim çıktılarından TXT/JSON rapor dosyaları üretir.
 use crate::error::{HataKodu, WormError, WormResult};
 use crate::evidence::EvidenceVault;
 use chrono::Local;
@@ -10,6 +11,7 @@ use std::path::{Path, PathBuf};
 const REPORT_FILE_LIMIT: usize = 40;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Rapor oluşturma ekranından gelen temel başlık, kaynak ve hash bilgilerini taşır.
 pub struct ReportInfo {
     pub title: String,
     pub description: String,
@@ -20,12 +22,14 @@ pub struct ReportInfo {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Desteklenen rapor çıktı formatlarını belirtir.
 pub enum ReportFormat {
     Txt,
     Json,
 }
 
 impl ReportFormat {
+    /// Rapor formatına karşılık gelen dosya uzantısını döndürür.
     pub fn extension(self) -> &'static str {
         match self {
             ReportFormat::Txt => "txt",
@@ -34,6 +38,7 @@ impl ReportFormat {
     }
 }
 
+/// Vaka adı ve tarih içeren standart rapor dosya adı üretir.
 pub fn new_report_file_name(case_name: &str, format: ReportFormat) -> String {
     format!(
         "rapor_{}_{}.{}",
@@ -43,6 +48,7 @@ pub fn new_report_file_name(case_name: &str, format: ReportFormat) -> String {
     )
 }
 
+/// Tek dosya için ad, boyut ve değiştirme zamanı özeti üretir.
 pub fn file_summary(path: impl AsRef<Path>) -> WormResult<String> {
     let path = path.as_ref();
     let metadata = fs::metadata(path)
@@ -65,6 +71,7 @@ pub fn file_summary(path: impl AsRef<Path>) -> WormResult<String> {
     ))
 }
 
+/// Var olan TXT raporun sonuna sistem bilgisini ekler.
 pub fn append_system_info(path: impl AsRef<Path>) -> WormResult<()> {
     let mut file = OpenOptions::new()
         .append(true)
@@ -90,6 +97,7 @@ pub fn append_system_info(path: impl AsRef<Path>) -> WormResult<()> {
         .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Sistem bilgisi yazilamadi", err))
 }
 
+/// TXT veya JSON raporu hedef dosyaya oluşturur.
 pub fn create_report(
     info: &ReportInfo,
     format: ReportFormat,
@@ -137,6 +145,7 @@ pub fn create_report(
     Ok(target.to_path_buf())
 }
 
+/// Rapor bilgilerini ve varsa vaka kasası özetini TXT metnine çevirir.
 fn render_txt(info: &ReportInfo, vault: Option<&EvidenceVault>) -> String {
     let mut out = String::new();
     out.push_str("========================================\n");
@@ -162,6 +171,7 @@ fn render_txt(info: &ReportInfo, vault: Option<&EvidenceVault>) -> String {
     out
 }
 
+/// TXT rapora vaka kasası dosya özetini ekler.
 fn append_vault_summary_txt(out: &mut String, vault: &EvidenceVault) {
     let android_count = count_files_recursive(&vault.android_dir);
     out.push_str("\n----------------------------------------\n");
@@ -192,6 +202,7 @@ fn append_vault_summary_txt(out: &mut String, vault: &EvidenceVault) {
     }
 }
 
+/// Vaka kasasını JSON rapor içine eklenecek yapıya dönüştürür.
 fn vault_report_json(vault: &EvidenceVault) -> Value {
     json!({
         "case_name": &vault.case_name,
@@ -220,6 +231,7 @@ fn vault_report_json(vault: &EvidenceVault) -> Value {
     })
 }
 
+/// Bir klasördeki dosya girişlerini rapor limitiyle toplar.
 fn collect_file_entries(dir: &Path, limit: usize) -> Vec<Value> {
     let mut files = Vec::new();
     collect_paths_recursive(dir, &mut files);
@@ -231,6 +243,7 @@ fn collect_file_entries(dir: &Path, limit: usize) -> Vec<Value> {
         .collect()
 }
 
+/// Klasörü rekürsif dolaşıp dosya yollarını biriktirir.
 fn collect_paths_recursive(dir: &Path, files: &mut Vec<PathBuf>) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;
@@ -245,6 +258,7 @@ fn collect_paths_recursive(dir: &Path, files: &mut Vec<PathBuf>) {
     }
 }
 
+/// Dosya yolunu raporda gösterilecek JSON girdisine dönüştürür.
 fn file_entry_json(base: &Path, path: PathBuf) -> Value {
     let metadata = fs::metadata(&path).ok();
     let relative = path.strip_prefix(base).unwrap_or(&path);
@@ -255,18 +269,21 @@ fn file_entry_json(base: &Path, path: PathBuf) -> Value {
     })
 }
 
+/// Klasördeki doğrudan girdi sayısını hesaplar.
 fn count_directory_entries(path: &Path) -> usize {
     fs::read_dir(path)
         .map(|entries| entries.flatten().count())
         .unwrap_or_default()
 }
 
+/// Klasördeki tüm dosyaları rekürsif sayar.
 fn count_files_recursive(path: &Path) -> usize {
     let mut files = Vec::new();
     collect_paths_recursive(path, &mut files);
     files.len()
 }
 
+/// Bayt değerini okunabilir sayı ve birime dönüştürür.
 fn human_size(bytes: u64) -> (f64, &'static str) {
     const KB: u64 = 1024;
     const MB: u64 = 1024 * KB;
@@ -291,6 +308,7 @@ struct SystemInfo {
     user: String,
 }
 
+/// Çalışan sistemden rapora yazılacak platform bilgisini toplar.
 fn system_info() -> SystemInfo {
     SystemInfo {
         os: std::env::consts::OS.to_string(),
@@ -304,6 +322,7 @@ fn system_info() -> SystemInfo {
 }
 
 #[cfg(unix)]
+/// İşletim sistemi sürümünü platforma göre okur.
 fn os_version() -> String {
     std::fs::read_to_string("/proc/sys/kernel/osrelease")
         .map(|value| value.trim().to_string())
@@ -311,10 +330,12 @@ fn os_version() -> String {
 }
 
 #[cfg(windows)]
+/// İşletim sistemi sürümünü platforma göre okur.
 fn os_version() -> String {
     "Windows".to_string()
 }
 
+/// Makine hostname değerini platforma göre okur.
 fn hostname() -> String {
     std::env::var("HOSTNAME")
         .or_else(|_| std::env::var("COMPUTERNAME"))

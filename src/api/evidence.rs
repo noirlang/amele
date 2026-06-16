@@ -1,3 +1,4 @@
+//! Vaka, kanıt notu, dosya listesi ve rapor API uçlarını yönetir.
 use crate::api::{
     current_evidence_case, current_evidence_vault, default_case_base_dir, evidence_subdir,
     report_evidence_vault, sanitize_case_name, set_current_evidence_case,
@@ -11,6 +12,7 @@ use serde_json::{Value, json};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Yeni vaka klasörü oluşturur ve aktif vakayı günceller.
 pub fn evidence_create_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct EvidenceCreateRequest {
@@ -52,6 +54,7 @@ pub fn evidence_create_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Aktif veya seçili vakaya metin notu ekler.
 pub fn evidence_add_note_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct EvidenceNoteRequest {
@@ -77,6 +80,7 @@ pub fn evidence_add_note_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Aktif vaka alt klasöründeki dosyaları listeler.
 pub fn evidence_list_files_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct EvidenceListRequest {
@@ -102,6 +106,7 @@ pub fn evidence_list_files_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Aktif vaka için dosya sayılarını döndürür.
 pub fn evidence_summary_endpoint() -> Response {
     let vault = match current_evidence_vault() {
         Ok(vault) => vault,
@@ -120,6 +125,7 @@ pub fn evidence_summary_endpoint() -> Response {
     }
 }
 
+/// Varsayılan vaka klasöründeki tüm vakaları listeler.
 pub fn evidence_cases_endpoint() -> Response {
     let base_dir = default_case_base_dir();
     if let Err(err) = fs::create_dir_all(&base_dir) {
@@ -176,6 +182,7 @@ pub fn evidence_cases_endpoint() -> Response {
     }))
 }
 
+/// Seçili vaka için TXT veya JSON rapor oluşturur.
 pub fn report_create_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct ReportCreateRequest {
@@ -240,6 +247,7 @@ pub fn report_create_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Tek vaka klasörünü API listeleme JSON'una dönüştürür.
 fn case_listing_json(case_name: &str, case_dir: &Path) -> Value {
     json!({
         "case_name": case_name,
@@ -255,12 +263,14 @@ fn case_listing_json(case_name: &str, case_dir: &Path) -> Value {
     })
 }
 
+/// Klasördeki doğrudan girdi sayısını döndürür.
 fn count_directory_entries(path: &Path) -> usize {
     fs::read_dir(path)
         .map(|entries| entries.flatten().count())
         .unwrap_or_default()
 }
 
+/// Dosya/klasör yolunu arayüzün beklediği JSON formata çevirir.
 fn file_entry_json(path: PathBuf) -> Value {
     let metadata = fs::metadata(&path).ok();
     json!({
@@ -271,6 +281,7 @@ fn file_entry_json(path: PathBuf) -> Value {
     })
 }
 
+/// Rapor formatı stringini enum değerine çevirir.
 fn report_format(value: &str) -> Option<ReportFormat> {
     match value.trim().to_ascii_lowercase().as_str() {
         "txt" => Some(ReportFormat::Txt),

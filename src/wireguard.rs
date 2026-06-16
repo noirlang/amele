@@ -1,3 +1,4 @@
+//! WireGuard VPN yapılandırmasını doğrular ve config dosyasına dönüştürür.
 use crate::error::{HataKodu, WormError, WormResult};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -6,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// WireGuard bağlantısının aktif config ve arayüz durumunu tutar.
 pub struct WireGuardManager {
     pub interface_name: String,
     pub config_file: Option<PathBuf>,
@@ -23,10 +25,12 @@ impl Default for WireGuardManager {
 }
 
 impl WireGuardManager {
+    /// Varsayılan WireGuard manager oluşturur.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// wg-quick up ile WireGuard bağlantısını başlatır.
     pub fn start(&mut self, config_file: impl AsRef<Path>) -> WormResult<()> {
         if self.active {
             return Ok(());
@@ -61,6 +65,7 @@ impl WireGuardManager {
         }
     }
 
+    /// wg-quick down ile aktif WireGuard bağlantısını durdurur.
     pub fn stop(&mut self) -> WormResult<()> {
         if !self.active {
             return Ok(());
@@ -97,12 +102,14 @@ impl WireGuardManager {
         }
     }
 
+    /// Manager'ın aktif bağlantı durumunu döndürür.
     pub fn is_active(&self) -> bool {
         self.active
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// WireGuard config dosyasına yazılacak Interface ve Peer alanlarını taşır.
 pub struct WireGuardConfig<'a> {
     pub private_key: &'a str,
     pub public_key: &'a str,
@@ -127,6 +134,7 @@ impl Default for WireGuardConfig<'_> {
     }
 }
 
+/// WireGuard config dosyasını diske yazar.
 pub fn create_config(path: impl AsRef<Path>, config: &WireGuardConfig<'_>) -> WormResult<PathBuf> {
     let path = path.as_ref();
     if let Some(parent) = path.parent() {
@@ -166,6 +174,7 @@ pub fn create_config(path: impl AsRef<Path>, config: &WireGuardConfig<'_>) -> Wo
     Ok(path.to_path_buf())
 }
 
+/// Boş config değerlerinde güvenli placeholder varsayılanı kullanır.
 fn fallback<'a>(value: &'a str, default: &'a str) -> &'a str {
     if value.is_empty() { default } else { value }
 }

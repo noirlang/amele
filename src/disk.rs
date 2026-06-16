@@ -1,3 +1,4 @@
+//! Yerel disk listeleme, imaj alma, duraklatma/durdurma ve hash üretimini yapar.
 use crate::error::{HataKodu, WormError, WormResult};
 use crate::hash::{to_hex, write_sha256_sidecar};
 use digest::Digest;
@@ -16,6 +17,7 @@ pub const DEFAULT_READ_CHUNK: usize = 4 * 1024 * 1024;
 
 static DISK_ACQUISITION_CANCELLED: AtomicBool = AtomicBool::new(false);
 
+/// UI ve API'ye dönen yerel disk özet bilgisidir.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DiskInfo {
     pub device: PathBuf,
@@ -24,6 +26,7 @@ pub struct DiskInfo {
     pub accessible: bool,
 }
 
+/// Disk imajı alırken kullanılacak kaynak, hedef ve okuma ayarlarını taşır.
 #[derive(Debug, Clone)]
 pub struct DiskAcquisitionTask {
     pub source: PathBuf,
@@ -35,6 +38,7 @@ pub struct DiskAcquisitionTask {
     pub full_disk: bool,
 }
 
+/// Disk imajı alma tamamlandığında veya kısmi kaldığında dönen sonuçtur.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DiskAcquisitionResult {
     pub target: PathBuf,
@@ -45,6 +49,7 @@ pub struct DiskAcquisitionResult {
 }
 
 impl DiskAcquisitionTask {
+    /// Kaynak ve hedef ile varsayılan disk edinim görevi oluşturur.
     pub fn new(source: impl Into<PathBuf>, target: impl Into<PathBuf>) -> Self {
         Self {
             source: source.into(),
@@ -58,14 +63,17 @@ impl DiskAcquisitionTask {
     }
 }
 
+/// Dosya veya blok cihaz boyutunu platforma uygun yöntemle hesaplar.
 pub fn disk_size(path: impl AsRef<Path>) -> WormResult<u64> {
     disk_size_impl(path.as_ref())
 }
 
+/// Platforma göre yerel diskleri listeler.
 pub fn list_disks() -> WormResult<Vec<DiskInfo>> {
     list_disks_impl()
 }
 
+/// Basit iptal bayrağıyla disk imajı alma işlemini çalıştırır.
 pub fn run_disk_acquisition<F>(
     task: &DiskAcquisitionTask,
     progress: F,
@@ -83,6 +91,7 @@ where
     })
 }
 
+/// Disk imajı alırken dışarıdan gelen devam/duraklat/iptal durumudur.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiskAcquisitionControl {
     Continue,
@@ -90,6 +99,7 @@ pub enum DiskAcquisitionControl {
     Cancel,
 }
 
+/// Diskten hedef dosyaya parçalı okuma/yazma yapar, ilerleme ve SHA256 üretir.
 pub fn run_disk_acquisition_with_control<F, C>(
     task: &DiskAcquisitionTask,
     mut progress: F,
@@ -239,15 +249,18 @@ where
     }
 }
 
+/// Oluşturulan imajın SHA256 değerini beklenen değerle karşılaştırır.
 pub fn verify_image(image_path: impl AsRef<Path>, expected_sha256: &str) -> WormResult<bool> {
     let actual = crate::hash::calculate_file_hash(image_path, crate::hash::HashAlgorithm::Sha256)?;
     Ok(actual.eq_ignore_ascii_case(expected_sha256))
 }
 
+/// Eski tekil disk edinim akışını iptal etmek için global bayrağı işaretler.
 pub fn cancel_disk_acquisition() {
     DISK_ACQUISITION_CANCELLED.store(true, Ordering::SeqCst);
 }
 
+/// Başarısız veya iptal edilmiş imaj dosyasını .partial uzantısıyla korur.
 fn mark_partial(path: &Path) -> WormResult<PathBuf> {
     let partial = PathBuf::from(format!("{}.partial", path.display()));
     if path.exists() {
@@ -258,6 +271,7 @@ fn mark_partial(path: &Path) -> WormResult<PathBuf> {
 }
 
 #[cfg(unix)]
+/// Unix sistemlerde dosya veya blok cihaz boyutunu ioctl/metaveri ile hesaplar.
 fn disk_size_impl(path: &Path) -> WormResult<u64> {
     use std::os::fd::AsRawFd;
     use std::os::unix::fs::FileTypeExt;
@@ -285,6 +299,7 @@ fn disk_size_impl(path: &Path) -> WormResult<u64> {
 }
 
 #[cfg(windows)]
+/// Windows sistemlerde PhysicalDrive boyutunu DeviceIoControl ile hesaplar.
 fn disk_size_impl(path: &Path) -> WormResult<u64> {
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::Foundation::{CloseHandle, GENERIC_READ, INVALID_HANDLE_VALUE};
@@ -348,6 +363,7 @@ fn disk_size_impl(path: &Path) -> WormResult<u64> {
 }
 
 #[cfg(unix)]
+/// Linux/Unix sistemlerde bilinen blok cihaz adlarını tarayarak disk listesi üretir.
 fn list_disks_impl() -> WormResult<Vec<DiskInfo>> {
     let mut candidates = Vec::new();
 
@@ -379,6 +395,7 @@ fn list_disks_impl() -> WormResult<Vec<DiskInfo>> {
 }
 
 #[cfg(windows)]
+/// Windows sistemlerde PhysicalDrive0..31 aralığını tarayarak disk listesi üretir.
 fn list_disks_impl() -> WormResult<Vec<DiskInfo>> {
     let mut disks = Vec::new();
     for index in 0..32 {

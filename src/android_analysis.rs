@@ -1,3 +1,4 @@
+//! Toplanan Android vaka klasörlerini özetler ve analiz ekranına veri üretir.
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -8,6 +9,7 @@ const ANDROID_EVENT_LIMIT: usize = 30;
 const REPORT_PREVIEW_LIMIT: usize = 4_000;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Android vaka analiz ekranının kullandığı tüm özet verileri taşır.
 pub struct AndroidCaseAnalysis {
     pub case_name: String,
     pub android_dir: PathBuf,
@@ -27,6 +29,7 @@ pub struct AndroidCaseAnalysis {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Android edinim klasöründeki tek dosyanın ad, yol ve boyut bilgisidir.
 pub struct AndroidAnalysisFile {
     pub name: String,
     pub path: PathBuf,
@@ -34,11 +37,13 @@ pub struct AndroidAnalysisFile {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Yapısal Android kayıtlarının tip bazlı dağılımını temsil eder.
 pub struct AndroidRecordTypeCount {
     pub record_type: String,
     pub count: usize,
 }
 
+/// Android vaka klasörünü okuyup dosya, timeline, korelasyon ve uyarı özetini üretir.
 pub fn analyze_android_case(case_name: &str, android_dir: &Path) -> AndroidCaseAnalysis {
     let files = list_files(android_dir);
     let evidence = read_json(android_dir.join("evidence.json"));
@@ -94,6 +99,7 @@ pub fn analyze_android_case(case_name: &str, android_dir: &Path) -> AndroidCaseA
     }
 }
 
+/// Android klasöründeki dosyaları sıralı listeye dönüştürür.
 fn list_files(dir: &Path) -> Vec<AndroidAnalysisFile> {
     let mut files = Vec::new();
     collect_files(dir, dir, &mut files);
@@ -101,6 +107,7 @@ fn list_files(dir: &Path) -> Vec<AndroidAnalysisFile> {
     files
 }
 
+/// Android klasörünü rekürsif dolaşarak dosya metaverilerini toplar.
 fn collect_files(root: &Path, dir: &Path, files: &mut Vec<AndroidAnalysisFile>) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;
@@ -127,11 +134,13 @@ fn collect_files(root: &Path, dir: &Path, files: &mut Vec<AndroidAnalysisFile>) 
     }
 }
 
+/// JSON dosyasını sessizce okuyup parse eder; yoksa None döner.
 fn read_json(path: PathBuf) -> Option<Value> {
     let content = fs::read_to_string(path).ok()?;
     serde_json::from_str(&content).ok()
 }
 
+/// Büyük rapor dosyasından arayüz için sınırlı ön izleme metni üretir.
 fn read_text_preview(path: PathBuf) -> String {
     let Ok(content) = fs::read_to_string(path) else {
         return String::new();
@@ -139,6 +148,7 @@ fn read_text_preview(path: PathBuf) -> String {
     content.chars().take(REPORT_PREVIEW_LIMIT).collect()
 }
 
+/// evidence.json kayıtlarını toplam sayı ve tip dağılımına indirger.
 fn evidence_record_summary(evidence: Option<&Value>) -> (usize, Vec<AndroidRecordTypeCount>) {
     let Some(records) = evidence
         .and_then(|value| value.get("records"))
@@ -163,6 +173,7 @@ fn evidence_record_summary(evidence: Option<&Value>) -> (usize, Vec<AndroidRecor
     (records.len(), counts)
 }
 
+/// timeline.json olaylarını sayı, önem seviyesi ve son olaylara indirger.
 fn timeline_summary(timeline: Option<&Value>) -> (usize, usize, Vec<Value>) {
     let Some(events) = timeline
         .and_then(|value| value.get("events"))
@@ -187,6 +198,7 @@ fn timeline_summary(timeline: Option<&Value>) -> (usize, usize, Vec<Value>) {
     )
 }
 
+/// Uçucu veri raporundaki başlıkları bölüm listesi olarak çıkarır.
 fn volatile_sections(path: PathBuf) -> Vec<String> {
     let Ok(content) = fs::read_to_string(path) else {
         return Vec::new();
@@ -200,6 +212,7 @@ fn volatile_sections(path: PathBuf) -> Vec<String> {
         .collect()
 }
 
+/// Android analizinde eksik çıktı veya yetersiz veri durumlarını uyarıya çevirir.
 fn android_warnings(
     android_dir: &Path,
     record_count: usize,
@@ -226,6 +239,7 @@ fn android_warnings(
     warnings
 }
 
+/// Android analiz sonuçlarına göre sonraki inceleme önerilerini üretir.
 fn android_recommendations(
     record_count: usize,
     timeline_count: usize,

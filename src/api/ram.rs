@@ -1,3 +1,4 @@
+//! Yerel/uzak RAM edinimi, araç kurulumu ve RAM analiz API uçlarını yönetir.
 use chrono::Local;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -51,6 +52,7 @@ use super::{
 };
 
 #[derive(Deserialize)]
+/// Yerel RAM edinim isteğinde araç, çıktı ve vaka bilgisini taşır.
 pub struct LocalRamRequest {
     pub output: String,
     pub tool: Option<String>,
@@ -59,6 +61,7 @@ pub struct LocalRamRequest {
 }
 
 #[derive(Deserialize)]
+/// Uzak RAM edinim isteğinde agent bağlantısı, çıktı ve vaka bilgisini taşır.
 pub struct RemoteRamRequest {
     pub ip: String,
     pub port: u16,
@@ -67,6 +70,7 @@ pub struct RemoteRamRequest {
     pub case_name: Option<String>,
 }
 
+/// Linux için AVML indirme/kurulum işini başlatır.
 pub fn avml_install_endpoint() -> Response {
     #[cfg(not(target_os = "linux"))]
     {
@@ -162,6 +166,7 @@ pub fn avml_install_endpoint() -> Response {
     }
 }
 
+/// Windows için WinPMEM indirme/kurulum işini başlatır.
 pub fn winpmem_install_endpoint() -> Response {
     #[cfg(not(windows))]
     {
@@ -193,6 +198,7 @@ pub fn winpmem_install_endpoint() -> Response {
 }
 
 #[cfg(windows)]
+/// WinPMEM indirme/kurulum işini arka planda çalıştırır.
 fn run_winpmem_install_job(job_id: String) {
     update_acquisition_message(&job_id, "WinPMEM indiriliyor...");
 
@@ -313,6 +319,7 @@ fn run_winpmem_install_job(job_id: String) {
     );
 }
 
+/// Linux dağıtım mimarisine uygun AVML release asset adını döndürür.
 fn avml_release_asset_name() -> Option<&'static str> {
     match std::env::consts::ARCH {
         "x86_64" => Some("avml"),
@@ -321,6 +328,7 @@ fn avml_release_asset_name() -> Option<&'static str> {
     }
 }
 
+/// Yerel RAM edinim işini AVML veya WinPMEM ile başlatır.
 pub fn local_ram_endpoint(body: &[u8]) -> Response {
     let request: LocalRamRequest = match serde_json::from_slice(body) {
         Ok(request) => request,
@@ -346,6 +354,7 @@ pub fn local_ram_endpoint(body: &[u8]) -> Response {
     }))
 }
 
+/// Uzak agent üzerinden RAM edinim işini başlatır.
 pub fn remote_ram_endpoint(body: &[u8]) -> Response {
     let request: RemoteRamRequest = match serde_json::from_slice(body) {
         Ok(request) => request,
@@ -372,6 +381,7 @@ pub fn remote_ram_endpoint(body: &[u8]) -> Response {
     }))
 }
 
+/// Yerel RAM edinim işini çalıştırır ve gerekirse yetkili helper fallback uygular.
 fn run_local_ram_job(
     job_id: String,
     mut request: LocalRamRequest,
@@ -443,6 +453,7 @@ fn run_local_ram_job(
     }
 }
 
+/// Uzak agent üzerinde RAM edinimi başlatır ve çıkan dosyayı indirir.
 fn run_remote_ram_job(job_id: String, request: RemoteRamRequest) {
     let target_path = match ram_output_path(
         &request.output,
@@ -528,6 +539,7 @@ fn run_remote_ram_job(job_id: String, request: RemoteRamRequest) {
     }
 }
 
+/// Tamamlanan RAM çıktısı için SHA-256 değerini sonuç veya dosya üzerinden kesinleştirir.
 fn finalize_ram_sha256(
     job_id: &str,
     target_path: &Path,
@@ -543,6 +555,7 @@ fn finalize_ram_sha256(
     Ok(sha256)
 }
 
+/// Edinim işinin canlı durumunu UI'ye döndürür.
 pub fn acquisition_status_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct StatusRequest {
@@ -569,6 +582,7 @@ pub fn acquisition_status_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Pause/resume/stop komutlarını ilgili edinim işine uygular.
 pub fn acquisition_control_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct ControlRequest {
@@ -625,6 +639,7 @@ pub fn acquisition_control_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Yerel edinim işine pause/resume/stop kontrolü uygular.
 fn apply_local_acquisition_control(job_id: &str, action: &str) -> Option<String> {
     let mut jobs = acquisition_jobs().lock().ok()?;
     let job = jobs.get_mut(job_id)?;
@@ -651,6 +666,7 @@ fn apply_local_acquisition_control(job_id: &str, action: &str) -> Option<String>
     }
 }
 
+/// Bellekte tutulan edinim işini ID ile döndürür.
 fn get_acquisition_job(job_id: &str) -> Option<super::AcquisitionJob> {
     acquisition_jobs()
         .lock()
@@ -658,6 +674,7 @@ fn get_acquisition_job(job_id: &str) -> Option<super::AcquisitionJob> {
         .and_then(|jobs| jobs.get(job_id).cloned())
 }
 
+/// Seçilen RAM aracı için yerel root/admin gerekip gerekmediğini belirler.
 fn local_ram_requires_elevation(tool: &str) -> bool {
     #[cfg(target_os = "linux")]
     {
@@ -676,6 +693,7 @@ fn local_ram_requires_elevation(tool: &str) -> bool {
     }
 }
 
+/// RAM hatasının yetki yükseltmeyle tekrar denenebilir olup olmadığını belirler.
 fn local_ram_error_can_retry_elevated(message: &str) -> bool {
     if !(cfg!(target_os = "linux") || cfg!(windows)) {
         return false;
@@ -690,6 +708,7 @@ fn local_ram_error_can_retry_elevated(message: &str) -> bool {
         || message.contains("os error 13")
 }
 
+/// Yerel RAM edinimini yetkili helper üzerinden çalıştırır.
 fn run_elevated_local_ram_job(
     job_id: &str,
     request: &LocalRamRequest,
@@ -848,6 +867,7 @@ fn run_elevated_local_ram_job(
     }
 }
 
+/// RAM edinim sonucundaki hedef dosya yolunu JSON içinden çıkarır.
 fn result_target_path(result: &Value) -> Option<PathBuf> {
     result
         .get("target_path")
@@ -855,6 +875,7 @@ fn result_target_path(result: &Value) -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
+/// Vaka seçimine göre RAM çıktı dosyası yolunu hesaplar.
 fn ram_output_path(
     output: &str,
     case_name: Option<&str>,
@@ -873,6 +894,7 @@ fn ram_output_path(
     ))
 }
 
+/// Kullanıcının verdiği output değerinden dosya adını çıkarır.
 fn ram_file_name_from_output(output: &str) -> Option<&str> {
     let path = Path::new(output);
     let extension = path.extension()?.to_str()?;
@@ -888,6 +910,7 @@ fn ram_file_name_from_output(output: &str) -> Option<&str> {
         .filter(|name| !name.is_empty())
 }
 
+/// Uzak RAM çıktısı için standart dosya adı üretir.
 fn ram_remote_file_name(output: &str) -> String {
     Path::new(output)
         .file_name()
@@ -897,6 +920,7 @@ fn ram_remote_file_name(output: &str) -> String {
         .unwrap_or_else(|| "memory_dump.raw".to_string())
 }
 
+/// RAM çıktısı için IP ve tarih içeren standart hedef yol üretir.
 fn canonical_ram_target_path(output: &str, remote_ip: Option<&str>) -> PathBuf {
     let output = PathBuf::from(output.trim());
     let is_file = output
@@ -921,6 +945,7 @@ fn canonical_ram_target_path(output: &str, remote_ip: Option<&str>) -> PathBuf {
     }
 }
 
+/// RAM dosyası için yerel/uzak durumuna göre standart dosya adı üretir.
 fn canonical_ram_file_name(remote_ip: Option<&str>, current_name: Option<&str>) -> String {
     let remote_ip = remote_ip
         .map(sanitize_file_stem)
@@ -949,6 +974,7 @@ fn canonical_ram_file_name(remote_ip: Option<&str>, current_name: Option<&str>) 
     format!("{}_{}.raw", prefix, Local::now().format("%Y%m%d_%H%M%S"))
 }
 
+/// RAM dosyasında hızlı string/IOC taraması yapar.
 pub fn ram_analyze_strings_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {
@@ -968,6 +994,7 @@ pub fn ram_analyze_strings_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// RAM imajı için özet analiz endpoint'idir.
 pub fn ram_analyze_summary_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {
@@ -998,6 +1025,7 @@ pub fn ram_analyze_summary_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Volatility ön kontrolünü ve sembol ihtiyacını hesaplar.
 pub fn ram_volatility_preflight_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {
@@ -1023,6 +1051,7 @@ pub fn ram_volatility_preflight_endpoint(body: &[u8]) -> Response {
     json_ok(serde_json::to_value(preflight).unwrap_or(Value::Null))
 }
 
+/// Linux kernel sembol dosyasını indirip seçilen sembol klasörüne kurar.
 pub fn ram_volatility_symbol_install_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {
@@ -1188,6 +1217,7 @@ pub fn ram_volatility_symbol_install_endpoint(body: &[u8]) -> Response {
     }))
 }
 
+/// RAM özet analizini uzun sürebileceği için arka plan işi olarak başlatır.
 pub fn ram_analyze_summary_start_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {
@@ -1222,6 +1252,7 @@ pub fn ram_analyze_summary_start_endpoint(body: &[u8]) -> Response {
     }))
 }
 
+/// RAM özet analiz arka plan işini çalıştırır.
 fn run_ram_summary_analysis_job(
     job_id: String,
     path: PathBuf,
@@ -1251,6 +1282,7 @@ fn run_ram_summary_analysis_job(
     }
 }
 
+/// RAM imajından basit dosya carving çıktıları üretir.
 pub fn ram_carve_files_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {
@@ -1274,6 +1306,7 @@ pub fn ram_carve_files_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Volatility ile RAM imajındaki prosesleri listeler.
 pub fn ram_list_processes_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {
@@ -1318,6 +1351,7 @@ pub fn ram_list_processes_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Proses listelemeyi arka plan işi olarak başlatır.
 pub fn ram_list_processes_start_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {
@@ -1352,6 +1386,7 @@ pub fn ram_list_processes_start_endpoint(body: &[u8]) -> Response {
     }))
 }
 
+/// Proses listeleme arka plan işini çalıştırır.
 fn run_ram_process_list_job(
     job_id: String,
     path: PathBuf,
@@ -1392,6 +1427,7 @@ fn run_ram_process_list_job(
     }
 }
 
+/// UI'den gelen OS tipini desteklenen windows/linux değerine indirger.
 fn sanitize_ram_os_type(value: Option<&str>) -> String {
     match value {
         Some("linux") => "linux".to_string(),
@@ -1399,6 +1435,7 @@ fn sanitize_ram_os_type(value: Option<&str>) -> String {
     }
 }
 
+/// İstekten gelen sembol klasörünü doğrular.
 fn request_symbol_dir(value: Option<&str>) -> Result<Option<PathBuf>, String> {
     let Some(raw) = value.map(str::trim).filter(|value| !value.is_empty()) else {
         return Ok(None);
@@ -1413,6 +1450,7 @@ fn request_symbol_dir(value: Option<&str>) -> Result<Option<PathBuf>, String> {
     Ok(Some(path))
 }
 
+/// Sembol kurulumu için yazılabilir klasör seçer.
 fn writable_symbol_dir(value: Option<&str>) -> Result<PathBuf, String> {
     let path = value
         .map(str::trim)
@@ -1435,6 +1473,7 @@ fn writable_symbol_dir(value: Option<&str>) -> Result<PathBuf, String> {
     Ok(path)
 }
 
+/// Worm varsayılan Volatility sembol klasörünü döndürür.
 fn default_worm_symbol_dir() -> PathBuf {
     home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
@@ -1442,6 +1481,7 @@ fn default_worm_symbol_dir() -> PathBuf {
         .join(".symbols")
 }
 
+/// Linux kernel banner ve sembol URL eşlemesini indirir.
 fn download_linux_symbol_mapping() -> Result<BTreeMap<String, Vec<String>>, String> {
     let temp_dir = std::env::temp_dir().join("worm-volatility-symbols");
     fs::create_dir_all(&temp_dir).map_err(|err| err.to_string())?;
@@ -1457,6 +1497,7 @@ fn download_linux_symbol_mapping() -> Result<BTreeMap<String, Vec<String>>, Stri
         .map_err(|err| format!("Volatility Linux symbol eşleme JSON'u okunamadı: {err}"))
 }
 
+/// Release içindeki sembol dosyası yolunu tam indirme URL'sine çevirir.
 fn linux_symbol_url(remote_path: &str) -> String {
     format!(
         "{}{}",
@@ -1465,6 +1506,7 @@ fn linux_symbol_url(remote_path: &str) -> String {
     )
 }
 
+/// Seçilen proses için DLL/açık dosya gibi ayrıntıları döndürür.
 pub fn ram_process_details_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {
@@ -1506,6 +1548,7 @@ pub fn ram_process_details_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Proses ayrıntı analizini arka plan işi olarak başlatır.
 pub fn ram_process_details_start_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {
@@ -1545,6 +1588,7 @@ pub fn ram_process_details_start_endpoint(body: &[u8]) -> Response {
     }))
 }
 
+/// Proses ayrıntı arka plan işini çalıştırır.
 fn run_ram_process_details_job(
     job_id: String,
     path: PathBuf,
@@ -1577,6 +1621,7 @@ fn run_ram_process_details_job(
     }
 }
 
+/// RAM imajı içinde kullanıcı sorgusuna göre ham arama yapar.
 pub fn ram_process_search_endpoint(body: &[u8]) -> Response {
     #[allow(dead_code)]
     #[derive(Deserialize)]
@@ -1604,6 +1649,7 @@ pub fn ram_process_search_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Carving ile çıkarılmış dosyanın güvenli ön izlemesini döndürür.
 pub fn ram_read_carved_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {

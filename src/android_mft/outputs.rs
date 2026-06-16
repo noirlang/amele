@@ -1,3 +1,4 @@
+//! Android edinim sonuçlarından JSON, rapor, timeline ve MFT çıktıları üretir.
 use super::format::{Field, FieldType, MAGIC, MftBundleInfo, Record, RecordType, VERSION, now_ns};
 use super::parsers::{
     build_logical_records, parse_getprop_line, parse_i64_prefix, read_text_file, trim_for_record,
@@ -9,6 +10,7 @@ use std::fs::{self, File};
 use std::io::Read;
 use std::path::Path;
 
+/// Mantıksal Android kayıtlarından evidence.json, rapor, timeline ve korelasyon dosyalarını üretir.
 pub fn write_logical_analysis_outputs(
     serial: &str,
     dir: &Path,
@@ -57,6 +59,7 @@ pub fn write_logical_analysis_outputs(
     Ok(outputs)
 }
 
+/// Verilen dosya için SHA-256 hash hesaplar.
 pub(super) fn sha256_file(path: &Path) -> Result<String, String> {
     let mut file = File::open(path).map_err(|err| format!("Hash icin dosya acilamadi: {err}"))?;
     let mut hasher = Sha256::new();
@@ -73,6 +76,7 @@ pub(super) fn sha256_file(path: &Path) -> Result<String, String> {
     Ok(crate::hash::to_hex(&hasher.finalize()))
 }
 
+/// JSON değeri pretty formatla dosyaya yazar ve sidecar hash üretir.
 fn write_json_file(
     dir: &Path,
     file_name: &str,
@@ -84,6 +88,7 @@ fn write_json_file(
     write_text_file(dir, file_name, &content, record_count)
 }
 
+/// Metin içeriğini dosyaya yazar ve sidecar hash üretir.
 fn write_text_file(
     dir: &Path,
     file_name: &str,
@@ -95,6 +100,7 @@ fn write_text_file(
     file_info_with_sidecar(dir, file_name, record_count)
 }
 
+/// Yazılan dosyanın boyut/hash/kayıt sayısı bilgisini MftBundleInfo olarak döndürür.
 fn file_info_with_sidecar(
     dir: &Path,
     file_name: &str,
@@ -118,6 +124,7 @@ fn file_info_with_sidecar(
     })
 }
 
+/// Yapısal kayıt listesini evidence.json formatına çevirir.
 fn evidence_json(serial: &str, records: &[Record]) -> Value {
     json!({
         "header": {
@@ -131,6 +138,7 @@ fn evidence_json(serial: &str, records: &[Record]) -> Value {
     })
 }
 
+/// Tek MFT kaydını JSON field/raw alanlarına dönüştürür.
 fn record_json(record: &Record) -> Value {
     let mut fields = Map::new();
     let mut raw = Map::new();
@@ -149,6 +157,7 @@ fn record_json(record: &Record) -> Value {
     })
 }
 
+/// MFT field verisini tipine göre JSON değerine dönüştürür.
 fn field_value_json(field: &Field) -> Value {
     match field.field_type {
         FieldType::String => Value::String(String::from_utf8_lossy(&field.data).into_owned()),
@@ -166,6 +175,7 @@ fn field_value_json(field: &Field) -> Value {
     }
 }
 
+/// Yapısal kayıtları okunabilir mobil adli bilişim rapor metnine çevirir.
 fn report_text(serial: &str, records: &[Record]) -> String {
     let mut counts: HashMap<&'static str, usize> = HashMap::new();
     for record in records {
@@ -266,6 +276,7 @@ fn report_text(serial: &str, records: &[Record]) -> String {
     out
 }
 
+/// Rapor içinde belirli kayıt tipine ait kısa bölüm üretir.
 fn write_report_section(
     out: &mut String,
     title: &str,
@@ -302,6 +313,7 @@ fn write_report_section(
     }
 }
 
+/// Kayıtlardan zaman sıralı timeline JSON üretir.
 fn timeline_json(records: &[Record]) -> Value {
     let mut events = Vec::new();
     for record in records {
@@ -321,6 +333,7 @@ fn timeline_json(records: &[Record]) -> Value {
     })
 }
 
+/// Tek MFT kaydını timeline olayı olarak temsil edilebilir hale getirir.
 fn timeline_event(record: &Record) -> Option<Value> {
     let event_type = record_type_name(record.record_type);
     let (timestamp, summary, severity) = match record.record_type {
@@ -413,6 +426,7 @@ fn timeline_event(record: &Record) -> Option<Value> {
     }))
 }
 
+/// Kişi, arama ve SMS kayıtlarını telefon numarası bazında ilişkilendirir.
 fn correlations_json(records: &[Record]) -> Value {
     #[derive(Default)]
     struct Correlation {
@@ -481,6 +495,7 @@ fn correlations_json(records: &[Record]) -> Value {
     })
 }
 
+/// device_info.txt içinden cihaz profili JSON çıktısı üretir.
 fn device_profile_json(serial: &str, dir: &Path) -> Option<Value> {
     let content = read_text_file(dir.join("device_info.txt"))?;
     let props: HashMap<String, String> = content.lines().filter_map(parse_getprop_line).collect();
@@ -500,6 +515,7 @@ fn device_profile_json(serial: &str, dir: &Path) -> Option<Value> {
     }))
 }
 
+/// Kayıttaki alanı string olarak okur.
 fn record_field_string(record: &Record, id: u8) -> Option<String> {
     record
         .fields
@@ -513,6 +529,7 @@ fn record_field_string(record: &Record, id: u8) -> Option<String> {
         })
 }
 
+/// Kayıttaki alanı i64 sayı olarak okur.
 fn record_field_i64(record: &Record, id: u8) -> Option<i64> {
     record
         .fields
@@ -525,6 +542,7 @@ fn record_field_i64(record: &Record, id: u8) -> Option<i64> {
         })
 }
 
+/// Little-endian byte dizisini i64 değerine çevirir.
 fn record_field_i64_data(data: &[u8]) -> Option<i64> {
     if data.len() < 8 {
         return None;
@@ -534,6 +552,7 @@ fn record_field_i64_data(data: &[u8]) -> Option<i64> {
     Some(i64::from_le_bytes(bytes))
 }
 
+/// Saniye/milisaniye/nanosaniye karışık zamanları nanosaniyeye normalize eder.
 fn normalize_event_timestamp(value: i64) -> i64 {
     if value <= 0 {
         return 0;
@@ -547,6 +566,7 @@ fn normalize_event_timestamp(value: i64) -> i64 {
     }
 }
 
+/// Telefon numarasını karşılaştırma için sadece rakam ve baştaki + karakterine indirger.
 fn normalize_phone(value: &str) -> String {
     let mut out = String::new();
     for ch in value.chars() {
@@ -557,6 +577,7 @@ fn normalize_phone(value: &str) -> String {
     out
 }
 
+/// MFT kayıt tipini insan okunur ada çevirir.
 fn record_type_name(record_type: RecordType) -> &'static str {
     match record_type {
         RecordType::Contact => "Contact",
@@ -577,6 +598,7 @@ fn record_type_name(record_type: RecordType) -> &'static str {
     }
 }
 
+/// Kayıt tipi ve field id çiftini JSON alan adına çevirir.
 fn field_name(record_type: RecordType, id: u8) -> String {
     let name = match record_type {
         RecordType::Contact => match id {
@@ -699,6 +721,7 @@ fn field_name(record_type: RecordType, id: u8) -> String {
     }
 }
 
+/// Binary veriyi küçük harf hex stringe çevirir.
 fn bytes_to_hex(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut out = String::with_capacity(bytes.len() * 2);

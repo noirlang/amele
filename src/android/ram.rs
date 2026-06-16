@@ -1,9 +1,11 @@
+//! Android uçucu veri ve root destekli süreç belleği toplama akışlarını yürütür.
 use super::adb::run_adb_command;
 use serde::Serialize;
 use std::process::Command;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
+/// Android RAM ediniminde seçilen çalışma modunu temsil eder.
 pub enum AndroidRamMode {
     VolatileData,
     RootProcessMemory,
@@ -11,6 +13,7 @@ pub enum AndroidRamMode {
 }
 
 impl AndroidRamMode {
+    /// UI'den gelen mod kimliğini güvenli varsayılanla enum değerine çevirir.
     pub fn from_id(value: &str) -> Self {
         match value.trim() {
             "root_process_memory" | "root" => Self::RootProcessMemory,
@@ -21,6 +24,7 @@ impl AndroidRamMode {
 }
 
 #[derive(Debug, Clone, Serialize)]
+/// Android RAM edinimi sonunda üretilen dosya, boyut ve hash bilgisini taşır.
 pub struct AndroidRamAcquisitionResult {
     pub output_file: std::path::PathBuf,
     pub total_bytes: u64,
@@ -28,6 +32,7 @@ pub struct AndroidRamAcquisitionResult {
     pub mode: AndroidRamMode,
 }
 
+/// Varsayılan fiziksel bellek deneme moduyla Android RAM edinimini başlatır.
 pub fn ram_acquisition<F, C>(
     serial: &str,
     output_dir: &std::path::Path,
@@ -49,6 +54,7 @@ where
     )
 }
 
+/// Seçilen moda göre fiziksel bellek, proses belleği veya uçucu veri toplar.
 pub fn ram_acquisition_with_mode<F, C>(
     serial: &str,
     output_dir: &std::path::Path,
@@ -68,13 +74,13 @@ where
         return collect_volatile_data(serial, output_dir, progress, cancelled);
     }
 
-    // Step 0: Root check or attempt
+    // İlk adımda root yetkisi doğrulanır veya adb root denenir.
     progress(0, 3, "Root yetkisi kontrol ediliyor...");
 
     let mut is_root = false;
     let mut use_su = false;
 
-    // Check current root status
+    // Mevcut shell oturumunun root olup olmadığı kontrol edilir.
     if let Ok(out) = run_adb_command(serial, &["shell", "id"]) {
         if out.contains("uid=0(root)") || out.contains("root") {
             is_root = true;
@@ -90,13 +96,13 @@ where
         }
     }
 
-    // If not rooted and we are allowed to attempt adb root
+    // Kullanıcı root var demediyse adb root ile yükseltme denenir.
     if !is_root && !has_root {
         progress(0, 3, "Root yetkisi bulunamadi, 'adb root' deneniyor...");
         let _ = Command::new("adb").args(["-s", serial, "root"]).output();
         std::thread::sleep(std::time::Duration::from_secs(3));
 
-        // Re-check
+        // adb root sonrası yetki durumu yeniden kontrol edilir.
         if let Ok(out) = run_adb_command(serial, &["shell", "id"]) {
             if out.contains("uid=0(root)") || out.contains("root") {
                 is_root = true;
@@ -123,7 +129,7 @@ where
         "Root yetkisi doğrulandı. Bellek kaynakları analiz ediliyor...",
     );
 
-    // Find readable memory interface unless the user explicitly selected process memory.
+    // Fiziksel bellek modu seçildiyse okunabilir bellek arayüzü aranır.
     let mut memory_source = None;
     let check_cmd = |path: &str| -> bool {
         let cmd = if use_su {
@@ -155,8 +161,7 @@ where
                 "Fiziksel bellek arayüzleri kısıtlı. Canlı uçucu bellek (Logical Process RAM) moduna otomatik geçiş yapılıyor...",
             );
 
-            // Execute logical process memory dump!
-            // 1. Create a script file locally
+            // Fiziksel bellek kapalıysa proses odaklı mantıksal döküme geçilir.
             let script_path = output_dir.join("memdump.sh");
             let script_content = r#"#!/system/bin/sh
 # WORM Forensic Suite - Logical RAM & Volatile Memory Dumper
@@ -218,7 +223,7 @@ echo "[WORM] DONE"
             std::fs::write(&script_path, script_content)
                 .map_err(|err| format!("Umut yerel betik olusturulamadi: {err}"))?;
 
-            // 2. Push script to device
+            // Hazırlanan betik cihaza geçici klasöre gönderilir.
             progress(1, 3, "Uçucu bellek analiz betiği cihaza gönderiliyor...");
             let push_out = Command::new("adb")
                 .args([
@@ -238,10 +243,10 @@ echo "[WORM] DONE"
                 ));
             }
 
-            // Remove local temp script
+            // Yerel geçici betik temizlenir.
             let _ = std::fs::remove_file(&script_path);
 
-            // 3. Make executable and run as root on the device
+            // Betik çalıştırılabilir yapılır ve root yetkisiyle başlatılır.
             progress(1, 3, "Uçucu bellek analiz betiği çalıştırılıyor...");
             let chmod_cmd = if use_su {
                 "su -c 'chmod 755 /data/local/tmp/memdump.sh'"
@@ -286,7 +291,7 @@ echo "[WORM] DONE"
 
             let _ = run_proc.wait();
 
-            // 4. Pull the tar dump file
+            // Cihazda üretilen tar arşivi vaka klasörüne çekilir.
             progress(
                 2,
                 3,
@@ -313,7 +318,7 @@ echo "[WORM] DONE"
                 ));
             }
 
-            // Cleanup remote temp files
+            // Cihazdaki geçici betik ve arşiv temizlenir.
             let rm_cmd = if use_su {
                 "su -c 'rm -f /data/local/tmp/memdump.sh /data/local/tmp/worm_ram_dumps.tar'"
             } else {
@@ -327,7 +332,7 @@ echo "[WORM] DONE"
                 .map_err(|err| format!("Bellek dosyası metaverisi okunamadı: {err}"))?;
             let total_bytes = metadata.len();
 
-            // Step 2: Hashing
+            // Çıktı bütünlüğü için SHA-256 yan dosyası üretilir.
             progress(
                 2,
                 3,
@@ -369,7 +374,7 @@ echo "[WORM] DONE"
 
             let sha256 = crate::hash::to_hex(&hasher.finalize());
 
-            // Write SHA-256 sidecar file
+            // SHA-256 sonucu aynı klasöre sidecar dosyası olarak yazılır.
             let sidecar_path = output_dir.join(format!("{}.sha256", output_file_name));
             let _ = std::fs::write(&sidecar_path, format!("{sha256}  {}\n", output_file_name));
 
@@ -453,7 +458,7 @@ echo "[WORM] DONE"
         return Err("Aktarilan bellek verisi bos (0 byte). RAM imaji basarisiz.".to_string());
     }
 
-    // Step 2: Hashing
+    // Fiziksel RAM çıktısı için SHA-256 bütünlük özeti hesaplanır.
     progress(
         2,
         3,
@@ -491,7 +496,7 @@ echo "[WORM] DONE"
 
     let sha256 = crate::hash::to_hex(&hasher.finalize());
 
-    // Write SHA-256 sidecar file
+    // SHA-256 sonucu aynı klasöre sidecar dosyası olarak yazılır.
     let sidecar_path = output_dir.join(format!("{}.sha256", output_file_name));
     let _ = std::fs::write(&sidecar_path, format!("{sha256}  {}\n", output_file_name));
 
@@ -505,6 +510,7 @@ echo "[WORM] DONE"
     })
 }
 
+/// Root gerektirmeyen uçucu Android bilgilerini tek metin dosyasında toplar.
 fn collect_volatile_data<F, C>(
     serial: &str,
     output_dir: &std::path::Path,

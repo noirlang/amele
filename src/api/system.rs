@@ -1,3 +1,4 @@
+//! Disk, hash, uzak agent, imaj bağlama ve sistem işlemleri API uçlarını içerir.
 use chrono::Local;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -49,6 +50,7 @@ use super::{
 use super::linux_mount_image_readonly;
 
 #[derive(Deserialize)]
+/// Yerel imaj alma isteğinde kaynak, çıktı ve vaka bilgisini taşır.
 pub struct LocalImageRequest {
     pub source: String,
     pub disk_name: Option<String>,
@@ -57,6 +59,7 @@ pub struct LocalImageRequest {
 }
 
 #[derive(Deserialize)]
+/// Uzak disk imajı alma isteğinde agent bağlantısı ve hedef disk bilgisini taşır.
 pub struct RemoteImageRequest {
     pub ip: String,
     pub port: u16,
@@ -68,12 +71,14 @@ pub struct RemoteImageRequest {
 }
 
 #[derive(Deserialize)]
+/// Uzak agent bağlantı bilgilerini taşır.
 pub struct RemoteRequest {
     pub ip: String,
     pub port: u16,
     pub token: Option<String>,
 }
 
+/// Uzak agent bağlantı bilgisini doğrular.
 pub fn connect_endpoint(body: &[u8]) -> Response {
     let request = match parse_remote_request(body) {
         Ok(request) => request,
@@ -93,6 +98,7 @@ pub fn connect_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Yerel diskleri listeler; yetki gerekiyorsa helper ile tekrar dener.
 pub fn disk_list_endpoint() -> Response {
     match disk::list_disks() {
         Ok(disks) => {
@@ -121,6 +127,7 @@ pub fn disk_list_endpoint() -> Response {
     }
 }
 
+/// Disk listesinde erişilemez cihaz varsa yetki yükseltme gerekip gerekmediğini belirler.
 fn should_request_elevated_disk_list(disks: &[disk::DiskInfo]) -> bool {
     #[cfg(target_os = "linux")]
     {
@@ -135,6 +142,7 @@ fn should_request_elevated_disk_list(disks: &[disk::DiskInfo]) -> bool {
     disks.is_empty() || disks.iter().any(|disk| !disk.accessible)
 }
 
+/// Dosya hash hesaplama API isteğini işler.
 pub fn hash_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct HashRequest {
@@ -167,6 +175,7 @@ pub fn hash_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// API'den gelen hash algoritması stringlerini enum listesine çevirir.
 fn parse_algorithms(values: Option<Vec<String>>) -> Result<Vec<HashAlgorithm>, String> {
     let values = values.unwrap_or_else(|| {
         vec![
@@ -186,6 +195,7 @@ fn parse_algorithms(values: Option<Vec<String>>) -> Result<Vec<HashAlgorithm>, S
     Ok(algorithms)
 }
 
+/// Yerel disk/dosya imajı alma işini arka planda başlatır.
 pub fn local_image_endpoint(body: &[u8]) -> Response {
     let request: LocalImageRequest = match serde_json::from_slice(body) {
         Ok(request) => request,
@@ -216,6 +226,7 @@ pub fn local_image_endpoint(body: &[u8]) -> Response {
     }))
 }
 
+/// Yerel disk imajı alma işini çalıştırır ve job durumunu günceller.
 fn run_local_image_job(
     job_id: String,
     request: LocalImageRequest,
@@ -280,6 +291,7 @@ fn run_local_image_job(
     }
 }
 
+/// Yetkisiz kalınırsa disk imajını yetkili helper üzerinden alır.
 fn run_elevated_local_image_job(
     job_id: &str,
     task: &DiskAcquisitionTask,
@@ -423,6 +435,7 @@ fn run_elevated_local_image_job(
     }
 }
 
+/// Uzak agent üzerindeki disk listesini alır.
 pub fn remote_disks_endpoint(body: &[u8]) -> Response {
     let request = match parse_remote_request(body) {
         Ok(request) => request,
@@ -443,6 +456,7 @@ pub fn remote_disks_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Uzak agent üzerinden disk imajı alma işini başlatır.
 pub fn remote_image_endpoint(body: &[u8]) -> Response {
     let request: RemoteImageRequest = match serde_json::from_slice(body) {
         Ok(request) => request,
@@ -479,6 +493,7 @@ pub fn remote_image_endpoint(body: &[u8]) -> Response {
     }))
 }
 
+/// Uzak imaj alma işini çalıştırır ve indirilen dosyayı vaka klasörüne yazar.
 fn run_remote_image_job(job_id: String, request: RemoteImageRequest) {
     match RemoteConnection::connect(&request.ip, request.port, request.token) {
         Ok(mut connection) => {
@@ -539,6 +554,7 @@ fn run_remote_image_job(job_id: String, request: RemoteImageRequest) {
     }
 }
 
+/// Tamamlanan imaj için SHA-256 değerini sonuç dosyası veya dosya üzerinden kesinleştirir.
 fn finalize_image_sha256(
     job_id: &str,
     target_path: &Path,
@@ -553,6 +569,7 @@ fn finalize_image_sha256(
     Ok(sha256)
 }
 
+/// Uzak agent üstündeki AVML/WinPMEM gibi araç durumunu kontrol eder.
 pub fn remote_tool_check_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct ToolRequest {
@@ -583,6 +600,7 @@ pub fn remote_tool_check_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// API body içinden RemoteRequest parse eder.
 fn parse_remote_request(body: &[u8]) -> Result<RemoteRequest, Response> {
     let request: RemoteRequest =
         serde_json::from_slice(body).map_err(|err| json_error(400, err.to_string()))?;
@@ -595,6 +613,7 @@ fn parse_remote_request(body: &[u8]) -> Result<RemoteRequest, Response> {
     Ok(request)
 }
 
+/// Seçilen imajı salt-okunur bağlar ve analiz özetini döndürür.
 pub fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct ImageMountRequest {
@@ -753,6 +772,7 @@ pub fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
 }
 
 #[cfg(windows)]
+/// İmaj analiz sonucunu JSON değerine çevirir.
 fn disk_analysis_value(image_path: &Path, mount_dir: Option<&Path>) -> Value {
     match disk_analysis::analyze_disk_image(image_path, mount_dir) {
         Ok(report) => serde_json::to_value(report).unwrap_or(Value::Null),
@@ -765,6 +785,7 @@ fn disk_analysis_value(image_path: &Path, mount_dir: Option<&Path>) -> Value {
 }
 
 #[cfg(windows)]
+/// Mount başarısız olsa bile sadece imaj analiz sonucunu döndürür.
 fn image_analysis_only_response(image_path: &Path, mount_error: impl Into<String>) -> Response {
     let mount_error = mount_error.into();
     match disk_analysis::analyze_disk_image(image_path, None) {
@@ -795,6 +816,7 @@ fn image_analysis_only_response(image_path: &Path, mount_error: impl Into<String
 }
 
 #[cfg(windows)]
+/// Mount edilemeyen imaj için sanal bölüm/dosya sistemi ağacı üretir.
 fn virtual_image_tree_json(
     image_path: &Path,
     report: Option<&disk_analysis::DiskImageAnalysis>,
@@ -946,6 +968,7 @@ fn virtual_image_tree_json(
 }
 
 #[cfg(windows)]
+/// Sanal imaj ağacında klasör düğümü üretir.
 fn virtual_dir(name: impl Into<String>, path: impl Into<String>, children: Vec<Value>) -> Value {
     json!({
         "name": name.into(),
@@ -958,6 +981,7 @@ fn virtual_dir(name: impl Into<String>, path: impl Into<String>, children: Vec<V
 }
 
 #[cfg(windows)]
+/// Sanal imaj ağacında yaprak düğüm üretir.
 fn virtual_leaf(
     name: impl Into<String>,
     path: impl Into<String>,
@@ -974,6 +998,7 @@ fn virtual_leaf(
 }
 
 #[cfg(windows)]
+/// Bayt değerini kısa rapor metnine çevirir.
 fn format_bytes_for_report(bytes: u64) -> String {
     const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
     let mut size = bytes as f64;
@@ -989,6 +1014,7 @@ fn format_bytes_for_report(bytes: u64) -> String {
     }
 }
 
+/// Bağlı imajı kaldırır ve loop/helper temizliğini yapar.
 pub fn image_unmount_endpoint() -> Response {
     match image_unmount_current() {
         Ok(Some(mount_dir)) => json_ok(json!({ "mount_dir": mount_dir })),
@@ -997,6 +1023,7 @@ pub fn image_unmount_endpoint() -> Response {
     }
 }
 
+/// İmajı mount etmeden disk analizi yapar.
 pub fn image_analyze_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct AnalyzeRequest {
@@ -1038,6 +1065,7 @@ pub fn image_analyze_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Bağlı imaj veya sanal imaj ağacında klasör gezintisi sağlar.
 pub fn image_browse_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct BrowseRequest {
@@ -1106,6 +1134,7 @@ pub fn image_browse_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Bağlı imajdan seçilen dosyayı güvenli boyut sınırıyla okur.
 pub fn image_read_file_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct ReadRequest {
@@ -1231,6 +1260,7 @@ pub fn image_read_file_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// GitHub release API üzerinden güncelleme bilgisi alır.
 pub fn update_check_endpoint() -> Response {
     let output = Command::new("curl")
         .arg("-L")
@@ -1289,6 +1319,7 @@ pub fn update_check_endpoint() -> Response {
     }))
 }
 
+/// Seçilen release asset'ini indirir ve hash doğrulaması yapar.
 pub fn update_download_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct UpdateDownloadRequest {
@@ -1378,6 +1409,7 @@ pub fn update_download_endpoint(body: &[u8]) -> Response {
     }))
 }
 
+/// İndirilmiş güncelleme paketini platforma göre çalıştırır.
 pub fn update_install_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct UpdateInstallRequest {
@@ -1402,6 +1434,7 @@ pub fn update_install_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Güvenli harici URL'yi sistem tarayıcısında açar.
 pub fn open_url_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct OpenUrlRequest {
@@ -1424,6 +1457,7 @@ pub fn open_url_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Native dosya/klasör seçici açar.
 pub fn pick_path_endpoint(directory: bool) -> Response {
     match pick_path(directory) {
         Ok(Some(path)) => json_ok(json!({ "path": path })),
@@ -1432,6 +1466,7 @@ pub fn pick_path_endpoint(directory: bool) -> Response {
     }
 }
 
+/// Platforma göre dosya veya klasör seçici çalıştırır.
 fn pick_path(directory: bool) -> Result<Option<String>, String> {
     #[cfg(windows)]
     {
@@ -1445,6 +1480,7 @@ fn pick_path(directory: bool) -> Result<Option<String>, String> {
 }
 
 #[cfg(not(windows))]
+/// Unix ortamında zenity/kdialog/yad ile dosya seçici açar.
 fn pick_path_unix(directory: bool) -> Result<Option<String>, String> {
     let candidates: &[(&str, &[&str])] = if directory {
         &[
@@ -1486,6 +1522,7 @@ fn pick_path_unix(directory: bool) -> Result<Option<String>, String> {
 }
 
 #[cfg(windows)]
+/// Windows PowerShell ile dosya veya klasör seçici açar.
 fn pick_path_windows(directory: bool) -> Result<Option<String>, String> {
     let script = if directory {
         r#"
@@ -1545,6 +1582,7 @@ exit 1
     }
 }
 
+/// Platforma göre harici URL açma komutunu çalıştırır.
 fn open_external_url(url: &str) -> Result<(), String> {
     #[cfg(target_os = "linux")]
     {
@@ -1596,6 +1634,7 @@ fn open_external_url(url: &str) -> Result<(), String> {
     }
 }
 
+/// Sadece izin verilen URL şemalarını kabul eder.
 fn validate_external_url(value: &str) -> Result<String, String> {
     let url = value.trim();
     if url.is_empty() {
@@ -1614,11 +1653,13 @@ fn validate_external_url(value: &str) -> Result<String, String> {
     }
 }
 
+/// Klasör ağacını JSON olarak üretir.
 fn directory_tree_json(root: &Path, max_depth: usize, max_entries: usize) -> Value {
     let mut used = 0_usize;
     directory_tree_json_inner(root, root, 0, max_depth, max_entries, &mut used)
 }
 
+/// Klasör ağacı üretimini derinlik ve toplam girdi sınırıyla rekürsif yürütür.
 fn directory_tree_json_inner(
     root: &Path,
     path: &Path,
@@ -1676,6 +1717,7 @@ fn directory_tree_json_inner(
     Value::Object(node)
 }
 
+/// Platforma uygun release asset'ini seçer.
 fn preferred_update_asset(assets: &[Value]) -> Value {
     let candidates: &[&str] = if cfg!(target_os = "windows") {
         &["windows", ".msi", ".exe"]
@@ -1702,6 +1744,7 @@ fn preferred_update_asset(assets: &[Value]) -> Value {
         .unwrap_or(Value::Null)
 }
 
+/// İndirilen asset adını güvenli dosya adına çevirir.
 pub fn sanitize_download_name(value: &str) -> String {
     value
         .chars()
@@ -1717,6 +1760,7 @@ pub fn sanitize_download_name(value: &str) -> String {
         .to_string()
 }
 
+/// Güncelleme kurulum dosyasını platforma uygun komutla başlatır.
 fn launch_update_installer(path: &Path) -> Result<String, String> {
     let extension = path
         .extension()
@@ -1762,12 +1806,14 @@ fn launch_update_installer(path: &Path) -> Result<String, String> {
     }
 }
 
+/// Güncelleme indirmeleri için varsayılan klasörü döndürür.
 fn default_download_dir() -> PathBuf {
     super::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("Downloads")
 }
 
+/// İmaj çıktısı için vaka klasörü veya kullanıcı klasöründen hedef dizini hesaplar.
 fn image_output_dir(output: &str, case_name: Option<&str>) -> Result<PathBuf, String> {
     let case_name = case_name
         .map(str::trim)
@@ -1790,6 +1836,7 @@ fn image_output_dir(output: &str, case_name: Option<&str>) -> Result<PathBuf, St
     }
 }
 
+/// İmaj edinimi için klasör ve standart dosya adını birleştirir.
 fn acquisition_target_path(
     source: &str,
     disk_name: Option<&str>,
@@ -1814,6 +1861,7 @@ fn acquisition_target_path(
     output.join(file_name)
 }
 
+/// Disk adı/IP/tarih içeren standart imaj dosya adı üretir.
 fn canonical_image_file_name(
     remote_ip: Option<&str>,
     disk_id: &str,
@@ -1849,6 +1897,7 @@ fn canonical_image_file_name(
     )
 }
 
+/// Yerel imaj kaynağı için root/admin yetkisi gerekip gerekmediğini tahmin eder.
 fn local_image_source_requires_elevation(source: &Path) -> bool {
     #[cfg(target_os = "linux")]
     {
@@ -1873,6 +1922,7 @@ fn local_image_source_requires_elevation(source: &Path) -> bool {
     }
 }
 
+/// Yerel imaj hatasının yetki yükseltmeyle tekrar denenebilir olup olmadığını belirler.
 fn local_image_error_can_retry_elevated(message: &str) -> bool {
     if !(cfg!(target_os = "linux") || cfg!(windows)) {
         return false;

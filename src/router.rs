@@ -1,7 +1,9 @@
+//! HTTP isteklerini API uçlarına veya statik UI dosyalarına yönlendirir.
 use crate::api;
 use crate::server::{self, Response};
 use std::fs;
 
+/// Gelen HTTP isteğini API router'a veya statik dosya sunucusuna yönlendirir.
 pub fn route_request(method: &str, raw_path: &str, body: &[u8]) -> Response {
     if method == "OPTIONS" {
         return Response::empty(204);
@@ -19,6 +21,7 @@ pub fn route_request(method: &str, raw_path: &str, body: &[u8]) -> Response {
     serve_static(path, method == "HEAD")
 }
 
+/// UI asset dosyasını güvenli path kontrolüyle döndürür.
 fn serve_static(path: &str, head_only: bool) -> Response {
     let path = if path == "/" { "/index.html" } else { path };
     let Ok(decoded) = server::percent_decode(path) else {

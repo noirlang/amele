@@ -1,14 +1,17 @@
+//! Android dosya sistemi edinimini root veya ADB tabanlı yöntemlerle yürütür.
 use super::adb::run_adb_command;
 use serde::Serialize;
 use std::process::Command;
 
 #[derive(Debug, Clone, Serialize)]
+/// Android dosya sistemi edinimi sonunda üretilen imaj/arşiv bilgisini taşır.
 pub struct FilesystemAcquisitionResult {
     pub output_file: std::path::PathBuf,
     pub total_bytes: u64,
     pub sha256: String,
 }
 
+/// Root erişimi varsa /data blok imajı, yoksa tar arşivi üretmeye çalışan edinim akışıdır.
 pub fn filesystem_acquisition<F, C>(
     serial: &str,
     output_dir: &std::path::Path,
@@ -23,13 +26,13 @@ where
     std::fs::create_dir_all(output_dir)
         .map_err(|err| format!("Cikti dizini olusturulamadi: {err}"))?;
 
-    // Step 0: Root check or attempt
+    // İlk adımda root yetkisi doğrulanır veya adb root denenir.
     progress(0, 3, "Root yetkisi kontrol ediliyor...");
 
     let mut is_root = false;
     let mut use_su = false;
 
-    // Check current root status
+    // Mevcut shell oturumunun root olup olmadığı kontrol edilir.
     if let Ok(out) = run_adb_command(serial, &["shell", "id"]) {
         if out.contains("uid=0(root)") || out.contains("root") {
             is_root = true;
@@ -45,13 +48,13 @@ where
         }
     }
 
-    // If not rooted and we are allowed to attempt adb root
+    // Kullanıcı root var demediyse adb root ile yükseltme denenir.
     if !is_root && !has_root {
         progress(0, 3, "Root yetkisi bulunamadi, 'adb root' deneniyor...");
         let _ = Command::new("adb").args(["-s", serial, "root"]).output();
         std::thread::sleep(std::time::Duration::from_secs(3));
 
-        // Re-check
+        // adb root sonrası yetki durumu yeniden kontrol edilir.
         if let Ok(out) = run_adb_command(serial, &["shell", "id"]) {
             if out.contains("uid=0(root)") || out.contains("root") {
                 is_root = true;
@@ -78,7 +81,7 @@ where
         "Root yetkisi doğrulandı. Bölüm bilgileri analiz ediliyor...",
     );
 
-    // Try to resolve the userdata block device
+    // /data bölümünün blok aygıtı bulunursa ham imaj alınır.
     let mut block_device = None;
     let mount_cmd = if use_su {
         "su -c 'cat /proc/mounts'"
@@ -190,7 +193,7 @@ where
         return Err("Aktarilan veri bos (0 byte). Gecersiz imaj.".to_string());
     }
 
-    // Step 2: Hashing
+    // Çıktı bütünlüğü için SHA-256 yan dosyası üretilir.
     progress(
         2,
         3,
@@ -229,7 +232,7 @@ where
 
     let sha256 = crate::hash::to_hex(&hasher.finalize());
 
-    // Write SHA-256 sidecar file
+    // SHA-256 sonucu aynı klasöre sidecar dosyası olarak yazılır.
     let sidecar_path = output_dir.join(format!("{}.sha256", output_file_name));
     let _ = std::fs::write(&sidecar_path, format!("{sha256}  {}\n", output_file_name));
 

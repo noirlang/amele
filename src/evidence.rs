@@ -1,3 +1,4 @@
+//! Vaka klasörü, kanıt kasası, notlar ve çıktı dizini yönetimini sağlar.
 use crate::error::{HataKodu, WormError, WormResult};
 use crate::logging::Logger;
 use chrono::Local;
@@ -7,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Vaka klasöründeki çıktı, Android, hash ve rapor sayılarını özetler.
 pub struct EvidenceSummary {
     pub case_name: String,
     pub case_dir: PathBuf,
@@ -16,6 +18,7 @@ pub struct EvidenceSummary {
     pub report_count: usize,
 }
 
+/// Bir vaka için tüm alt klasörleri, logger'ı ve dosya işlemlerini yöneten kasadır.
 pub struct EvidenceVault {
     pub case_name: String,
     pub case_dir: PathBuf,
@@ -31,6 +34,7 @@ pub struct EvidenceVault {
 }
 
 impl EvidenceVault {
+    /// Vaka klasör ağacını oluşturur ve günlük kaydını başlatır.
     pub fn create(base_dir: impl AsRef<Path>, case_name: impl AsRef<str>) -> WormResult<Self> {
         let case_name = case_name.as_ref().to_string();
         let case_dir = base_dir.as_ref().join(&case_name);
@@ -82,11 +86,13 @@ impl EvidenceVault {
         })
     }
 
+    /// Belirli kasa alt klasöründe yeni çıktı dosyası yolu üretir.
     pub fn new_file(&self, subdir: &str, file_name: &str) -> PathBuf {
         let _guard = self.lock.lock().ok();
         self.resolve_subdir(subdir).join(file_name)
     }
 
+    /// Kullanıcı notunu zaman damgalı dosya olarak notlar klasörüne yazar.
     pub fn add_note(&self, note: &str) -> WormResult<PathBuf> {
         let _guard = self.lock.lock().ok();
         let now = Local::now();
@@ -106,6 +112,7 @@ impl EvidenceVault {
         Ok(path)
     }
 
+    /// Kasa alt klasöründeki dosyaları listeler.
     pub fn list_files(&self, subdir: &str) -> WormResult<Vec<PathBuf>> {
         let dir = self.resolve_subdir(subdir);
         let mut files = Vec::new();
@@ -124,6 +131,7 @@ impl EvidenceVault {
         Ok(files)
     }
 
+    /// Vaka kasasının güncel dosya sayılarını döndürür.
     pub fn summary(&self) -> WormResult<EvidenceSummary> {
         Ok(EvidenceSummary {
             case_name: self.case_name.clone(),
@@ -135,6 +143,7 @@ impl EvidenceVault {
         })
     }
 
+    /// Kullanıcı/API alt klasör adını gerçek kasa klasörüne eşler.
     fn resolve_subdir(&self, subdir: &str) -> &Path {
         match subdir {
             "gunlukler" => &self.logs_dir,

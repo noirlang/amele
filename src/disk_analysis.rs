@@ -1,3 +1,4 @@
+//! Disk imajı bölüm tablosu, dosya sistemi ve bağlı klasör analizini üretir.
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs::{self, File};
@@ -10,6 +11,7 @@ const MAX_LARGEST_FILES: usize = 20;
 const MAX_TREE_ENTRIES: usize = 5_000;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Disk imajı için bölüm, dosya sistemi ve mount özetini taşıyan ana analiz modelidir.
 pub struct DiskImageAnalysis {
     pub image_path: PathBuf,
     pub file_name: String,
@@ -26,6 +28,7 @@ pub struct DiskImageAnalysis {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// MBR/GPT bölüm girdisinin raporlanabilir alanlarını temsil eder.
 pub struct PartitionInfo {
     pub index: u32,
     pub scheme: String,
@@ -39,6 +42,7 @@ pub struct PartitionInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Belirli offsette bulunan dosya sistemi imza adayını belirtir.
 pub struct FileSystemCandidate {
     pub offset: u64,
     pub source: String,
@@ -47,6 +51,7 @@ pub struct FileSystemCandidate {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Salt-okunur bağlanan imaj klasöründen çıkarılan dosya ağacı özetidir.
 pub struct MountedImageAnalysis {
     pub mount_dir: PathBuf,
     pub file_count: usize,
@@ -59,17 +64,20 @@ pub struct MountedImageAnalysis {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Mount edilmiş klasörde uzantı başına dosya sayısını taşır.
 pub struct ExtensionCount {
     pub extension: String,
     pub count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Mount edilmiş klasördeki büyük dosya girdisini temsil eder.
 pub struct MountedFileEntry {
     pub path: String,
     pub size: u64,
 }
 
+/// Disk imajını okuyup bölüm tablosu, dosya sistemi ve varsa mount özetini üretir.
 pub fn analyze_disk_image(
     image_path: &Path,
     mounted_dir: Option<&Path>,
@@ -138,6 +146,7 @@ pub fn analyze_disk_image(
     })
 }
 
+/// Önce MBR, protective MBR varsa GPT bölüm tablosunu parse eder.
 fn parse_partitions(
     file: &mut File,
     first_sector: &[u8],
@@ -156,6 +165,7 @@ fn parse_partitions(
     Ok(partitions)
 }
 
+/// İlk sektördeki MBR bölüm girdilerini okur.
 fn parse_mbr_partitions(first_sector: &[u8], image_size: u64) -> Vec<PartitionInfo> {
     if first_sector.len() < 512 || first_sector[510] != 0x55 || first_sector[511] != 0xAA {
         return Vec::new();
@@ -188,6 +198,7 @@ fn parse_mbr_partitions(first_sector: &[u8], image_size: u64) -> Vec<PartitionIn
     partitions
 }
 
+/// GPT header ve partition entry dizisini okuyarak bölüm listesini çıkarır.
 fn parse_gpt_partitions(file: &mut File, image_size: u64) -> io::Result<Vec<PartitionInfo>> {
     let mut header = [0_u8; 512];
     file.seek(SeekFrom::Start(SECTOR_SIZE))?;
@@ -235,6 +246,7 @@ fn parse_gpt_partitions(file: &mut File, image_size: u64) -> io::Result<Vec<Part
     Ok(partitions)
 }
 
+/// Verilen offsette bilinen dosya sistemi imzalarını arar.
 fn detect_filesystem_at(
     file: &mut File,
     offset: u64,
@@ -272,6 +284,7 @@ fn detect_filesystem_at(
     }))
 }
 
+/// Bağlı imaj klasöründe dosya sayısı, uzantı dağılımı ve büyük dosyaları özetler.
 fn analyze_mount_dir(mount_dir: &Path) -> io::Result<MountedImageAnalysis> {
     let mut state = MountScanState::default();
     scan_mount_dir(mount_dir, mount_dir, 0, &mut state)?;
@@ -300,6 +313,7 @@ fn analyze_mount_dir(mount_dir: &Path) -> io::Result<MountedImageAnalysis> {
 }
 
 #[derive(Default)]
+/// Mount klasörü taraması sırasında biriken sayaçları tutar.
 struct MountScanState {
     file_count: usize,
     directory_count: usize,
@@ -310,6 +324,7 @@ struct MountScanState {
     largest_files: Vec<MountedFileEntry>,
 }
 
+/// Mount klasörünü sınırlı derinlik ve giriş sayısıyla dolaşır.
 fn scan_mount_dir(
     root: &Path,
     dir: &Path,
@@ -361,6 +376,7 @@ fn scan_mount_dir(
     Ok(())
 }
 
+/// İlk sektör ve dosya sistemi adaylarına göre imaj tipini etiketler.
 fn detect_image_type(first_sector: &[u8], filesystems: &[FileSystemCandidate]) -> String {
     if first_sector.len() > 6 && &first_sector[0..6] == b"EVF\t\r\n" {
         "EWF/E01".to_string()
@@ -376,6 +392,7 @@ fn detect_image_type(first_sector: &[u8], filesystems: &[FileSystemCandidate]) -
     }
 }
 
+/// Disk analizinde eksik veya şüpheli görünen durumları kullanıcı uyarısına çevirir.
 fn disk_warnings(
     size: u64,
     partitions: &[PartitionInfo],
@@ -397,6 +414,7 @@ fn disk_warnings(
     warnings
 }
 
+/// Disk analizi sonrası yapılabilecek takip kontrollerini önerir.
 fn disk_recommendations(
     partitions: &[PartitionInfo],
     filesystems: &[FileSystemCandidate],
@@ -416,6 +434,7 @@ fn disk_recommendations(
     recommendations
 }
 
+/// MBR bölüm tip kodunu insan okunur ada çevirir.
 fn mbr_type_name(code: u8) -> &'static str {
     match code {
         0x01 | 0x04 | 0x06 | 0x0E => "FAT",
@@ -432,6 +451,7 @@ fn mbr_type_name(code: u8) -> &'static str {
     }
 }
 
+/// GPT bölüm GUID değerini insan okunur ada çevirir.
 fn gpt_type_name(guid: &[u8]) -> &'static str {
     let guid = guid_to_string(guid);
     match guid.as_str() {
@@ -447,6 +467,7 @@ fn gpt_type_name(guid: &[u8]) -> &'static str {
     }
 }
 
+/// GPT GUID byte sırasını standart GUID metnine dönüştürür.
 fn guid_to_string(bytes: &[u8]) -> String {
     if bytes.len() < 16 {
         return String::new();
@@ -467,6 +488,7 @@ fn guid_to_string(bytes: &[u8]) -> String {
     )
 }
 
+/// GPT bölüm adını UTF-16LE alandan temiz stringe çevirir.
 fn utf16le_name(bytes: &[u8]) -> String {
     let units: Vec<u16> = bytes
         .chunks_exact(2)

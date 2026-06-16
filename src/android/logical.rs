@@ -1,3 +1,4 @@
+//! Android cihazlardan mantıksal veri, medya, log ve manifest çıktıları toplar.
 use super::adb::{
     first_non_empty, run_adb_command, run_adb_command_timeout, run_adb_file_command,
     run_adb_file_command_timeout,
@@ -11,6 +12,7 @@ use std::time::Duration;
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize)]
+/// Tek bir Android toplama adımının durumunu ve çıktı dosyasını taşır.
 pub struct AcquisitionItem {
     pub category: String,
     pub file_name: String,
@@ -20,6 +22,7 @@ pub struct AcquisitionItem {
 }
 
 #[derive(Debug, Clone, Serialize)]
+/// Mantıksal Android ediniminin klasör, hash ve adım listesini döndürür.
 pub struct LogicalAcquisitionResult {
     pub output_dir: std::path::PathBuf,
     pub items: Vec<AcquisitionItem>,
@@ -28,6 +31,7 @@ pub struct LogicalAcquisitionResult {
     pub errors: Vec<String>,
 }
 
+/// ADB shell komutunun çıktısını dosyaya yazar ve sonucu standart edinim kaydına çevirir.
 fn collect_shell_output(
     serial: &str,
     category: &str,
@@ -65,6 +69,7 @@ fn collect_shell_output(
     }
 }
 
+/// Cihazın getprop çıktısını toplayarak temel cihaz bilgisini kaydeder.
 fn collect_device_info(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     collect_shell_output(
         serial,
@@ -75,6 +80,7 @@ fn collect_device_info(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     )
 }
 
+/// Kurulu paket listesini dosya yollarıyla birlikte toplar.
 fn collect_packages(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     collect_shell_output(
         serial,
@@ -85,10 +91,12 @@ fn collect_packages(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     )
 }
 
+/// Cihazdaki mevcut logcat tamponunu metin çıktısı olarak alır.
 fn collect_logcat(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     collect_shell_output(serial, "logcat", "logcat.txt", &["logcat", "-d"], dir)
 }
 
+/// Belirli dumpsys servisini çalıştırıp çıktısını ilgili dosyaya yazar.
 fn collect_dumpsys(
     serial: &str,
     service: &str,
@@ -105,12 +113,13 @@ fn collect_dumpsys(
     )
 }
 
+/// Android bugreport çıktısını vaka klasöründe zip olarak üretir.
 fn collect_bugreport(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     let target_path = dir.join("bugreport.zip");
     let target = target_path.to_string_lossy().into_owned();
     match run_adb_file_command(serial, &["bugreport", &target]) {
         Ok(()) => {
-            // Find it and report its size.
+            // Üretilen bugreport dosyasını bulup gerçek boyutunu raporlarız.
             let mut found: Option<std::path::PathBuf> = None;
             if let Ok(entries) = std::fs::read_dir(dir) {
                 for entry in entries.flatten() {
@@ -151,6 +160,7 @@ fn collect_bugreport(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     }
 }
 
+/// Kullanıcıya açık /sdcard depolama alanını adb pull ile toplar.
 fn collect_shared_storage(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     let target = dir.join("shared_storage");
     let _ = std::fs::create_dir_all(&target);
@@ -167,7 +177,7 @@ fn collect_shared_storage(serial: &str, dir: &std::path::Path) -> AcquisitionIte
             }
         }
         Err(err) => {
-            // partial pull is still useful — report what we got
+            // Kısmi pull çıktısı da delil değeri taşıyebileceği için boyutuyla raporlanır.
             let size = dir_size(&target);
             AcquisitionItem {
                 category: "shared_storage".to_string(),
@@ -184,10 +194,11 @@ fn collect_shared_storage(serial: &str, dir: &std::path::Path) -> AcquisitionIte
     }
 }
 
+/// Bildirim geçmişi ve aktif bildirim dökümünü olabildiğince ayrıntılı alır.
 fn collect_notification_history(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     let mut content = String::new();
 
-    // 1. dumpsys notification --noredact to capture full message text
+    // Mesaj metinleri maskelenmesin diye noredact seçeneği denenir.
     content.push_str("=== dumpsys notification --noredact ===\n");
     match run_adb_command(serial, &["shell", "dumpsys", "notification", "--noredact"]) {
         Ok(output) => content.push_str(&output),
@@ -195,7 +206,7 @@ fn collect_notification_history(serial: &str, dir: &std::path::Path) -> Acquisit
     }
     content.push_str("\n\n");
 
-    // 2. Check if notification history feature is enabled
+    // Bildirim geçmişi açıksa ayrı geçmiş dökümü de alınır.
     let history_enabled = run_adb_command(
         serial,
         &[
@@ -240,6 +251,7 @@ fn collect_notification_history(serial: &str, dir: &std::path::Path) -> Acquisit
     }
 }
 
+/// IP, rota, soket ve komşu ağ kayıtlarını tek ağ özeti dosyasında toplar.
 fn collect_network_info(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     let commands = [
         ("=== ip addr ===", vec!["shell", "ip", "addr"]),
@@ -276,6 +288,7 @@ fn collect_network_info(serial: &str, dir: &std::path::Path) -> AcquisitionItem 
     }
 }
 
+/// Cihazdaki çalışan proses listesini ps çıktısı olarak kaydeder.
 fn collect_processes(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     collect_shell_output(
         serial,
@@ -286,6 +299,7 @@ fn collect_processes(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     )
 }
 
+/// Dosya sistemi doluluk bilgisini df çıktısı olarak toplar.
 fn collect_disk_usage(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     collect_shell_output(
         serial,
@@ -296,9 +310,10 @@ fn collect_disk_usage(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     )
 }
 
+/// Ekran görüntüsünü cihazda üretip vaka klasörüne çeker.
 fn collect_screenshot(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     let remote_path = "/sdcard/worm_screenshot.png";
-    // Take screenshot on device
+    // Önce cihaz tarafında geçici ekran görüntüsü oluşturulur.
     if let Err(err) = run_adb_command(serial, &["shell", "screencap", "-p", remote_path]) {
         return AcquisitionItem {
             category: "screenshot".to_string(),
@@ -311,7 +326,7 @@ fn collect_screenshot(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     let local_path = dir.join("screenshot.png");
     let local_str = local_path.to_string_lossy().into_owned();
     let result = run_adb_file_command(serial, &["pull", remote_path, &local_str]);
-    // Clean up remote file
+    // Cihazda iz bırakmamak için geçici dosya temizlenir.
     let _ = run_adb_command(serial, &["shell", "rm", "-f", remote_path]);
     match result {
         Ok(()) => {
@@ -334,7 +349,7 @@ fn collect_screenshot(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     }
 }
 
-/// Pull an app media directory from `/sdcard/Android/media/<package>/`.
+/// /sdcard/Android/media/<package>/ altındaki uygulama medya klasörünü çeker.
 fn collect_app_media_dir(
     serial: &str,
     category: &str,
@@ -380,6 +395,7 @@ fn collect_app_media_dir(
     }
 }
 
+/// WhatsApp medya klasörünü standart uygulama medya yolundan toplar.
 fn collect_whatsapp_media(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     collect_app_media_dir(
         serial,
@@ -390,6 +406,7 @@ fn collect_whatsapp_media(serial: &str, dir: &std::path::Path) -> AcquisitionIte
     )
 }
 
+/// Telegram medya klasörünü standart uygulama medya yolundan toplar.
 fn collect_telegram_media(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     collect_app_media_dir(
         serial,
@@ -400,8 +417,7 @@ fn collect_telegram_media(serial: &str, dir: &std::path::Path) -> AcquisitionIte
     )
 }
 
-/// Collect media from well-known messaging and social apps.
-/// Pulls from /sdcard/Android/media/<package>/ for a list of common apps.
+/// Bilinen mesajlaşma ve sosyal medya uygulamalarının medya klasörlerini toplar.
 fn collect_app_media(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     let apps: &[(&str, &str)] = &[
         ("com.whatsapp.w4b", "whatsapp_business"),
@@ -474,13 +490,12 @@ fn collect_app_media(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     }
 }
 
-/// Dynamically scan /sdcard/Android/media/ and pull ALL app directories found.
-/// This catches any app not in the hardcoded list above.
+/// /sdcard/Android/media içindeki tüm uygulama klasörlerini dinamik olarak tarar.
 fn collect_all_app_media(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     let all_media_dir = dir.join("all_app_media");
     let _ = std::fs::create_dir_all(&all_media_dir);
 
-    // List all directories under /sdcard/Android/media/
+    // Sabit listede olmayan uygulamaları yakalamak için dizin cihazdan okunur.
     let listing = run_adb_command(serial, &["shell", "ls", "/sdcard/Android/media/"]);
     let packages: Vec<String> = match listing {
         Ok(output) => output
@@ -503,7 +518,7 @@ fn collect_all_app_media(serial: &str, dir: &std::path::Path) -> AcquisitionItem
     let mut found_any = false;
 
     for package in &packages {
-        // Use package name as folder name, replacing dots with underscores for safety
+        // Paket adı güvenli klasör adına çevrilir.
         let folder_name = package.replace('.', "_");
         let remote = format!("/sdcard/Android/media/{package}/");
         let target = all_media_dir.join(&folder_name);
@@ -542,7 +557,7 @@ fn collect_all_app_media(serial: &str, dir: &std::path::Path) -> AcquisitionItem
     }
 }
 
-/// Collect device settings (system, secure, global).
+/// Android system, secure ve global ayar tablolarını metin olarak toplar.
 fn collect_device_settings(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     let sections = [
         (
@@ -587,8 +602,7 @@ fn collect_device_settings(serial: &str, dir: &std::path::Path) -> AcquisitionIt
     }
 }
 
-/// Try to query a content provider URI.
-/// On modern Android without default-app permissions, this may fail — we attempt anyway.
+/// Content provider URI sorgularını dener; izin yoksa hata edinim kaydına yazılır.
 fn collect_content_query(
     serial: &str,
     category: &str,
@@ -605,19 +619,18 @@ fn collect_content_query(
     )
 }
 
-/// Attempt adb backup (deprecated on modern Android but still yields data on older devices).
+/// Eski Android sürümleri için adb backup çıktısı almaya çalışır.
 fn collect_adb_backup(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     let target = dir.join("adb_backup.ab");
     let target_str = target.to_string_lossy().into_owned();
-    // -all: backup all apps, -shared: include shared storage, -nosystem: skip system apps
-    // -f: output file
+    // Kullanıcı uygulamaları ve paylaşımlı alan hedef dosyaya yazdırılır.
     match run_adb_file_command(
         serial,
         &["backup", "-all", "-shared", "-nosystem", "-f", &target_str],
     ) {
         Ok(()) => {
             let size = std::fs::metadata(&target).map(|m| m.len()).unwrap_or(0);
-            // Minimum valid backup is ~50 bytes (header only = empty)
+            // Sadece header içeren boş yedekler başarılı kabul edilmez.
             if size > 100 {
                 AcquisitionItem {
                     category: "adb_backup".to_string(),
@@ -646,6 +659,7 @@ fn collect_adb_backup(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     }
 }
 
+/// Root, SELinux ve kernel durumunu hızlı doğrulama çıktılarıyla kaydeder.
 fn collect_root_status(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     let commands: &[(&str, &[&str])] = &[
         ("id", &["shell", "id"]),
@@ -675,6 +689,7 @@ fn collect_root_status(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     write_text_acquisition_item(dir, "root_status", "root_status.txt", content)
 }
 
+/// /proc üzerinden bellek, CPU, mount ve ağ özetlerini toplar.
 fn collect_procfs_summary(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     let commands: &[(&str, &str)] = &[
         ("meminfo", "cat /proc/meminfo"),
@@ -714,6 +729,7 @@ fn collect_procfs_summary(serial: &str, dir: &std::path::Path) -> AcquisitionIte
     write_text_acquisition_item(dir, "procfs_summary", "procfs_summary.txt", content)
 }
 
+/// Erişilebilen proseslerin /proc/<pid>/maps kayıtlarını dosyalara ayırır.
 fn collect_proc_memory_maps(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     let target_dir = dir.join("proc_memory_maps");
     let _ = std::fs::create_dir_all(&target_dir);
@@ -786,6 +802,7 @@ fn collect_proc_memory_maps(serial: &str, dir: &std::path::Path) -> AcquisitionI
     }
 }
 
+/// Debuggable paketleri bulup olası heap dump hedeflerini listeler.
 fn collect_heapdump_candidates(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     let dumpsys = match run_adb_command_timeout(
         serial,
@@ -828,6 +845,7 @@ fn collect_heapdump_candidates(serial: &str, dir: &std::path::Path) -> Acquisiti
     item
 }
 
+/// Debuggable ve çalışan uygulamalar için HPROF heap dump toplamayı dener.
 fn collect_debug_heap_dumps(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     let candidates_path = dir.join("heapdump_candidates.txt");
     let packages = std::fs::read_to_string(&candidates_path)
@@ -936,6 +954,7 @@ fn collect_debug_heap_dumps(serial: &str, dir: &std::path::Path) -> AcquisitionI
     }
 }
 
+/// Metin çıktısını dosyaya yazar ve ortak AcquisitionItem formatına çevirir.
 fn write_text_acquisition_item(
     dir: &std::path::Path,
     category: &str,
@@ -961,6 +980,7 @@ fn write_text_acquisition_item(
     }
 }
 
+/// dumpsys package çıktısından debug izni açık paketleri ayıklar.
 fn parse_debuggable_packages(dumpsys_package: &str) -> Vec<String> {
     let mut current_package: Option<String> = None;
     let mut packages = Vec::new();
@@ -987,6 +1007,7 @@ fn parse_debuggable_packages(dumpsys_package: &str) -> Vec<String> {
     packages
 }
 
+/// Heap dump aday dosyasındaki package satırlarını paket listesine çevirir.
 fn parse_candidate_package_lines(content: &str) -> Vec<String> {
     content
         .lines()
@@ -997,6 +1018,7 @@ fn parse_candidate_package_lines(content: &str) -> Vec<String> {
         .collect()
 }
 
+/// ps -A çıktısını PID ve proses adı çiftlerine indirger.
 fn parse_process_rows(ps_output: &str) -> Vec<(u32, String)> {
     ps_output
         .lines()
@@ -1014,6 +1036,7 @@ fn parse_process_rows(ps_output: &str) -> Vec<(u32, String)> {
         .collect()
 }
 
+/// Dosya/klasör adında sorun çıkarabilecek karakterleri güvenli hale getirir.
 fn sanitize_file_component(value: &str) -> String {
     let sanitized: String = value
         .chars()
@@ -1032,6 +1055,7 @@ fn sanitize_file_component(value: &str) -> String {
     }
 }
 
+/// Klasör ağacındaki dosyaların toplam boyutunu hesaplar.
 fn dir_size(path: &std::path::Path) -> u64 {
     let mut total = 0_u64;
     if let Ok(entries) = std::fs::read_dir(path) {
@@ -1047,6 +1071,7 @@ fn dir_size(path: &std::path::Path) -> u64 {
     total
 }
 
+/// Edinim sonunda manifest.json dosyasını hash ve adım sonuçlarıyla üretir.
 fn write_manifest(
     dir: &std::path::Path,
     items: &[AcquisitionItem],
@@ -1101,10 +1126,7 @@ mod tests {
     }
 }
 
-/// Run a full logical acquisition for the given device.
-///
-/// `progress` is called with `(completed_step, total_steps, category_name)`.
-/// `cancelled` is called before each step — return `true` to abort.
+/// Varsayılan profil ile Android mantıksal edinim akışını başlatır.
 pub fn logical_acquisition<F, C>(
     serial: &str,
     output_dir: &std::path::Path,
@@ -1124,6 +1146,7 @@ where
     )
 }
 
+/// Seçilen profile göre Android mantıksal edinim adımlarını sırayla çalıştırır.
 pub fn logical_acquisition_with_profile<F, C>(
     serial: &str,
     output_dir: &std::path::Path,

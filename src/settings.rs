@@ -1,3 +1,4 @@
+//! Kullanıcı ayarları ve varsayılan uygulama tercihlerini tanımlar.
 use crate::error::{HataKodu, WormError, WormResult};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -10,6 +11,7 @@ pub const DEFAULT_CHUNK_SIZE: usize = 4 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
+/// Kullanıcının kalıcı uygulama ayarlarını temsil eder.
 pub struct AppSettings {
     pub varsayilan_port: u16,
     pub varsayilan_boyut_mb: u64,
@@ -24,6 +26,7 @@ pub struct AppSettings {
 }
 
 impl Default for AppSettings {
+    /// Worm ana klasörü altında güvenli varsayılan ayarları üretir.
     fn default() -> Self {
         let home = home_dir();
         let worm_dir = home.join("Worm");
@@ -43,6 +46,7 @@ impl Default for AppSettings {
 }
 
 impl AppSettings {
+    /// Ayar dosyasını okur; dosya yoksa varsayılan ayar döndürür.
     pub fn load(path: impl AsRef<Path>) -> WormResult<Self> {
         let path = path.as_ref();
         if !path.is_file() {
@@ -61,6 +65,7 @@ impl AppSettings {
         Ok(settings)
     }
 
+    /// Ayarları pretty JSON olarak diske yazar.
     pub fn save(&self, path: impl AsRef<Path>) -> WormResult<()> {
         let path = path.as_ref();
         if let Some(parent) = path.parent() {
@@ -74,6 +79,7 @@ impl AppSettings {
             .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Ayar dosyasi yazilamadi", err))
     }
 
+    /// Eksik veya sıfır gelen ayarları güvenli varsayılanlara tamamlar.
     pub fn normalize(&mut self) {
         if self.varsayilan_port == 0 {
             self.varsayilan_port = DEFAULT_PORT;
@@ -96,6 +102,7 @@ impl AppSettings {
     }
 }
 
+/// Platforma göre kullanıcının home klasörünü bulur.
 pub fn home_dir() -> PathBuf {
     #[cfg(windows)]
     {

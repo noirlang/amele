@@ -1,3 +1,4 @@
+//! Uygulama genelinde kullanılan hata kodu, hata tipi ve sonuç aliasını tanımlar.
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -8,6 +9,7 @@ pub type WormResult<T> = Result<T, WormError>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
+/// Uygulamadaki hata sınıflarını sayısal kodlarla temsil eder.
 pub enum HataKodu {
     Ok = 0,
     Genel = -1,
@@ -38,6 +40,7 @@ pub enum HataKodu {
 }
 
 impl HataKodu {
+    /// Hata kodunu kullanıcıya gösterilecek kısa metne çevirir.
     pub fn text(self) -> &'static str {
         match self {
             HataKodu::Ok => "Basarili",
@@ -69,12 +72,14 @@ impl HataKodu {
         }
     }
 
+    /// Hatanın kritik sınıfta olup olmadığını kontrol eder.
     pub fn is_severe(self) -> bool {
         (self as i32) <= (HataKodu::DiskErisim as i32)
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Son hata ekranı/logları için ayrıntılı hata bilgisini taşır.
 pub struct ErrorInfo {
     pub code: HataKodu,
     pub message: String,
@@ -98,12 +103,14 @@ impl Default for ErrorInfo {
 }
 
 #[derive(Debug, Clone)]
+/// Uygulama içi Result tiplerinde kullanılan ana hata modelidir.
 pub struct WormError {
     pub code: HataKodu,
     pub message: String,
 }
 
 impl WormError {
+    /// Belirli hata kodu ve mesajla yeni WormError oluşturur.
     pub fn new(code: HataKodu, message: impl Into<String>) -> Self {
         Self {
             code,
@@ -111,10 +118,12 @@ impl WormError {
         }
     }
 
+    /// Genel hata koduyla hızlı WormError oluşturur.
     pub fn genel(message: impl Into<String>) -> Self {
         Self::new(HataKodu::Genel, message)
     }
 
+    /// IO hatasını bağlam metniyle WormError'a sarar.
     pub fn io(code: HataKodu, context: impl Into<String>, err: std::io::Error) -> Self {
         Self::new(code, format!("{}: {}", context.into(), err))
     }
@@ -142,10 +151,12 @@ impl From<serde_json::Error> for WormError {
 
 static LAST_ERROR: OnceLock<Mutex<ErrorInfo>> = OnceLock::new();
 
+/// Global son hata bilgisinin saklandığı hücreyi döndürür.
 fn last_error_cell() -> &'static Mutex<ErrorInfo> {
     LAST_ERROR.get_or_init(|| Mutex::new(ErrorInfo::default()))
 }
 
+/// Son hata bilgisini kaynak dosya ve satır bilgisiyle kaydeder.
 pub fn record_error(
     code: HataKodu,
     message: Option<&str>,
@@ -167,6 +178,7 @@ pub fn record_error(
     }
 }
 
+/// Kaydedilen son hata bilgisini döndürür.
 pub fn last_error() -> ErrorInfo {
     last_error_cell()
         .lock()

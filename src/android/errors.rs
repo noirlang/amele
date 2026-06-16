@@ -1,3 +1,5 @@
+//! Android/ADB hatalarını kullanıcıya anlaşılır açıklamalara çevirir.
+/// Ham ADB/Android hatasını kullanıcıya ne yapılacağını söyleyen mesaja çevirir.
 pub fn explain_android_error(error: impl AsRef<str>) -> String {
     let raw = error.as_ref().trim();
     if raw.is_empty() {
@@ -77,6 +79,7 @@ pub fn explain_android_error(error: impl AsRef<str>) -> String {
     }
 }
 
+/// Hata metninde anahtar kelimelerden herhangi biri geçiyor mu diye kontrol eder.
 fn contains_any(value: &str, needles: &[&str]) -> bool {
     needles.iter().any(|needle| value.contains(needle))
 }

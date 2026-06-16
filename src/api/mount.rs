@@ -1,3 +1,4 @@
+//! Disk imajlarını salt-okunur bağlama ve loop cihaz yönetimini yapar.
 use serde_json::json;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -9,6 +10,7 @@ use super::{
     process_is_root, read_helper_json, run_elevated_helper_wait, write_json_file,
 };
 
+/// Aktif bağlı imaj varsa platforma uygun şekilde unmount eder ve state'i temizler.
 pub fn image_unmount_current() -> Result<Option<PathBuf>, String> {
     let state = current_image_mount()
         .lock()
@@ -88,6 +90,7 @@ pub fn image_unmount_current() -> Result<Option<PathBuf>, String> {
 }
 
 #[cfg(target_os = "linux")]
+/// Linux'ta pkexec helper ile imajı salt-okunur bağlamayı dener.
 pub fn elevated_linux_mount_image_readonly(
     image_path: &Path,
     mount_dir: &Path,
@@ -137,6 +140,7 @@ pub fn elevated_linux_mount_image_readonly(
 }
 
 #[cfg(target_os = "linux")]
+/// Linux'ta pkexec helper ile mount ve loop cihazını kaldırır.
 pub fn elevated_linux_unmount_image(
     mount_dir: &Path,
     loop_device: Option<&Path>,
@@ -179,6 +183,7 @@ pub fn elevated_linux_unmount_image(
 }
 
 #[cfg(target_os = "linux")]
+/// Bölüm tablosu içeren imajlarda loop partscan yapıp mount edilebilir bölümü bulur.
 pub fn linux_mount_partitioned_image(
     image_path: &Path,
     mount_dir: &Path,
@@ -239,6 +244,7 @@ pub fn linux_mount_partitioned_image(
 }
 
 #[cfg(target_os = "linux")]
+/// Loop cihazına bağlı bölüm adaylarını lsblk ve /sys/block üzerinden toplar.
 pub fn linux_loop_mount_candidates(loop_device: &Path) -> Vec<PathBuf> {
     let mut candidates = Vec::new();
     if let Ok(output) = Command::new("lsblk")
@@ -282,6 +288,7 @@ pub fn linux_loop_mount_candidates(loop_device: &Path) -> Vec<PathBuf> {
 }
 
 #[cfg(target_os = "linux")]
+/// Linux'ta önce direkt ro,loop mount; olmazsa yetki/partition fallback akışını çalıştırır.
 pub fn linux_mount_image_readonly(
     image_path: &Path,
     mount_dir: &Path,

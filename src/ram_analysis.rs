@@ -1,3 +1,4 @@
+//! RAM imajlarından string, IOC, proses, entropy ve dosya carving analizleri üretir.
 use regex::bytes::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -10,6 +11,7 @@ const RAM_SAMPLE_LIMIT: usize = 16 * 1024 * 1024;
 const RAM_MATCH_SAMPLE_LIMIT: usize = 80;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// RAM içinde bulunan tek bir dizgi/IOC eşleşmesini offset ve bağlamıyla taşır.
 pub struct RamStringMatch {
     pub category: String,
     pub value: String,
@@ -18,6 +20,7 @@ pub struct RamStringMatch {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// RAM carving sonucunda çıkarılan dosyanın yol ve imza bilgisini taşır.
 pub struct CarvedFile {
     pub file_name: String,
     pub file_path: String,
@@ -27,6 +30,7 @@ pub struct CarvedFile {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Volatility veya yerel analizden gelen proses özetini temsil eder.
 pub struct ActiveProcessInfo {
     pub pid: String,
     pub name: String,
@@ -34,6 +38,7 @@ pub struct ActiveProcessInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Linux proses bellek haritasındaki tek bir adres aralığını temsil eder.
 pub struct MemoryMapEntry {
     pub start: String,
     pub end: String,
@@ -45,6 +50,7 @@ pub struct MemoryMapEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// RAM analiz ekranında gösterilen genel özet ve uyarıları taşır.
 pub struct RamAnalysisSummary {
     pub file_path: String,
     pub file_name: String,
@@ -61,11 +67,13 @@ pub struct RamAnalysisSummary {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// IOC/dizgi kategorisi başına bulunan eşleşme sayısını belirtir.
 pub struct RamCategoryCount {
     pub category: String,
     pub count: usize,
 }
 
+/// Varsayılan ayarlarla RAM imajı için özet analiz üretir.
 pub fn analyze_ram_summary(
     file_path: &Path,
     os_type: Option<&str>,
@@ -73,6 +81,7 @@ pub fn analyze_ram_summary(
     analyze_ram_summary_logged(file_path, os_type, None)
 }
 
+/// Canlı konsola log basabilen RAM özet analizini çalıştırır.
 pub fn analyze_ram_summary_logged(
     file_path: &Path,
     os_type: Option<&str>,
@@ -81,6 +90,7 @@ pub fn analyze_ram_summary_logged(
     analyze_ram_summary_logged_with_symbol_dir(file_path, os_type, None, log)
 }
 
+/// Volatility sembol klasörü seçilerek RAM özet analizini yürütür.
 pub fn analyze_ram_summary_logged_with_symbol_dir(
     file_path: &Path,
     os_type: Option<&str>,
@@ -208,11 +218,11 @@ pub fn analyze_ram_summary_logged_with_symbol_dir(
     })
 }
 
-/// Analyze a memory dump (or process dump) for volatile string patterns.
+/// RAM imajını parça parça okuyup e-posta, IP, URL ve token benzeri dizgileri arar.
 pub fn analyze_ram_strings(file_path: &Path) -> io::Result<Vec<RamStringMatch>> {
     let mut file = File::open(file_path)?;
 
-    // Define standard forensic regexes on bytes
+    // Standart adli bilişim regexleri byte düzeyinde çalışır.
     let patterns = vec![
         (
             "E-Posta",
@@ -254,12 +264,12 @@ pub fn analyze_ram_strings(file_path: &Path) -> io::Result<Vec<RamStringMatch>> 
     ];
 
     let mut results = Vec::new();
-    let chunk_size = 1024 * 1024; // 1 MB chunks
-    let overlap = 1024; // 1 KB overlap
+    let chunk_size = 1024 * 1024; // 1 MB parça
+    let overlap = 1024; // Sınırdaki eşleşmeleri kaçırmamak için 1 KB örtüşme
     let mut buffer = vec![0_u8; chunk_size];
     let mut offset = 0_u64;
 
-    // Maintain unique matches per category to avoid cluttering (limit to 250 each)
+    // Arayüzü boğmamak için kategori başına en fazla 250 eşleşme tutulur.
     let mut category_counts = std::collections::HashMap::new();
 
     loop {
@@ -289,7 +299,7 @@ pub fn analyze_ram_strings(file_path: &Path) -> io::Result<Vec<RamStringMatch>> 
                         continue;
                     }
 
-                    // Extract context (up to 20 bytes before and after)
+                    // Bulgunun çevresinden kısa bağlam alınır.
                     let match_start = mat.start();
                     let match_end = mat.end();
 
@@ -329,6 +339,7 @@ pub fn analyze_ram_strings(file_path: &Path) -> io::Result<Vec<RamStringMatch>> 
     Ok(results)
 }
 
+/// Dosyanın ilk bölümünden Shannon entropy örneği hesaplar.
 fn sample_entropy(path: &Path) -> io::Result<f64> {
     let mut file = File::open(path)?;
     let mut counts = [0_u64; 256];
@@ -361,6 +372,7 @@ fn sample_entropy(path: &Path) -> io::Result<f64> {
     Ok(entropy)
 }
 
+/// RAM imajı boyutu, entropy ve IOC sonucuna göre kullanıcı uyarıları üretir.
 fn ram_warnings(size: u64, entropy: f64, matches: &[RamStringMatch]) -> Vec<String> {
     let mut warnings = Vec::new();
     if size < 16 * 1024 * 1024 {
@@ -375,6 +387,7 @@ fn ram_warnings(size: u64, entropy: f64, matches: &[RamStringMatch]) -> Vec<Stri
     warnings
 }
 
+/// RAM analizinden sonra arayüzde gösterilecek takip önerilerini üretir.
 fn ram_recommendations(match_count: usize) -> Vec<String> {
     let mut recommendations = Vec::new();
     recommendations.push(
@@ -387,17 +400,17 @@ fn ram_recommendations(match_count: usize) -> Vec<String> {
     recommendations
 }
 
-/// Carves files out of a raw RAM dump based on binary magic headers and footers.
+/// Magic header/footer imzalarına göre RAM içinden sınırlı dosya carving yapar.
 pub fn carve_files(file_path: &Path, output_dir: &Path) -> io::Result<Vec<CarvedFile>> {
     let mut file = File::open(file_path)?;
     let metadata = file.metadata()?;
     let file_size = metadata.len();
 
-    // Dynamic output subdirectory for carved assets
+    // Çıkarılan dosyalar ayrı carved klasörüne yazılır.
     let carved_dir = output_dir.join("carved");
     fs::create_dir_all(&carved_dir)?;
 
-    // Define file signatures
+    // Desteklenen dosya imzaları ve güvenli maksimum boyutları tanımlanır.
     struct Signature {
         ext: &'static str,
         mime: &'static str,
@@ -412,40 +425,40 @@ pub fn carve_files(file_path: &Path, output_dir: &Path) -> io::Result<Vec<Carved
             mime: "image/png",
             header: &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A],
             footer: Some(&[0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82]),
-            max_size: 5 * 1024 * 1024, // 5MB max PNG
+            max_size: 5 * 1024 * 1024, // PNG için 5 MB üst sınır
         },
         Signature {
             ext: "jpg",
             mime: "image/jpeg",
             header: &[0xFF, 0xD8, 0xFF],
             footer: Some(&[0xFF, 0xD9]),
-            max_size: 5 * 1024 * 1024, // 5MB max JPG
+            max_size: 5 * 1024 * 1024, // JPG için 5 MB üst sınır
         },
         Signature {
             ext: "pdf",
             mime: "application/pdf",
-            header: &[0x25, 0x50, 0x44, 0x46],             // %PDF
-            footer: Some(&[0x25, 0x25, 0x45, 0x4F, 0x46]), // %%EOF
-            max_size: 15 * 1024 * 1024,                    // 15MB max PDF
+            header: &[0x25, 0x50, 0x44, 0x46], // %PDF imzası
+            footer: Some(&[0x25, 0x25, 0x45, 0x4F, 0x46]), // %%EOF kapanışı
+            max_size: 15 * 1024 * 1024,        // PDF için 15 MB üst sınır
         },
         Signature {
             ext: "zip",
             mime: "application/zip",
-            header: &[0x50, 0x4B, 0x03, 0x04],       // PK\x03\x04
-            footer: Some(&[0x50, 0x4B, 0x05, 0x06]), // End of Central Directory
-            max_size: 20 * 1024 * 1024,              // 20MB max ZIP
+            header: &[0x50, 0x4B, 0x03, 0x04], // ZIP başlangıç imzası
+            footer: Some(&[0x50, 0x4B, 0x05, 0x06]), // Central directory kapanışı
+            max_size: 20 * 1024 * 1024,        // ZIP için 20 MB üst sınır
         },
         Signature {
             ext: "elf",
             mime: "application/octet-stream",
-            header: &[0x7F, 0x45, 0x4C, 0x46], // \x7fELF
+            header: &[0x7F, 0x45, 0x4C, 0x46], // ELF başlangıç imzası
             footer: None,
-            max_size: 2 * 1024 * 1024, // Carve 2MB of ELF
+            max_size: 2 * 1024 * 1024, // ELF için hızlı ön izleme sınırı
         },
     ];
 
     let mut carved_files = Vec::new();
-    let chunk_size = 4 * 1024 * 1024; // 4 MB chunks
+    let chunk_size = 4 * 1024 * 1024; // 4 MB parça
     let mut buffer = vec![0_u8; chunk_size];
     let mut offset = 0_u64;
 
@@ -466,11 +479,11 @@ pub fn carve_files(file_path: &Path, output_dir: &Path) -> io::Result<Vec<Carved
                 if chunk[i..].starts_with(sig.header) {
                     let absolute_header_offset = offset + i as u64;
 
-                    // Found a header! Let's search for the footer
+                    // Header bulunduğunda güvenilir dosya sonu için footer aranır.
                     let mut file_len = sig.max_size;
 
                     if let Some(footer) = sig.footer {
-                        // Scan within chunk or seek forward to find the footer
+                        // Önce mevcut parça içinde footer taranır.
                         let mut found_footer = false;
                         let scan_start = i + sig.header.len();
                         let scan_end = (i + sig.max_size).min(bytes_read);
@@ -483,15 +496,14 @@ pub fn carve_files(file_path: &Path, output_dir: &Path) -> io::Result<Vec<Carved
                             }
                         }
 
-                        // If not found in current chunk, and file_size allows, we could search further.
-                        // But for speed & memory safety, scanning 4MB window is typically excellent.
+                        // Footer yoksa yanlış pozitifleri azaltmak için carving atlanır.
                         if !found_footer && sig.ext != "elf" {
                             // Skip carving if footer not found for reliability
                             continue;
                         }
                     }
 
-                    // Perform carving
+                    // İmza aralığı güvenliyse dosya carved klasörüne yazılır.
                     if absolute_header_offset + file_len as u64 <= file_size {
                         let mut carved_data = vec![0_u8; file_len];
                         file.seek(SeekFrom::Start(absolute_header_offset))?;
@@ -510,7 +522,7 @@ pub fn carve_files(file_path: &Path, output_dir: &Path) -> io::Result<Vec<Carved
                             mime_type: sig.mime.to_string(),
                         });
 
-                        // Advance beyond this file to avoid nested matches
+                        // Aynı dosya içinde iç içe imza yakalamamak için ileri sarılır.
                         i += file_len.max(1);
                         break;
                     }
@@ -519,10 +531,10 @@ pub fn carve_files(file_path: &Path, output_dir: &Path) -> io::Result<Vec<Carved
             i += 1;
         }
 
-        // Advance by chunk size minus overlap to ensure we don't miss headers at chunk borders
+        // Parça sınırındaki imzaları kaçırmamak için küçük örtüşmeyle ilerlenir.
         offset += (chunk_size - 1024) as u64;
 
-        // Stop carving after 100 files to avoid disk overflow or massive runtimes
+        // Disk taşmasını ve aşırı süreyi önlemek için 100 dosyada durulur.
         if carved_files.len() >= 100 {
             break;
         }
@@ -531,14 +543,14 @@ pub fn carve_files(file_path: &Path, output_dir: &Path) -> io::Result<Vec<Carved
     Ok(carved_files)
 }
 
-/// Search volatile strings within a raw memory image (fallback when not a process tar archive).
+/// Volatility çalışmadığında ham RAM içinde kullanıcı sorgusunu byte düzeyinde arar.
 pub fn search_raw_memory(file_path: &Path, query: &str) -> io::Result<Vec<RamStringMatch>> {
     let mut file = File::open(file_path)?;
     let mut results = Vec::new();
     let query_lower = query.to_ascii_lowercase();
     let query_bytes = query_lower.as_bytes();
 
-    let chunk_size = 4 * 1024 * 1024; // 4 MB chunks
+    let chunk_size = 4 * 1024 * 1024; // 4 MB parça
     let overlap = query_bytes.len().saturating_sub(1);
     let mut buffer = vec![0_u8; chunk_size];
     let mut offset = 0_u64;

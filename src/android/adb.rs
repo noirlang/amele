@@ -1,9 +1,11 @@
+//! ADB kurulumunu, bağlı cihaz listesini ve temel ADB komutlarını yönetir.
 use serde::Serialize;
 use std::io;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
 #[derive(Debug, Clone, Serialize)]
+/// ADB binary durumunu, sürümünü ve yolunu arayüze taşır.
 pub struct AdbStatus {
     pub installed: bool,
     pub version: Option<String>,
@@ -12,6 +14,7 @@ pub struct AdbStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+/// adb devices -l çıktısından ayrıştırılan tek Android cihazı temsil eder.
 pub struct AndroidDevice {
     pub serial: String,
     pub state: String,
@@ -22,6 +25,7 @@ pub struct AndroidDevice {
     pub raw: String,
 }
 
+/// Sistemde ADB kurulu mu ve çalışıyor mu diye kontrol eder.
 pub fn adb_status() -> AdbStatus {
     match Command::new("adb").arg("version").output() {
         Ok(output) if output.status.success() => {
@@ -67,6 +71,7 @@ pub fn adb_status() -> AdbStatus {
     }
 }
 
+/// Bağlı Android cihazlarını adb devices -l ile listeler.
 pub fn list_devices() -> Result<Vec<AndroidDevice>, String> {
     let output = Command::new("adb")
         .args(["devices", "-l"])
@@ -90,6 +95,7 @@ pub fn list_devices() -> Result<Vec<AndroidDevice>, String> {
     Ok(parse_adb_devices(&String::from_utf8_lossy(&output.stdout)))
 }
 
+/// Seri numarası verilen cihazda kısa ADB komutu çalıştırır.
 pub(super) fn run_adb_command(serial: &str, args: &[&str]) -> Result<String, String> {
     let output = Command::new("adb")
         .args(["-s", serial])
@@ -114,6 +120,7 @@ pub(super) fn run_adb_command(serial: &str, args: &[&str]) -> Result<String, Str
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
+/// Uzayabilecek ADB komutlarını zaman aşımıyla çalıştırır.
 pub(super) fn run_adb_command_timeout(
     serial: &str,
     args: &[&str],
@@ -160,6 +167,7 @@ pub(super) fn run_adb_command_timeout(
     }
 }
 
+/// Dosya üreten veya dosya çeken ADB komutunu başarı/hata olarak çalıştırır.
 pub(super) fn run_adb_file_command(serial: &str, args: &[&str]) -> Result<(), String> {
     let output = Command::new("adb")
         .args(["-s", serial])
@@ -184,6 +192,7 @@ pub(super) fn run_adb_file_command(serial: &str, args: &[&str]) -> Result<(), St
     Ok(())
 }
 
+/// Dosya ADB komutlarını zaman aşımı korumasıyla çalıştırır.
 pub(super) fn run_adb_file_command_timeout(
     serial: &str,
     args: &[&str],
@@ -192,6 +201,7 @@ pub(super) fn run_adb_file_command_timeout(
     run_adb_command_timeout(serial, args, timeout).map(|_| ())
 }
 
+/// adb version çıktısından sürüm satırını ayıklar.
 fn parse_adb_version(output: &str) -> Option<String> {
     output
         .lines()
@@ -202,6 +212,7 @@ fn parse_adb_version(output: &str) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
+/// adb version çıktısından kurulu binary yolunu ayıklar.
 fn parse_adb_path(output: &str) -> Option<String> {
     output
         .lines()
@@ -209,6 +220,7 @@ fn parse_adb_path(output: &str) -> Option<String> {
         .find_map(|line| line.strip_prefix("Installed as ").map(ToOwned::to_owned))
 }
 
+/// Platforma göre komutun PATH içindeki gerçek yolunu bulur.
 fn command_path(command: &str) -> Option<String> {
     let output = if cfg!(windows) {
         Command::new("where").arg(command).output().ok()?
@@ -224,6 +236,7 @@ fn command_path(command: &str) -> Option<String> {
     first_non_empty(&String::from_utf8_lossy(&output.stdout))
 }
 
+/// Çok satırlı çıktıdan ilk boş olmayan satırı döndürür.
 pub(super) fn first_non_empty(value: &str) -> Option<String> {
     value
         .lines()
@@ -232,10 +245,12 @@ pub(super) fn first_non_empty(value: &str) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
+/// adb devices çıktısını cihaz listesine çevirir.
 fn parse_adb_devices(output: &str) -> Vec<AndroidDevice> {
     output.lines().filter_map(parse_adb_device_line).collect()
 }
 
+/// adb devices -l içindeki tek satırı AndroidDevice modeline dönüştürür.
 fn parse_adb_device_line(line: &str) -> Option<AndroidDevice> {
     let trimmed = line.trim();
     if trimmed.is_empty()

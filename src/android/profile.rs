@@ -1,9 +1,11 @@
+//! Android cihaz profilini, root durumunu ve sistem özelliklerini ADB ile algılar.
 use super::adb::{first_non_empty, run_adb_command, run_adb_command_timeout};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::time::Duration;
 
 #[derive(Debug, Clone, Serialize)]
+/// Android cihazın model, build, root ve şifreleme durumunu temsil eder.
 pub struct AndroidDeviceProfile {
     pub serial: String,
     pub product: Option<String>,
@@ -33,6 +35,7 @@ const PROFILE_PROPS: &[&str] = &[
     "ro.build.fingerprint",
 ];
 
+/// ADB üzerinden cihaz profilini okuyup root durumuyla birlikte döndürür.
 pub fn detect_device_profile(serial: &str) -> Result<AndroidDeviceProfile, String> {
     let serial = serial.trim();
     if serial.is_empty() {
@@ -61,6 +64,7 @@ pub fn detect_device_profile(serial: &str) -> Result<AndroidDeviceProfile, Strin
     })
 }
 
+/// Profil için gerekli getprop anahtarlarını cihazdan okur.
 fn read_profile_props(serial: &str) -> BTreeMap<String, String> {
     let mut props = BTreeMap::new();
     for key in PROFILE_PROPS {
@@ -74,6 +78,7 @@ fn read_profile_props(serial: &str) -> BTreeMap<String, String> {
     props
 }
 
+/// Boş olmayan getprop değerini map içinden güvenli şekilde alır.
 fn prop(props: &BTreeMap<String, String>, key: &str) -> Option<String> {
     props
         .get(key)
@@ -81,6 +86,7 @@ fn prop(props: &BTreeMap<String, String>, key: &str) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
+/// ADB shell komutundan ilk anlamlı satırı döndürür.
 fn read_first_shell_line(serial: &str, command: &str) -> Result<String, String> {
     run_adb_command_timeout(serial, &["shell", command], Duration::from_secs(8)).map(|output| {
         first_non_empty(&output)
@@ -90,6 +96,7 @@ fn read_first_shell_line(serial: &str, command: &str) -> Result<String, String> 
     })
 }
 
+/// adb shell id ve su -c id komutlarıyla root erişimini test eder.
 fn detect_root(serial: &str) -> (bool, bool) {
     let adb_root = run_adb_command(serial, &["shell", "id"])
         .map(|output| output_has_root(&output))
@@ -101,10 +108,12 @@ fn detect_root(serial: &str) -> (bool, bool) {
     (adb_root, su_available)
 }
 
+/// id çıktısında root UID bilgisini arar.
 fn output_has_root(output: &str) -> bool {
     output.contains("uid=0(root)") || output.contains("uid=0 ")
 }
 
+/// Android şifreleme tipini property ve mount çıktılarından okur.
 fn read_encryption_state(serial: &str) -> Result<String, String> {
     let output = run_adb_command_timeout(
         serial,
@@ -117,6 +126,7 @@ fn read_encryption_state(serial: &str) -> Result<String, String> {
     Ok(parse_encryption_state(&output))
 }
 
+/// Ham şifreleme çıktısını none/FBE/FDE/ encrypted etiketine indirger.
 fn parse_encryption_state(output: &str) -> String {
     let lower = output.to_lowercase();
     if lower.contains("unencrypted") {

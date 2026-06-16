@@ -1,12 +1,15 @@
+//! Hata mesajlarını sınıflandırır ve kullanıcıya uygulanabilir çözüm önerileri üretir.
 use std::path::Path;
 
 #[derive(Debug, Clone, Copy)]
+/// Kullanıcıya gösterilecek hata kodu, neden ve çözüm önerisini taşır.
 pub struct ErrorAdvice {
     pub code: &'static str,
     pub detail: &'static str,
     pub suggestion: &'static str,
 }
 
+/// Ham hata mesajını bilinen hata sınıflarına ve çözüm önerilerine eşler.
 pub fn classify_error(message: &str) -> ErrorAdvice {
     let lower = message.to_lowercase();
 
@@ -210,6 +213,7 @@ pub fn classify_error(message: &str) -> ErrorAdvice {
     }
 }
 
+/// Uygulama açılış hatasını ayrıntılı kullanıcı mesajına dönüştürür.
 pub fn startup_error(stage: &str, message: &str) -> String {
     let advice = classify_error(message);
     format!(
@@ -218,6 +222,7 @@ pub fn startup_error(stage: &str, message: &str) -> String {
     )
 }
 
+/// UI assetleri bulunamadığında açıklayıcı başlangıç hatası üretir.
 pub fn ui_assets_missing(root: &Path) -> String {
     startup_error(
         "Arayuz dosyalari bulunamadi.",
@@ -228,6 +233,7 @@ pub fn ui_assets_missing(root: &Path) -> String {
     )
 }
 
+/// panic payload içeriğini okunabilir stringe dönüştürür.
 pub fn panic_payload(payload: &(dyn std::any::Any + Send)) -> String {
     if let Some(value) = payload.downcast_ref::<&str>() {
         return (*value).to_string();

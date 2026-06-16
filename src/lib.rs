@@ -1,3 +1,4 @@
+//! Uygulamanın Rust modüllerini dışarı açan ana kütüphane dosyasıdır.
 pub mod android;
 pub mod android_analysis;
 pub mod android_mft;

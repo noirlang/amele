@@ -1,3 +1,4 @@
+//! Android edinim, profil ve analiz alt modüllerini tek noktadan dışarı açar.
 mod adb;
 mod errors;
 mod extractors;

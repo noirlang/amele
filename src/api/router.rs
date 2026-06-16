@@ -1,7 +1,9 @@
+//! HTTP metod ve path değerlerini ilgili API endpoint fonksiyonlarına bağlar.
 use crate::server::{Response, json_error, json_ok};
 
 use super::{android, evidence, ram, system, wireguard};
 
+/// API HTTP metod/path çiftini ilgili endpoint fonksiyonuna yönlendirir.
 pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
     match (method, path) {
         ("GET", "/api/health") => json_ok(serde_json::json!({

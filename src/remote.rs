@@ -1,3 +1,4 @@
+//! Linux/Windows agent protokolüyle uzak disk ve RAM edinim bağlantılarını yönetir.
 use crate::error::{HataKodu, WormError, WormResult};
 use crate::settings::DEFAULT_CHUNK_SIZE;
 use base64::Engine;
@@ -14,6 +15,7 @@ use std::time::Duration;
 const HELLO_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Uzak agent tarafından raporlanan disk kimliği, adı ve boyutunu taşır.
 pub struct RemoteDisk {
     pub id: String,
     pub ad: String,
@@ -21,6 +23,7 @@ pub struct RemoteDisk {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Uzak agent tarafındaki AVML/WinPMEM durumunu temsil eder.
 pub struct RemoteToolStatus {
     pub tool_present: bool,
     pub admin_privilege: bool,
@@ -30,6 +33,7 @@ pub struct RemoteToolStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Uzak disk/RAM dosyası aktarımının yerel çıktı ve hash sonucunu taşır.
 pub struct RemoteTransferResult {
     pub job_id: String,
     pub target_path: PathBuf,
@@ -40,6 +44,7 @@ pub struct RemoteTransferResult {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Uzak RAM edinim işi tamamlandığında agent tarafı sonucu taşır.
 pub struct RemoteRamResult {
     pub job_id: String,
     pub total_size: u64,
@@ -47,6 +52,7 @@ pub struct RemoteRamResult {
     pub message: String,
 }
 
+/// Uzak agent ile JSON satır protokolü üzerinden konuşan bağlantı nesnesidir.
 pub struct RemoteConnection {
     host: String,
     port: u16,
@@ -60,6 +66,7 @@ pub struct RemoteConnection {
 }
 
 impl RemoteConnection {
+    /// Agent'a TCP ile bağlanır, hello/token el sıkışmasını yapar.
     pub fn connect(host: impl Into<String>, port: u16, token: Option<String>) -> WormResult<Self> {
         let host = host.into();
         let addr = (host.as_str(), port)
@@ -93,14 +100,17 @@ impl RemoteConnection {
         Ok(connection)
     }
 
+    /// Bağlı agent IP/host değerini döndürür.
     pub fn host(&self) -> &str {
         &self.host
     }
 
+    /// Bağlı agent port değerini döndürür.
     pub fn port(&self) -> u16 {
         self.port
     }
 
+    /// Uzak agent üzerindeki diskleri listeler.
     pub fn list_disks(&mut self) -> WormResult<Vec<RemoteDisk>> {
         self.last_error.clear();
         self.send_json(&json!({"komut": "disk_listele"}))?;
@@ -137,6 +147,7 @@ impl RemoteConnection {
             .unwrap_or_default())
     }
 
+    /// Uzak agent üzerinden disk imajı başlatır ve binary akışı yerel dosyaya yazar.
     pub fn acquire_image<F>(
         &mut self,
         disk_id: &str,
@@ -280,18 +291,21 @@ impl RemoteConnection {
         })
     }
 
+    /// Uzak Windows agent üstünde WinPMEM durumunu kontrol eder.
     pub fn check_winpmem(&mut self) -> WormResult<RemoteToolStatus> {
         self.send_json(&json!({"komut": "winpmem_kontrol"}))?;
         let response = self.read_json_line()?;
         parse_tool_status(&response, "winpmem_mevcut", "winpmem_yol")
     }
 
+    /// Uzak Linux agent üstünde AVML durumunu kontrol eder.
     pub fn check_avml(&mut self) -> WormResult<RemoteToolStatus> {
         self.send_json(&json!({"komut": "avml_kontrol"}))?;
         let response = self.read_json_line()?;
         parse_tool_status(&response, "avml_mevcut", "avml_yol")
     }
 
+    /// Uzak agent üzerinde RAM edinim işini başlatır ve ilerlemeyi izler.
     pub fn start_remote_ram<F>(
         &mut self,
         output_file: &str,
@@ -381,6 +395,7 @@ impl RemoteConnection {
         }
     }
 
+    /// Agent tarafında üretilmiş RAM dosyasını yerel hedefe indirir.
     pub fn download_ram_file<F>(
         &mut self,
         remote_file: &str,
@@ -495,6 +510,7 @@ impl RemoteConnection {
         })
     }
 
+    /// Uzak agent üzerindeki iş için pause/resume/stop kontrol komutu gönderir.
     pub fn control_job(&self, job_id: &str, action: &str) -> WormResult<String> {
         let mut control = Self::connect(self.host.clone(), self.port, self.token.clone())?;
         control.send_json(&json!({
@@ -511,6 +527,7 @@ impl RemoteConnection {
         }
     }
 
+    /// Bağlantı açılışında agent kimliği, sürümü ve özelliklerini doğrular.
     fn hello(&mut self) -> WormResult<()> {
         let mut request = json!({
             "komut": "merhaba",
@@ -556,6 +573,7 @@ impl RemoteConnection {
         Ok(())
     }
 
+    /// JSON komutunu satır sonuyla agent'a gönderir.
     fn send_json(&mut self, value: &Value) -> WormResult<()> {
         serde_json::to_writer(&mut self.writer, value)?;
         self.writer
@@ -566,6 +584,7 @@ impl RemoteConnection {
             .map_err(|err| WormError::io(HataKodu::AgGonderme, "Komut flush edilemedi", err))
     }
 
+    /// Agent'tan tek satır JSON cevap okur.
     fn read_json_line(&mut self) -> WormResult<Value> {
         let mut line = String::new();
         let read = self
@@ -587,6 +606,7 @@ impl RemoteConnection {
     }
 }
 
+/// Araç kontrol cevabını ortak RemoteToolStatus modeline dönüştürür.
 fn parse_tool_status(
     response: &Value,
     present_key: &str,
@@ -621,14 +641,17 @@ fn parse_tool_status(
     })
 }
 
+/// Agent cevabının başarılı durum taşıyıp taşımadığını kontrol eder.
 fn is_ok(value: &Value) -> bool {
     value.get("durum").and_then(Value::as_str) == Some("ok")
 }
 
+/// Agent cevabının hata durum taşıyıp taşımadığını kontrol eder.
 fn is_error(value: &Value) -> bool {
     value.get("durum").and_then(Value::as_str) == Some("hata")
 }
 
+/// Agent mesaj alanını güvenli varsayılanla okur.
 fn message_from(value: &Value, default: &str) -> String {
     value
         .get("mesaj")
@@ -637,6 +660,7 @@ fn message_from(value: &Value, default: &str) -> String {
         .to_string()
 }
 
+/// Dosya adında kullanılacak IP/disk değerlerini güvenli karakterlere indirger.
 fn sanitize_name(value: &str) -> String {
     value
         .trim()
@@ -653,6 +677,7 @@ fn sanitize_name(value: &str) -> String {
         .to_string()
 }
 
+/// Uzak imaj çıktısı için IP, disk ve tarih içeren standart dosya adı üretir.
 fn canonical_image_file_name(
     remote_ip: Option<&str>,
     disk_id: &str,
@@ -688,6 +713,7 @@ fn canonical_image_file_name(
     )
 }
 
+/// Eksik aktarım dosyasını .partial adıyla korur.
 fn mark_partial(path: &Path) -> WormResult<PathBuf> {
     let partial = PathBuf::from(format!("{}.partial", path.display()));
     if path.exists() {

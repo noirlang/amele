@@ -1,3 +1,4 @@
+//! Volatility3 entegrasyonu, sembol kontrolü ve RAM proses analizi işlemlerini yürütür.
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeSet;
@@ -14,6 +15,7 @@ const LINUX_BANNER_MAX_LEN: usize = 320;
 const LINUX_BANNER_SCAN_CHUNK: usize = 8 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Volatility proses çıktısını arayüzün kullandığı ortak formata indirger.
 pub struct VolatilityProcess {
     pub pid: i64,
     pub ppid: i64,
@@ -23,6 +25,7 @@ pub struct VolatilityProcess {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// RAM analizi öncesi Volatility, sembol ve Linux banner durumunu raporlar.
 pub struct VolatilityPreflight {
     pub ready: bool,
     pub vol_py: Option<String>,
@@ -35,6 +38,7 @@ pub struct VolatilityPreflight {
     pub recommendations: Vec<String>,
 }
 
+/// Ortam değişkenleri, çalışma klasörü ve paket içi yollardan vol.py dosyasını bulur.
 pub fn locate_vol_py() -> Option<PathBuf> {
     let mut paths = Vec::new();
 
@@ -81,6 +85,7 @@ pub fn locate_vol_py() -> Option<PathBuf> {
         .and_then(|path| path.canonicalize().ok().or(Some(path)))
 }
 
+/// Paketlenen yardımcı Python worker dosyasının yolunu bulur.
 pub fn locate_worker_py() -> Option<PathBuf> {
     let mut paths = Vec::new();
     if let Ok(value) = env::var("WORM_VOLATILITY_WORKER_PATH") {
@@ -110,6 +115,7 @@ pub fn locate_worker_py() -> Option<PathBuf> {
         .and_then(|path| path.canonicalize().ok().or(Some(path)))
 }
 
+/// Klasör veya doğrudan vol.py verilmiş yolu aday listesine ekler.
 fn push_volatility_candidate(paths: &mut Vec<PathBuf>, path: PathBuf) {
     if path.file_name().is_some_and(|name| name == "vol.py") {
         paths.push(path);
@@ -118,6 +124,7 @@ fn push_volatility_candidate(paths: &mut Vec<PathBuf>, path: PathBuf) {
     }
 }
 
+/// Volatility pluginini logsuz ve varsayılan sembol dizinleriyle çalıştırır.
 pub fn run_volatility_plugin(
     file_path: &Path,
     plugin: &str,
@@ -126,6 +133,7 @@ pub fn run_volatility_plugin(
     run_volatility_plugin_logged(file_path, plugin, extra_args, None)
 }
 
+/// Volatility pluginini canlı konsol loglarıyla çalıştırır.
 pub fn run_volatility_plugin_logged(
     file_path: &Path,
     plugin: &str,
@@ -135,6 +143,7 @@ pub fn run_volatility_plugin_logged(
     run_volatility_plugin_logged_with_symbol_dir(file_path, plugin, extra_args, None, log)
 }
 
+/// Volatility pluginini seçilen sembol klasörü ve canlı log desteğiyle yürütür.
 pub fn run_volatility_plugin_logged_with_symbol_dir(
     file_path: &Path,
     plugin: &str,
@@ -195,6 +204,7 @@ pub fn run_volatility_plugin_logged_with_symbol_dir(
     run_volatility_command(vol_dir, args, plugin, log)
 }
 
+/// Python worker varsa Volatility çağrısını izole yardımcı süreç üzerinden yapar.
 fn run_worker_plugin_logged(
     file_path: &Path,
     plugin: &str,
@@ -232,6 +242,7 @@ fn run_worker_plugin_logged(
     run_volatility_command(Path::new("."), args, plugin, log)
 }
 
+/// Python sürecini başlatır, stdout/stderr akışlarını toplar ve JSON sonucu parse eder.
 fn run_volatility_command(
     workdir: &Path,
     args: Vec<String>,
@@ -301,6 +312,7 @@ fn run_volatility_command(
     Ok(parsed)
 }
 
+/// Kullanılabilir sembol dizinlerini ortam değişkenleri ve Volatility klasöründen çıkarır.
 fn configured_symbol_dirs(symbol_dir: Option<&Path>) -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     if let Some(path) = symbol_dir.filter(|path| !path.as_os_str().is_empty()) {
@@ -336,6 +348,7 @@ fn configured_symbol_dirs(symbol_dir: Option<&Path>) -> Vec<PathBuf> {
         .collect()
 }
 
+/// Volatility cache klasörünü kullanıcı cache veya geçici dizin altında hazırlar.
 fn volatility_cache_path() -> Option<PathBuf> {
     let mut roots = Vec::new();
     if let Ok(value) = env::var("XDG_CACHE_HOME") {
@@ -352,6 +365,7 @@ fn volatility_cache_path() -> Option<PathBuf> {
     })
 }
 
+/// Birden fazla sembol dizinini Volatility'nin kabul ettiği argüman biçimine çevirir.
 fn symbol_dirs_arg(symbol_dir: Option<&Path>) -> Option<String> {
     let dirs = configured_symbol_dirs(symbol_dir);
     if dirs.is_empty() {
@@ -366,6 +380,7 @@ fn symbol_dirs_arg(symbol_dir: Option<&Path>) -> Option<String> {
     }
 }
 
+/// Alt süreç stdout/stderr satırlarını hem buffer'a hem canlı konsola aktarır.
 fn spawn_reader<R>(
     reader: R,
     stream: &'static str,
@@ -397,6 +412,7 @@ where
     })
 }
 
+/// Volatility çıktısındaki JSON başlangıcını bulup gürültüyü kırpar.
 fn trim_to_json(output: &str) -> Option<&str> {
     let array_idx = output.find('[');
     let object_idx = output.find('{');
@@ -409,6 +425,7 @@ fn trim_to_json(output: &str) -> Option<&str> {
     Some(output[idx..].trim())
 }
 
+/// Volatility hata çıktısını kullanıcıya eylem önerisi içeren mesaja dönüştürür.
 fn format_volatility_error(plugin: &str, stdout: &str, stderr: &str) -> String {
     let mut message = format!(
         "Volatility3 hata verdi. Plugin: {plugin}\nStderr: {}\nStdout: {}",
@@ -436,10 +453,12 @@ fn format_volatility_error(plugin: &str, stdout: &str, stderr: &str) -> String {
     message
 }
 
+/// Seçilen işletim sistemine göre proses listesini döndürür.
 pub fn get_processes(file_path: &Path, os_type: &str) -> Result<Vec<VolatilityProcess>, String> {
     get_processes_logged(file_path, os_type, None)
 }
 
+/// Volatility banners plugininden kernel banner adaylarını okur.
 pub fn get_banners_logged(
     file_path: &Path,
     log: Option<Arc<dyn Fn(String) + Send + Sync>>,
@@ -469,6 +488,7 @@ pub fn get_banners_logged(
     Ok(banners)
 }
 
+/// Volatility başarısız olsa bile ham RAM içinden Linux kernel banner dizgilerini arar.
 pub fn scan_linux_banners(
     file_path: &Path,
     limit: usize,
@@ -534,6 +554,7 @@ pub fn scan_linux_banners(
     Ok(banners)
 }
 
+/// RAM dosyası analiz edilebilir mi diye Volatility, sembol ve banner ön kontrolü yapar.
 pub fn preflight_ram_image(
     file_path: &Path,
     os_type: &str,
@@ -637,6 +658,7 @@ pub fn preflight_ram_image(
     }
 }
 
+/// Volatility isfinfo çıktısını alarak mevcut sembol tablolarını listeler.
 fn run_isfinfo(
     vol_py: &Path,
     symbol_dir: Option<&Path>,
@@ -665,12 +687,14 @@ fn run_isfinfo(
     json_rows(&value)
 }
 
+/// Byte dizisi içinde küçük imza araması yapar.
 fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack
         .windows(needle.len())
         .position(|window| window == needle)
 }
 
+/// Ham bellekten Linux kernel banner metnini güvenli uzunlukta çıkarır.
 fn extract_linux_banner(data: &[u8]) -> Option<String> {
     let end = data
         .iter()
@@ -686,6 +710,7 @@ fn extract_linux_banner(data: &[u8]) -> Option<String> {
     if clean.is_empty() { None } else { Some(clean) }
 }
 
+/// Bulunan dizginin gerçek kernel bannerına benzeyip benzemediğini kontrol eder.
 fn looks_like_kernel_banner(text: &str) -> bool {
     text.starts_with("Linux version ")
         && !text.contains("%s")
@@ -697,6 +722,7 @@ fn looks_like_kernel_banner(text: &str) -> bool {
             || text.contains("#1"))
 }
 
+/// Proses listesini canlı log desteğiyle alır.
 pub fn get_processes_logged(
     file_path: &Path,
     os_type: &str,
@@ -705,6 +731,7 @@ pub fn get_processes_logged(
     get_processes_logged_with_symbol_dir(file_path, os_type, None, log)
 }
 
+/// OS türüne göre doğru Volatility pslist pluginini seçer ve satırları ortak modele çevirir.
 pub fn get_processes_logged_with_symbol_dir(
     file_path: &Path,
     os_type: &str,
@@ -734,6 +761,7 @@ pub fn get_processes_logged_with_symbol_dir(
         .collect())
 }
 
+/// Windows pslist satırını ortak VolatilityProcess modeline dönüştürür.
 fn windows_process(item: &Value) -> VolatilityProcess {
     let pid = value_i64(item, &["PID"]).unwrap_or(0);
     let ppid = value_i64(item, &["PPID"]).unwrap_or(0);
@@ -760,6 +788,7 @@ fn windows_process(item: &Value) -> VolatilityProcess {
     }
 }
 
+/// Linux pslist satırını ortak VolatilityProcess modeline dönüştürür.
 fn linux_process(item: &Value) -> VolatilityProcess {
     let pid = value_i64(item, &["PID"]).unwrap_or(0);
     let ppid = value_i64(item, &["PPID"]).unwrap_or(0);
@@ -785,10 +814,12 @@ fn linux_process(item: &Value) -> VolatilityProcess {
     }
 }
 
+/// Seçilen prosesin ayrıntılarını logsuz olarak üretir.
 pub fn get_process_details(file_path: &Path, os_type: &str, pid: i64) -> Result<String, String> {
     get_process_details_logged(file_path, os_type, pid, None)
 }
 
+/// Seçilen proses ayrıntılarını canlı log desteğiyle üretir.
 pub fn get_process_details_logged(
     file_path: &Path,
     os_type: &str,
@@ -798,6 +829,7 @@ pub fn get_process_details_logged(
     get_process_details_logged_with_symbol_dir(file_path, os_type, pid, None, log)
 }
 
+/// OS türüne göre DLL listesi veya açık dosya listesini Volatility ile çıkarır.
 pub fn get_process_details_logged_with_symbol_dir(
     file_path: &Path,
     os_type: &str,
@@ -828,6 +860,7 @@ pub fn get_process_details_logged_with_symbol_dir(
     }
 }
 
+/// Windows DLL satırlarını okunabilir metin tablosuna çevirir.
 fn format_windows_dlls(rows: &[Value]) -> String {
     let mut details = format!(
         "LOADED DLL LIST\n{:<8} {:<22} {:<14} {:<10} {}\n",
@@ -856,6 +889,7 @@ fn format_windows_dlls(rows: &[Value]) -> String {
     details
 }
 
+/// Linux açık dosya satırlarını okunabilir metin tablosuna çevirir.
 fn format_linux_open_files(rows: &[Value]) -> String {
     let mut details = format!(
         "OPEN FILES\n{:<8} {:<8} {:<20} {:<8} {:<10} {}\n",
@@ -885,6 +919,7 @@ fn format_linux_open_files(rows: &[Value]) -> String {
     details
 }
 
+/// Volatility JSON çıktısındaki satır dizisini farklı formatlardan normalize eder.
 fn json_rows(value: &Value) -> Result<Vec<Value>, String> {
     if let Some(arr) = value.as_array() {
         return Ok(arr.clone());
@@ -897,6 +932,7 @@ fn json_rows(value: &Value) -> Result<Vec<Value>, String> {
     Err("Volatility3 JSON çıktısı satır listesi içermiyor.".to_string())
 }
 
+/// JSON alanını i64 değerine güvenli şekilde çevirir.
 fn value_i64(item: &Value, keys: &[&str]) -> Option<i64> {
     keys.iter().find_map(|key| {
         let value = item.get(*key)?;
@@ -910,6 +946,7 @@ fn value_i64(item: &Value, keys: &[&str]) -> Option<i64> {
     })
 }
 
+/// JSON alanını gösterilebilir string değerine güvenli şekilde çevirir.
 fn value_string(item: &Value, keys: &[&str]) -> Option<String> {
     keys.iter().find_map(|key| {
         let value = item.get(*key)?;

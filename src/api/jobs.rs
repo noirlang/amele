@@ -1,3 +1,4 @@
+//! Arka planda çalışan edinim işlerinin durum, ilerleme ve log bilgisini tutar.
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -5,6 +6,7 @@ use std::sync::{Mutex, OnceLock};
 
 pub static NEXT_ACQUISITION_JOB_ID: AtomicU64 = AtomicU64::new(1);
 
+/// Tek bir edinim işinin UI'ye dönen canlı durumunu temsil eder.
 #[derive(Clone)]
 pub struct AcquisitionJob {
     pub status: String,
@@ -17,11 +19,13 @@ pub struct AcquisitionJob {
     pub control: crate::ram::CancellationToken,
 }
 
+/// Global edinim iş haritasını tek sefer oluşturup paylaşır.
 pub fn acquisition_jobs() -> &'static Mutex<HashMap<String, AcquisitionJob>> {
     static ACQUISITION_JOBS: OnceLock<Mutex<HashMap<String, AcquisitionJob>>> = OnceLock::new();
     ACQUISITION_JOBS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// Yeni bir arka plan edinim işi oluşturur ve kontrol token'ını döndürür.
 pub fn create_acquisition_job(message: &str) -> (String, crate::ram::CancellationToken) {
     let id = NEXT_ACQUISITION_JOB_ID.fetch_add(1, Ordering::SeqCst);
     let job_id = format!("acq-{id}");
@@ -42,10 +46,12 @@ pub fn create_acquisition_job(message: &str) -> (String, crate::ram::Cancellatio
     (job_id, control)
 }
 
+/// İşin ilerlemesini varsayılan "imaj alma sürüyor" mesajıyla günceller.
 pub fn update_acquisition_progress(job_id: &str, done: u64, total: u64) {
     update_acquisition_progress_message(job_id, done, total, "Imaj alma sürüyor");
 }
 
+/// İşin ilerlemesini özel mesajla günceller.
 pub fn update_acquisition_progress_message(job_id: &str, done: u64, total: u64, label: &str) {
     if let Ok(mut jobs) = acquisition_jobs().lock()
         && let Some(job) = jobs.get_mut(job_id)
@@ -61,6 +67,7 @@ pub fn update_acquisition_progress_message(job_id: &str, done: u64, total: u64, 
     }
 }
 
+/// İşin anlık durum mesajını log'a da ekleyerek değiştirir.
 pub fn update_acquisition_message(job_id: &str, message: &str) {
     if let Ok(mut jobs) = acquisition_jobs().lock()
         && let Some(job) = jobs.get_mut(job_id)
@@ -70,6 +77,7 @@ pub fn update_acquisition_message(job_id: &str, message: &str) {
     }
 }
 
+/// Canlı konsola ek bir satır yazmak için iş log'una mesaj ekler.
 pub fn append_acquisition_log(job_id: &str, message: &str) {
     if let Ok(mut jobs) = acquisition_jobs().lock()
         && let Some(job) = jobs.get_mut(job_id)
@@ -78,6 +86,7 @@ pub fn append_acquisition_log(job_id: &str, message: &str) {
     }
 }
 
+/// İşi başarılı tamamlanmış olarak işaretler ve sonucu saklar.
 pub fn finish_acquisition_job_with_message(job_id: &str, result: Value, message: &str) {
     if let Ok(mut jobs) = acquisition_jobs().lock()
         && let Some(job) = jobs.get_mut(job_id)
@@ -96,6 +105,7 @@ pub fn finish_acquisition_job_with_message(job_id: &str, result: Value, message:
     }
 }
 
+/// İşi başarısız olarak işaretler ve hata mesajını log'a yazar.
 pub fn fail_acquisition_job_with_message(job_id: &str, error: String, message: &str) {
     if let Ok(mut jobs) = acquisition_jobs().lock()
         && let Some(job) = jobs.get_mut(job_id)
@@ -108,6 +118,7 @@ pub fn fail_acquisition_job_with_message(job_id: &str, error: String, message: &
     }
 }
 
+/// Aynı mesajı tekrarlamadan sınırlı uzunlukta iş log'u tutar.
 fn push_log(job: &mut AcquisitionJob, message: &str) {
     let clean = message.trim();
     if clean.is_empty() {

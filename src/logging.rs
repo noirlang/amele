@@ -1,3 +1,4 @@
+//! Uygulama günlüklerini dosyaya ve bellekteki kısa kuyruğa yazar.
 use crate::error::{HataKodu, WormError, WormResult};
 use chrono::Local;
 use serde::{Deserialize, Serialize};
@@ -7,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+/// Günlük seviyelerini sıralı önem derecesiyle temsil eder.
 pub enum LogLevel {
     Info,
     Warn,
@@ -15,6 +17,7 @@ pub enum LogLevel {
 }
 
 impl LogLevel {
+    /// Günlük seviyesini dosyaya yazılacak kısa etikete çevirir.
     fn as_str(self) -> &'static str {
         match self {
             LogLevel::Info => "INFO",
@@ -26,6 +29,7 @@ impl LogLevel {
 }
 
 #[derive(Clone)]
+/// Vaka günlük dosyasına thread-safe satır yazan logger nesnesidir.
 pub struct Logger {
     case_name: String,
     log_dir: PathBuf,
@@ -35,6 +39,7 @@ pub struct Logger {
 }
 
 impl Logger {
+    /// Vaka için yeni günlük dosyası açar.
     pub fn start(case_name: impl AsRef<str>, log_dir: impl AsRef<Path>) -> WormResult<Self> {
         let case_name = case_name.as_ref().to_string();
         let log_dir = log_dir.as_ref().to_path_buf();
@@ -66,18 +71,22 @@ impl Logger {
         Ok(logger)
     }
 
+    /// Aktif günlük dosyası yolunu döndürür.
     pub fn active_file(&self) -> &Path {
         &self.active_file
     }
 
+    /// Logger'ın bağlı olduğu vaka adını döndürür.
     pub fn case_name(&self) -> &str {
         &self.case_name
     }
 
+    /// Günlük klasörü yolunu döndürür.
     pub fn log_dir(&self) -> &Path {
         &self.log_dir
     }
 
+    /// Seviyeye göre filtreleyip günlük satırını dosyaya yazar.
     pub fn log(&self, level: LogLevel, message: impl AsRef<str>) {
         if level < self.min_level {
             return;
@@ -96,22 +105,27 @@ impl Logger {
         }
     }
 
+    /// Sistem kaynaklı mesajı özel etiketle yazar.
     pub fn system(&self, level: LogLevel, message: impl AsRef<str>) {
         self.log(level, format!("[SISTEM] {}", message.as_ref()));
     }
 
+    /// Bilgi seviyesinde günlük yazar.
     pub fn info(&self, message: impl AsRef<str>) {
         self.log(LogLevel::Info, message);
     }
 
+    /// Uyarı seviyesinde günlük yazar.
     pub fn warn(&self, message: impl AsRef<str>) {
         self.log(LogLevel::Warn, message);
     }
 
+    /// Hata seviyesinde günlük yazar.
     pub fn error(&self, message: impl AsRef<str>) {
         self.log(LogLevel::Error, message);
     }
 
+    /// Debug seviyesinde günlük yazar.
     pub fn debug(&self, message: impl AsRef<str>) {
         self.log(LogLevel::Debug, message);
     }

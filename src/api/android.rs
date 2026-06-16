@@ -1,3 +1,4 @@
+//! Android edinim ve analiz işlemlerinin HTTP API uçlarını sağlar.
 use crate::android;
 use crate::android_analysis;
 use crate::api::{
@@ -11,6 +12,7 @@ use serde::Deserialize;
 use serde_json::json;
 use std::thread;
 
+/// Seçilen vakanın Android çıktılarından analiz özeti üretir.
 pub fn android_case_analysis_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct AndroidAnalysisRequest {
@@ -29,6 +31,7 @@ pub fn android_case_analysis_endpoint(body: &[u8]) -> Response {
     json_ok(serde_json::to_value(report).unwrap_or(serde_json::Value::Null))
 }
 
+/// Bağlı Android cihazın model, API, root ve şifreleme profilini döndürür.
 pub fn android_device_profile_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct AndroidProfileRequest {
@@ -50,6 +53,7 @@ pub fn android_device_profile_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Android profil/mantıksal edinim işini arka planda başlatır.
 pub fn android_profile_acquisition_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct AndroidProfileAcquisitionRequest {
@@ -153,6 +157,7 @@ fn run_android_profile_acquisition_job(
     }
 }
 
+/// Eski mantıksal imaj endpoint'ini arka plan işi olarak çalıştırır.
 pub fn android_logical_image_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct AndroidLogicalRequest {
@@ -236,6 +241,7 @@ fn run_android_logical_job(
     }
 }
 
+/// Android dosya sistemi edinim işini başlatır.
 pub fn android_filesystem_image_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct AndroidFilesystemRequest {
@@ -323,6 +329,7 @@ fn run_android_filesystem_job(
     }
 }
 
+/// Android uçucu veri/RAM odaklı edinim işini başlatır.
 pub fn android_ram_image_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct AndroidRamRequest {
