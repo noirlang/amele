@@ -61,7 +61,7 @@
           Icon="WormIcon" />
         <RemoveFolder Id="RemoveProgramMenuDir" Directory="ProgramMenuDir" On="uninstall" />
         <RegistryValue
-          Root="HKLM"
+          Root="HKCU"
           Key="Software\noirLang\Worm Forensic Tool"
           Name="Installed"
           Type="integer"

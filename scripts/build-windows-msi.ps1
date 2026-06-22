@@ -106,7 +106,8 @@ Invoke-CheckedCommand -Command $Candle -Arguments @(
     "-out", $HarvestedObject, $HarvestedWxs
 )
 Invoke-CheckedCommand -Command $Light -Arguments @(
-    "-nologo", "-ext", "WixUIExtension", "-cultures:en-us", "-sice:ICE61",
+    "-nologo", "-ext", "WixUIExtension", "-cultures:en-us",
+    "-sice:ICE61", "-sice:ICE60",
     "-out", $OutputPath, $ProductObject, $HarvestedObject
 )
 
