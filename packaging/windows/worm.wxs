@@ -22,7 +22,6 @@
     <Icon Id="WormIcon" SourceFile="$(var.WormIcon)" />
     <Property Id="ARPPRODUCTICON" Value="WormIcon" />
     <Property Id="ARPURLINFOABOUT" Value="https://worm.noirlang.tr" />
-    <Property Id="ARPNOMODIFY" Value="1" />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
     <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseRtf)" />
 
