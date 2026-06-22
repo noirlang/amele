@@ -67,7 +67,6 @@
           Name="Installed"
           Type="integer"
           Value="1"
-          Win64="yes"
           KeyPath="yes" />
       </Component>
     </DirectoryRef>
