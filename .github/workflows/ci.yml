@@ -47,7 +47,7 @@ jobs:
             slug="commit"
           fi
           echo "asset_suffix=${slug}-${short_sha}" >> "$GITHUB_OUTPUT"
-          echo "release_title=${subject} (${short_sha})" >> "$GITHUB_OUTPUT"
+          echo "release_title=${short_sha}" >> "$GITHUB_OUTPUT"
           echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
           echo "tag=commit-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
