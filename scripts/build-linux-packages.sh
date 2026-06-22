@@ -154,7 +154,7 @@ EOF
   (
     cd "$root"
     bsdtar --format=gnutar --uid 0 --gid 0 --uname root --gname root -cf - .PKGINFO usr \
-      | zstd -19 -T0 -o "$DIST_DIR/worm-linux-x64.pkg.tar.zst"
+      | zstd -f -19 -T0 -o "$DIST_DIR/worm-linux-x64.pkg.tar.zst"
   )
 }
 

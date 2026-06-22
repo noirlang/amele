@@ -1,4 +1,8 @@
 //! Komut satırı girişini işler ve UI, browser veya helper modlarını başlatır.
+#![cfg_attr(
+    all(target_os = "windows", not(debug_assertions)),
+    windows_subsystem = "windows"
+)]
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::fs;
