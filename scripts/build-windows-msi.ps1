@@ -91,9 +91,23 @@ $HarvestedWxs = Join-Path $WixDir "harvested.wxs"
 $ProductObject = Join-Path $WixDir "product.wixobj"
 $HarvestedObject = Join-Path $WixDir "harvested.wixobj"
 
-Invoke-CheckedCommand $Heat dir $StageDir -nologo -cg WormFiles -dr INSTALLFOLDER -srd -sfrag -sreg -scom -ag -var var.StageDir -out $HarvestedWxs
-Invoke-CheckedCommand $Candle -nologo -arch x64 "-dProductVersion=$Version" "-dWormIcon=$IconPath" "-dLicenseRtf=$LicenseRtf" -out $ProductObject $ProductWxs
-Invoke-CheckedCommand $Candle -nologo -arch x64 "-dStageDir=$StageDir" -out $HarvestedObject $HarvestedWxs
-Invoke-CheckedCommand $Light -nologo -ext WixUIExtension -cultures:en-us -sice:ICE61 -out $OutputPath $ProductObject $HarvestedObject
+Invoke-CheckedCommand -Command $Heat -Arguments @(
+    "dir", $StageDir, "-nologo", "-cg", "WormFiles", "-dr", "INSTALLFOLDER",
+    "-srd", "-sfrag", "-sreg", "-scom", "-ag", "-var", "var.StageDir",
+    "-out", $HarvestedWxs
+)
+Invoke-CheckedCommand -Command $Candle -Arguments @(
+    "-nologo", "-arch", "x64", "-dProductVersion=$Version",
+    "-dWormIcon=$IconPath", "-dLicenseRtf=$LicenseRtf",
+    "-out", $ProductObject, $ProductWxs
+)
+Invoke-CheckedCommand -Command $Candle -Arguments @(
+    "-nologo", "-arch", "x64", "-dStageDir=$StageDir",
+    "-out", $HarvestedObject, $HarvestedWxs
+)
+Invoke-CheckedCommand -Command $Light -Arguments @(
+    "-nologo", "-ext", "WixUIExtension", "-cultures:en-us", "-sice:ICE61",
+    "-out", $OutputPath, $ProductObject, $HarvestedObject
+)
 
 Write-Host "Windows MSI written to $OutputPath"
