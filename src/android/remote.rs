@@ -85,15 +85,17 @@ pub struct LemonPreflight {
 /// Belirtilen endpoint'e `adb connect` komutuyla bağlanır.
 pub fn connect_remote_endpoint(endpoint: &RemoteAndroidEndpoint) -> RemoteConnectResult {
     let serial = endpoint.serial();
-    let result = Command::new("adb")
-        .args(["connect", &serial])
-        .output();
+    let result = Command::new("adb").args(["connect", &serial]).output();
 
     match result {
         Ok(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
             let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-            let combined = if stderr.is_empty() { stdout.clone() } else { format!("{stdout} {stderr}") };
+            let combined = if stderr.is_empty() {
+                stdout.clone()
+            } else {
+                format!("{stdout} {stderr}")
+            };
 
             // adb connect başarılıysa "connected to" veya "already connected" döner.
             let success = output.status.success()
@@ -115,9 +117,7 @@ pub fn connect_remote_endpoint(endpoint: &RemoteAndroidEndpoint) -> RemoteConnec
 
 /// Belirtilen serial'ı ADB cihaz listesinden çıkarır.
 pub fn disconnect_remote_endpoint(serial: &str) -> RemoteConnectResult {
-    let result = Command::new("adb")
-        .args(["disconnect", serial])
-        .output();
+    let result = Command::new("adb").args(["disconnect", serial]).output();
 
     match result {
         Ok(output) => {
@@ -173,15 +173,24 @@ pub fn lemon_preflight(serial: &str) -> LemonPreflight {
     let root_available = adb_root || su_root;
 
     // Kernel sürümü
-    let kernel_version = run_adb_command_timeout(serial, &["shell", "cat", "/proc/version"], timeout)
-        .ok()
-        .map(|v| v.lines().next().unwrap_or("").trim().to_string())
-        .filter(|v| !v.is_empty());
+    let kernel_version =
+        run_adb_command_timeout(serial, &["shell", "cat", "/proc/version"], timeout)
+            .ok()
+            .map(|v| v.lines().next().unwrap_or("").trim().to_string())
+            .filter(|v| !v.is_empty());
 
     // eBPF/BTF desteği
     let ebpf_btf_available = run_adb_command_timeout(
         serial,
-        &["shell", "test", "-f", "/sys/kernel/btf/vmlinux", "&&", "echo", "ok"],
+        &[
+            "shell",
+            "test",
+            "-f",
+            "/sys/kernel/btf/vmlinux",
+            "&&",
+            "echo",
+            "ok",
+        ],
         timeout,
     )
     .map(|out| out.trim() == "ok")
@@ -234,7 +243,10 @@ pub fn lemon_preflight(serial: &str) -> LemonPreflight {
             abi.as_deref().unwrap_or("bilinmiyor")
         ))
     } else if !root_available {
-        Some("Root erişimi bulunamadı. Lemon fiziksel RAM dump için su veya adb root gerektirir.".to_string())
+        Some(
+            "Root erişimi bulunamadı. Lemon fiziksel RAM dump için su veya adb root gerektirir."
+                .to_string(),
+        )
     } else if !ebpf_btf_available {
         Some("Kernel eBPF/BTF desteği tespit edilemedi (/sys/kernel/btf/vmlinux). Lemon bu cihazda çalışmayabilir.".to_string())
     } else {
@@ -269,18 +281,21 @@ fn detect_risky_soc(serial: &str, timeout: Duration) -> Option<String> {
     let hardware = run_adb_command_timeout(serial, &["shell", "getprop", "ro.hardware"], timeout)
         .unwrap_or_default()
         .to_lowercase();
-    let board = run_adb_command_timeout(serial, &["shell", "getprop", "ro.board.platform"], timeout)
-        .unwrap_or_default()
-        .to_lowercase();
+    let board =
+        run_adb_command_timeout(serial, &["shell", "getprop", "ro.board.platform"], timeout)
+            .unwrap_or_default()
+            .to_lowercase();
     let combined = format!("{hardware} {board}");
 
     if combined.contains("exynos") || combined.contains("samsung") && combined.contains("s5e") {
         Some(
             "Exynos SoC tespit edildi. Lemon bu donanımda EL2 korumalarını tetikleyebilir ve cihazı yeniden başlatabilir. Dikkatli olun.".to_string(),
         )
-    } else if combined.contains("mt") || combined.contains("mediatek") || combined.contains("helio") {
+    } else if combined.contains("mt") || combined.contains("mediatek") || combined.contains("helio")
+    {
         Some(
-            "MediaTek SoC tespit edildi. Lemon bu donanımda kararlılık sorunlarına neden olabilir.".to_string(),
+            "MediaTek SoC tespit edildi. Lemon bu donanımda kararlılık sorunlarına neden olabilir."
+                .to_string(),
         )
     } else {
         None
