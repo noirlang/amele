@@ -43,6 +43,7 @@ impl AndroidExtractorStep {
 const QUICK_LOGICAL: &[&str] = &[
     "device_info",
     "packages",
+    "packages_json",
     "dumpsys_usagestats",
     "dumpsys_account",
     "dumpsys_connectivity",
@@ -60,6 +61,9 @@ const QUICK_LOGICAL: &[&str] = &[
 
 const ROOT_LOGICAL_EXTRA: &[&str] = &[
     "root_status",
+    "root_binaries",
+    "selinux_status",
+    "mounts",
     "procfs_summary",
     "proc_memory_maps",
     "heapdump_candidates",
@@ -81,7 +85,9 @@ const VOLATILE_ONLY: &[&str] = &[
 pub const FULL_LOGICAL_STEPS: &[AndroidExtractorStep] = &[
     AndroidExtractorStep::new("device_info", "device_info.txt"),
     AndroidExtractorStep::new("packages", "packages.txt"),
+    AndroidExtractorStep::new("packages_json", "packages.json"),
     AndroidExtractorStep::new("logcat", "logcat.txt"),
+    AndroidExtractorStep::new("system_logs", "system_logs.txt"),
     AndroidExtractorStep::new("dumpsys_battery", "dumpsys_battery.txt"),
     AndroidExtractorStep::new("dumpsys_wifi", "dumpsys_wifi.txt"),
     AndroidExtractorStep::new("dumpsys_bluetooth", "dumpsys_bluetooth.txt"),
@@ -108,6 +114,14 @@ pub const FULL_LOGICAL_STEPS: &[AndroidExtractorStep] = &[
     AndroidExtractorStep::new("dumpsys_batterystats", "dumpsys_batterystats.txt"),
     AndroidExtractorStep::new("dumpsys_keystore", "dumpsys_keystore.txt"),
     AndroidExtractorStep::new("root_status", "root_status.txt"),
+    AndroidExtractorStep::new("root_binaries", "root_binaries.txt"),
+    AndroidExtractorStep::new("selinux_status", "selinux_status.txt"),
+    AndroidExtractorStep::new("services", "services.txt"),
+    AndroidExtractorStep::new("mounts", "mounts.txt"),
+    AndroidExtractorStep::new("environment", "environment.txt"),
+    AndroidExtractorStep::new("temp_files", "temp_files.txt"),
+    AndroidExtractorStep::new("intrusion_indicators", "intrusion_indicators.txt"),
+    AndroidExtractorStep::new("file_index", "file_index.txt"),
     AndroidExtractorStep::new("procfs_summary", "procfs_summary.txt"),
     AndroidExtractorStep::new("proc_memory_maps", "proc_memory_maps"),
     AndroidExtractorStep::new("heapdump_candidates", "heapdump_candidates.txt"),

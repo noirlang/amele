@@ -31,6 +31,16 @@ pub struct LogicalAcquisitionResult {
     pub errors: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+/// pm list packages çıktısından normalize edilen paket kaydıdır.
+struct ParsedPackage {
+    package: String,
+    apk_path: Option<String>,
+    uid: Option<String>,
+    version_code: Option<String>,
+    raw: String,
+}
+
 /// ADB shell komutunun çıktısını dosyaya yazar ve sonucu standart edinim kaydına çevirir.
 fn collect_shell_output(
     serial: &str,
@@ -91,9 +101,106 @@ fn collect_packages(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     )
 }
 
+/// Paket listesini JSON formatında normalize ederek analize hazır hale getirir.
+fn collect_packages_json(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
+    match run_adb_command(
+        serial,
+        &[
+            "shell",
+            "pm list packages -f -U --show-versioncode 2>/dev/null || pm list packages -f",
+        ],
+    ) {
+        Ok(output) => {
+            let packages = parse_package_rows(&output);
+            let path = dir.join("packages.json");
+            match serde_json::to_vec_pretty(&packages)
+                .map_err(|err| err.to_string())
+                .and_then(|content| {
+                    std::fs::write(&path, &content)
+                        .map(|_| content.len() as u64)
+                        .map_err(|err| err.to_string())
+                }) {
+                Ok(size) => AcquisitionItem {
+                    category: "packages_json".to_string(),
+                    file_name: "packages.json".to_string(),
+                    size,
+                    success: true,
+                    error: None,
+                },
+                Err(err) => AcquisitionItem {
+                    category: "packages_json".to_string(),
+                    file_name: "packages.json".to_string(),
+                    size: 0,
+                    success: false,
+                    error: Some(format!("Paket JSON yazilamadi: {err}")),
+                },
+            }
+        }
+        Err(err) => AcquisitionItem {
+            category: "packages_json".to_string(),
+            file_name: "packages.json".to_string(),
+            size: 0,
+            success: false,
+            error: Some(err),
+        },
+    }
+}
+
+/// Android paket satırlarını JSON modeline ayrıştırır.
+fn parse_package_rows(output: &str) -> Vec<ParsedPackage> {
+    output
+        .lines()
+        .filter_map(|line| {
+            let raw = line.trim();
+            let rest = raw.strip_prefix("package:")?;
+            let mut parts = rest.split_whitespace();
+            let first = parts.next().unwrap_or_default();
+            let (apk_path, package) = first
+                .rsplit_once('=')
+                .map(|(path, package)| (Some(path.to_string()), package.to_string()))
+                .unwrap_or_else(|| (None, first.to_string()));
+            if package.is_empty() {
+                return None;
+            }
+
+            let mut uid = None;
+            let mut version_code = None;
+            for part in parts {
+                if let Some(value) = part.strip_prefix("uid:") {
+                    uid = Some(value.to_string());
+                } else if let Some(value) = part.strip_prefix("versionCode:") {
+                    version_code = Some(value.to_string());
+                }
+            }
+
+            Some(ParsedPackage {
+                package,
+                apk_path,
+                uid,
+                version_code,
+                raw: raw.to_string(),
+            })
+        })
+        .collect()
+}
+
 /// Cihazdaki mevcut logcat tamponunu metin çıktısı olarak alır.
 fn collect_logcat(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
     collect_shell_output(serial, "logcat", "logcat.txt", &["logcat", "-d"], dir)
+}
+
+/// Kernel ve Android log tamponlarını tek dosyada toplar.
+fn collect_system_logs(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
+    collect_shell_output(
+        serial,
+        "system_logs",
+        "system_logs.txt",
+        &[
+            "shell",
+            "echo '=== logcat -b all ==='; logcat -d -b all 2>/dev/null; echo '=== dmesg ==='; dmesg 2>/dev/null || true",
+        ],
+        dir,
+    )
 }
 
 /// Belirli dumpsys servisini çalıştırıp çıktısını ilgili dosyaya yazar.
@@ -295,6 +402,112 @@ fn collect_processes(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
         "processes",
         "processes.txt",
         &["shell", "ps", "-A"],
+        dir,
+    )
+}
+
+/// service list çıktısıyla sistem servislerini kaydeder.
+fn collect_services(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
+    collect_shell_output(
+        serial,
+        "services",
+        "services.txt",
+        &["shell", "service list"],
+        dir,
+    )
+}
+
+/// Mount tablosunu ve depolama bağlama noktalarını kaydeder.
+fn collect_mounts(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
+    collect_shell_output(
+        serial,
+        "mounts",
+        "mounts.txt",
+        &["shell", "cat /proc/mounts; echo '=== mount ==='; mount"],
+        dir,
+    )
+}
+
+/// SELinux durumunu ve enforce değerini kaydeder.
+fn collect_selinux_status(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
+    collect_shell_output(
+        serial,
+        "selinux_status",
+        "selinux_status.txt",
+        &[
+            "shell",
+            "getenforce 2>/dev/null; cat /sys/fs/selinux/enforce 2>/dev/null || true",
+        ],
+        dir,
+    )
+}
+
+/// Shell ortamı, kullanıcı kimliği ve kernel özetini kaydeder.
+fn collect_environment(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
+    collect_shell_output(
+        serial,
+        "environment",
+        "environment.txt",
+        &[
+            "shell",
+            "id; uname -a; printenv 2>/dev/null; getprop ro.build.fingerprint",
+        ],
+        dir,
+    )
+}
+
+/// Bilinen root araçlarının izlerini arar.
+fn collect_root_binaries(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
+    collect_shell_output(
+        serial,
+        "root_binaries",
+        "root_binaries.txt",
+        &[
+            "shell",
+            "for p in /system/bin/su /system/xbin/su /sbin/su /vendor/bin/su /su/bin/su /data/adb/magisk /data/adb/ksu/bin/su /system/bin/magisk /system/xbin/busybox; do [ -e \"$p\" ] && ls -la \"$p\"; done; command -v su 2>/dev/null || true; command -v magisk 2>/dev/null || true",
+        ],
+        dir,
+    )
+}
+
+/// Geçici dizinlerdeki son kullanıcı ve araç izlerini listeler.
+fn collect_temp_files(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
+    collect_shell_output(
+        serial,
+        "temp_files",
+        "temp_files.txt",
+        &[
+            "shell",
+            "echo '=== /data/local/tmp ==='; ls -laR /data/local/tmp 2>/dev/null; echo '=== /sdcard/Download ==='; ls -laR /sdcard/Download 2>/dev/null; echo '=== /sdcard/Documents ==='; ls -laR /sdcard/Documents 2>/dev/null",
+        ],
+        dir,
+    )
+}
+
+/// Root, hook, debug ve ağ izlerini hızlı IOC taraması olarak toplar.
+fn collect_intrusion_indicators(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
+    collect_shell_output(
+        serial,
+        "intrusion_indicators",
+        "intrusion_indicators.txt",
+        &[
+            "shell",
+            "echo '=== processes ==='; ps -A | grep -Ei 'frida|magisk|zygisk|xposed|substrate|su|busybox|tcpdump|gadget|objection' || true; echo '=== packages ==='; pm list packages | grep -Ei 'frida|magisk|xposed|substrate|superuser|kingroot|kernelsu|lsposed|zygisk' || true; echo '=== logcat indicators ==='; logcat -d -b all 2>/dev/null | grep -Ei 'frida|magisk|zygisk|xposed|substrate|root|su|selinux|denied' | tail -n 1000 || true",
+        ],
+        dir,
+    )
+}
+
+/// Paylaşımlı depolama üzerinde sınırlı derinlikte dosya indeksi üretir.
+fn collect_file_index(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
+    collect_shell_output(
+        serial,
+        "file_index",
+        "file_index.txt",
+        &[
+            "shell",
+            "find /sdcard -maxdepth 4 -type f 2>/dev/null | head -n 10000",
+        ],
         dir,
     )
 }
@@ -1124,6 +1337,24 @@ mod tests {
         assert_eq!(rows[0], (2345, "com.example.app".to_string()));
         assert_eq!(rows[1], (1, "init".to_string()));
     }
+
+    #[test]
+    fn parses_package_rows_for_json_manifest() {
+        let packages = parse_package_rows(
+            "package:/data/app/~~abc/base.apk=com.example.app uid:10123 versionCode:42\n\
+             package:/system/app/Settings/Settings.apk=com.android.settings\n",
+        );
+
+        assert_eq!(packages.len(), 2);
+        assert_eq!(packages[0].package, "com.example.app");
+        assert_eq!(
+            packages[0].apk_path.as_deref(),
+            Some("/data/app/~~abc/base.apk")
+        );
+        assert_eq!(packages[0].uid.as_deref(), Some("10123"));
+        assert_eq!(packages[0].version_code.as_deref(), Some("42"));
+        assert_eq!(packages[1].package, "com.android.settings");
+    }
 }
 
 /// Varsayılan profil ile Android mantıksal edinim akışını başlatır.
@@ -1178,7 +1409,9 @@ where
         let item = match category {
             "device_info" => collect_device_info(serial, output_dir),
             "packages" => collect_packages(serial, output_dir),
+            "packages_json" => collect_packages_json(serial, output_dir),
             "logcat" => collect_logcat(serial, output_dir),
+            "system_logs" => collect_system_logs(serial, output_dir),
             "dumpsys_battery" => {
                 collect_dumpsys(serial, "battery", "dumpsys_battery.txt", output_dir)
             }
@@ -1261,6 +1494,14 @@ where
                 collect_dumpsys(serial, "keystore", "dumpsys_keystore.txt", output_dir)
             }
             "root_status" => collect_root_status(serial, output_dir),
+            "root_binaries" => collect_root_binaries(serial, output_dir),
+            "selinux_status" => collect_selinux_status(serial, output_dir),
+            "services" => collect_services(serial, output_dir),
+            "mounts" => collect_mounts(serial, output_dir),
+            "environment" => collect_environment(serial, output_dir),
+            "temp_files" => collect_temp_files(serial, output_dir),
+            "intrusion_indicators" => collect_intrusion_indicators(serial, output_dir),
+            "file_index" => collect_file_index(serial, output_dir),
             "procfs_summary" => collect_procfs_summary(serial, output_dir),
             "proc_memory_maps" => collect_proc_memory_maps(serial, output_dir),
             "heapdump_candidates" => collect_heapdump_candidates(serial, output_dir),
