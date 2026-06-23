@@ -48,7 +48,15 @@ pub fn android_device_profile_endpoint(body: &[u8]) -> Response {
     }
 
     match android::detect_device_profile(serial) {
-        Ok(profile) => json_ok(json!({ "profile": profile })),
+        Ok(profile) => {
+            let session = android::build_android_session(serial, profile.clone());
+            let capabilities = android::build_android_capability_report(serial, &profile);
+            json_ok(json!({
+                "profile": profile,
+                "session": session,
+                "capabilities": capabilities,
+            }))
+        }
         Err(err) => json_error(500, android::explain_android_error(err)),
     }
 }
@@ -142,9 +150,12 @@ fn run_android_profile_acquisition_job(
                     "message": format!("Android profil edinimi tamamlandi ({success_count}/{total_count} adim basarili)"),
                     "profile": result.profile,
                     "device_profile": result.device_profile,
+                    "session": result.session,
+                    "capabilities": result.capabilities,
                     "output_dir": result.output_dir,
                     "total_bytes": result.total_bytes,
                     "sha256": result.sha256,
+                    "manifest_sha256": result.manifest_sha256,
                     "items": result.items,
                     "errors": result.errors,
                 }),
@@ -206,9 +217,10 @@ fn run_android_logical_job(
         return;
     }
 
-    match android::logical_acquisition(
+    match android::orchestrated_acquisition(
         &serial,
         &android_dir,
+        android::AndroidAcquisitionProfile::FullLogical,
         |done, total, category| {
             update_acquisition_progress_message(
                 &job_id,
@@ -226,9 +238,14 @@ fn run_android_logical_job(
                 &job_id,
                 json!({
                     "message": format!("Android mantiksal imaj tamamlandi ({success_count}/{total_count} adim basarili)"),
+                    "profile": result.profile,
+                    "device_profile": result.device_profile,
+                    "session": result.session,
+                    "capabilities": result.capabilities,
                     "output_dir": result.output_dir,
                     "total_bytes": result.total_bytes,
                     "sha256": result.sha256,
+                    "manifest_sha256": result.manifest_sha256,
                     "items": result.items,
                     "errors": result.errors,
                 }),
@@ -316,9 +333,12 @@ fn run_android_filesystem_job(
                 json!({
                     "message": "Android dosya sistemi imajı başarıyla tamamlandı",
                     "device_profile": result.device_profile,
+                    "session": result.session,
+                    "capabilities": result.capabilities,
                     "output_file": result.output_file,
                     "total_bytes": result.total_bytes,
                     "sha256": result.sha256,
+                    "manifest_sha256": result.manifest_sha256,
                 }),
                 "Android dosya sistemi imajı başarıyla tamamlandı",
             );
@@ -415,9 +435,12 @@ fn run_android_ram_job(
                 json!({
                     "message": "Android RAM imajı başarıyla tamamlandı",
                     "device_profile": result.device_profile,
+                    "session": result.session,
+                    "capabilities": result.capabilities,
                     "output_file": result.output_file,
                     "total_bytes": result.total_bytes,
                     "sha256": result.sha256,
+                    "manifest_sha256": result.manifest_sha256,
                     "mode": result.mode,
                 }),
                 "Android RAM imajı başarıyla tamamlandı",
