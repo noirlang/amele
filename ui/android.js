@@ -173,7 +173,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             <div class="log-box" id="android-log">${androidLogContent(android, t, modeId)}</div>
           ` : ""}
 
-          ${isRemote ? remoteAndroidPanel(android, selected, selectedReady, t, icon, escapeHtml) : ""}`
+          ${isRemote ? remoteAndroidPanel(android, selected, selectedReady, t, icon, escapeHtml) : ""}
         </div>
 
         <aside class="side-panel">
