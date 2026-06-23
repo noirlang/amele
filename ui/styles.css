@@ -2812,6 +2812,12 @@ code {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.status-pill.warn {
+  color: #ffe7b0;
+  border-color: rgba(255, 231, 176, 0.45);
+  background: rgba(255, 231, 176, 0.08);
+}
+
 .status-pill.danger {
   color: #ffb4b4;
   border-color: rgba(255, 95, 104, 0.5);

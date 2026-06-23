@@ -26,6 +26,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
     : t("android.adb.unknown");
   const statusDetail = status?.message || (backendReady() ? t("android.adb.checkHint") : t("android.appModeRequired"));
   const deviceProfile = android.deviceProfile || null;
+  const capabilities = android.capabilities || null;
   const acquisitionProfile = android.logicalProfile || "full_logical";
 
   const isLogical = modeId === "logical";
@@ -77,6 +78,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
               ${deviceProfileSummary(deviceProfile, t, escapeHtml)}
             </div>
           ` : ""}
+          ${capabilities ? capabilitySummary(capabilities, modeId, t, escapeHtml) : ""}
 
           ${isLogical ? `
             <div class="section-divider"></div>
@@ -204,6 +206,58 @@ function deviceProfileSummary(profile, t, escapeHtml) {
   return rows
     .map(([label, value]) => `<div class="tree-node"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(value)}</span></div>`)
     .join("");
+}
+
+function capabilitySummary(report, modeId, t, escapeHtml) {
+  const entries = capabilityEntriesForMode(report, modeId, t);
+  if (!entries.length) return "";
+  return `
+    <p class="section-label" style="margin-top:12px">${t("android.preflight.title")}</p>
+    <div class="log-box">
+      ${entries.map(([label, check]) => capabilityRow(label, check, t, escapeHtml)).join("")}
+    </div>
+  `;
+}
+
+function capabilityEntriesForMode(report, modeId, t) {
+  const common = [[t("android.capability.adb"), report.adb_authorized]];
+  if (modeId === "filesystem") {
+    return common.concat([
+      [t("android.capability.filesystemNonRoot"), report.filesystem_non_root],
+      [t("android.capability.filesystemRoot"), report.filesystem_root],
+    ]).filter(([, check]) => Boolean(check));
+  }
+  if (modeId === "ram") {
+    return common.concat([
+      [t("android.capability.volatileMemory"), report.volatile_memory],
+      [t("android.capability.processMemory"), report.process_memory_root],
+      [t("android.capability.lemonMemory"), report.lemon_physical_memory],
+    ]).filter(([, check]) => Boolean(check));
+  }
+  return common.concat([
+    [t("android.capability.logical"), report.logical_acquisition],
+    [t("android.capability.sharedStorage"), report.shared_storage],
+    [t("android.capability.bugreport"), report.bugreport],
+    [t("android.capability.backup"), report.adb_backup],
+  ]).filter(([, check]) => Boolean(check));
+}
+
+function capabilityRow(label, check, t, escapeHtml) {
+  const level = String(check?.level || "unsupported");
+  const pillClass = level === "supported" ? "ok" : (level === "partial" ? "warn" : "danger");
+  const pillText = level === "supported"
+    ? t("android.capability.supported")
+    : (level === "partial" ? t("android.capability.partial") : t("android.capability.unsupported"));
+  const detail = check?.recommendation || check?.reason || "";
+  return `
+    <div class="tree-node">
+      <strong>${escapeHtml(label)}</strong>
+      <span>
+        <span class="status-pill ${pillClass}">${escapeHtml(pillText)}</span>
+        ${detail ? `<small>${escapeHtml(detail)}</small>` : ""}
+      </span>
+    </div>
+  `;
 }
 
 function sideProfileSummary(profile, t) {
@@ -381,6 +435,8 @@ export function syncAndroidDeviceSelection(select, { state, t, showToast }) {
   if (!state.android) state.android = {};
   state.android.selectedDevice = select.value;
   state.android.deviceProfile = null;
+  state.android.capabilities = null;
+  state.android.session = null;
   if (select.value) {
     const device = selectedAndroidDevice(state.android.devices || [], select.value);
     const type = isReadyAndroidDevice(device) ? "success" : "warning";
@@ -430,6 +486,8 @@ async function listDevices(button, { apiRequest, backendReady, state, t, showToa
     state.android.devices = devices;
     state.android.selectedDevice = selectedAndroidDevice(devices, state.android.selectedDevice)?.serial || "";
     state.android.deviceProfile = null;
+    state.android.capabilities = null;
+    state.android.session = null;
     render();
     showToast(devices.length
       ? t("android.devices.listed", { count: String(devices.length) })
@@ -462,6 +520,8 @@ async function fetchDeviceProfile(button, { apiRequest, backendReady, state, t, 
     });
     if (!state.android) state.android = {};
     state.android.deviceProfile = result.profile || null;
+    state.android.capabilities = result.capabilities || null;
+    state.android.session = result.session || null;
     render();
     showToast(t("android.profile.loaded"), "success");
   } catch (error) {
