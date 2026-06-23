@@ -9,6 +9,7 @@ mod manifest;
 mod orchestrator;
 mod profile;
 mod ram;
+mod remote;
 mod session;
 
 pub use adb::{AdbStatus, AndroidDevice, adb_status, list_devices};
@@ -34,5 +35,9 @@ pub use orchestrator::{
 pub use profile::{AndroidDeviceProfile, detect_device_profile};
 pub use ram::{
     AndroidRamAcquisitionResult, AndroidRamMode, ram_acquisition, ram_acquisition_with_mode,
+};
+pub use remote::{
+    LemonPreflight, RemoteAndroidEndpoint, RemoteConnectResult, RemoteEndpointKind,
+    connect_remote_endpoint, disconnect_remote_endpoint, lemon_preflight,
 };
 pub use session::{AndroidSession, AndroidTransport, AndroidTransportKind, build_android_session};

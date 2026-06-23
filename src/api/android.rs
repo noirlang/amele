@@ -465,3 +465,91 @@ fn android_job_should_stop(control: &ram::CancellationToken) -> bool {
     }
     control.is_cancelled()
 }
+
+// ---------------------------------------------------------------------------
+// Lemon fiziksel RAM ön kontrol endpoint'i
+// ---------------------------------------------------------------------------
+
+/// Cihazın Lemon ile fiziksel RAM dump'ına uygunluğunu kontrol eder.
+///
+/// Senkron ve hızlı çalışır (~5-10s). ABI, root, eBPF/BTF, SoC uyarısı döner.
+pub fn android_lemon_preflight_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct LemonPreflightRequest {
+        serial: String,
+    }
+
+    let request: LemonPreflightRequest = match serde_json::from_slice(body) {
+        Ok(r) => r,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let serial = request.serial.trim();
+    if serial.is_empty() {
+        return json_error(400, "serial is required");
+    }
+
+    let report = android::lemon_preflight(serial);
+    json_ok(serde_json::to_value(report).unwrap_or(serde_json::Value::Null))
+}
+
+// ---------------------------------------------------------------------------
+// Remote ADB / MESH endpoint bağlantı yönetimi
+// ---------------------------------------------------------------------------
+
+/// Belirtilen host:port'a `adb connect` komutuyla bağlanır.
+pub fn android_remote_connect_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct RemoteConnectRequest {
+        host: String,
+        port: Option<u16>,
+        label: Option<String>,
+        /// "tcp_adb" veya "mesh_relay"
+        kind: Option<String>,
+    }
+
+    let request: RemoteConnectRequest = match serde_json::from_slice(body) {
+        Ok(r) => r,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let host = request.host.trim();
+    if host.is_empty() {
+        return json_error(400, "host is required");
+    }
+
+    let port = request.port.unwrap_or(5555);
+    let kind = match request.kind.as_deref().unwrap_or("tcp_adb") {
+        "mesh_relay" => android::RemoteEndpointKind::MeshRelay,
+        _ => android::RemoteEndpointKind::TcpAdb,
+    };
+
+    let endpoint = android::RemoteAndroidEndpoint {
+        label: request.label.unwrap_or_else(|| format!("{host}:{port}")),
+        host: host.to_string(),
+        port,
+        kind,
+    };
+
+    let result = android::connect_remote_endpoint(&endpoint);
+    json_ok(serde_json::to_value(&result).unwrap_or(serde_json::Value::Null))
+}
+
+/// Belirtilen serial'ı ADB cihaz listesinden çıkarır (`adb disconnect`).
+pub fn android_remote_disconnect_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct RemoteDisconnectRequest {
+        serial: String,
+    }
+
+    let request: RemoteDisconnectRequest = match serde_json::from_slice(body) {
+        Ok(r) => r,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let serial = request.serial.trim();
+    if serial.is_empty() {
+        return json_error(400, "serial is required");
+    }
+
+    let result = android::disconnect_remote_endpoint(serial);
+    json_ok(serde_json::to_value(&result).unwrap_or(serde_json::Value::Null))
+}
+
