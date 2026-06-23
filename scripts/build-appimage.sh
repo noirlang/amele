@@ -45,7 +45,8 @@ mkdir -p \
   "$APPDIR/usr/share/applications" \
   "$APPDIR/usr/share/icons/hicolor/256x256/apps"
 
-install -m 755 "$ROOT_DIR/target/release/worm" "$APPDIR/usr/bin/worm"
+install -m 755 "$ROOT_DIR/target/release/worm" "$APPDIR/usr/bin/worm-forensic-tool"
+ln -s worm-forensic-tool "$APPDIR/usr/bin/worm"
 cp -a "$ROOT_DIR/ui/." "$APPDIR/usr/share/worm/ui/"
 cp -a "$ROOT_DIR/tools/." "$APPDIR/usr/share/worm/tools/"
 cp -a "$ROOT_DIR/vendor/volatility3" "$APPDIR/usr/share/worm/vendor/"
@@ -73,7 +74,7 @@ install -m 644 "$APPDIR/usr/share/icons/hicolor/256x256/apps/worm.png" "$APPDIR/
 
 NO_STRIP="${NO_STRIP:-1}" STRIP="${STRIP:-/usr/bin/strip}" OUTPUT="$APPIMAGE" "$LINUXDEPLOY_RUN" \
   --appdir "$APPDIR" \
-  --executable "$APPDIR/usr/bin/worm" \
+  --executable "$APPDIR/usr/bin/worm-forensic-tool" \
   --deploy-deps-only "$APPDIR/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1" \
   --desktop-file "$APPDIR/worm.desktop" \
   --icon-file "$APPDIR/worm.png" \

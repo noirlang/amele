@@ -2,7 +2,7 @@
 Type=Application
 Name=Worm Forensic Tool
 Comment=Disk and RAM acquisition for forensic workflows
-Exec=worm ui
+Exec=worm-forensic-tool ui
 Icon=worm
 Terminal=false
 Categories=Utility;Security;

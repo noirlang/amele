@@ -33,7 +33,8 @@ prepare_stage() {
     "$STAGE_DIR/usr/share/applications" \
     "$STAGE_DIR/usr/share/icons/hicolor/256x256/apps"
 
-  install -m 755 "$ROOT_DIR/target/release/worm" "$STAGE_DIR/usr/bin/worm"
+  install -m 755 "$ROOT_DIR/target/release/worm" "$STAGE_DIR/usr/bin/worm-forensic-tool"
+  ln -s worm-forensic-tool "$STAGE_DIR/usr/bin/worm"
   cp -a "$ROOT_DIR/ui/." "$STAGE_DIR/usr/share/worm/ui/"
   cp -a "$ROOT_DIR/tools/." "$STAGE_DIR/usr/share/worm/tools/"
   cp -a "$ROOT_DIR/vendor/volatility3" "$STAGE_DIR/usr/share/worm/vendor/"
@@ -102,6 +103,7 @@ cp -a %{_worm_stagedir}/* %{buildroot}/
 
 %files
 /usr/bin/worm
+/usr/bin/worm-forensic-tool
 /usr/share/worm
 /usr/share/applications/worm.desktop
 /usr/share/icons/hicolor/256x256/apps/worm.png
