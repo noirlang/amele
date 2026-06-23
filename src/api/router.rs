@@ -38,7 +38,9 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
         ("POST", "/api/android-ram-image") => android::android_ram_image_endpoint(body),
         ("POST", "/api/android-lemon-preflight") => android::android_lemon_preflight_endpoint(body),
         ("POST", "/api/android-remote-connect") => android::android_remote_connect_endpoint(body),
-        ("POST", "/api/android-remote-disconnect") => android::android_remote_disconnect_endpoint(body),
+        ("POST", "/api/android-remote-disconnect") => {
+            android::android_remote_disconnect_endpoint(body)
+        }
         ("POST", "/api/android-case-analysis") => android::android_case_analysis_endpoint(body),
         ("GET", "/api/ram-status") => json_ok(serde_json::json!({
             "avml": crate::ram::avml_status(None),
