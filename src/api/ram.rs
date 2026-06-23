@@ -714,7 +714,10 @@ fn run_elevated_local_ram_job(
     request: &LocalRamRequest,
     control: &ram::CancellationToken,
 ) {
-    update_acquisition_message(job_id, "Yetki bekleniyor");
+    update_acquisition_message(
+        job_id,
+        "Yetki bekleniyor: Linux'ta sudo/pkexec parola penceresini, Windows'ta UAC Evet/Hayır penceresini onaylayın.",
+    );
     let stem = helper_file_stem("worm-ram-helper");
     let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
     let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
@@ -753,6 +756,10 @@ fn run_elevated_local_ram_job(
             return;
         }
     };
+    update_acquisition_message(
+        job_id,
+        &format!("Yetki helper başlatıldı: {}", child.method()),
+    );
 
     loop {
         if control.is_cancelled() {
@@ -795,9 +802,8 @@ fn run_elevated_local_ram_job(
         match child.try_wait() {
             Ok(Some(status)) => {
                 if !status.success() {
-                    let error = read_helper_error(&result_path).unwrap_or_else(|| {
-                        "yetki yükseltme iptal edildi veya başarısız oldu".to_string()
-                    });
+                    let error = read_helper_error(&result_path)
+                        .unwrap_or_else(|| child.failure_message(&status));
                     cleanup_helper_files(&[
                         &request_path,
                         &result_path,

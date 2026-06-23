@@ -111,7 +111,7 @@ pub fn disk_list_endpoint() -> Response {
                     Err(err) => json_ok(json!({
                         "disks": disks,
                         "elevated": false,
-                        "elevation_error": err,
+                        "elevation_error": crate::diagnostics::error_with_advice(&err),
                     })),
                 }
             } else {
@@ -297,7 +297,10 @@ fn run_elevated_local_image_job(
     task: &DiskAcquisitionTask,
     control: &ram::CancellationToken,
 ) {
-    update_acquisition_message(job_id, "Yetki bekleniyor");
+    update_acquisition_message(
+        job_id,
+        "Yetki bekleniyor: Linux'ta sudo/pkexec parola penceresini, Windows'ta UAC Evet/Hayır penceresini onaylayın.",
+    );
     let stem = helper_file_stem("worm-image-helper");
     let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
     let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
@@ -335,6 +338,10 @@ fn run_elevated_local_image_job(
             return;
         }
     };
+    update_acquisition_message(
+        job_id,
+        &format!("Yetki helper başlatıldı: {}", child.method()),
+    );
 
     loop {
         if control.is_cancelled() {
@@ -377,9 +384,8 @@ fn run_elevated_local_image_job(
         match child.try_wait() {
             Ok(Some(status)) => {
                 if !status.success() {
-                    let error = super::read_helper_error(&result_path).unwrap_or_else(|| {
-                        "yetki yükseltme iptal edildi veya başarısız oldu".to_string()
-                    });
+                    let error = super::read_helper_error(&result_path)
+                        .unwrap_or_else(|| child.failure_message(&status));
                     cleanup_helper_files(&[
                         &request_path,
                         &result_path,
@@ -670,95 +676,18 @@ pub fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
     #[cfg(windows)]
     {
         let _ = image_unmount_current();
-        let output = Command::new("powershell")
-            .arg("-NoProfile")
-            .arg("-ExecutionPolicy")
-            .arg("Bypass")
-            .arg("-Command")
-            .arg(
-                "$ErrorActionPreference='Stop'; \
-                 $image = $args[0]; \
-                 Mount-DiskImage -ImagePath $image -Access ReadOnly | Out-Null; \
-                 Start-Sleep -Milliseconds 500; \
-                 $diskImage = Get-DiskImage -ImagePath $image; \
-                 $disk = $diskImage | Get-Disk -ErrorAction Stop; \
-                 $partition = $disk | Get-Partition | Where-Object { $_.Type -ne 'Reserved' } | Select-Object -First 1; \
-                 $volume = $partition | Get-Volume -ErrorAction SilentlyContinue; \
-                 if ($volume -and $volume.DriveLetter) { \
-                   Write-Output ($volume.DriveLetter + ':\\'); \
-                   exit 0; \
-                 }; \
-                 $accessPath = $partition.AccessPaths | Where-Object { $_ -like '*:\\*' -or $_ -like '\\\\?\\Volume*' } | Select-Object -First 1; \
-                 if ($accessPath) { \
-                   Write-Output $accessPath; \
-                   exit 0; \
-                 }; \
-                 if (-not $volume -or -not $volume.DriveLetter) { \
-                   Dismount-DiskImage -ImagePath $image -ErrorAction SilentlyContinue; \
-                   throw 'Mounted image has no drive letter. Windows supports ISO/VHD/VHDX here; raw DD/IMG needs a forensic image driver.' \
-                 }",
-            )
-            .arg(&image_path)
-            .output();
-
-        match output {
-            Ok(output) if output.status.success() => {
-                let mount_dir_text = String::from_utf8_lossy(&output.stdout);
-                let mount_dir = mount_dir_text
-                    .lines()
-                    .map(str::trim)
-                    .filter(|line| !line.is_empty())
-                    .last()
-                    .map(PathBuf::from);
-                let Some(mount_dir) = mount_dir else {
-                    return image_analysis_only_response(
+        match windows_mount_image_readonly(&image_path) {
+            Ok(mount_dir) => windows_mount_success_response(&image_path, mount_dir),
+            Err(err) if windows_mount_error_can_retry_elevated(&err) && !process_is_root() => {
+                match elevated_windows_mount_image_readonly(&image_path) {
+                    Ok(mount_dir) => windows_mount_success_response(&image_path, mount_dir),
+                    Err(elevated_err) => image_analysis_only_response(
                         &image_path,
-                        "Windows mount succeeded but did not return a readable mount path.",
-                    );
-                };
-                if !mount_dir.exists() {
-                    return image_analysis_only_response(
-                        &image_path,
-                        format!(
-                            "Windows mount returned an unreadable path: {}",
-                            mount_dir.display()
-                        ),
-                    );
+                        format!("{err}\nYetkili Windows mount denemesi başarısız: {elevated_err}"),
+                    ),
                 }
-                let tree = directory_tree_json(&mount_dir, 3, 400);
-                let analysis = disk_analysis_value(&image_path, Some(&mount_dir));
-                let state = ImageMountState {
-                    image_path: image_path.clone(),
-                    mount_dir: mount_dir.clone(),
-                };
-                if let Ok(mut current) = current_image_mount().lock() {
-                    *current = Some(state);
-                }
-                json_ok(json!({
-                    "image_path": image_path,
-                    "mount_dir": mount_dir,
-                    "mount_mode": "mounted",
-                    "tree": tree,
-                    "analysis": analysis,
-                }))
             }
-            Ok(output) => {
-                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-                let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                image_analysis_only_response(
-                    &image_path,
-                    if stderr.is_empty() {
-                        if stdout.is_empty() {
-                            "Windows image mount failed".to_string()
-                        } else {
-                            stdout
-                        }
-                    } else {
-                        stderr
-                    },
-                )
-            }
-            Err(err) => image_analysis_only_response(&image_path, err.to_string()),
+            Err(err) => image_analysis_only_response(&image_path, err),
         }
     }
 
@@ -769,6 +698,163 @@ pub fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
             "read-only image mount is not supported on this platform",
         )
     }
+}
+
+#[cfg(windows)]
+/// Windows PowerShell Storage modülüyle ISO/VHD/VHDX imajını salt-okunur bağlar.
+fn windows_mount_image_readonly(image_path: &Path) -> Result<PathBuf, String> {
+    let output = Command::new("powershell")
+        .arg("-NoProfile")
+        .arg("-ExecutionPolicy")
+        .arg("Bypass")
+        .arg("-Command")
+        .arg(
+            "$ErrorActionPreference='Stop'; \
+             $image = $args[0]; \
+             Mount-DiskImage -ImagePath $image -Access ReadOnly | Out-Null; \
+             Start-Sleep -Milliseconds 500; \
+             $diskImage = Get-DiskImage -ImagePath $image; \
+             $disk = $diskImage | Get-Disk -ErrorAction Stop; \
+             $partition = $disk | Get-Partition | Where-Object { $_.Type -ne 'Reserved' } | Select-Object -First 1; \
+             $volume = $partition | Get-Volume -ErrorAction SilentlyContinue; \
+             if ($volume -and $volume.DriveLetter) { \
+               Write-Output ($volume.DriveLetter + ':\\'); \
+               exit 0; \
+             }; \
+             $accessPath = $partition.AccessPaths | Where-Object { $_ -like '*:\\*' -or $_ -like '\\\\?\\Volume*' } | Select-Object -First 1; \
+             if ($accessPath) { \
+               Write-Output $accessPath; \
+               exit 0; \
+             }; \
+             Dismount-DiskImage -ImagePath $image -ErrorAction SilentlyContinue; \
+             throw 'Mounted image has no drive letter. Windows supports ISO/VHD/VHDX here; raw DD/IMG needs a forensic image driver.'",
+        )
+        .arg(image_path)
+        .output()
+        .map_err(|err| err.to_string())?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        return Err(if stderr.is_empty() {
+            if stdout.is_empty() {
+                "Windows image mount failed".to_string()
+            } else {
+                stdout
+            }
+        } else {
+            stderr
+        });
+    }
+
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .last()
+        .map(PathBuf::from)
+        .ok_or_else(|| {
+            "Windows mount succeeded but did not return a readable mount path.".to_string()
+        })
+}
+
+#[cfg(windows)]
+/// Windows mount sonucu başarılıysa ortak JSON cevabını üretir.
+fn windows_mount_success_response(image_path: &Path, mount_dir: PathBuf) -> Response {
+    let tree = directory_tree_json(&mount_dir, 3, 400);
+    let analysis = disk_analysis_value(image_path, Some(&mount_dir));
+    let state = ImageMountState {
+        image_path: image_path.to_path_buf(),
+        mount_dir: mount_dir.clone(),
+    };
+    if let Ok(mut current) = current_image_mount().lock() {
+        *current = Some(state);
+    }
+    json_ok(json!({
+        "image_path": image_path,
+        "mount_dir": mount_dir,
+        "mount_mode": "mounted",
+        "tree": tree,
+        "analysis": analysis,
+    }))
+}
+
+#[cfg(windows)]
+/// Windows'ta Mount-DiskImage yetki isterse UAC helper üzerinden tekrar dener.
+fn elevated_windows_mount_image_readonly(image_path: &Path) -> Result<PathBuf, String> {
+    let stem = helper_file_stem("worm-windows-mount-helper");
+    let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
+    let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
+    let mount_dir = std::env::temp_dir().join(format!("{stem}-mount-placeholder"));
+    write_json_file(
+        &request_path,
+        &json!({
+            "action": "mount",
+            "image_path": image_path,
+            "mount_dir": mount_dir,
+        }),
+    )?;
+
+    let args = vec![
+        "mount-helper".to_string(),
+        request_path.to_string_lossy().into_owned(),
+        result_path.to_string_lossy().into_owned(),
+    ];
+    let mut child = match spawn_elevated_helper(&args) {
+        Ok(child) => child,
+        Err(err) => {
+            cleanup_helper_files(&[&request_path, &result_path]);
+            return Err(err);
+        }
+    };
+
+    let status = child.wait()?;
+    let helper_result = read_helper_json(&result_path).ok();
+    cleanup_helper_files(&[&request_path, &result_path]);
+    if !status.success() {
+        return Err(helper_result
+            .as_ref()
+            .and_then(|value| value.get("error"))
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .unwrap_or_else(|| child.failure_message(&status)));
+    }
+
+    let helper_result =
+        helper_result.ok_or_else(|| "Windows mount helper result dosyası dönmedi".to_string())?;
+    if helper_result.get("ok").and_then(Value::as_bool) != Some(true) {
+        return Err(helper_result
+            .get("error")
+            .and_then(Value::as_str)
+            .unwrap_or("Windows mount helper başarısız")
+            .to_string());
+    }
+
+    let mount_dir = helper_result
+        .get("mount_dir")
+        .and_then(Value::as_str)
+        .map(PathBuf::from)
+        .ok_or_else(|| "Windows mount helper mount yolunu döndürmedi".to_string())?;
+    if !mount_dir.exists() {
+        return Err(format!(
+            "Windows mount helper okunabilir mount yolu döndürmedi: {}",
+            mount_dir.display()
+        ));
+    }
+    Ok(mount_dir)
+}
+
+#[cfg(windows)]
+/// Windows mount hatası yetki ile tekrar denenebilir mi kontrol eder.
+fn windows_mount_error_can_retry_elevated(message: &str) -> bool {
+    let lower = message.to_lowercase();
+    lower.contains("access is denied")
+        || lower.contains("access denied")
+        || lower.contains("erişim engellendi")
+        || lower.contains("administrator")
+        || lower.contains("privilege")
+        || lower.contains("requires elevation")
+        || lower.contains("0x80070005")
 }
 
 #[cfg(windows)]

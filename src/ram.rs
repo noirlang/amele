@@ -2,6 +2,7 @@
 use crate::error::{HataKodu, WormError, WormResult};
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
@@ -316,10 +317,17 @@ where
                     bytes_written: size,
                 });
             }
-            return Err(WormError::new(
-                HataKodu::DosyaYazma,
-                format!("RAM araci basarisiz oldu: {status}"),
-            ));
+            let mut stderr = String::new();
+            if let Some(mut pipe) = child.stderr.take() {
+                let _ = pipe.read_to_string(&mut stderr);
+            }
+            let stderr = stderr.trim();
+            let detail = if stderr.is_empty() {
+                format!("RAM araci basarisiz oldu: {status}")
+            } else {
+                format!("RAM araci basarisiz oldu: {status}\nAyrıntı: {stderr}")
+            };
+            return Err(WormError::new(HataKodu::DosyaYazma, detail));
         }
 
         if started.elapsed() > timeout {

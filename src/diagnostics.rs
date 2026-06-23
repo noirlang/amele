@@ -63,6 +63,25 @@ pub fn classify_error(message: &str) -> ErrorAdvice {
         };
     }
 
+    if lower.contains("uac")
+        || lower.contains("runas")
+        || lower.contains("pkexec")
+        || lower.contains("sudo")
+        || lower.contains("askpass")
+        || lower.contains("polkit")
+        || lower.contains("yetki yükseltme")
+        || lower.contains("yetki yukseltme")
+        || lower.contains("root yetkisi")
+        || lower.contains("administrator privileges")
+        || lower.contains("requires administrator")
+    {
+        return ErrorAdvice {
+            code: "ELEVATION_FAILED",
+            detail: "Islem root/administrator yetkisi gerektiriyor ancak yetki onayi tamamlanamadi.",
+            suggestion: "Linux'ta sudo/pkexec parola penceresini onaylayin; pencere acilmiyorsa polkit agent veya zenity/kdialog/ssh-askpass kurun. Windows'ta UAC penceresini onaylayin veya Worm'u yonetici olarak baslatin.",
+        };
+    }
+
     if lower.contains("permission denied")
         || lower.contains("access denied")
         || lower.contains("erisim engellendi")
@@ -213,6 +232,36 @@ pub fn classify_error(message: &str) -> ErrorAdvice {
     }
 }
 
+/// Ham hata metnini Kod/Neden/Cozum satirlariyla zenginlestirir.
+pub fn error_with_advice(message: &str) -> String {
+    let message = message.trim();
+    if message.is_empty() {
+        return String::new();
+    }
+    if has_structured_advice(message) {
+        return message.to_string();
+    }
+    let advice = classify_error(message);
+    format!(
+        "{message}\nKod: {}\nNeden: {}\nCozum: {}",
+        advice.code, advice.detail, advice.suggestion
+    )
+}
+
+/// Hata metninde zaten kullaniciya donen yapilandirilmis oneriler var mi kontrol eder.
+pub fn has_structured_advice(message: &str) -> bool {
+    message.lines().any(|line| {
+        let trimmed = line.trim_start();
+        trimmed.starts_with("Kod:")
+            || trimmed.starts_with("Code:")
+            || trimmed.starts_with("Neden:")
+            || trimmed.starts_with("Reason:")
+            || trimmed.starts_with("Cozum:")
+            || trimmed.starts_with("Çözüm:")
+            || trimmed.starts_with("Suggestion:")
+    })
+}
+
 /// Uygulama açılış hatasını ayrıntılı kullanıcı mesajına dönüştürür.
 pub fn startup_error(stage: &str, message: &str) -> String {
     let advice = classify_error(message);
@@ -253,6 +302,18 @@ mod tests {
         assert_eq!(
             classify_error("Disk access error: Access denied (os error 13)").code,
             "PERMISSION_DENIED"
+        );
+    }
+
+    #[test]
+    fn classifies_elevation_errors() {
+        assert_eq!(
+            classify_error("pkexec failed: No authentication agent found").code,
+            "ELEVATION_FAILED"
+        );
+        assert_eq!(
+            classify_error("Windows UAC penceresi kullanıcı tarafından iptal edildi").code,
+            "ELEVATION_FAILED"
         );
     }
 

@@ -2,8 +2,14 @@ import { escapeHtml } from "./utils.js";
 
 const KNOWN_ERROR_RULES = [
   {
+    code: "ELEVATION_FAILED",
+    patterns: ["uac", "runas", "pkexec", "sudo", "askpass", "polkit", "yetki yükseltme", "yetki yukseltme", "root yetkisi", "administrator privileges", "requires administrator"],
+    detail: "İşlem root/administrator yetkisi gerektiriyor ancak yetki onayı tamamlanamadı.",
+    suggestion: "Linux'ta sudo/pkexec parola penceresini onaylayın; pencere açılmıyorsa polkit agent veya zenity/kdialog/ssh-askpass kurun. Windows'ta UAC penceresini onaylayın veya Worm'u yönetici olarak başlatın."
+  },
+  {
     code: "PERMISSION_DENIED",
-    patterns: ["permission denied", "access denied", "erişim engellendi", "erisim engellendi", "os error 13", "yetki", "uac", "sudo", "pkexec"],
+    patterns: ["permission denied", "access denied", "erişim engellendi", "erisim engellendi", "os error 13", "yetki"],
     detail: "İşlem için gerekli sistem yetkisi alınamadı.",
     suggestion: "Linux'ta sudo/pkexec onayını verin. Windows'ta UAC penceresini onaylayın veya uygulamayı yönetici olarak açın."
   },

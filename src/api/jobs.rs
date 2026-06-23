@@ -107,6 +107,7 @@ pub fn finish_acquisition_job_with_message(job_id: &str, result: Value, message:
 
 /// İşi başarısız olarak işaretler ve hata mesajını log'a yazar.
 pub fn fail_acquisition_job_with_message(job_id: &str, error: String, message: &str) {
+    let error = crate::diagnostics::error_with_advice(&error);
     if let Ok(mut jobs) = acquisition_jobs().lock()
         && let Some(job) = jobs.get_mut(job_id)
     {
