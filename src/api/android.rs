@@ -3,13 +3,14 @@ use crate::android;
 use crate::android_analysis;
 use crate::api::{
     create_acquisition_job, evidence_vault_for_output, fail_acquisition_job_with_message,
-    finish_acquisition_job_with_message, report_evidence_vault,
+    finish_acquisition_job_with_message, report_evidence_vault, sanitize_file_stem,
     update_acquisition_progress_message,
 };
 use crate::ram;
 use crate::server::{Response, json_error, json_ok};
 use serde::Deserialize;
 use serde_json::json;
+use std::path::{Path, PathBuf};
 use std::thread;
 
 /// Seçilen vakanın Android çıktılarından analiz özeti üretir.
@@ -117,7 +118,13 @@ fn run_android_profile_acquisition_job(
         }
     };
 
-    let android_dir = vault.case_dir.join("android");
+    let android_dir = match android_edinim_klasoru(&vault.android_dir, "profile", &serial) {
+        Ok(path) => path,
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err, "Android profil edinimi basarisiz");
+            return;
+        }
+    };
     if let Err(err) = std::fs::create_dir_all(&android_dir) {
         fail_acquisition_job_with_message(
             &job_id,
@@ -211,7 +218,13 @@ fn run_android_logical_job(
         }
     };
 
-    let android_dir = vault.case_dir.join("android");
+    let android_dir = match android_edinim_klasoru(&vault.android_dir, "logical", &serial) {
+        Ok(path) => path,
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err, "Android imaj alma basarisiz");
+            return;
+        }
+    };
     if let Err(err) = std::fs::create_dir_all(&android_dir) {
         fail_acquisition_job_with_message(&job_id, err.to_string(), "Android imaj alma basarisiz");
         return;
@@ -308,7 +321,17 @@ fn run_android_filesystem_job(
         }
     };
 
-    let android_dir = vault.case_dir.join("android");
+    let android_dir = match android_edinim_klasoru(&vault.android_dir, "filesystem", &serial) {
+        Ok(path) => path,
+        Err(err) => {
+            fail_acquisition_job_with_message(
+                &job_id,
+                err,
+                "Android dosya sistemi imaj alma basarisiz",
+            );
+            return;
+        }
+    };
     if let Err(err) = std::fs::create_dir_all(&android_dir) {
         fail_acquisition_job_with_message(
             &job_id,
@@ -409,7 +432,13 @@ fn run_android_ram_job(
         }
     };
 
-    let android_dir = vault.case_dir.join("android");
+    let android_dir = match android_edinim_klasoru(&vault.android_dir, "ram", &serial) {
+        Ok(path) => path,
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err, "Android RAM imaj alma basarisiz");
+            return;
+        }
+    };
     if let Err(err) = std::fs::create_dir_all(&android_dir) {
         fail_acquisition_job_with_message(
             &job_id,
@@ -456,6 +485,34 @@ fn fail_android_job(job_id: &str, err: String, title: &str) {
     fail_acquisition_job_with_message(job_id, android::explain_android_error(err), title);
 }
 
+fn android_edinim_klasoru(
+    android_kok_klasoru: &Path,
+    edinim_turu: &str,
+    serial: &str,
+) -> Result<PathBuf, String> {
+    let tarih = chrono::Local::now().format("%Y%m%d_%H%M%S").to_string();
+    let temiz_tur = sanitize_file_stem(edinim_turu);
+    let temiz_serial = sanitize_file_stem(serial);
+    let klasor_on_adi = if temiz_serial.is_empty() {
+        format!("{temiz_tur}_{tarih}")
+    } else {
+        format!("{temiz_tur}_{temiz_serial}_{tarih}")
+    };
+
+    let mut bingol = klasor_on_adi.clone();
+    let mut cikti_klasoru = android_kok_klasoru.join(&bingol);
+    let mut tekrar = 1_u32;
+    while cikti_klasoru.exists() {
+        bingol = format!("{klasor_on_adi}_{tekrar}");
+        cikti_klasoru = android_kok_klasoru.join(&bingol);
+        tekrar += 1;
+    }
+
+    std::fs::create_dir_all(&cikti_klasoru)
+        .map_err(|err| format!("Android edinim klasoru olusturulamadi: {err}"))?;
+    Ok(cikti_klasoru)
+}
+
 fn android_job_should_stop(control: &ram::CancellationToken) -> bool {
     while control.is_paused() {
         if control.is_cancelled() {
@@ -464,6 +521,25 @@ fn android_job_should_stop(control: &ram::CancellationToken) -> bool {
         std::thread::sleep(std::time::Duration::from_millis(250));
     }
     control.is_cancelled()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn android_edinim_klasoru_ayni_vakada_ciktilari_ayirir() {
+        let temp = tempfile::tempdir().expect("temp dir");
+
+        let ilk = android_edinim_klasoru(temp.path(), "logical", "emulator:5554").unwrap();
+        let ikinci = android_edinim_klasoru(temp.path(), "logical", "emulator:5554").unwrap();
+
+        assert_ne!(ilk, ikinci);
+        assert!(ilk.is_dir());
+        assert!(ikinci.is_dir());
+        assert_eq!(ilk.parent(), Some(temp.path()));
+        assert_eq!(ikinci.parent(), Some(temp.path()));
+    }
 }
 
 // ---------------------------------------------------------------------------
