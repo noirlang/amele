@@ -354,6 +354,7 @@ where
                     last_error = err.to_string();
                     runtime_log(
                         LogLevel::Warn,
+                        "ram",
                         format!("WinPMEM spawn hatasi: {}", last_error),
                     );
                 }

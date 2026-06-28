@@ -203,12 +203,9 @@ fn developer_system_snapshot() -> Value {
     let username = std::env::var("USER")
         .or_else(|_| std::env::var("USERNAME"))
         .ok();
-    let timezone = std::env::var("TZ").ok()
-        .or_else(|| {
-            std::panic::catch_unwind(|| {
-                chrono::Local::now().format("%Z").to_string()
-            }).ok()
-        });
+    let timezone = std::env::var("TZ").ok().or_else(|| {
+        std::panic::catch_unwind(|| chrono::Local::now().format("%Z").to_string()).ok()
+    });
 
     let server_port = crate::api::current_server_port();
 
@@ -248,15 +245,27 @@ fn get_system_memory() -> (Option<u64>, Option<u64>) {
         let mut free = None;
         for line in content.lines() {
             if let Some(val) = line.strip_prefix("MemTotal:") {
-                total = val.trim().split_whitespace().next().and_then(|v| v.parse::<u64>().ok()).map(|kb| kb * 1024);
+                total = val
+                    .trim()
+                    .split_whitespace()
+                    .next()
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .map(|kb| kb * 1024);
             } else if let Some(val) = line.strip_prefix("MemAvailable:") {
-                free = val.trim().split_whitespace().next().and_then(|v| v.parse::<u64>().ok()).map(|kb| kb * 1024);
+                free = val
+                    .trim()
+                    .split_whitespace()
+                    .next()
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .map(|kb| kb * 1024);
             }
         }
         (total, free)
     }
     #[cfg(not(target_os = "linux"))]
-    { (None, None) }
+    {
+        (None, None)
+    }
 }
 
 /// Uzak agent bağlantı bilgisini doğrular.
