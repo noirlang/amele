@@ -731,8 +731,8 @@ function _logBrowserEnv(apiRequest, backendReady) {
 }
 
 function _installApiInterceptor(apiRequest, backendReady) {
+  if (typeof window.fetch !== "function") return;
   const originalFetch = window.fetch.bind(window);
-  const nativeWebView = isNativeWebView;
   window.fetch = async (...args) => {
     const url = typeof args[0] === "string" ? args[0] : args[0]?.url || "?";
     const method = args[1]?.method || "GET";
