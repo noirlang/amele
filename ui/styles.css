@@ -2870,13 +2870,9 @@ code {
 .dev-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: transparent;
+  pointer-events: none; /* Arkadaki sayfa tıklanabilsin */
   z-index: 9950;
-  display: flex;
-  align-items: flex-end;
-  justify-content: stretch;
   opacity: 0;
   transition: opacity 260ms ease;
 }
@@ -2888,33 +2884,32 @@ code {
 /* ── Panel ───────────────────────────────────────────────────── */
 
 .dev-panel {
-  width: 100%;
-  height: 72vh;
-  min-height: 420px;
-  max-height: 88vh;
+  position: fixed;
+  min-width: 450px;
+  min-height: 300px;
   background:
     linear-gradient(180deg, #0b1020 0%, #080d1a 100%);
-  border-top: 1px solid rgba(100, 160, 255, 0.25);
-  border-left: 1px solid rgba(100, 160, 255, 0.12);
-  border-right: 1px solid rgba(100, 160, 255, 0.12);
-  border-radius: 16px 16px 0 0;
+  border: 1px solid rgba(100, 160, 255, 0.25);
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-shadow:
-    0 -24px 64px rgba(0, 0, 0, 0.6),
-    0 -2px 12px rgba(100, 160, 255, 0.08);
-  transform: translateY(100%);
-  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+    0 16px 48px rgba(0, 0, 0, 0.7),
+    0 2px 12px rgba(100, 160, 255, 0.12);
+  pointer-events: auto; /* Panel içi tıklanabilsin */
+  transition: opacity 200ms ease;
 }
 
-.dev-overlay.open .dev-panel {
-  transform: translateY(0);
+/* Ekranı kapladığında geçişli olmasın */
+.dev-panel.maximized {
+  border-radius: 0;
+  border: none;
 }
 
-/* ── Header ──────────────────────────────────────────────────── */
-
+/* Sürükleme alanı */
 .dev-header {
+  cursor: move;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2922,7 +2917,21 @@ code {
   border-bottom: 1px solid rgba(100, 160, 255, 0.12);
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.025);
+  user-select: none;
 }
+
+/* Resize Handle (Sağ Alt Köşe) */
+.dev-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  cursor: se-resize;
+  background: linear-gradient(135deg, transparent 50%, rgba(100, 160, 255, 0.3) 50%, rgba(100, 160, 255, 0.3) 65%, transparent 65%, transparent 75%, rgba(100, 160, 255, 0.3) 75%);
+  z-index: 10;
+}
+
 
 .dev-title-row {
   display: flex;

@@ -1,16 +1,15 @@
 /**
  * developer.js — Worm Forensic Tool Developer Mode
  *
- * Ana logoya 5 kez tıklayınca açılan gizli geliştirici paneli.
- * Backend log akışı, sistem bilgisi, iş durumu ve tarayıcı console override'ı içerir.
- * Windows + Linux uyumlu olarak tasarlanmıştır.
+ * Ana logoya 5 kez tıklayınca açılan bağımsız, sürüklenebilir ve boyutlandırılabilir
+ * geliştirici paneli. Log açıkken arkadaki ana uygulamada gezinebilirsiniz.
  */
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const DEV_CLICK_TARGET   = 5;
-const DEV_CLICK_TIMEOUT  = 3000; // ms — art arda 5 tıklama için pencere
-const POLL_INTERVAL      = 1500; // ms — backend log polling
+const DEV_CLICK_TIMEOUT  = 3000; // ms
+const POLL_INTERVAL      = 1500; // ms
 const MAX_FRONTEND_LOGS  = 3000;
 const MAX_DISPLAY_LOGS   = 500;
 
@@ -27,13 +26,17 @@ let filterText       = "";
 let pinToBottom      = true;
 let frontendLogBuf   = [];       // console override buffer
 
+// Pencere Pozisyon Bilgisi
+let posX = 100;
+let posY = 80;
+let width = 850;
+let height = 550;
+let isMaximized = false;
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
  * Developer modunu başlatır. Logoya tıklama sayacını ve console override'ı kurar.
- * @param {Object} opts
- * @param {Function} opts.apiRequest  — app.js'deki apiRequest fonksiyonu
- * @param {Function} opts.backendReady — backend durumu kontrolü
  */
 export function initDeveloperMode({ apiRequest, backendReady }) {
   _installConsoleOverride(apiRequest, backendReady);
@@ -54,7 +57,6 @@ export function devLog(level, scope, message, apiRequest, backendReady) {
 // ─── Click Counter ────────────────────────────────────────────────────────────
 
 function _installBrandClickCounter(apiRequest, backendReady) {
-  // index.html'deki logo butonuna id="brand-logo" eklenmiş olmalı
   document.addEventListener("click", (e) => {
     const logo = e.target.closest("#brand-logo");
     if (!logo) return;
@@ -62,7 +64,6 @@ function _installBrandClickCounter(apiRequest, backendReady) {
     clickCount++;
     if (clickTimer) clearTimeout(clickTimer);
 
-    // Görsel geri bildirim — logo titreşimi
     logo.classList.add("dev-click-pulse");
     setTimeout(() => logo.classList.remove("dev-click-pulse"), 300);
 
@@ -73,7 +74,6 @@ function _installBrandClickCounter(apiRequest, backendReady) {
       return;
     }
 
-    // Kalan tıklama sayısını kısa süre göster
     _showClickHint(logo, DEV_CLICK_TARGET - clickCount);
 
     clickTimer = setTimeout(() => {
@@ -109,7 +109,6 @@ function toggleDevPanel(apiRequest, backendReady) {
 function openDevPanel(apiRequest, backendReady) {
   devOpen = true;
 
-  // Zaten varsa kaldır
   document.getElementById("dev-overlay")?.remove();
 
   const overlay = document.createElement("div");
@@ -118,12 +117,16 @@ function openDevPanel(apiRequest, backendReady) {
   overlay.innerHTML = _buildPanelHtml();
   document.body.appendChild(overlay);
 
-  // requestAnimationFrame ile open class ekle (CSS animasyon için)
+  const panel = document.getElementById("dev-panel");
+  
+  _applyGeometry(panel);
+
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => overlay.classList.add("open"));
+    overlay.classList.add("open");
   });
 
   _bindPanelEvents(overlay, apiRequest, backendReady);
+  _makeDraggable(panel);
   _startPolling(apiRequest, backendReady);
   _refreshPanel();
 }
@@ -139,12 +142,31 @@ function closeDevPanel() {
   }
 }
 
+// ─── Geometry Helpers ─────────────────────────────────────────────────────────
+
+function _applyGeometry(panel) {
+  if (!panel) return;
+  if (isMaximized) {
+    panel.style.top = "0px";
+    panel.style.left = "0px";
+    panel.style.width = "100vw";
+    panel.style.height = "100vh";
+    panel.classList.add("maximized");
+  } else {
+    panel.style.top = `${posY}px`;
+    panel.style.left = `${posX}px`;
+    panel.style.width = `${width}px`;
+    panel.style.height = `${height}px`;
+    panel.classList.remove("maximized");
+  }
+}
+
 // ─── HTML Builder ─────────────────────────────────────────────────────────────
 
 function _buildPanelHtml() {
   return `
     <div class="dev-panel" role="dialog" aria-label="Developer Panel" id="dev-panel">
-      <div class="dev-header">
+      <div class="dev-header" id="dev-header">
         <div class="dev-title-row">
           <span class="dev-badge">🐛 DEV</span>
           <span class="dev-title">Worm Developer Console</span>
@@ -154,6 +176,7 @@ function _buildPanelHtml() {
           <button class="dev-btn dev-btn-sm" id="dev-clear-btn" title="Logları temizle">🗑 Temizle</button>
           <button class="dev-btn dev-btn-sm" id="dev-export-btn" title="Logları dışa aktar">💾 Dışa Aktar</button>
           <button class="dev-btn dev-btn-sm" id="dev-copy-btn" title="Panoya kopyala">📋 Kopyala</button>
+          <button class="dev-btn dev-btn-sm" id="dev-maximize-btn" title="Ekranı Kapla">🗖</button>
           <button class="dev-btn dev-btn-sm dev-btn-danger" id="dev-close-btn" title="Kapat">✕</button>
         </div>
       </div>
@@ -204,17 +227,111 @@ function _buildPanelHtml() {
         <span id="dev-status-left">Toplam: <b id="dev-total-count">0</b> satır</span>
         <span id="dev-status-right">Son güncelleme: <b id="dev-last-update">—</b></span>
       </div>
+      
+      <!-- Resize Handle -->
+      <div class="dev-resize-handle" id="dev-resize-handle"></div>
     </div>
   `;
+}
+
+// ─── Draggable and Resizable Logic ────────────────────────────────────────────
+
+function _makeDraggable(panel) {
+  const header = document.getElementById("dev-header");
+  let startX = 0, startY = 0;
+
+  header.addEventListener("mousedown", (e) => {
+    if (isMaximized) return;
+    if (e.target.closest("button") || e.target.closest("select") || e.target.closest("input")) return;
+
+    e.preventDefault();
+    startX = e.clientX;
+    startY = e.clientY;
+
+    document.addEventListener("mousemove", mouseMoveHandler);
+    document.addEventListener("mouseup", mouseUpHandler);
+  });
+
+  header.addEventListener("dblclick", (e) => {
+    if (e.target.closest("button") || e.target.closest("select") || e.target.closest("input")) return;
+    _toggleMaximize(panel);
+  });
+
+  function mouseMoveHandler(e) {
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    posX += dx;
+    posY += dy;
+
+    posX = Math.max(10, Math.min(window.innerWidth - 150, posX));
+    posY = Math.max(10, Math.min(window.innerHeight - 100, posY));
+
+    panel.style.left = `${posX}px`;
+    panel.style.top = `${posY}px`;
+
+    startX = e.clientX;
+    startY = e.clientY;
+  }
+
+  function mouseUpHandler() {
+    document.removeEventListener("mousemove", mouseMoveHandler);
+    document.removeEventListener("mouseup", mouseUpHandler);
+  }
+
+  // Boyutlandırma (Resize)
+  const resizeHandle = document.getElementById("dev-resize-handle");
+  resizeHandle.addEventListener("mousedown", (e) => {
+    if (isMaximized) return;
+    e.preventDefault();
+    startX = e.clientX;
+    startY = e.clientY;
+
+    document.addEventListener("mousemove", resizeMouseMoveHandler);
+    document.addEventListener("mouseup", resizeMouseUpHandler);
+  });
+
+  function resizeMouseMoveHandler(e) {
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    width = Math.max(400, width + dx);
+    height = Math.max(300, height + dy);
+
+    panel.style.width = `${width}px`;
+    panel.style.height = `${height}px`;
+
+    startX = e.clientX;
+    startY = e.clientY;
+  }
+
+  function resizeMouseUpHandler() {
+    document.removeEventListener("mousemove", resizeMouseMoveHandler);
+    document.removeEventListener("mouseup", resizeMouseUpHandler);
+  }
+}
+
+function _toggleMaximize(panel) {
+  isMaximized = !isMaximized;
+  const btn = document.getElementById("dev-maximize-btn");
+  if (btn) {
+    btn.textContent = isMaximized ? "🗗" : "🗖";
+    btn.title = isMaximized ? "Aşağı Geri Getir" : "Ekranı Kapla";
+  }
+  _applyGeometry(panel);
 }
 
 // ─── Event Bindings ───────────────────────────────────────────────────────────
 
 function _bindPanelEvents(overlay, apiRequest, backendReady) {
+  const panel = document.getElementById("dev-panel");
+
   // Kapatma
   document.getElementById("dev-close-btn")?.addEventListener("click", closeDevPanel);
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) closeDevPanel();
+
+  // Maximize butonu
+  document.getElementById("dev-maximize-btn")?.addEventListener("click", () => {
+    _toggleMaximize(panel);
   });
 
   // Klavye ESC
@@ -295,7 +412,6 @@ async function _fetchLogs(apiRequest, backendReady) {
     if (backendReady()) {
       const data = await apiRequest("/api/developer-logs");
 
-      // Backend logları ekle (seq ile dedupe)
       if (Array.isArray(data.logs)) {
         const newEntries = data.logs
           .filter(e => e.seq > lastLogSeq)
@@ -316,17 +432,15 @@ async function _fetchLogs(apiRequest, backendReady) {
         }
       }
 
-      // Sistem bilgisi güncelle
       if (data.system) {
         _renderSystemInfo(data.system);
       }
 
-      // İş bilgisi güncelle
       if (data.jobs) {
         _renderJobs(data.jobs);
       }
 
-      _updateStatusBar(data.logs?.length);
+      _updateStatusBar();
     }
     _refreshPanel();
   } catch (err) {
@@ -426,15 +540,14 @@ function _renderSystemInfo(system) {
     ["Yürütülebilir", system.exe],
     ["Çalışma Dizini", system.cwd],
     ["UI Kök", system.ui_root],
-    ["Yükseltilmiş (root)", system.is_elevated ? "✅ Evet" : "❌ Hayır"],
+    ["Yükseltilmiş (root)", system.is_elevated ? "Evet" : "Hayır"],
     ["Log Dosyası", system.runtime_log_file || "—"],
     ["User Agent", navigator.userAgent],
-    ["Platform (JS)", navigator.platform || "—"],
     ["Ekran Çözünürlüğü", `${screen.width}×${screen.height} (${window.devicePixelRatio}x)`],
     ["Pencere Boyutu", `${window.innerWidth}×${window.innerHeight}`],
     ["Bellek (JS heap)", _jsHeapInfo()],
     ["Dil", navigator.language],
-    ["Online", navigator.onLine ? "✅" : "❌"],
+    ["Online", navigator.onLine ? "Evet" : "Hayır"],
   ];
 
   const envRows = Array.isArray(system.env)
@@ -512,7 +625,7 @@ function _renderJobs(jobs) {
 
 // ─── Status Bar ───────────────────────────────────────────────────────────────
 
-function _updateStatusBar(backendCount) {
+function _updateStatusBar() {
   const el = document.getElementById("dev-last-update");
   if (el) el.textContent = new Date().toLocaleTimeString();
 }
@@ -538,19 +651,17 @@ function _installConsoleOverride(apiRequest, backendReady) {
         const entry = _makeFrontendEntry(level, `console.${method}`, message);
         _appendLog(entry);
 
-        // ERROR ve WARN'ları backend'e de gönder
         if (level === "ERROR" || level === "WARN") {
           _sendToBackend(level, `ui:console.${method}`, message, apiRequest, backendReady);
         }
 
         _refreshIfOpen();
       } catch {
-        // console override içinde hata olursa sessizce devam et
+        // ignore
       }
     };
   });
 
-  // Yakalanmayan hatalar
   window.addEventListener("error", (e) => {
     const message = `Yakalanmayan hata: ${e.message} @ ${e.filename}:${e.lineno}:${e.colno}`;
     const entry = _makeFrontendEntry("ERROR", "window.onerror", message);
@@ -601,7 +712,7 @@ function _logBrowserEnv(apiRequest, backendReady) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-let _uiFrontendSeq = 100000; // UI logları backend seq ile çakışmasın diye büyük sayıdan başla
+let _uiFrontendSeq = 100000;
 
 function _makeFrontendEntry(level, scope, message) {
   return {
@@ -636,7 +747,7 @@ async function _sendToBackend(level, scope, message, apiRequest, backendReady) {
       body: JSON.stringify({ level, scope, message }),
     });
   } catch {
-    // Sessizce yut — log gönderimi kritik değil
+    // ignore
   }
 }
 

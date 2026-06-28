@@ -20,6 +20,7 @@ use crate::server::{Response, json_error, json_ok};
 
 use super::{
     ImageMountState,
+    acquisition_jobs,
     cleanup_helper_files,
     create_acquisition_job,
     current_image_mount,
@@ -76,6 +77,115 @@ pub struct RemoteRequest {
     pub ip: String,
     pub port: u16,
     pub token: Option<String>,
+}
+
+#[derive(Deserialize)]
+/// UI veya frontend tarafının developer log'a eklemek istediği satırı taşır.
+struct DeveloperLogRequest {
+    level: Option<String>,
+    scope: Option<String>,
+    message: String,
+}
+
+/// Developer mod penceresinin okuyacağı runtime log, job ve sistem özetini döndürür.
+pub fn developer_logs_endpoint() -> Response {
+    json_ok(json!({
+        "logs": crate::logging::runtime_logs(1000),
+        "log_file": crate::logging::runtime_log_file_path(),
+        "jobs": developer_job_snapshot(),
+        "system": developer_system_snapshot(),
+    }))
+}
+
+/// Frontend tarafındaki hata ve kritik olayları backend runtime log'una işler.
+pub fn developer_log_endpoint(body: &[u8]) -> Response {
+    let request: DeveloperLogRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let level = match request
+        .level
+        .as_deref()
+        .unwrap_or("info")
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "error" => crate::logging::LogLevel::Error,
+        "warn" | "warning" => crate::logging::LogLevel::Warn,
+        "debug" => crate::logging::LogLevel::Debug,
+        _ => crate::logging::LogLevel::Info,
+    };
+    let scope = request.scope.unwrap_or_else(|| "ui".to_string());
+    crate::logging::runtime_log(level, scope, request.message);
+    json_ok(json!({ "ok": true }))
+}
+
+/// Developer paneli için aktif/son işlerin sade özetini üretir.
+fn developer_job_snapshot() -> Vec<Value> {
+    acquisition_jobs()
+        .lock()
+        .map(|jobs| {
+            jobs.iter()
+                .map(|(id, job)| {
+                    json!({
+                        "id": id,
+                        "status": job.status,
+                        "done": job.done,
+                        "total": job.total,
+                        "message": job.message,
+                        "log_count": job.logs.len(),
+                        "error": job.error,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Platform, yetki, yol ve paket bilgilerini tek yerde özetler.
+fn developer_system_snapshot() -> Value {
+    let env_keys = [
+        "APPDIR",
+        "DISPLAY",
+        "WAYLAND_DISPLAY",
+        "XDG_CURRENT_DESKTOP",
+        "GDK_BACKEND",
+        "WEBKIT_DISABLE_DMABUF_RENDERER",
+        "WEBKIT_EXEC_PATH",
+        "WEBVIEW2_USER_DATA_FOLDER",
+        "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER",
+        "PATH",
+    ];
+    let env = env_keys
+        .iter()
+        .map(|key| {
+            let value = std::env::var(key)
+                .ok()
+                .map(|value| {
+                    if *key == "PATH" && value.len() > 280 {
+                        format!("{}...", &value[..280])
+                    } else {
+                        value
+                    }
+                })
+                .unwrap_or_else(|| "(yok)".to_string());
+            json!({ "key": key, "value": value })
+        })
+        .collect::<Vec<_>>();
+
+    json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "os": std::env::consts::OS,
+        "family": std::env::consts::FAMILY,
+        "arch": std::env::consts::ARCH,
+        "pid": std::process::id(),
+        "cwd": std::env::current_dir().ok(),
+        "exe": std::env::current_exe().ok(),
+        "ui_root": crate::server::ui_root(),
+        "is_elevated": process_is_root(),
+        "runtime_log_file": crate::logging::runtime_log_file_path(),
+        "env": env,
+    })
 }
 
 /// Uzak agent bağlantı bilgisini doğrular.

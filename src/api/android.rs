@@ -110,9 +110,24 @@ fn run_android_profile_acquisition_job(
     profile: android::AndroidAcquisitionProfile,
     control: ram::CancellationToken,
 ) {
+    crate::logging::runtime_log(
+        crate::logging::LogLevel::Info,
+        "android:profil",
+        format!(
+            "IS BASLADI | job_id={job_id} | serial={serial} | profil={:?} | vaka={}",
+            profile,
+            case_name.as_deref().unwrap_or("(otomatik)")
+        ),
+    );
+
     let vault = match evidence_vault_for_output(case_name.as_deref()) {
         Ok(vault) => vault,
         Err(err) => {
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Error,
+                "android:profil",
+                format!("IS BASARISIZ (vaka hatasi) | job_id={job_id} | serial={serial} | hata={err}"),
+            );
             fail_acquisition_job_with_message(&job_id, err, "Android profil edinimi basarisiz");
             return;
         }
@@ -121,11 +136,28 @@ fn run_android_profile_acquisition_job(
     let android_dir = match android_edinim_klasoru(&vault.android_dir, "profile", &serial) {
         Ok(path) => path,
         Err(err) => {
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Error,
+                "android:profil",
+                format!("IS BASARISIZ (klasor hatasi) | job_id={job_id} | serial={serial} | hata={err}"),
+            );
             fail_acquisition_job_with_message(&job_id, err, "Android profil edinimi basarisiz");
             return;
         }
     };
+
+    crate::logging::runtime_log(
+        crate::logging::LogLevel::Info,
+        "android:profil",
+        format!("Cikti dizini hazir: {:?} | job_id={job_id} | serial={serial}", android_dir),
+    );
+
     if let Err(err) = std::fs::create_dir_all(&android_dir) {
+        crate::logging::runtime_log(
+            crate::logging::LogLevel::Error,
+            "android:profil",
+            format!("IS BASARISIZ (dizin olusturulamadi) | job_id={job_id} | hata={err}"),
+        );
         fail_acquisition_job_with_message(
             &job_id,
             err.to_string(),
@@ -150,7 +182,24 @@ fn run_android_profile_acquisition_job(
     ) {
         Ok(result) => {
             let success_count = result.items.iter().filter(|i| i.success).count();
+            let fail_count = result.items.iter().filter(|i| !i.success).count();
             let total_count = result.items.len();
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Info,
+                "android:profil",
+                format!(
+                    "IS TAMAMLANDI | job_id={job_id} | serial={serial} | {success_count}/{total_count} adim basarili | {fail_count} basarisiz | {} byte | cikti={:?}",
+                    result.total_bytes,
+                    result.output_dir,
+                ),
+            );
+            if !result.errors.is_empty() {
+                crate::logging::runtime_log(
+                    crate::logging::LogLevel::Warn,
+                    "android:profil",
+                    format!("IS HATALARI | job_id={job_id} | {:?}", result.errors),
+                );
+            }
             finish_acquisition_job_with_message(
                 &job_id,
                 json!({
@@ -170,6 +219,12 @@ fn run_android_profile_acquisition_job(
             );
         }
         Err(err) => {
+            let explained = android::explain_android_error(err.clone());
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Error,
+                "android:profil",
+                format!("IS BASARISIZ | job_id={job_id} | serial={serial} | ham_hata={err} | aciklama={explained}"),
+            );
             fail_android_job(&job_id, err, "Android profil edinimi basarisiz");
         }
     }
@@ -210,9 +265,23 @@ fn run_android_logical_job(
     case_name: Option<String>,
     control: ram::CancellationToken,
 ) {
+    crate::logging::runtime_log(
+        crate::logging::LogLevel::Info,
+        "android:logical",
+        format!(
+            "IS BASLADI | job_id={job_id} | serial={serial} | vaka={}",
+            case_name.as_deref().unwrap_or("(otomatik)")
+        ),
+    );
+
     let vault = match evidence_vault_for_output(case_name.as_deref()) {
         Ok(vault) => vault,
         Err(err) => {
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Error,
+                "android:logical",
+                format!("IS BASARISIZ (vaka hatasi) | job_id={job_id} | hata={err}"),
+            );
             fail_acquisition_job_with_message(&job_id, err, "Android imaj alma basarisiz");
             return;
         }
@@ -221,11 +290,22 @@ fn run_android_logical_job(
     let android_dir = match android_edinim_klasoru(&vault.android_dir, "logical", &serial) {
         Ok(path) => path,
         Err(err) => {
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Error,
+                "android:logical",
+                format!("IS BASARISIZ (klasor hatasi) | job_id={job_id} | hata={err}"),
+            );
             fail_acquisition_job_with_message(&job_id, err, "Android imaj alma basarisiz");
             return;
         }
     };
+
     if let Err(err) = std::fs::create_dir_all(&android_dir) {
+        crate::logging::runtime_log(
+            crate::logging::LogLevel::Error,
+            "android:logical",
+            format!("IS BASARISIZ (dizin) | job_id={job_id} | hata={err}"),
+        );
         fail_acquisition_job_with_message(&job_id, err.to_string(), "Android imaj alma basarisiz");
         return;
     }
@@ -246,7 +326,23 @@ fn run_android_logical_job(
     ) {
         Ok(result) => {
             let success_count = result.items.iter().filter(|i| i.success).count();
+            let fail_count = result.items.iter().filter(|i| !i.success).count();
             let total_count = result.items.len();
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Info,
+                "android:logical",
+                format!(
+                    "IS TAMAMLANDI | job_id={job_id} | serial={serial} | {success_count}/{total_count} basarili | {fail_count} basarisiz | {} byte | cikti={:?}",
+                    result.total_bytes, result.output_dir
+                ),
+            );
+            if !result.errors.is_empty() {
+                crate::logging::runtime_log(
+                    crate::logging::LogLevel::Warn,
+                    "android:logical",
+                    format!("IS HATALARI | job_id={job_id} | {:?}", result.errors),
+                );
+            }
             finish_acquisition_job_with_message(
                 &job_id,
                 json!({
@@ -266,6 +362,12 @@ fn run_android_logical_job(
             );
         }
         Err(err) => {
+            let explained = android::explain_android_error(err.clone());
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Error,
+                "android:logical",
+                format!("IS BASARISIZ | job_id={job_id} | serial={serial} | ham_hata={err} | aciklama={explained}"),
+            );
             fail_android_job(&job_id, err, "Android imaj alma basarisiz");
         }
     }
@@ -309,9 +411,23 @@ fn run_android_filesystem_job(
     has_root: bool,
     control: ram::CancellationToken,
 ) {
+    crate::logging::runtime_log(
+        crate::logging::LogLevel::Info,
+        "android:filesystem",
+        format!(
+            "IS BASLADI | job_id={job_id} | serial={serial} | root={has_root} | vaka={}",
+            case_name.as_deref().unwrap_or("(otomatik)")
+        ),
+    );
+
     let vault = match evidence_vault_for_output(case_name.as_deref()) {
         Ok(vault) => vault,
         Err(err) => {
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Error,
+                "android:filesystem",
+                format!("IS BASARISIZ (vaka) | job_id={job_id} | hata={err}"),
+            );
             fail_acquisition_job_with_message(
                 &job_id,
                 err,
@@ -324,6 +440,11 @@ fn run_android_filesystem_job(
     let android_dir = match android_edinim_klasoru(&vault.android_dir, "filesystem", &serial) {
         Ok(path) => path,
         Err(err) => {
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Error,
+                "android:filesystem",
+                format!("IS BASARISIZ (klasor) | job_id={job_id} | hata={err}"),
+            );
             fail_acquisition_job_with_message(
                 &job_id,
                 err,
@@ -333,6 +454,11 @@ fn run_android_filesystem_job(
         }
     };
     if let Err(err) = std::fs::create_dir_all(&android_dir) {
+        crate::logging::runtime_log(
+            crate::logging::LogLevel::Error,
+            "android:filesystem",
+            format!("IS BASARISIZ (dizin) | job_id={job_id} | hata={err}"),
+        );
         fail_acquisition_job_with_message(
             &job_id,
             err.to_string(),
@@ -351,6 +477,14 @@ fn run_android_filesystem_job(
         || android_job_should_stop(&control),
     ) {
         Ok(result) => {
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Info,
+                "android:filesystem",
+                format!(
+                    "IS TAMAMLANDI | job_id={job_id} | serial={serial} | {} byte | cikti={:?}",
+                    result.total_bytes, result.output_file
+                ),
+            );
             finish_acquisition_job_with_message(
                 &job_id,
                 json!({
@@ -367,6 +501,12 @@ fn run_android_filesystem_job(
             );
         }
         Err(err) => {
+            let explained = android::explain_android_error(err.clone());
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Error,
+                "android:filesystem",
+                format!("IS BASARISIZ | job_id={job_id} | serial={serial} | ham_hata={err} | aciklama={explained}"),
+            );
             fail_android_job(&job_id, err, "Android dosya sistemi imaj alma basarisiz");
         }
     }
@@ -424,9 +564,24 @@ fn run_android_ram_job(
     mode: android::AndroidRamMode,
     control: ram::CancellationToken,
 ) {
+    crate::logging::runtime_log(
+        crate::logging::LogLevel::Info,
+        "android:ram",
+        format!(
+            "IS BASLADI | job_id={job_id} | serial={serial} | root={has_root} | mod={:?} | vaka={}",
+            mode,
+            case_name.as_deref().unwrap_or("(otomatik)")
+        ),
+    );
+
     let vault = match evidence_vault_for_output(case_name.as_deref()) {
         Ok(vault) => vault,
         Err(err) => {
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Error,
+                "android:ram",
+                format!("IS BASARISIZ (vaka) | job_id={job_id} | hata={err}"),
+            );
             fail_acquisition_job_with_message(&job_id, err, "Android RAM imaj alma basarisiz");
             return;
         }
@@ -435,11 +590,21 @@ fn run_android_ram_job(
     let android_dir = match android_edinim_klasoru(&vault.android_dir, "ram", &serial) {
         Ok(path) => path,
         Err(err) => {
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Error,
+                "android:ram",
+                format!("IS BASARISIZ (klasor) | job_id={job_id} | hata={err}"),
+            );
             fail_acquisition_job_with_message(&job_id, err, "Android RAM imaj alma basarisiz");
             return;
         }
     };
     if let Err(err) = std::fs::create_dir_all(&android_dir) {
+        crate::logging::runtime_log(
+            crate::logging::LogLevel::Error,
+            "android:ram",
+            format!("IS BASARISIZ (dizin) | job_id={job_id} | hata={err}"),
+        );
         fail_acquisition_job_with_message(
             &job_id,
             err.to_string(),
@@ -459,6 +624,14 @@ fn run_android_ram_job(
         || android_job_should_stop(&control),
     ) {
         Ok(result) => {
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Info,
+                "android:ram",
+                format!(
+                    "IS TAMAMLANDI | job_id={job_id} | serial={serial} | mod={:?} | {} byte | cikti={:?}",
+                    result.mode, result.total_bytes, result.output_file
+                ),
+            );
             finish_acquisition_job_with_message(
                 &job_id,
                 json!({
@@ -476,6 +649,12 @@ fn run_android_ram_job(
             );
         }
         Err(err) => {
+            let explained = android::explain_android_error(err.clone());
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Error,
+                "android:ram",
+                format!("IS BASARISIZ | job_id={job_id} | serial={serial} | ham_hata={err} | aciklama={explained}"),
+            );
             fail_android_job(&job_id, err, "Android RAM imaj alma basarisiz");
         }
     }

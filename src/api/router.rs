@@ -10,6 +10,8 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
             "ok": true,
             "version": env!("CARGO_PKG_VERSION"),
         })),
+        ("GET", "/api/developer-logs") => system::developer_logs_endpoint(),
+        ("POST", "/api/developer-log") => system::developer_log_endpoint(body),
         ("GET", "/api/settings-default") => {
             match serde_json::to_value(crate::settings::AppSettings::default()) {
                 Ok(value) => json_ok(value),

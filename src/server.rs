@@ -164,13 +164,25 @@ fn serve(listener: TcpListener) {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                thread::spawn(|| {
+        thread::spawn(|| {
                     if let Err(err) = handle_stream(stream) {
+                        crate::logging::runtime_log(
+                            crate::logging::LogLevel::Warn,
+                            "server:http",
+                            format!("HTTP akisi isleme hatasi: {err}"),
+                        );
                         eprintln!("UI request failed: {err}");
                     }
                 });
             }
-            Err(err) => eprintln!("UI connection failed: {err}"),
+            Err(err) => {
+                crate::logging::runtime_log(
+                    crate::logging::LogLevel::Error,
+                    "server:http",
+                    format!("TCP baglanti hatasi: {err}"),
+                );
+                eprintln!("UI connection failed: {err}");
+            }
         }
     }
 }
@@ -256,12 +268,18 @@ fn handle_stream(stream: TcpStream) -> Result<(), String> {
             .map_err(|err| err.to_string())?;
     }
 
+    let t0 = std::time::Instant::now();
     let response = match std::panic::catch_unwind(|| {
         router::route_request(&method, &raw_path, &body)
     }) {
         Ok(response) => response,
         Err(payload) => {
             let panic = crate::diagnostics::panic_payload(payload.as_ref());
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Error,
+                "server:panic",
+                format!("PANIK: {method} {raw_path} — {panic}"),
+            );
             eprintln!("UI API panic: {method} {raw_path}: {panic}");
             json_error(
                 500,
@@ -271,6 +289,42 @@ fn handle_stream(stream: TcpStream) -> Result<(), String> {
             )
         }
     };
+
+    // API isteklerini (statik dosya değil) logla
+    if raw_path.starts_with("/api/") {
+        let elapsed = t0.elapsed();
+        let status = response.status;
+        let level = if status >= 500 {
+            crate::logging::LogLevel::Error
+        } else if status >= 400 {
+            crate::logging::LogLevel::Warn
+        } else {
+            crate::logging::LogLevel::Debug
+        };
+        crate::logging::runtime_log(
+            level,
+            "server:api",
+            format!(
+                "{} {} → {} [{:.1}ms]",
+                method,
+                raw_path,
+                status,
+                elapsed.as_secs_f64() * 1000.0,
+            ),
+        );
+        // Hatalı yanıtların gövdesini de logla (ilk 400 byte)
+        if status >= 400 {
+            let body_preview = String::from_utf8_lossy(&response.body);
+            let preview = body_preview.trim();
+            let short = if preview.len() > 400 { &preview[..400] } else { preview };
+            crate::logging::runtime_log(
+                level,
+                "server:api:error",
+                format!("{method} {raw_path} hata govdesi: {short}"),
+            );
+        }
+    }
+
     write_response(stream, response)
 }
 
