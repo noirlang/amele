@@ -3242,6 +3242,93 @@ code {
   flex-shrink: 0;
 }
 
+/* Enhanced log entry styles */
+
+.dev-log-msg-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dev-log-duration {
+  font-size: 0.65rem;
+  color: #4a7a5a;
+  background: rgba(74, 122, 90, 0.15);
+  padding: 0 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.dev-level-error .dev-log-duration {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.15);
+}
+
+.dev-log-toggle {
+  background: none;
+  border: none;
+  color: #4a6080;
+  cursor: pointer;
+  font-size: 0.65rem;
+  padding: 0 4px;
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: opacity 150ms;
+}
+
+.dev-log-row:hover .dev-log-toggle {
+  opacity: 1;
+}
+
+.dev-log-detail {
+  display: none;
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 100%;
+  z-index: 10;
+  background: rgba(10, 16, 32, 0.97);
+  border: 1px solid rgba(100, 160, 255, 0.15);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-top: 2px;
+}
+
+.dev-log-detail.open {
+  display: block;
+}
+
+.dev-log-row {
+  position: relative;
+}
+
+.dev-log-extra {
+  margin: 0;
+  font-size: 0.7rem;
+  color: #88a8d0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.dev-src-api {
+  color: #60b080;
+}
+
+.dev-level-error.dev-has-duration {
+  border-left: 2px solid rgba(248, 113, 113, 0.4);
+}
+
+.dev-level-warn.dev-has-duration {
+  border-left: 2px solid rgba(244, 185, 66, 0.4);
+}
+
 /* ── Info / System Area ──────────────────────────────────────── */
 
 .dev-info-area {

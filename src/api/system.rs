@@ -87,6 +87,21 @@ struct DeveloperLogRequest {
     message: String,
 }
 
+/// Developer konsolunu sistem tarayıcısında açar (native WebView'da window.open çalışmaz).
+pub fn open_dev_console_endpoint() -> Response {
+    let port = crate::api::current_server_port();
+    let url = format!("http://127.0.0.1:{}/?route=devlogs", port);
+    crate::logging::runtime_log(
+        crate::logging::LogLevel::Info,
+        "api:devconsole",
+        format!("Developer konsolu aciliyor: {}", url),
+    );
+    match open_external_url(&url) {
+        Ok(()) => json_ok(json!({ "opened": true, "url": url })),
+        Err(err) => json_error(500, err),
+    }
+}
+
 /// Developer mod penceresinin okuyacağı runtime log, job ve sistem özetini döndürür.
 pub fn developer_logs_endpoint() -> Response {
     json_ok(json!({
@@ -155,6 +170,15 @@ fn developer_system_snapshot() -> Value {
         "WEBVIEW2_USER_DATA_FOLDER",
         "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER",
         "PATH",
+        "HOME",
+        "USER",
+        "USERNAME",
+        "SHELL",
+        "LANG",
+        "LC_ALL",
+        "TZ",
+        "LOGNAME",
+        "HOSTNAME",
     ];
     let env = env_keys
         .iter()
@@ -173,6 +197,24 @@ fn developer_system_snapshot() -> Value {
         })
         .collect::<Vec<_>>();
 
+    let hostname = std::env::var("HOSTNAME")
+        .or_else(|_| std::env::var("COMPUTERNAME"))
+        .ok();
+    let username = std::env::var("USER")
+        .or_else(|_| std::env::var("USERNAME"))
+        .ok();
+    let timezone = std::env::var("TZ").ok()
+        .or_else(|| {
+            std::panic::catch_unwind(|| {
+                chrono::Local::now().format("%Z").to_string()
+            }).ok()
+        });
+
+    let server_port = crate::api::current_server_port();
+
+    // Sistem belleği (yalnızca Linux)
+    let (total_memory, free_memory) = get_system_memory();
+
     json!({
         "version": env!("CARGO_PKG_VERSION"),
         "os": std::env::consts::OS,
@@ -184,8 +226,37 @@ fn developer_system_snapshot() -> Value {
         "ui_root": crate::server::ui_root(),
         "is_elevated": process_is_root(),
         "runtime_log_file": crate::logging::runtime_log_file_path(),
+        "server_port": server_port,
+        "hostname": hostname,
+        "username": username,
+        "timezone": timezone,
+        "total_memory": total_memory,
+        "free_memory": free_memory,
         "env": env,
     })
+}
+
+/// Linux /proc/meminfo'dan sistem belleği bilgisi alır.
+fn get_system_memory() -> (Option<u64>, Option<u64>) {
+    #[cfg(target_os = "linux")]
+    {
+        let content = match std::fs::read_to_string("/proc/meminfo") {
+            Ok(c) => c,
+            Err(_) => return (None, None),
+        };
+        let mut total = None;
+        let mut free = None;
+        for line in content.lines() {
+            if let Some(val) = line.strip_prefix("MemTotal:") {
+                total = val.trim().split_whitespace().next().and_then(|v| v.parse::<u64>().ok()).map(|kb| kb * 1024);
+            } else if let Some(val) = line.strip_prefix("MemAvailable:") {
+                free = val.trim().split_whitespace().next().and_then(|v| v.parse::<u64>().ok()).map(|kb| kb * 1024);
+            }
+        }
+        (total, free)
+    }
+    #[cfg(not(target_os = "linux"))]
+    { (None, None) }
 }
 
 /// Uzak agent bağlantı bilgisini doğrular.

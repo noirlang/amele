@@ -1,32 +1,19 @@
-/**
- * developer.js — Worm Forensic Tool Developer Mode
- *
- * Ana logoya 5 kez tıklayınca bağımsız, sürüklenebilir ve boyutlandırılabilir
- * geliştirici paneli. Log açıkken arkadaki ana uygulamada gezinebilirsiniz.
- */
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const DEV_CLICK_TARGET   = 5;
-const DEV_CLICK_TIMEOUT  = 3000; // ms
-const POLL_INTERVAL      = 1500; // ms
-const MAX_FRONTEND_LOGS  = 3000;
-const MAX_DISPLAY_LOGS   = 500;
-
-// ─── State ────────────────────────────────────────────────────────────────────
+const DEV_CLICK_TIMEOUT  = 3000;
+const POLL_INTERVAL      = 1500;
+const MAX_FRONTEND_LOGS  = 5000;
+const MAX_DISPLAY_LOGS   = 800;
 
 let devOpen          = false;
 let clickCount       = 0;
 let clickTimer       = null;
 let pollTimer        = null;
 let lastLogSeq       = 0;
-let allLogs          = [];       // { seq, timestamp, level, scope, message, source }
+let allLogs          = [];
 let filterLevel      = "all";
 let filterText       = "";
 let pinToBottom      = true;
-let frontendLogBuf   = [];       // console override buffer
-
-// Pencere Pozisyon Bilgisi (Yüzen mod için fallback)
+let frontendLogBuf   = [];
 let posX = 100;
 let posY = 80;
 let width = 850;
@@ -34,15 +21,11 @@ let height = 550;
 let isMaximized = false;
 let isStandaloneMode = false;
 
-// ─── Public API ───────────────────────────────────────────────────────────────
+const isNativeWebView = new URLSearchParams(window.location.search).get("native") === "1";
 
-/**
- * Developer modunu başlatır. Logoya tıklama sayacını ve console override'ı kurar.
- */
 export function initDeveloperMode({ apiRequest, backendReady }) {
   _installConsoleOverride(apiRequest, backendReady);
-  
-  // URL parametre kontrolü: Eğer standalone log ekranındaysak, doğrudan arayüzü çiz
+
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get("route") === "devlogs") {
     isStandaloneMode = true;
@@ -52,19 +35,15 @@ export function initDeveloperMode({ apiRequest, backendReady }) {
 
   _installBrandClickCounter(apiRequest, backendReady);
   _logBrowserEnv(apiRequest, backendReady);
+  _installApiInterceptor(apiRequest, backendReady);
 }
 
-/**
- * Bir frontend log satırı ekler ve backend'e gönderir.
- */
-export function devLog(level, scope, message, apiRequest, backendReady) {
-  const entry = _makeFrontendEntry(level, scope, message);
+export function devLog(level, scope, message, apiRequest, backendReady, extra = {}) {
+  const entry = _makeFrontendEntry(level, scope, message, extra);
   _appendLog(entry);
   _sendToBackend(level, scope, message, apiRequest, backendReady);
   _refreshIfOpen();
 }
-
-// ─── Click Counter ────────────────────────────────────────────────────────────
 
 function _installBrandClickCounter(apiRequest, backendReady) {
   document.addEventListener("click", (e) => {
@@ -80,7 +59,7 @@ function _installBrandClickCounter(apiRequest, backendReady) {
     if (clickCount >= DEV_CLICK_TARGET) {
       clickCount = 0;
       clearTimeout(clickTimer);
-      _openStandaloneWindow();
+      _openStandaloneWindow(apiRequest, backendReady);
       return;
     }
 
@@ -100,26 +79,34 @@ function _showClickHint(logo, remaining) {
     hint.className = "dev-click-hint";
     document.body.appendChild(hint);
   }
-  hint.textContent = `🐛 ${remaining}`;
+  hint.textContent = `🗄 ${remaining}`;
   hint.classList.add("visible");
   clearTimeout(hint._timer);
   hint._timer = setTimeout(() => hint.classList.remove("visible"), 800);
 }
 
-function _openStandaloneWindow() {
-  const url = window.location.origin + window.location.pathname + "?route=devlogs";
-  // Ayrı OS Penceresi olarak aç
-  const win = window.open(
-    url,
-    "WormDevConsole",
-    "width=950,height=650,menubar=no,status=no,toolbar=no,location=no,personalbar=no"
-  );
-  if (win) {
-    win.focus();
+function _openStandaloneWindow(apiRequest, backendReady) {
+  if (isNativeWebView) {
+    const url = window.location.origin + window.location.pathname + "?route=devlogs&native=1";
+    if (backendReady()) {
+      apiRequest("/api/open-dev-console", {
+        method: "POST",
+        body: JSON.stringify({})
+      }).catch(() => {
+        window.location.href = url;
+      });
+    } else {
+      const win = window.open(url, "WormDevConsole", "width=950,height=650,menubar=no,status=no,toolbar=no,location=no,personalbar=no");
+      if (win) win.focus();
+    }
+  } else {
+    const url = window.location.origin + window.location.pathname + "?route=devlogs";
+    const win = window.open(url, "WormDevConsole", "width=950,height=650,menubar=no,status=no,toolbar=no,location=no,personalbar=no");
+    if (win) {
+      win.focus();
+    }
   }
 }
-
-// ─── Standalone Mode Init ─────────────────────────────────────────────────────
 
 function _initStandalone(apiRequest, backendReady) {
   devOpen = true;
@@ -131,34 +118,26 @@ function _initStandalone(apiRequest, backendReady) {
     appContainer.innerHTML = _buildPanelHtml();
   }
 
-  // Standalone modda kapat butonu window'u kapatsın
   const closeBtn = document.getElementById("dev-close-btn");
   if (closeBtn) {
-    closeBtn.addEventListener("click", () => {
-      window.close();
-    });
+    closeBtn.addEventListener("click", () => window.close());
   }
 
-  // Standalone modda maximize butonunu OS yönettiği için gizleyelim veya window resize yaptıralım
   const maxBtn = document.getElementById("dev-maximize-btn");
-  if (maxBtn) {
-    maxBtn.style.display = "none";
-  }
+  if (maxBtn) maxBtn.style.display = "none";
 
   _bindPanelEvents(null, apiRequest, backendReady);
   _startPolling(apiRequest, backendReady);
   _refreshPanel();
 }
 
-// ─── HTML Builder ─────────────────────────────────────────────────────────────
-
 function _buildPanelHtml() {
-  const closeTitle = isStandaloneMode ? "Penceriyi Kapat" : "Gizle";
+  const closeTitle = isStandaloneMode ? "Pencereleri Kapat" : "Gizle";
   return `
     <div class="dev-panel ${isStandaloneMode ? "dev-panel-standalone" : ""}" role="dialog" aria-label="Developer Panel" id="dev-panel">
       <div class="dev-header" id="dev-header">
         <div class="dev-title-row">
-          <span class="dev-badge">🐛 DEV</span>
+          <span class="dev-badge">🔬 DEV</span>
           <span class="dev-title">Worm Developer Console</span>
           <span class="dev-subtitle" id="dev-log-count">— loglar yükleniyor</span>
         </div>
@@ -188,6 +167,7 @@ function _buildPanelHtml() {
             <input type="checkbox" id="dev-pin" ${pinToBottom ? "checked" : ""} />
             Aşağıya pin
           </label>
+          <button class="dev-btn dev-btn-sm" id="dev-expand-all" title="Tüm detayları genişlet">📂 Tümünü Genişlet</button>
         </div>
       </div>
 
@@ -218,13 +198,10 @@ function _buildPanelHtml() {
         <span id="dev-status-right">Son güncelleme: <b id="dev-last-update">—</b></span>
       </div>
       
-      <!-- Resize Handle (Yalnızca yüzen modda) -->
       ${isStandaloneMode ? "" : `<div class="dev-resize-handle" id="dev-resize-handle"></div>`}
     </div>
   `;
 }
-
-// ─── Draggable and Resizable Logic (Geriye Dönük Uyumluluk ve Yüzen Mod için) ────────────────
 
 function _makeDraggable(panel) {
   if (isStandaloneMode || !panel) return;
@@ -234,11 +211,9 @@ function _makeDraggable(panel) {
   header.addEventListener("mousedown", (e) => {
     if (isMaximized) return;
     if (e.target.closest("button") || e.target.closest("select") || e.target.closest("input")) return;
-
     e.preventDefault();
     startX = e.clientX;
     startY = e.clientY;
-
     document.addEventListener("mousemove", mouseMoveHandler);
     document.addEventListener("mouseup", mouseUpHandler);
   });
@@ -251,16 +226,11 @@ function _makeDraggable(panel) {
   function mouseMoveHandler(e) {
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
-
-    posX += dx;
-    posY += dy;
-
+    posX += dx; posY += dy;
     posX = Math.max(10, Math.min(window.innerWidth - 150, posX));
     posY = Math.max(10, Math.min(window.innerHeight - 100, posY));
-
     panel.style.left = `${posX}px`;
     panel.style.top = `${posY}px`;
-
     startX = e.clientX;
     startY = e.clientY;
   }
@@ -276,7 +246,6 @@ function _makeDraggable(panel) {
       e.preventDefault();
       startX = e.clientX;
       startY = e.clientY;
-
       document.addEventListener("mousemove", resizeMouseMoveHandler);
       document.addEventListener("mouseup", resizeMouseUpHandler);
     });
@@ -285,13 +254,10 @@ function _makeDraggable(panel) {
   function resizeMouseMoveHandler(e) {
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
-
     width = Math.max(400, width + dx);
     height = Math.max(300, height + dy);
-
     panel.style.width = `${width}px`;
     panel.style.height = `${height}px`;
-
     startX = e.clientX;
     startY = e.clientY;
   }
@@ -329,8 +295,6 @@ function _applyGeometry(panel) {
     panel.classList.remove("maximized");
   }
 }
-
-// ─── Event Bindings ───────────────────────────────────────────────────────────
 
 function _bindPanelEvents(overlay, apiRequest, backendReady) {
   const panel = document.getElementById("dev-panel");
@@ -387,9 +351,7 @@ function _bindPanelEvents(overlay, apiRequest, backendReady) {
     _refreshPanel();
   });
 
-  document.getElementById("dev-export-btn")?.addEventListener("click", () => {
-    _exportLogs();
-  });
+  document.getElementById("dev-export-btn")?.addEventListener("click", () => _exportLogs());
 
   document.getElementById("dev-copy-btn")?.addEventListener("click", () => {
     const visible = _filteredLogs();
@@ -398,6 +360,12 @@ function _bindPanelEvents(overlay, apiRequest, backendReady) {
       const btn = document.getElementById("dev-copy-btn");
       if (btn) { btn.textContent = "✓ Kopyalandı!"; setTimeout(() => { btn.textContent = "📋 Kopyala"; }, 1500); }
     }).catch(() => {});
+  });
+
+  document.getElementById("dev-expand-all")?.addEventListener("click", () => {
+    const allDetails = document.querySelectorAll(".dev-log-detail");
+    const allExpanded = Array.from(allDetails).every(d => d.classList.contains("open"));
+    allDetails.forEach(d => d.classList.toggle("open", !allExpanded));
   });
 
   document.querySelectorAll("[data-dev-tab]").forEach(tab => {
@@ -409,8 +377,6 @@ function _bindPanelEvents(overlay, apiRequest, backendReady) {
     });
   });
 }
-
-// ─── Polling ──────────────────────────────────────────────────────────────────
 
 function _startPolling(apiRequest, backendReady) {
   _stopPolling();
@@ -440,6 +406,9 @@ async function _fetchLogs(apiRequest, backendReady) {
             message: e.message,
             thread: e.thread || "",
             source: "backend",
+            duration_ms: e.duration_ms,
+            url: e.url,
+            extra: e.extra,
           }));
 
         if (newEntries.length > 0) {
@@ -449,13 +418,8 @@ async function _fetchLogs(apiRequest, backendReady) {
         }
       }
 
-      if (data.system) {
-        _renderSystemInfo(data.system);
-      }
-
-      if (data.jobs) {
-        _renderJobs(data.jobs);
-      }
+      if (data.system) _renderSystemInfo(data.system);
+      if (data.jobs) _renderJobs(data.jobs);
 
       _updateStatusBar();
     }
@@ -466,8 +430,6 @@ async function _fetchLogs(apiRequest, backendReady) {
     _refreshPanel();
   }
 }
-
-// ─── Log Rendering ────────────────────────────────────────────────────────────
 
 function _refreshPanel() {
   if (!devOpen) return;
@@ -484,16 +446,50 @@ function _refreshPanel() {
   const wasAtBottom = area.scrollHeight - area.scrollTop - area.clientHeight < 40;
 
   const fragment = document.createDocumentFragment();
-  visible.forEach(entry => {
+  visible.forEach((entry, idx) => {
     const row = document.createElement("div");
-    row.className = `dev-log-row dev-level-${(entry.level || "info").toLowerCase()}`;
+    row.className = `dev-log-row dev-level-${(entry.level || "info").toLowerCase()} ${entry.duration_ms !== undefined ? "dev-has-duration" : ""}`;
+
+    const ts = _escHtml(entry.timestamp?.slice(11, 23) || "");
+    const lvl = _escHtml(entry.level || "");
+    const src = _escHtml(entry.scope || "");
+    const msg = _escHtml(entry.message || "");
+    const thr = entry.thread ? _escHtml(entry.thread) : "";
+    const srcClass = entry.source === "ui" ? "dev-src-ui" : (entry.source === "api" ? "dev-src-api" : "");
+
+    const durationStr = entry.duration_ms !== undefined
+      ? `<span class="dev-log-duration">${entry.duration_ms.toFixed(0)}ms</span>`
+      : "";
+
+    const hasExtra = entry.extra && Object.keys(entry.extra).length > 0;
+
     row.innerHTML = `
-      <span class="dev-log-ts">${_escHtml(entry.timestamp?.slice(11, 23) || "")}</span>
-      <span class="dev-log-level">${_escHtml(entry.level || "")}</span>
-      <span class="dev-log-src ${entry.source === "ui" ? "dev-src-ui" : ""}">${_escHtml(entry.scope || "")}</span>
-      <span class="dev-log-msg">${_escHtml(entry.message || "")}</span>
-      ${entry.thread ? `<span class="dev-log-thread">${_escHtml(entry.thread)}</span>` : ""}
+      <span class="dev-log-ts">${ts}</span>
+      <span class="dev-log-level">${lvl}</span>
+      <span class="dev-log-src ${srcClass}">${src}</span>
+      <span class="dev-log-msg-row">
+        <span class="dev-log-msg">${msg}</span>
+        ${durationStr}
+      </span>
+      ${thr ? `<span class="dev-log-thread">${thr}</span>` : ""}
+      ${hasExtra ? `<button class="dev-log-toggle" data-idx="${idx}" title="Detay">▶</button>` : ""}
     `;
+
+    if (hasExtra) {
+      const detail = document.createElement("div");
+      detail.className = "dev-log-detail";
+      detail.id = `dev-log-detail-${idx}`;
+      detail.innerHTML = `<pre class="dev-log-extra">${_escHtml(JSON.stringify(entry.extra, null, 2))}</pre>`;
+      row.appendChild(detail);
+
+      row.querySelector(".dev-log-toggle")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        detail.classList.toggle("open");
+        const btn = e.currentTarget;
+        btn.textContent = detail.classList.contains("open") ? "▼" : "▶";
+      });
+    }
+
     fragment.appendChild(row);
   });
 
@@ -529,7 +525,7 @@ function _filteredLogs() {
       if (filterLevel !== "ui" && lvl !== filterLevel) return false;
     }
     if (filterText) {
-      const haystack = `${entry.scope} ${entry.message}`.toLowerCase();
+      const haystack = `${entry.scope} ${entry.message} ${JSON.stringify(entry.extra || {})}`.toLowerCase();
       if (!haystack.includes(filterText)) return false;
     }
     return true;
@@ -541,10 +537,10 @@ function _formatLogLine(entry) {
   const lvl  = (entry.level || "").padEnd(5);
   const src  = (entry.scope || "").padEnd(20);
   const thr  = entry.thread ? `[${entry.thread}]` : "";
-  return `${ts} | ${lvl} | ${src} | ${thr} ${entry.message}`;
+  const dur  = entry.duration_ms !== undefined ? ` (${entry.duration_ms.toFixed(0)}ms)` : "";
+  const extra = entry.extra ? ` | extra: ${JSON.stringify(entry.extra)}` : "";
+  return `${ts} | ${lvl} | ${src} | ${thr} ${entry.message}${dur}${extra}`;
 }
-
-// ─── System Info ──────────────────────────────────────────────────────────────
 
 function _renderSystemInfo(system) {
   const area = document.getElementById("dev-system-area");
@@ -565,11 +561,18 @@ function _renderSystemInfo(system) {
     ["Bellek (JS heap)", _jsHeapInfo()],
     ["Dil", navigator.language],
     ["Online", navigator.onLine ? "Evet" : "Hayır"],
+    ["Native WebView", isNativeWebView ? "Evet" : "Hayır"],
+    ["Backend Port", system.server_port || "?"],
+    ["Sunucu Süresi (uptime)", system.uptime_secs ? `${system.uptime_secs}s` : "—"],
+    ["Donanım Mimarisi", `${system.arch}`],
+    ["Kullanıcı", system.username || "—"],
+    ["Hostname", system.hostname || "—"],
+    ["Zaman Dilimi", system.timezone || "—"],
+    ["RAM (sistem)", system.total_memory ? `${(system.total_memory / 1024 / 1024 / 1024).toFixed(1)} GB` : "—"],
+    ["Boş RAM", system.free_memory ? `${(system.free_memory / 1024 / 1024 / 1024).toFixed(1)} GB` : "—"],
   ];
 
-  const envRows = Array.isArray(system.env)
-    ? system.env.map(e => [e.key, e.value || "(yok)"])
-    : [];
+  const envRows = Array.isArray(system.env) ? system.env.map(e => [e.key, e.value || "(yok)"]) : [];
 
   area.innerHTML = `
     <table class="dev-table">
@@ -600,8 +603,6 @@ function _jsHeapInfo() {
     return "—";
   }
 }
-
-// ─── Jobs ─────────────────────────────────────────────────────────────────────
 
 function _renderJobs(jobs) {
   const area = document.getElementById("dev-jobs-area");
@@ -640,14 +641,10 @@ function _renderJobs(jobs) {
   `;
 }
 
-// ─── Status Bar ───────────────────────────────────────────────────────────────
-
 function _updateStatusBar() {
   const el = document.getElementById("dev-last-update");
   if (el) el.textContent = new Date().toLocaleTimeString();
 }
-
-// ─── Console Override ─────────────────────────────────────────────────────────
 
 function _installConsoleOverride(apiRequest, backendReady) {
   const levels = { error: "ERROR", warn: "WARN", log: "INFO", debug: "DEBUG", info: "INFO" };
@@ -657,15 +654,16 @@ function _installConsoleOverride(apiRequest, backendReady) {
     console[method] = (...args) => {
       original(...args);
       try {
+        const stack = new Error().stack?.split("\n").slice(2).join("\n") || "";
         const message = args.map(a => {
           if (a instanceof Error) return `${a.name}: ${a.message}\n${a.stack || ""}`;
           if (typeof a === "object") {
-            try { return JSON.stringify(a); } catch { return String(a); }
+            try { return JSON.stringify(a, null, 2); } catch { return String(a); }
           }
           return String(a);
         }).join(" ");
 
-        const entry = _makeFrontendEntry(level, `console.${method}`, message);
+        const entry = _makeFrontendEntry(level, `console.${method}`, message, { stack: stack.slice(0, 500) });
         _appendLog(entry);
 
         if (level === "ERROR" || level === "WARN") {
@@ -681,25 +679,23 @@ function _installConsoleOverride(apiRequest, backendReady) {
 
   window.addEventListener("error", (e) => {
     const message = `Yakalanmayan hata: ${e.message} @ ${e.filename}:${e.lineno}:${e.colno}`;
-    const entry = _makeFrontendEntry("ERROR", "window.onerror", message);
+    const extra = { stack: e.error?.stack || "", filename: e.filename, lineno: e.lineno, colno: e.colno };
+    const entry = _makeFrontendEntry("ERROR", "window.onerror", message, extra);
     _appendLog(entry);
     _sendToBackend("ERROR", "ui:window.onerror", message, apiRequest, backendReady);
     _refreshIfOpen();
   });
 
   window.addEventListener("unhandledrejection", (e) => {
-    const reason = e.reason instanceof Error
-      ? `${e.reason.name}: ${e.reason.message}`
-      : String(e.reason);
+    const reason = e.reason instanceof Error ? `${e.reason.name}: ${e.reason.message}` : String(e.reason);
+    const stack = e.reason instanceof Error ? e.reason.stack || "" : "";
     const message = `Yakalanmayan Promise reddi: ${reason}`;
-    const entry = _makeFrontendEntry("ERROR", "window.unhandledrejection", message);
+    const entry = _makeFrontendEntry("ERROR", "window.unhandledrejection", message, { stack: stack.slice(0, 500) });
     _appendLog(entry);
     _sendToBackend("ERROR", "ui:unhandledrejection", message, apiRequest, backendReady);
     _refreshIfOpen();
   });
 }
-
-// ─── Browser Environment Dump ─────────────────────────────────────────────────
 
 function _logBrowserEnv(apiRequest, backendReady) {
   const safeNav = typeof navigator !== "undefined" ? navigator : {};
@@ -717,6 +713,13 @@ function _logBrowserEnv(apiRequest, backendReady) {
     `Online: ${safeNav.onLine ?? "unknown"}`,
     `Cookie enabled: ${safeNav.cookieEnabled ?? "unknown"}`,
     `URL Params: ${safeLocation.search || ""}`,
+    `Native WebView: ${isNativeWebView}`,
+    `Varsayılan Dil: ${safeNav.language || "unknown"}`,
+    `Zaman Dilimi: ${Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown"}`,
+    `Kullanılabilir Ekran: ${safeScreen.availWidth || "?"}×${safeScreen.availHeight || "?"}`,
+    `Renk Derinliği: ${safeScreen.colorDepth || "?"}bit`,
+    `Donanım Concurrency: ${safeNav.hardwareConcurrency || "?"} çekirdek`,
+    `Maksimum Dokunma Noktası: ${safeNav.maxTouchPoints || 0}`,
   ];
 
   entries.forEach(msg => {
@@ -727,11 +730,70 @@ function _logBrowserEnv(apiRequest, backendReady) {
   _sendToBackend("INFO", "ui:startup", entries.join(" | "), apiRequest, backendReady);
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+function _installApiInterceptor(apiRequest, backendReady) {
+  const originalFetch = window.fetch.bind(window);
+  const nativeWebView = isNativeWebView;
+  window.fetch = async (...args) => {
+    const url = typeof args[0] === "string" ? args[0] : args[0]?.url || "?";
+    const method = args[1]?.method || "GET";
+    
+    if (url.startsWith("/api/developer-logs") || url.startsWith("/api/developer-log")) {
+      return originalFetch(...args);
+    }
+
+    const t0 = performance.now();
+    const entryId = _uiFrontendSeq++;
+
+    try {
+      const response = await originalFetch(...args);
+      const duration = performance.now() - t0;
+      const status = response.status;
+      const responseClone = response.clone();
+      let responseBody = "(stream)";
+      try {
+        const text = await responseClone.text();
+        responseBody = text.length > 300 ? text.slice(0, 300) + "..." : text;
+      } catch {}
+
+      if (url.startsWith("/api/")) {
+        const bodyPreview = args[1]?.body
+          ? (typeof args[1].body === "string" ? args[1].body.slice(0, 200) : "(binary)")
+          : "";
+        const msg = `${method} ${url} → ${status} [${duration.toFixed(0)}ms]`;
+        const extra = {
+          request_body: bodyPreview || "(boş)",
+          response: responseBody,
+          duration_ms: duration.toFixed(0),
+        };
+        const entry = _makeFrontendEntry(
+          status >= 400 ? "ERROR" : status >= 300 ? "WARN" : "INFO",
+          "api",
+          msg,
+          extra,
+        );
+        _appendLog(entry);
+        if (status >= 400) {
+          _sendToBackend("ERROR", `ui:api:${method}`, `${url} → ${status}: ${responseBody}`, apiRequest, backendReady);
+        }
+        _refreshIfOpen();
+      }
+
+      return response;
+    } catch (err) {
+      const duration = performance.now() - t0;
+      const msg = `${method} ${url} → HATA [${duration.toFixed(0)}ms]: ${err.message}`;
+      const entry = _makeFrontendEntry("ERROR", "api", msg, { error: err.message, duration_ms: duration.toFixed(0) });
+      _appendLog(entry);
+      _sendToBackend("ERROR", "ui:api", msg, apiRequest, backendReady);
+      _refreshIfOpen();
+      throw err;
+    }
+  };
+}
 
 let _uiFrontendSeq = 100000;
 
-function _makeFrontendEntry(level, scope, message) {
+function _makeFrontendEntry(level, scope, message, extra = {}) {
   return {
     seq: _uiFrontendSeq++,
     timestamp: new Date().toISOString().replace("T", " ").slice(0, 23),
@@ -740,6 +802,9 @@ function _makeFrontendEntry(level, scope, message) {
     message,
     source: "ui",
     thread: "",
+    extra: Object.keys(extra).length > 0 ? extra : undefined,
+    duration_ms: extra.duration_ms !== undefined ? Number(extra.duration_ms) : undefined,
+    url: extra.url,
   };
 }
 

@@ -36,6 +36,14 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
             system::developer_logs_endpoint()
         }
         ("POST", "/api/developer-log") => system::developer_log_endpoint(body),
+        ("POST", "/api/open-dev-console") => {
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Info,
+                "api:devconsole",
+                "Developer konsol penceresi aciliyor",
+            );
+            system::open_dev_console_endpoint()
+        }
         ("GET", "/api/settings-default") => {
             crate::logging::runtime_log(
                 crate::logging::LogLevel::Debug,

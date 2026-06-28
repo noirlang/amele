@@ -84,6 +84,9 @@ fn start_background() -> Result<String, String> {
     })?;
     let url = format!("http://{addr}/");
 
+    // Portu API state'ine kaydet (developer konsol penceresi için)
+    crate::api::set_server_port(addr.port());
+
     // Başlangıç logları
     crate::logging::runtime_log(
         crate::logging::LogLevel::Info,

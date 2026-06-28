@@ -169,6 +169,28 @@ pub fn report_evidence_vault(
     Ok(vault)
 }
 
+/// Sunucu port numarasını saklar (developer konsol penceresi için).
+pub fn current_server_port() -> u16 {
+    server_port_static()
+        .lock()
+        .ok()
+        .and_then(|guard| *guard)
+        .unwrap_or(0)
+}
+
+/// Sunucu port numarasını ayarlar (server.rs başlangıçta çağırır).
+pub fn set_server_port(port: u16) {
+    if let Ok(mut p) = server_port_static().lock() {
+        *p = Some(port);
+    }
+}
+
+/// Port static'ini tek bir yerde tanımlar.
+fn server_port_static() -> &'static Mutex<Option<u16>> {
+    static PORT: OnceLock<Mutex<Option<u16>>> = OnceLock::new();
+    PORT.get_or_init(|| Mutex::new(None))
+}
+
 /// UI/API alt klasör adlarını kasa içindeki gerçek klasörlere eşler.
 pub fn evidence_subdir(value: &str) -> &'static str {
     match value {
