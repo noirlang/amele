@@ -1,3 +1,4 @@
+//! Android MFT paket formatındaki alan, kayıt ve başlık yapılarını tanımlar.
 use std::io::{self, Write};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -10,6 +11,7 @@ pub(super) const MAX_TEXT_INPUT: u64 = 16 * 1024 * 1024;
 pub(super) const MAX_RECORDS_PER_SOURCE: usize = 2_000;
 
 #[derive(Debug, Clone)]
+/// Üretilen MFT/JSON/rapor dosyasının boyut, hash ve kayıt sayısı özetidir.
 pub struct MftBundleInfo {
     pub file_name: String,
     pub size: u64,
@@ -19,6 +21,7 @@ pub struct MftBundleInfo {
 
 #[repr(u8)]
 #[derive(Debug, Copy, Clone)]
+/// Android delil kayıtlarının MFT içindeki tür kodlarını tanımlar.
 pub(super) enum RecordType {
     Contact = 0x01,
     Call = 0x02,
@@ -40,6 +43,7 @@ pub(super) enum RecordType {
 #[repr(u8)]
 #[derive(Debug, Copy, Clone)]
 #[allow(dead_code)]
+/// MFT alanının string, sayı, binary veya bool olarak nasıl kodlandığını belirtir.
 pub(super) enum FieldType {
     String = 0x01,
     Int64 = 0x02,
@@ -48,6 +52,7 @@ pub(super) enum FieldType {
 }
 
 #[derive(Debug, Clone)]
+/// Tek bir MFT kaydı içindeki alan kimliği, tipi ve ham verisini taşır.
 pub(super) struct Field {
     pub(super) id: u8,
     pub(super) field_type: FieldType,
@@ -55,6 +60,7 @@ pub(super) struct Field {
 }
 
 impl Field {
+    /// String değeri MFT alanına dönüştürür.
     pub(super) fn string(id: u8, value: impl AsRef<str>) -> Self {
         Self {
             id,
@@ -63,6 +69,7 @@ impl Field {
         }
     }
 
+    /// i64 değeri little-endian MFT alanına dönüştürür.
     pub(super) fn int64(id: u8, value: i64) -> Self {
         Self {
             id,
@@ -71,6 +78,7 @@ impl Field {
         }
     }
 
+    /// Bool değeri tek byte MFT alanına dönüştürür.
     pub(super) fn bool(id: u8, value: bool) -> Self {
         Self {
             id,
@@ -79,10 +87,12 @@ impl Field {
         }
     }
 
+    /// Alanın disk üzerinde kaplayacağı toplam byte sayısını hesaplar.
     fn encoded_len(&self) -> usize {
         FIELD_HEADER_SIZE + self.data.len()
     }
 
+    /// Alan header ve verisini binary MFT çıktısına yazar.
     fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         writer.write_all(&[self.id, self.field_type as u8])?;
         writer.write_all(&(self.data.len() as u32).to_le_bytes())?;
@@ -91,6 +101,7 @@ impl Field {
 }
 
 #[derive(Debug, Clone)]
+/// Tek bir MFT kaydının türünü, zamanını ve alanlarını taşır.
 pub(super) struct Record {
     pub(super) record_type: RecordType,
     pub(super) timestamp_ns: i64,
@@ -98,6 +109,7 @@ pub(super) struct Record {
 }
 
 impl Record {
+    /// Yeni kayıt oluşturur ve zaman damgasını anlık saatten alır.
     pub(super) fn new(record_type: RecordType, fields: Vec<Field>) -> Self {
         Self {
             record_type,
@@ -106,10 +118,12 @@ impl Record {
         }
     }
 
+    /// Kayıt header ve alanları dahil toplam byte uzunluğunu hesaplar.
     fn encoded_len(&self) -> usize {
         RECORD_HEADER_SIZE + self.fields.iter().map(Field::encoded_len).sum::<usize>()
     }
 
+    /// Kayıt header ve alanlarını binary MFT çıktısına yazar.
     fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         let total_len = self.encoded_len();
         writer.write_all(&[self.record_type as u8])?;
@@ -123,21 +137,25 @@ impl Record {
     }
 }
 
+/// Dosya header yazıldıktan sonra kayıtları ardışık olarak yazan yardımcıdır.
 pub(super) struct RecordWriter<W: Write> {
     writer: W,
 }
 
 impl<W: Write> RecordWriter<W> {
+    /// Yeni MFT dosyası için header yazar ve writer döndürür.
     pub(super) fn new(mut writer: W, serial: &str) -> io::Result<Self> {
         write_file_header(&mut writer, serial)?;
         Ok(Self { writer })
     }
 
+    /// Tek bir MFT kaydını dosyaya ekler.
     pub(super) fn write_record(&mut self, record: &Record) -> io::Result<()> {
         record.write_to(&mut self.writer)
     }
 }
 
+/// MFT dosya header alanlarını magic, version, zaman ve serial ile doldurur.
 fn write_file_header<W: Write>(writer: &mut W, serial: &str) -> io::Result<()> {
     let mut header = [0_u8; FILE_HEADER_SIZE];
     header[0..4].copy_from_slice(&MAGIC.to_le_bytes());
@@ -150,6 +168,7 @@ fn write_file_header<W: Write>(writer: &mut W, serial: &str) -> io::Result<()> {
     writer.write_all(&header)
 }
 
+/// UNIX epoch nanosecond zaman damgası üretir.
 pub(super) fn now_ns() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

@@ -1,9 +1,11 @@
+//! Android metin/JSON çıktılarından yapılandırılmış MFT kayıtları çıkarır.
 use super::format::{Field, MAX_RECORDS_PER_SOURCE, MAX_TEXT_INPUT, Record, RecordType};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
+/// Mantıksal Android edinim klasöründeki bilinen çıktılardan MFT kayıtları üretir.
 pub(super) fn build_logical_records(dir: &Path) -> Vec<Record> {
     let mut records = Vec::new();
 
@@ -75,6 +77,7 @@ pub(super) fn build_logical_records(dir: &Path) -> Vec<Record> {
     records
 }
 
+/// Büyük metin çıktısını üst sınırla okuyarak bellek taşmasını önler.
 pub(super) fn read_text_file(path: impl AsRef<Path>) -> Option<String> {
     let path = path.as_ref();
     let mut file = File::open(path).ok()?;
@@ -86,6 +89,7 @@ pub(super) fn read_text_file(path: impl AsRef<Path>) -> Option<String> {
     Some(String::from_utf8_lossy(&bytes).into_owned())
 }
 
+/// getprop çıktısından cihaz/build/şifreleme telemetri kayıtlarını çıkarır.
 fn parse_getprop_records(content: &str) -> Vec<Record> {
     let prefixes = [
         "ro.product",
@@ -111,6 +115,7 @@ fn parse_getprop_records(content: &str) -> Vec<Record> {
         .collect()
 }
 
+/// Tek getprop satırını key/value çiftine çevirir.
 pub(super) fn parse_getprop_line(line: &str) -> Option<(String, String)> {
     let trimmed = line.trim();
     if !trimmed.starts_with('[') || !trimmed.contains("]: [") {
@@ -123,6 +128,7 @@ pub(super) fn parse_getprop_line(line: &str) -> Option<(String, String)> {
     ))
 }
 
+/// dumpsys usagestats içinden uygulama kullanım kayıtlarını çıkarır.
 fn parse_usage_stat_records(content: &str) -> Vec<Record> {
     let mut records = Vec::new();
     let mut seen = HashSet::new();
@@ -159,6 +165,7 @@ fn parse_usage_stat_records(content: &str) -> Vec<Record> {
     records
 }
 
+/// dumpsys account çıktısından hesap adı ve tip kayıtlarını çıkarır.
 fn parse_account_records(content: &str) -> Vec<Record> {
     let mut records = Vec::new();
     let mut in_accounts = false;
@@ -197,6 +204,7 @@ fn parse_account_records(content: &str) -> Vec<Record> {
     records
 }
 
+/// dumpsys wifi çıktısından yapılandırılmış ve bağlantı Wi-Fi kayıtlarını çıkarır.
 fn parse_wifi_records(content: &str) -> Vec<Record> {
     let mut records = Vec::new();
     let mut seen = HashSet::new();
@@ -241,6 +249,7 @@ fn parse_wifi_records(content: &str) -> Vec<Record> {
     records
 }
 
+/// dumpsys location çıktısından son konum ve uygulama konum isteklerini çıkarır.
 fn parse_location_records(content: &str) -> Vec<Record> {
     let mut records = Vec::new();
     let mut seen = HashSet::new();
@@ -301,6 +310,7 @@ fn parse_location_records(content: &str) -> Vec<Record> {
     records
 }
 
+/// Bildirim dumpsys çıktısından paket, kanal ve tag kayıtlarını çıkarır.
 fn parse_notification_records(content: &str) -> Vec<Record> {
     content
         .lines()
@@ -321,6 +331,7 @@ fn parse_notification_records(content: &str) -> Vec<Record> {
         .collect()
 }
 
+/// ps çıktısını proses MFT kayıtlarına dönüştürür.
 fn parse_process_records(content: &str) -> Vec<Record> {
     let mut records = Vec::new();
     for line in content.lines().skip(1) {
@@ -354,6 +365,7 @@ fn parse_process_records(content: &str) -> Vec<Record> {
     records
 }
 
+/// Ağ özet satırlarını protokol, local, remote ve state alanlarına ayırır.
 fn parse_network_records(content: &str) -> Vec<Record> {
     content
         .lines()
@@ -373,6 +385,7 @@ fn parse_network_records(content: &str) -> Vec<Record> {
         .collect()
 }
 
+/// logcat satırlarını PID, TID, öncelik, tag ve mesaj alanlarına böler.
 fn parse_logcat_records(content: &str) -> Vec<Record> {
     content
         .lines()
@@ -407,6 +420,7 @@ fn parse_logcat_records(content: &str) -> Vec<Record> {
         .collect()
 }
 
+/// content://sms sorgu çıktısını SMS kayıtlarına dönüştürür.
 fn parse_sms_records(content: &str) -> Vec<Record> {
     parse_content_rows(content)
         .into_iter()
@@ -427,6 +441,7 @@ fn parse_sms_records(content: &str) -> Vec<Record> {
         .collect()
 }
 
+/// content://call_log sorgu çıktısını arama kayıtlarına dönüştürür.
 fn parse_call_records(content: &str) -> Vec<Record> {
     parse_content_rows(content)
         .into_iter()
@@ -449,6 +464,7 @@ fn parse_call_records(content: &str) -> Vec<Record> {
         .collect()
 }
 
+/// contacts provider çıktısını kişi kayıtlarına dönüştürür.
 fn parse_contact_records(content: &str) -> Vec<Record> {
     parse_content_rows(content)
         .into_iter()
@@ -466,6 +482,7 @@ fn parse_contact_records(content: &str) -> Vec<Record> {
         .collect()
 }
 
+/// media provider çıktısını medya dosyası kayıtlarına dönüştürür.
 fn parse_media_records(content: &str) -> Vec<Record> {
     parse_content_rows(content)
         .into_iter()
@@ -490,6 +507,7 @@ fn parse_media_records(content: &str) -> Vec<Record> {
         .collect()
 }
 
+/// root/procfs gibi başlıklı metinleri telemetri kayıtlarına böler.
 fn parse_status_telemetry_records(prefix: &str, content: &str) -> Vec<Record> {
     let mut records = Vec::new();
     let mut current_label = String::new();
@@ -528,6 +546,7 @@ fn parse_status_telemetry_records(prefix: &str, content: &str) -> Vec<Record> {
     records
 }
 
+/// HPROF heap dump logundan başarılı dump kayıtlarını çıkarır.
 fn parse_heapdump_log_records(content: &str) -> Vec<Record> {
     content
         .lines()
@@ -551,6 +570,7 @@ fn parse_heapdump_log_records(content: &str) -> Vec<Record> {
         .collect()
 }
 
+/// Android content query Row satırlarını key/value map listesine dönüştürür.
 fn parse_content_rows(content: &str) -> Vec<HashMap<String, String>> {
     content
         .lines()
@@ -579,6 +599,7 @@ fn parse_content_rows(content: &str) -> Vec<HashMap<String, String>> {
         .collect()
 }
 
+/// Süslü parantezli dumpsys alanlarını key/value map olarak ayrıştırır.
 fn parse_braced_fields(line: &str) -> HashMap<String, String> {
     let mut fields = HashMap::new();
     let Some(start) = line.find('{') else {
@@ -600,6 +621,7 @@ fn parse_braced_fields(line: &str) -> HashMap<String, String> {
     fields
 }
 
+/// Configured networks satırından SSID/BSSID/güvenlik bilgisini çıkarır.
 fn parse_configured_wifi_line(line: &str) -> Option<(String, String, String)> {
     let parts: Vec<&str> = line.split_whitespace().collect();
     let mut ssid = String::new();
@@ -624,6 +646,7 @@ fn parse_configured_wifi_line(line: &str) -> Option<(String, String, String)> {
     normalize_wifi_tuple(ssid, bssid, security)
 }
 
+/// Aktif Wi-Fi bağlantı satırından SSID/BSSID bilgisini çıkarır.
 fn parse_connection_wifi_line(line: &str) -> Option<(String, String, String)> {
     let mut ssid = String::new();
     let mut bssid = String::new();
@@ -641,6 +664,7 @@ fn parse_connection_wifi_line(line: &str) -> Option<(String, String, String)> {
     normalize_wifi_tuple(ssid, bssid, String::new())
 }
 
+/// Boş ve bilinmeyen Wi-Fi değerlerini temizleyip geçerli tuple döndürür.
 fn normalize_wifi_tuple(
     mut ssid: String,
     bssid: String,
@@ -656,6 +680,7 @@ fn normalize_wifi_tuple(
     }
 }
 
+/// Last Known Locations satırından provider, latitude ve longitude değerlerini çıkarır.
 fn parse_last_known_location(line: &str) -> Option<(String, String, String)> {
     let (provider, rest) = line.split_once(": Location[")?;
     let mut parts = rest.split_whitespace();
@@ -672,6 +697,7 @@ fn parse_last_known_location(line: &str) -> Option<(String, String, String)> {
     ))
 }
 
+/// Serbest metin içinde Android paket adına benzeyen ilk kelimeyi bulur.
 fn extract_package_name(line: &str) -> Option<String> {
     line.split(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '_' || ch == '.'))
         .find(|word| {
@@ -681,6 +707,7 @@ fn extract_package_name(line: &str) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
+/// key=value biçimindeki alanı satırdan okur.
 fn extract_value(line: &str, key: &str) -> Option<String> {
     let needle = format!("{key}=");
     let start = line.find(&needle)? + needle.len();
@@ -697,6 +724,7 @@ fn extract_value(line: &str, key: &str) -> Option<String> {
     (!value.is_empty() && value != "null").then_some(value)
 }
 
+/// Metnin başındaki sayısal bölümü i64 olarak parse eder.
 pub(super) fn parse_i64_prefix(value: &str) -> Option<i64> {
     let digits: String = value
         .chars()
@@ -705,6 +733,7 @@ pub(super) fn parse_i64_prefix(value: &str) -> Option<i64> {
     digits.parse().ok()
 }
 
+/// Süre değerini milisaniye cinsinden i64 sayıya indirger.
 fn parse_duration_to_ms(value: &str) -> Option<i64> {
     if let Some(number) = parse_i64_prefix(value) {
         return Some(number);
@@ -720,12 +749,14 @@ fn parse_duration_to_ms(value: &str) -> Option<i64> {
     None
 }
 
+/// Satır mapinden ilk bulunan string alanı MFT field listesine ekler.
 fn push_row_str(fields: &mut Vec<Field>, id: u8, row: &HashMap<String, String>, keys: &[&str]) {
     if let Some(value) = keys.iter().find_map(|key| row.get(*key)) {
         push_str_field(fields, id, value);
     }
 }
 
+/// Satır mapinden ilk bulunan sayı alanı MFT field listesine ekler.
 fn push_row_int(fields: &mut Vec<Field>, id: u8, row: &HashMap<String, String>, keys: &[&str]) {
     if let Some(value) = keys
         .iter()
@@ -735,12 +766,14 @@ fn push_row_int(fields: &mut Vec<Field>, id: u8, row: &HashMap<String, String>, 
     }
 }
 
+/// Boş olmayan string değerini MFT field listesine ekler.
 fn push_str_field(fields: &mut Vec<Field>, id: u8, value: &str) {
     if !value.trim().is_empty() {
         fields.push(Field::string(id, value.trim()));
     }
 }
 
+/// Çok uzun metni kayıt limitine indirir ve kırpıldığını belirtir.
 pub(super) fn trim_for_record(value: &str, max_len: usize) -> String {
     if value.len() <= max_len {
         return value.to_string();

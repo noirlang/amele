@@ -1,9 +1,12 @@
+//! Yerel/uzak RAM edinimi, araç kurulumu ve RAM analiz API uçlarını yönetir.
 use chrono::Local;
 use serde::Deserialize;
 use serde_json::{Value, json};
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::thread;
 
 use crate::disk;
@@ -15,9 +18,13 @@ use crate::server::{Response, json_error, json_ok};
 
 #[cfg(windows)]
 const WINPMEM_DOWNLOAD_URL: &str = "https://worm.noirlang.tr/go-winpmem_amd64_1.0-rc2_signed.exe";
+const VOLATILITY_LINUX_BANNERS_URL: &str = "https://raw.githubusercontent.com/Abyss-W4tcher/volatility3-symbols/master/banners/banners_plain.json";
+const VOLATILITY_LINUX_SYMBOL_RAW_BASE: &str =
+    "https://github.com/Abyss-W4tcher/volatility3-symbols/raw/master/";
 
 use super::{
     acquisition_jobs,
+    append_acquisition_log,
     cleanup_helper_files,
     create_acquisition_job,
     current_evidence_vault,
@@ -29,6 +36,7 @@ use super::{
     helper_file_stem,
     helper_owner_gid,
     helper_owner_uid,
+    home_dir,
     process_is_root,
     read_helper_error,
     read_helper_json,
@@ -44,6 +52,7 @@ use super::{
 };
 
 #[derive(Deserialize)]
+/// Yerel RAM edinim isteğinde araç, çıktı ve vaka bilgisini taşır.
 pub struct LocalRamRequest {
     pub output: String,
     pub tool: Option<String>,
@@ -52,6 +61,7 @@ pub struct LocalRamRequest {
 }
 
 #[derive(Deserialize)]
+/// Uzak RAM edinim isteğinde agent bağlantısı, çıktı ve vaka bilgisini taşır.
 pub struct RemoteRamRequest {
     pub ip: String,
     pub port: u16,
@@ -60,6 +70,7 @@ pub struct RemoteRamRequest {
     pub case_name: Option<String>,
 }
 
+/// Linux için AVML indirme/kurulum işini başlatır.
 pub fn avml_install_endpoint() -> Response {
     #[cfg(not(target_os = "linux"))]
     {
@@ -155,6 +166,7 @@ pub fn avml_install_endpoint() -> Response {
     }
 }
 
+/// Windows için WinPMEM indirme/kurulum işini başlatır.
 pub fn winpmem_install_endpoint() -> Response {
     #[cfg(not(windows))]
     {
@@ -186,6 +198,7 @@ pub fn winpmem_install_endpoint() -> Response {
 }
 
 #[cfg(windows)]
+/// WinPMEM indirme/kurulum işini arka planda çalıştırır.
 fn run_winpmem_install_job(job_id: String) {
     update_acquisition_message(&job_id, "WinPMEM indiriliyor...");
 
@@ -306,6 +319,7 @@ fn run_winpmem_install_job(job_id: String) {
     );
 }
 
+/// Linux dağıtım mimarisine uygun AVML release asset adını döndürür.
 fn avml_release_asset_name() -> Option<&'static str> {
     match std::env::consts::ARCH {
         "x86_64" => Some("avml"),
@@ -314,6 +328,7 @@ fn avml_release_asset_name() -> Option<&'static str> {
     }
 }
 
+/// Yerel RAM edinim işini AVML veya WinPMEM ile başlatır.
 pub fn local_ram_endpoint(body: &[u8]) -> Response {
     let request: LocalRamRequest = match serde_json::from_slice(body) {
         Ok(request) => request,
@@ -339,6 +354,7 @@ pub fn local_ram_endpoint(body: &[u8]) -> Response {
     }))
 }
 
+/// Uzak agent üzerinden RAM edinim işini başlatır.
 pub fn remote_ram_endpoint(body: &[u8]) -> Response {
     let request: RemoteRamRequest = match serde_json::from_slice(body) {
         Ok(request) => request,
@@ -365,6 +381,7 @@ pub fn remote_ram_endpoint(body: &[u8]) -> Response {
     }))
 }
 
+/// Yerel RAM edinim işini çalıştırır ve gerekirse yetkili helper fallback uygular.
 fn run_local_ram_job(
     job_id: String,
     mut request: LocalRamRequest,
@@ -436,6 +453,7 @@ fn run_local_ram_job(
     }
 }
 
+/// Uzak agent üzerinde RAM edinimi başlatır ve çıkan dosyayı indirir.
 fn run_remote_ram_job(job_id: String, request: RemoteRamRequest) {
     let target_path = match ram_output_path(
         &request.output,
@@ -521,6 +539,7 @@ fn run_remote_ram_job(job_id: String, request: RemoteRamRequest) {
     }
 }
 
+/// Tamamlanan RAM çıktısı için SHA-256 değerini sonuç veya dosya üzerinden kesinleştirir.
 fn finalize_ram_sha256(
     job_id: &str,
     target_path: &Path,
@@ -536,6 +555,7 @@ fn finalize_ram_sha256(
     Ok(sha256)
 }
 
+/// Edinim işinin canlı durumunu UI'ye döndürür.
 pub fn acquisition_status_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct StatusRequest {
@@ -554,6 +574,7 @@ pub fn acquisition_status_endpoint(body: &[u8]) -> Response {
             "done": job.done,
             "total": job.total,
             "message": job.message,
+            "logs": job.logs,
             "result": job.result,
             "error": job.error,
         })),
@@ -561,6 +582,7 @@ pub fn acquisition_status_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Pause/resume/stop komutlarını ilgili edinim işine uygular.
 pub fn acquisition_control_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct ControlRequest {
@@ -617,6 +639,7 @@ pub fn acquisition_control_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Yerel edinim işine pause/resume/stop kontrolü uygular.
 fn apply_local_acquisition_control(job_id: &str, action: &str) -> Option<String> {
     let mut jobs = acquisition_jobs().lock().ok()?;
     let job = jobs.get_mut(job_id)?;
@@ -643,6 +666,7 @@ fn apply_local_acquisition_control(job_id: &str, action: &str) -> Option<String>
     }
 }
 
+/// Bellekte tutulan edinim işini ID ile döndürür.
 fn get_acquisition_job(job_id: &str) -> Option<super::AcquisitionJob> {
     acquisition_jobs()
         .lock()
@@ -650,6 +674,7 @@ fn get_acquisition_job(job_id: &str) -> Option<super::AcquisitionJob> {
         .and_then(|jobs| jobs.get(job_id).cloned())
 }
 
+/// Seçilen RAM aracı için yerel root/admin gerekip gerekmediğini belirler.
 fn local_ram_requires_elevation(tool: &str) -> bool {
     #[cfg(target_os = "linux")]
     {
@@ -668,6 +693,7 @@ fn local_ram_requires_elevation(tool: &str) -> bool {
     }
 }
 
+/// RAM hatasının yetki yükseltmeyle tekrar denenebilir olup olmadığını belirler.
 fn local_ram_error_can_retry_elevated(message: &str) -> bool {
     if !(cfg!(target_os = "linux") || cfg!(windows)) {
         return false;
@@ -682,12 +708,16 @@ fn local_ram_error_can_retry_elevated(message: &str) -> bool {
         || message.contains("os error 13")
 }
 
+/// Yerel RAM edinimini yetkili helper üzerinden çalıştırır.
 fn run_elevated_local_ram_job(
     job_id: &str,
     request: &LocalRamRequest,
     control: &ram::CancellationToken,
 ) {
-    update_acquisition_message(job_id, "Yetki bekleniyor");
+    update_acquisition_message(
+        job_id,
+        "Yetki bekleniyor: Linux'ta sudo/pkexec parola penceresini, Windows'ta UAC Evet/Hayır penceresini onaylayın.",
+    );
     let stem = helper_file_stem("worm-ram-helper");
     let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
     let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
@@ -726,6 +756,10 @@ fn run_elevated_local_ram_job(
             return;
         }
     };
+    update_acquisition_message(
+        job_id,
+        &format!("Yetki helper başlatıldı: {}", child.method()),
+    );
 
     loop {
         if control.is_cancelled() {
@@ -768,9 +802,8 @@ fn run_elevated_local_ram_job(
         match child.try_wait() {
             Ok(Some(status)) => {
                 if !status.success() {
-                    let error = read_helper_error(&result_path).unwrap_or_else(|| {
-                        "yetki yükseltme iptal edildi veya başarısız oldu".to_string()
-                    });
+                    let error = read_helper_error(&result_path)
+                        .unwrap_or_else(|| child.failure_message(&status));
                     cleanup_helper_files(&[
                         &request_path,
                         &result_path,
@@ -840,6 +873,7 @@ fn run_elevated_local_ram_job(
     }
 }
 
+/// RAM edinim sonucundaki hedef dosya yolunu JSON içinden çıkarır.
 fn result_target_path(result: &Value) -> Option<PathBuf> {
     result
         .get("target_path")
@@ -847,6 +881,7 @@ fn result_target_path(result: &Value) -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
+/// Vaka seçimine göre RAM çıktı dosyası yolunu hesaplar.
 fn ram_output_path(
     output: &str,
     case_name: Option<&str>,
@@ -865,6 +900,7 @@ fn ram_output_path(
     ))
 }
 
+/// Kullanıcının verdiği output değerinden dosya adını çıkarır.
 fn ram_file_name_from_output(output: &str) -> Option<&str> {
     let path = Path::new(output);
     let extension = path.extension()?.to_str()?;
@@ -880,6 +916,7 @@ fn ram_file_name_from_output(output: &str) -> Option<&str> {
         .filter(|name| !name.is_empty())
 }
 
+/// Uzak RAM çıktısı için standart dosya adı üretir.
 fn ram_remote_file_name(output: &str) -> String {
     Path::new(output)
         .file_name()
@@ -889,6 +926,7 @@ fn ram_remote_file_name(output: &str) -> String {
         .unwrap_or_else(|| "memory_dump.raw".to_string())
 }
 
+/// RAM çıktısı için IP ve tarih içeren standart hedef yol üretir.
 fn canonical_ram_target_path(output: &str, remote_ip: Option<&str>) -> PathBuf {
     let output = PathBuf::from(output.trim());
     let is_file = output
@@ -913,6 +951,7 @@ fn canonical_ram_target_path(output: &str, remote_ip: Option<&str>) -> PathBuf {
     }
 }
 
+/// RAM dosyası için yerel/uzak durumuna göre standart dosya adı üretir.
 fn canonical_ram_file_name(remote_ip: Option<&str>, current_name: Option<&str>) -> String {
     let remote_ip = remote_ip
         .map(sanitize_file_stem)
@@ -941,6 +980,7 @@ fn canonical_ram_file_name(remote_ip: Option<&str>, current_name: Option<&str>) 
     format!("{}_{}.raw", prefix, Local::now().format("%Y%m%d_%H%M%S"))
 }
 
+/// RAM dosyasında hızlı string/IOC taraması yapar.
 pub fn ram_analyze_strings_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {
@@ -960,10 +1000,13 @@ pub fn ram_analyze_strings_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// RAM imajı için özet analiz endpoint'idir.
 pub fn ram_analyze_summary_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {
         path: String,
+        os_type: Option<String>,
+        symbol_dir: Option<String>,
     }
     let request: Request = match serde_json::from_slice(body) {
         Ok(req) => req,
@@ -973,12 +1016,279 @@ pub fn ram_analyze_summary_endpoint(body: &[u8]) -> Response {
     if !path.exists() {
         return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
-    match ram_analysis::analyze_ram_summary(path) {
+    let symbol_dir = match request_symbol_dir(request.symbol_dir.as_deref()) {
+        Ok(dir) => dir,
+        Err(err) => return json_error(404, err),
+    };
+    match ram_analysis::analyze_ram_summary_logged_with_symbol_dir(
+        path,
+        request.os_type.as_deref(),
+        symbol_dir.as_deref(),
+        None,
+    ) {
         Ok(summary) => json_ok(serde_json::to_value(summary).unwrap_or(Value::Null)),
         Err(err) => json_error(500, err.to_string()),
     }
 }
 
+/// Volatility ön kontrolünü ve sembol ihtiyacını hesaplar.
+pub fn ram_volatility_preflight_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+        os_type: Option<String>,
+        symbol_dir: Option<String>,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = Path::new(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
+    }
+    let os_type = sanitize_ram_os_type(request.os_type.as_deref());
+    let symbol_dir = match request_symbol_dir(request.symbol_dir.as_deref()) {
+        Ok(dir) => dir,
+        Err(err) => return json_error(404, err),
+    };
+    let preflight =
+        crate::volatility::preflight_ram_image(path, &os_type, symbol_dir.as_deref(), None);
+    json_ok(serde_json::to_value(preflight).unwrap_or(Value::Null))
+}
+
+/// Linux kernel sembol dosyasını indirip seçilen sembol klasörüne kurar.
+pub fn ram_volatility_symbol_install_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+        os_type: Option<String>,
+        symbol_dir: Option<String>,
+    }
+
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = Path::new(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
+    }
+
+    let os_type = sanitize_ram_os_type(request.os_type.as_deref());
+    if os_type != "linux" {
+        return json_ok(json!({
+            "status": "windows-automatic",
+            "installed": false,
+            "message": "Windows sembolleri Volatility3 tarafından Microsoft symbol cache üzerinden otomatik yönetilir.",
+            "symbol_dir": Value::Null,
+            "banners": [],
+            "matches": [],
+        }));
+    }
+
+    let symbol_root = match writable_symbol_dir(request.symbol_dir.as_deref()) {
+        Ok(path) => path,
+        Err(err) => return json_error(500, err),
+    };
+    let linux_symbol_dir = symbol_root.join("linux");
+    if let Err(err) = fs::create_dir_all(&linux_symbol_dir) {
+        return json_error(
+            500,
+            format!(
+                "Volatility Linux symbol dizini oluşturulamadı: {} - {err}",
+                linux_symbol_dir.display()
+            ),
+        );
+    }
+
+    let banners = match crate::volatility::scan_linux_banners(path, 3, None) {
+        Ok(items) => items,
+        Err(err) => {
+            return json_error(
+                500,
+                format!("Linux kernel banner taraması başarısız: {err}"),
+            );
+        }
+    };
+    if banners.is_empty() {
+        return json_error(
+            404,
+            "RAM imajında Linux kernel banner adayı bulunamadı. Dosyanın ham fiziksel RAM imajı olduğundan ve edinimin temiz tamamlandığından emin olun.",
+        );
+    }
+
+    let mapping = match download_linux_symbol_mapping() {
+        Ok(mapping) => mapping,
+        Err(err) => {
+            return json_error(
+                500,
+                format!(
+                    "Linux symbol eşleme verisi indirilemedi: {err}. Kaynak: {VOLATILITY_LINUX_BANNERS_URL}"
+                ),
+            );
+        }
+    };
+
+    let mut found = Vec::new();
+    for banner in &banners {
+        if let Some(paths) = mapping.get(banner) {
+            for path in paths {
+                found.push(json!({
+                    "banner": banner,
+                    "remote_path": path,
+                    "url": linux_symbol_url(path),
+                }));
+            }
+        }
+    }
+
+    if found.is_empty() {
+        return json_ok(json!({
+            "status": "not-found",
+            "installed": false,
+            "message": "Kernel banner bulundu ancak hazır remote ISF sembol veritabanında birebir eşleşme yok.",
+            "source": VOLATILITY_LINUX_BANNERS_URL,
+            "symbol_dir": symbol_root,
+            "banners": banners,
+            "matches": [],
+            "recommendations": [
+                "Kernel banner birebir eşleşmelidir; sadece sürüm numarası yeterli değildir.",
+                "Bu kernel için debug vmlinux/System.map bulunup dwarf2json ile ISF üretilebilir.",
+                "Üretilen .json veya .json.xz dosyasını symbol dizini altındaki linux klasörüne koyun."
+            ],
+        }));
+    }
+
+    let selected_path = found
+        .first()
+        .and_then(|item| item.get("remote_path"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let file_name = Path::new(&selected_path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or("linux-symbol.json.xz");
+    let target = linux_symbol_dir.join(file_name);
+    let mut downloaded = false;
+    if !target.exists() {
+        let url = linux_symbol_url(&selected_path);
+        let download_target = target.with_extension("download");
+        if let Err(err) = download_file_to_path(
+            &url,
+            &download_target,
+            "Volatility Linux symbol download failed",
+        ) {
+            let _ = fs::remove_file(&download_target);
+            return json_error(
+                500,
+                format!("Volatility Linux symbol dosyası indirilemedi: {err}. URL: {url}"),
+            );
+        }
+        if let Err(err) = fs::rename(&download_target, &target) {
+            let _ = fs::remove_file(&download_target);
+            return json_error(
+                500,
+                format!(
+                    "Volatility Linux symbol dosyası taşınamadı: {} - {err}",
+                    target.display()
+                ),
+            );
+        }
+        downloaded = true;
+    }
+
+    let sha256 = sha256_file(&target).ok();
+    let preflight = crate::volatility::preflight_ram_image(path, "linux", Some(&symbol_root), None);
+
+    json_ok(json!({
+        "status": if preflight.ready { "ready" } else { "installed" },
+        "installed": true,
+        "downloaded": downloaded,
+        "message": if downloaded {
+            "Linux Volatility3 symbol dosyası indirildi."
+        } else {
+            "Linux Volatility3 symbol dosyası zaten mevcut."
+        },
+        "source": VOLATILITY_LINUX_BANNERS_URL,
+        "symbol_dir": symbol_root,
+        "linux_symbol_dir": linux_symbol_dir,
+        "target": target,
+        "sha256": sha256,
+        "banners": banners,
+        "matches": found,
+        "preflight": preflight,
+    }))
+}
+
+/// RAM özet analizini uzun sürebileceği için arka plan işi olarak başlatır.
+pub fn ram_analyze_summary_start_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+        os_type: Option<String>,
+        symbol_dir: Option<String>,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = PathBuf::from(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
+    }
+    let symbol_dir = match request_symbol_dir(request.symbol_dir.as_deref()) {
+        Ok(dir) => dir,
+        Err(err) => return json_error(404, err),
+    };
+
+    let os_type = sanitize_ram_os_type(request.os_type.as_deref());
+    let (job_id, _control) = create_acquisition_job("RAM analizi başlatıldı");
+    let thread_job_id = job_id.clone();
+    thread::spawn(move || {
+        run_ram_summary_analysis_job(thread_job_id, path, os_type, symbol_dir);
+    });
+
+    json_ok(json!({
+        "job_id": job_id,
+        "status": "running",
+        "message": "RAM analizi başlatıldı",
+    }))
+}
+
+/// RAM özet analiz arka plan işini çalıştırır.
+fn run_ram_summary_analysis_job(
+    job_id: String,
+    path: PathBuf,
+    os_type: String,
+    symbol_dir: Option<PathBuf>,
+) {
+    update_acquisition_message(&job_id, "RAM analiz hazırlığı yapılıyor");
+    let log_job_id = job_id.clone();
+    let logger: Arc<dyn Fn(String) + Send + Sync> = Arc::new(move |line| {
+        append_acquisition_log(&log_job_id, &line);
+    });
+
+    match ram_analysis::analyze_ram_summary_logged_with_symbol_dir(
+        &path,
+        Some(&os_type),
+        symbol_dir.as_deref(),
+        Some(logger),
+    ) {
+        Ok(summary) => finish_acquisition_job_with_message(
+            &job_id,
+            serde_json::to_value(summary).unwrap_or(Value::Null),
+            "RAM analizi tamamlandı",
+        ),
+        Err(err) => {
+            fail_acquisition_job_with_message(&job_id, err.to_string(), "RAM analizi başarısız")
+        }
+    }
+}
+
+/// RAM imajından basit dosya carving çıktıları üretir.
 pub fn ram_carve_files_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {
@@ -1002,10 +1312,13 @@ pub fn ram_carve_files_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Volatility ile RAM imajındaki prosesleri listeler.
 pub fn ram_list_processes_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {
         path: String,
+        os_type: Option<String>,
+        symbol_dir: Option<String>,
     }
     let request: Request = match serde_json::from_slice(body) {
         Ok(req) => req,
@@ -1013,19 +1326,200 @@ pub fn ram_list_processes_endpoint(body: &[u8]) -> Response {
     };
     let path = Path::new(&request.path);
     if !path.exists() {
-        return json_error(404, "Bellek arşivi bulunamadı / Memory archive not found");
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
-    match ram_analysis::list_tar_processes(path) {
-        Ok(procs) => json_ok(serde_json::to_value(procs).unwrap_or(Value::Null)),
-        Err(err) => json_error(500, err.to_string()),
+
+    let os = request.os_type.as_deref().unwrap_or("windows");
+    let symbol_dir = match request_symbol_dir(request.symbol_dir.as_deref()) {
+        Ok(dir) => dir,
+        Err(err) => return json_error(404, err),
+    };
+    match crate::volatility::get_processes_logged_with_symbol_dir(
+        path,
+        os,
+        symbol_dir.as_deref(),
+        None,
+    ) {
+        Ok(procs) => {
+            let mapped: Vec<Value> = procs
+                .into_iter()
+                .map(|p| {
+                    json!({
+                        "pid": p.pid.to_string(),
+                        "name": format!("{} ({})", p.name, p.offset),
+                        "dump_size": 0,
+                    })
+                })
+                .collect();
+            json_ok(Value::Array(mapped))
+        }
+        Err(err) => json_error(500, err),
     }
 }
 
+/// Proses listelemeyi arka plan işi olarak başlatır.
+pub fn ram_list_processes_start_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+        os_type: Option<String>,
+        symbol_dir: Option<String>,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = PathBuf::from(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
+    }
+    let symbol_dir = match request_symbol_dir(request.symbol_dir.as_deref()) {
+        Ok(dir) => dir,
+        Err(err) => return json_error(404, err),
+    };
+
+    let os_type = sanitize_ram_os_type(request.os_type.as_deref());
+    let (job_id, _control) = create_acquisition_job("RAM proses analizi başlatıldı");
+    let thread_job_id = job_id.clone();
+    thread::spawn(move || {
+        run_ram_process_list_job(thread_job_id, path, os_type, symbol_dir);
+    });
+
+    json_ok(json!({
+        "job_id": job_id,
+        "status": "running",
+        "message": "RAM proses analizi başlatıldı",
+    }))
+}
+
+/// Proses listeleme arka plan işini çalıştırır.
+fn run_ram_process_list_job(
+    job_id: String,
+    path: PathBuf,
+    os_type: String,
+    symbol_dir: Option<PathBuf>,
+) {
+    update_acquisition_message(&job_id, "Volatility3 proses listesi çıkarılıyor");
+    let log_job_id = job_id.clone();
+    let logger: Arc<dyn Fn(String) + Send + Sync> = Arc::new(move |line| {
+        append_acquisition_log(&log_job_id, &line);
+    });
+
+    match crate::volatility::get_processes_logged_with_symbol_dir(
+        &path,
+        &os_type,
+        symbol_dir.as_deref(),
+        Some(logger),
+    ) {
+        Ok(procs) => {
+            let mapped: Vec<Value> = procs
+                .into_iter()
+                .map(|p| {
+                    json!({
+                        "pid": p.pid.to_string(),
+                        "name": format!("{} ({})", p.name, p.offset),
+                        "dump_size": 0,
+                        "extra_info": p.extra_info,
+                    })
+                })
+                .collect();
+            finish_acquisition_job_with_message(
+                &job_id,
+                Value::Array(mapped),
+                "RAM proses listesi hazır",
+            );
+        }
+        Err(err) => fail_acquisition_job_with_message(&job_id, err, "RAM proses analizi başarısız"),
+    }
+}
+
+/// UI'den gelen OS tipini desteklenen windows/linux değerine indirger.
+fn sanitize_ram_os_type(value: Option<&str>) -> String {
+    match value {
+        Some("linux") => "linux".to_string(),
+        _ => "windows".to_string(),
+    }
+}
+
+/// İstekten gelen sembol klasörünü doğrular.
+fn request_symbol_dir(value: Option<&str>) -> Result<Option<PathBuf>, String> {
+    let Some(raw) = value.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    let path = PathBuf::from(raw);
+    if !path.exists() {
+        return Err(format!("Volatility symbol dizini bulunamadı: {raw}"));
+    }
+    if !path.is_dir() {
+        return Err(format!("Volatility symbol yolu klasör değil: {raw}"));
+    }
+    Ok(Some(path))
+}
+
+/// Sembol kurulumu için yazılabilir klasör seçer.
+fn writable_symbol_dir(value: Option<&str>) -> Result<PathBuf, String> {
+    let path = value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .filter(|value| *value != ".symbols")
+        .map(PathBuf::from)
+        .unwrap_or_else(default_worm_symbol_dir);
+    fs::create_dir_all(&path).map_err(|err| {
+        format!(
+            "Volatility symbol dizini oluşturulamadı: {} - {err}",
+            path.display()
+        )
+    })?;
+    if !path.is_dir() {
+        return Err(format!(
+            "Volatility symbol yolu klasör değil: {}",
+            path.display()
+        ));
+    }
+    Ok(path)
+}
+
+/// Worm varsayılan Volatility sembol klasörünü döndürür.
+fn default_worm_symbol_dir() -> PathBuf {
+    home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("Worm")
+        .join(".symbols")
+}
+
+/// Linux kernel banner ve sembol URL eşlemesini indirir.
+fn download_linux_symbol_mapping() -> Result<BTreeMap<String, Vec<String>>, String> {
+    let temp_dir = std::env::temp_dir().join("worm-volatility-symbols");
+    fs::create_dir_all(&temp_dir).map_err(|err| err.to_string())?;
+    let mapping_path = temp_dir.join("banners_plain.json");
+    download_file_to_path(
+        VOLATILITY_LINUX_BANNERS_URL,
+        &mapping_path,
+        "Volatility Linux symbol mapping download failed",
+    )?;
+    let content = fs::read_to_string(&mapping_path).map_err(|err| err.to_string())?;
+    let _ = fs::remove_file(&mapping_path);
+    serde_json::from_str::<BTreeMap<String, Vec<String>>>(&content)
+        .map_err(|err| format!("Volatility Linux symbol eşleme JSON'u okunamadı: {err}"))
+}
+
+/// Release içindeki sembol dosyası yolunu tam indirme URL'sine çevirir.
+fn linux_symbol_url(remote_path: &str) -> String {
+    format!(
+        "{}{}",
+        VOLATILITY_LINUX_SYMBOL_RAW_BASE,
+        remote_path.trim_start_matches('/').replace(' ', "%20")
+    )
+}
+
+/// Seçilen proses için DLL/açık dosya gibi ayrıntıları döndürür.
 pub fn ram_process_details_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {
         path: String,
         pid: String,
+        os_type: Option<String>,
+        symbol_dir: Option<String>,
     }
     let request: Request = match serde_json::from_slice(body) {
         Ok(req) => req,
@@ -1033,23 +1527,115 @@ pub fn ram_process_details_endpoint(body: &[u8]) -> Response {
     };
     let path = Path::new(&request.path);
     if !path.exists() {
-        return json_error(404, "Bellek arşivi bulunamadı / Memory archive not found");
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
-    match ram_analysis::get_process_maps_and_dump_files(path, &request.pid) {
-        Ok((maps, bin_files)) => json_ok(json!({
-            "maps": maps,
-            "dumps": bin_files,
+
+    let os = request.os_type.as_deref().unwrap_or("windows");
+    let pid_num = match request.pid.parse::<i64>() {
+        Ok(n) => n,
+        Err(_) => return json_error(400, "PID must be a valid integer for Volatility3"),
+    };
+    let symbol_dir = match request_symbol_dir(request.symbol_dir.as_deref()) {
+        Ok(dir) => dir,
+        Err(err) => return json_error(404, err),
+    };
+    match crate::volatility::get_process_details_logged_with_symbol_dir(
+        path,
+        os,
+        pid_num,
+        symbol_dir.as_deref(),
+        None,
+    ) {
+        Ok(details) => json_ok(json!({
+            "maps": details,
+            "dumps": Vec::<String>::new(),
         })),
-        Err(err) => json_error(500, err.to_string()),
+        Err(err) => json_error(500, err),
     }
 }
 
+/// Proses ayrıntı analizini arka plan işi olarak başlatır.
+pub fn ram_process_details_start_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct Request {
+        path: String,
+        pid: String,
+        os_type: Option<String>,
+        symbol_dir: Option<String>,
+    }
+    let request: Request = match serde_json::from_slice(body) {
+        Ok(req) => req,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let path = PathBuf::from(&request.path);
+    if !path.exists() {
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
+    }
+    let pid_num = match request.pid.parse::<i64>() {
+        Ok(n) => n,
+        Err(_) => return json_error(400, "PID must be a valid integer for Volatility3"),
+    };
+    let symbol_dir = match request_symbol_dir(request.symbol_dir.as_deref()) {
+        Ok(dir) => dir,
+        Err(err) => return json_error(404, err),
+    };
+
+    let os_type = sanitize_ram_os_type(request.os_type.as_deref());
+    let (job_id, _control) = create_acquisition_job("RAM proses detayı başlatıldı");
+    let thread_job_id = job_id.clone();
+    thread::spawn(move || {
+        run_ram_process_details_job(thread_job_id, path, os_type, pid_num, symbol_dir);
+    });
+
+    json_ok(json!({
+        "job_id": job_id,
+        "status": "running",
+        "message": "RAM proses detayı başlatıldı",
+    }))
+}
+
+/// Proses ayrıntı arka plan işini çalıştırır.
+fn run_ram_process_details_job(
+    job_id: String,
+    path: PathBuf,
+    os_type: String,
+    pid: i64,
+    symbol_dir: Option<PathBuf>,
+) {
+    update_acquisition_message(&job_id, "Volatility3 proses detayı çıkarılıyor");
+    let log_job_id = job_id.clone();
+    let logger: Arc<dyn Fn(String) + Send + Sync> = Arc::new(move |line| {
+        append_acquisition_log(&log_job_id, &line);
+    });
+
+    match crate::volatility::get_process_details_logged_with_symbol_dir(
+        &path,
+        &os_type,
+        pid,
+        symbol_dir.as_deref(),
+        Some(logger),
+    ) {
+        Ok(details) => finish_acquisition_job_with_message(
+            &job_id,
+            json!({
+                "maps": details,
+                "dumps": Vec::<String>::new(),
+            }),
+            "RAM proses detayı hazır",
+        ),
+        Err(err) => fail_acquisition_job_with_message(&job_id, err, "RAM proses detayı başarısız"),
+    }
+}
+
+/// RAM imajı içinde kullanıcı sorgusuna göre ham arama yapar.
 pub fn ram_process_search_endpoint(body: &[u8]) -> Response {
+    #[allow(dead_code)]
     #[derive(Deserialize)]
     struct Request {
         path: String,
         pid: String,
         query: String,
+        os_type: Option<String>,
     }
     let request: Request = match serde_json::from_slice(body) {
         Ok(req) => req,
@@ -1060,14 +1646,16 @@ pub fn ram_process_search_endpoint(body: &[u8]) -> Response {
     }
     let path = Path::new(&request.path);
     if !path.exists() {
-        return json_error(404, "Bellek arşivi bulunamadı / Memory archive not found");
+        return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
-    match ram_analysis::search_process_memory(path, &request.pid, &request.query) {
+
+    match ram_analysis::search_raw_memory(path, &request.query) {
         Ok(matches) => json_ok(serde_json::to_value(matches).unwrap_or(Value::Null)),
         Err(err) => json_error(500, err.to_string()),
     }
 }
 
+/// Carving ile çıkarılmış dosyanın güvenli ön izlemesini döndürür.
 pub fn ram_read_carved_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct Request {

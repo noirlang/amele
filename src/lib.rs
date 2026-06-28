@@ -1,3 +1,4 @@
+//! Uygulamanın Rust modüllerini dışarı açan ana kütüphane dosyasıdır.
 pub mod android;
 pub mod android_analysis;
 pub mod android_mft;
@@ -18,6 +19,7 @@ pub mod report;
 pub mod router;
 pub mod server;
 pub mod settings;
+pub mod volatility;
 pub mod wireguard;
 
 pub use error::{ErrorInfo, HataKodu, WormError, WormResult};

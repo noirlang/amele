@@ -3,6 +3,8 @@ APPDIR="$(dirname "$(readlink -f "$0")")"
 
 export WORM_UI_ROOT="${WORM_UI_ROOT:-$APPDIR/usr/share/worm/ui}"
 export WORM_APP_ICON="${WORM_APP_ICON:-$APPDIR/usr/share/icons/hicolor/256x256/apps/worm.png}"
+export WORM_VOLATILITY_WORKER_PATH="${WORM_VOLATILITY_WORKER_PATH:-$APPDIR/usr/share/worm/tools/worm_volatility_worker.py}"
+export WORM_VOLATILITY3_PATH="${WORM_VOLATILITY3_PATH:-$APPDIR/usr/share/worm/vendor/volatility3}"
 
 WEBKIT_BUNDLE_DIR="$APPDIR/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1"
 if [ -d "$WEBKIT_BUNDLE_DIR" ]; then
@@ -12,7 +14,7 @@ fi
 
 run_ui() {
   cd "$APPDIR" || exit 1
-  exec "$APPDIR/usr/bin/worm" ui "$@"
+  exec "$APPDIR/usr/bin/worm-forensic-tool" ui "$@"
 }
 
 case "${1:-}" in
@@ -23,8 +25,8 @@ case "${1:-}" in
     shift
     run_ui "$@"
     ;;
-  settings-default|hash|disk-list|disk-list-helper|image-helper|ram-helper|mount-helper|disk-size|verify|remote-disks|remote-image|remote-tool-check|ram-status|wireguard-config|ui-browser )
-    exec "$APPDIR/usr/bin/worm" "$@"
+  settings-default|hash|disk-list|local-image|local-ram|remote-ram|image-analyze|ram-summary|ram-strings|ram-carve|ram-processes|adb-status|android-adb-status|android-devices|android-profile|android-logical|android-filesystem|android-ram|disk-list-helper|image-helper|ram-helper|avml-install-helper|winpmem-install-helper|mount-helper|disk-size|verify|remote-disks|remote-image|remote-tool-check|ram-status|wireguard-config|ui-browser )
+    exec "$APPDIR/usr/bin/worm-forensic-tool" "$@"
     ;;
   * )
     run_ui "$@"

@@ -1,12 +1,15 @@
+//! Hata mesajlarını sınıflandırır ve kullanıcıya uygulanabilir çözüm önerileri üretir.
 use std::path::Path;
 
 #[derive(Debug, Clone, Copy)]
+/// Kullanıcıya gösterilecek hata kodu, neden ve çözüm önerisini taşır.
 pub struct ErrorAdvice {
     pub code: &'static str,
     pub detail: &'static str,
     pub suggestion: &'static str,
 }
 
+/// Ham hata mesajını bilinen hata sınıflarına ve çözüm önerilerine eşler.
 pub fn classify_error(message: &str) -> ErrorAdvice {
     let lower = message.to_lowercase();
 
@@ -34,6 +37,22 @@ pub fn classify_error(message: &str) -> ErrorAdvice {
         };
     }
 
+    if lower.contains("glibc") || lower.contains("glibc_") || lower.contains("libm.so.6") {
+        return ErrorAdvice {
+            code: "LINUX_RUNTIME_INCOMPATIBLE",
+            detail: "Linux paketi sistemdeki glibc/runtime surumuyle uyumlu degil.",
+            suggestion: "Daha eski glibc ile derlenmis Worm paketini, .deb/.rpm paketini veya desteklenen dagitim surumunu kullanin.",
+        };
+    }
+
+    if lower.contains("cannot mount appimage") || lower.contains("fuse") {
+        return ErrorAdvice {
+            code: "APPIMAGE_FUSE_MISSING",
+            detail: "AppImage dosyasi FUSE destegi olmadigi icin baglanamadi.",
+            suggestion: "FUSE paketini kurun veya APPIMAGE_EXTRACT_AND_RUN=1 ile calistirmayi deneyin.",
+        };
+    }
+
     if lower.contains("gtk")
         && (lower.contains("display") || lower.contains("cannot open") || lower.contains("ekran"))
     {
@@ -41,6 +60,25 @@ pub fn classify_error(message: &str) -> ErrorAdvice {
             code: "DISPLAY_UNAVAILABLE",
             detail: "GTK ekrana baglanamadi; grafik oturum veya DISPLAY/WAYLAND ayari uygun degil.",
             suggestion: "Uygulamayi masaustu oturumunda baslatin. SSH/terminal uzerindeyseniz X11/Wayland erisimini kontrol edin.",
+        };
+    }
+
+    if lower.contains("uac")
+        || lower.contains("runas")
+        || lower.contains("pkexec")
+        || lower.contains("sudo")
+        || lower.contains("askpass")
+        || lower.contains("polkit")
+        || lower.contains("yetki yükseltme")
+        || lower.contains("yetki yukseltme")
+        || lower.contains("root yetkisi")
+        || lower.contains("administrator privileges")
+        || lower.contains("requires administrator")
+    {
+        return ErrorAdvice {
+            code: "ELEVATION_FAILED",
+            detail: "Islem root/administrator yetkisi gerektiriyor ancak yetki onayi tamamlanamadi.",
+            suggestion: "Linux'ta sudo/pkexec parola penceresini onaylayin; pencere acilmiyorsa polkit agent veya zenity/kdialog/ssh-askpass kurun. Windows'ta UAC penceresini onaylayin veya Worm'u yonetici olarak baslatin.",
         };
     }
 
@@ -81,15 +119,59 @@ pub fn classify_error(message: &str) -> ErrorAdvice {
         };
     }
 
+    if lower.contains("symbol_table_name")
+        || lower.contains("layer_name")
+        || lower.contains("unsatisfied requirement")
+        || lower.contains("translation layer")
+        || lower.contains("kernel banner")
+        || lower.contains("volatility3")
+    {
+        return ErrorAdvice {
+            code: "VOLATILITY_SYMBOLS_REQUIRED",
+            detail: "Volatility3 bellek imaji icin gereken profil/sembol eslesmesini kuramadi.",
+            suggestion: "Dogru isletim sistemi profilini secin. Linux RAM imajlari icin kernel banner ile uyumlu ISF sembol dosyasini .symbols klasorune ekleyin.",
+        };
+    }
+
     if lower.contains("wrong fs type")
         || lower.contains("bad superblock")
         || lower.contains("mount failed")
         || lower.contains("losetup failed")
+        || lower.contains("mounted image has no drive letter")
+        || lower.contains("raw dd/img")
     {
         return ErrorAdvice {
             code: "IMAGE_MOUNT_FAILED",
             detail: "Disk imaji salt-okunur baglanamadi; imaj bolum tablosu, dosya sistemi veya yetki sorunu icerebilir.",
             suggestion: "Imajin tamamlandigini/hash dogrulamasini kontrol edin. Linux'ta mount/losetup icin root yetkisi ve gerekli dosya sistemi paketleri gerekir.",
+        };
+    }
+
+    if lower.contains("adb")
+        && (lower.contains("unauthorized")
+            || lower.contains("offline")
+            || lower.contains("no devices")
+            || lower.contains("device not found")
+            || lower.contains("more than one device"))
+    {
+        return ErrorAdvice {
+            code: "ADB_DEVICE_NOT_READY",
+            detail: "Android cihaz ADB tarafinda hazir degil veya hedef cihaz net secilemedi.",
+            suggestion: "USB hata ayiklamayi acin, cihazdaki RSA onayini kabul edin ve tek hedef cihazi secerek tekrar deneyin.",
+        };
+    }
+
+    if lower.contains("avml")
+        || lower.contains("winpmem")
+        || lower.contains("command not found")
+        || lower.contains("not installed")
+        || lower.contains("arac bulunamadi")
+        || lower.contains("araç bulunamadı")
+    {
+        return ErrorAdvice {
+            code: "ACQUISITION_TOOL_MISSING",
+            detail: "Gerekli edinim araci bulunamadi veya calistirilamadi.",
+            suggestion: "Arac kontrolunu tekrar calistirin ve indir/kur butonuyla AVML veya WinPMEM'i Worm'un bekledigi konuma kurun.",
         };
     }
 
@@ -104,6 +186,14 @@ pub fn classify_error(message: &str) -> ErrorAdvice {
             code: "CONNECTION_FAILED",
             detail: "Agent veya yerel backend ile ag baglantisi kurulamadi ya da islem zaman asimina ugradi.",
             suggestion: "IP/port/token bilgisini, firewall kurallarini, agent'in calistigini ve ayni ag/VPN erisimini kontrol edin.",
+        };
+    }
+
+    if lower.contains("hash") || lower.contains("sha256") || lower.contains("md5") {
+        return ErrorAdvice {
+            code: "HASH_CALCULATION_FAILED",
+            detail: "Dosya hash hesabi tamamlanamadi.",
+            suggestion: "Dosyanin mevcut ve okunabilir oldugunu, imaj alma isleminin bitmis oldugunu ve diskin uyku/ayrilma durumunda olmadigini kontrol edin.",
         };
     }
 
@@ -142,6 +232,37 @@ pub fn classify_error(message: &str) -> ErrorAdvice {
     }
 }
 
+/// Ham hata metnini Kod/Neden/Cozum satirlariyla zenginlestirir.
+pub fn error_with_advice(message: &str) -> String {
+    let message = message.trim();
+    if message.is_empty() {
+        return String::new();
+    }
+    if has_structured_advice(message) {
+        return message.to_string();
+    }
+    let advice = classify_error(message);
+    format!(
+        "{message}\nKod: {}\nNeden: {}\nCozum: {}",
+        advice.code, advice.detail, advice.suggestion
+    )
+}
+
+/// Hata metninde zaten kullaniciya donen yapilandirilmis oneriler var mi kontrol eder.
+pub fn has_structured_advice(message: &str) -> bool {
+    message.lines().any(|line| {
+        let trimmed = line.trim_start();
+        trimmed.starts_with("Kod:")
+            || trimmed.starts_with("Code:")
+            || trimmed.starts_with("Neden:")
+            || trimmed.starts_with("Reason:")
+            || trimmed.starts_with("Cozum:")
+            || trimmed.starts_with("Çözüm:")
+            || trimmed.starts_with("Suggestion:")
+    })
+}
+
+/// Uygulama açılış hatasını ayrıntılı kullanıcı mesajına dönüştürür.
 pub fn startup_error(stage: &str, message: &str) -> String {
     let advice = classify_error(message);
     format!(
@@ -150,6 +271,7 @@ pub fn startup_error(stage: &str, message: &str) -> String {
     )
 }
 
+/// UI assetleri bulunamadığında açıklayıcı başlangıç hatası üretir.
 pub fn ui_assets_missing(root: &Path) -> String {
     startup_error(
         "Arayuz dosyalari bulunamadi.",
@@ -160,6 +282,7 @@ pub fn ui_assets_missing(root: &Path) -> String {
     )
 }
 
+/// panic payload içeriğini okunabilir stringe dönüştürür.
 pub fn panic_payload(payload: &(dyn std::any::Any + Send)) -> String {
     if let Some(value) = payload.downcast_ref::<&str>() {
         return (*value).to_string();
@@ -183,10 +306,46 @@ mod tests {
     }
 
     #[test]
+    fn classifies_elevation_errors() {
+        assert_eq!(
+            classify_error("pkexec failed: No authentication agent found").code,
+            "ELEVATION_FAILED"
+        );
+        assert_eq!(
+            classify_error("Windows UAC penceresi kullanıcı tarafından iptal edildi").code,
+            "ELEVATION_FAILED"
+        );
+    }
+
+    #[test]
     fn classifies_webview2_errors() {
         assert_eq!(
             classify_error("WebView2 view could not be created").code,
             "WEBVIEW2_RUNTIME"
+        );
+    }
+
+    #[test]
+    fn classifies_volatility_symbol_errors() {
+        assert_eq!(
+            classify_error("Unsatisfied requirement plugins.PsList.kernel.symbol_table_name").code,
+            "VOLATILITY_SYMBOLS_REQUIRED"
+        );
+    }
+
+    #[test]
+    fn classifies_appimage_fuse_errors() {
+        assert_eq!(
+            classify_error("Cannot mount AppImage, please check your FUSE setup").code,
+            "APPIMAGE_FUSE_MISSING"
+        );
+    }
+
+    #[test]
+    fn classifies_adb_device_errors() {
+        assert_eq!(
+            classify_error("adb: device unauthorized").code,
+            "ADB_DEVICE_NOT_READY"
         );
     }
 }

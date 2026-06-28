@@ -1,5 +1,6 @@
+//! Vaka klasörü, kanıt kasası, notlar ve çıktı dizini yönetimini sağlar.
 use crate::error::{HataKodu, WormError, WormResult};
-use crate::logging::Logger;
+use crate::logging::{LogLevel, Logger, runtime_log};
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -7,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Vaka klasöründeki çıktı, Android, hash ve rapor sayılarını özetler.
 pub struct EvidenceSummary {
     pub case_name: String,
     pub case_dir: PathBuf,
@@ -16,6 +18,7 @@ pub struct EvidenceSummary {
     pub report_count: usize,
 }
 
+/// Bir vaka için tüm alt klasörleri, logger'ı ve dosya işlemlerini yöneten kasadır.
 pub struct EvidenceVault {
     pub case_name: String,
     pub case_dir: PathBuf,
@@ -31,8 +34,14 @@ pub struct EvidenceVault {
 }
 
 impl EvidenceVault {
+    /// Vaka klasör ağacını oluşturur ve günlük kaydını başlatır.
     pub fn create(base_dir: impl AsRef<Path>, case_name: impl AsRef<str>) -> WormResult<Self> {
         let case_name = case_name.as_ref().to_string();
+        runtime_log(
+            LogLevel::Info,
+            "evidence",
+            format!("Vaka kasasi olusturuluyor: {}", case_name),
+        );
         let case_dir = base_dir.as_ref().join(&case_name);
         let logs_dir = case_dir.join("gunlukler");
         let outputs_dir = case_dir.join("ciktilar");
@@ -52,12 +61,23 @@ impl EvidenceVault {
             &hash_dir,
             &notes_dir,
         ] {
+            runtime_log(
+                LogLevel::Debug,
+                "evidence",
+                format!("Vaka alt dizini olusturuluyor: {}", dir.display()),
+            );
             fs::create_dir_all(dir).map_err(|err| {
-                WormError::io(
+                let w_err = WormError::io(
                     HataKodu::DosyaYazma,
                     format!("Vaka dizini olusturulamadi: {}", dir.display()),
                     err,
-                )
+                );
+                runtime_log(
+                    LogLevel::Error,
+                    "evidence",
+                    format!("Klasor olusturma hatasi: {:?}", w_err),
+                );
+                w_err
             })?;
         }
 
@@ -66,6 +86,11 @@ impl EvidenceVault {
             logger.info(format!("Vaka olusturuldu: {case_name}"));
             logger.info(format!("Vaka klasoru: {}", case_dir.display()));
         }
+        runtime_log(
+            LogLevel::Info,
+            "evidence",
+            format!("Vaka kasasi basariyla olusturuldu: {}", case_dir.display()),
+        );
 
         Ok(Self {
             case_name,
@@ -82,48 +107,94 @@ impl EvidenceVault {
         })
     }
 
+    /// Belirli kasa alt klasöründe yeni çıktı dosyası yolu üretir.
     pub fn new_file(&self, subdir: &str, file_name: &str) -> PathBuf {
         let _guard = self.lock.lock().ok();
         self.resolve_subdir(subdir).join(file_name)
     }
 
+    /// Kullanıcı notunu zaman damgalı dosya olarak notlar klasörüne yazar.
     pub fn add_note(&self, note: &str) -> WormResult<PathBuf> {
         let _guard = self.lock.lock().ok();
         let now = Local::now();
         let file_name = format!("not_{}.txt", now.format("%Y%m%d_%H%M%S"));
         let path = self.notes_dir.join(&file_name);
+        runtime_log(
+            LogLevel::Info,
+            "evidence",
+            format!("Vaka notu yaziliyor: {}", path.display()),
+        );
         let content = format!(
             "Vaka: {}\nTarih: {}\n========================================\n\n{}\n",
             self.case_name,
             now.format("%Y-%m-%d %H:%M:%S"),
             note
         );
-        fs::write(&path, content)
-            .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Not yazilamadi", err))?;
+        fs::write(&path, content).map_err(|err| {
+            let w_err = WormError::io(HataKodu::DosyaYazma, "Not yazilamadi", err);
+            runtime_log(
+                LogLevel::Error,
+                "evidence",
+                format!("Not yazma hatasi: {:?}", w_err),
+            );
+            w_err
+        })?;
         if let Some(logger) = &self.logger {
             logger.info(format!("Not eklendi: {file_name}"));
         }
+        runtime_log(
+            LogLevel::Info,
+            "evidence",
+            format!("Vaka notu basariyla eklendi: {}", file_name),
+        );
         Ok(path)
     }
 
+    /// Kasa alt klasöründeki dosyaları listeler.
     pub fn list_files(&self, subdir: &str) -> WormResult<Vec<PathBuf>> {
         let dir = self.resolve_subdir(subdir);
+        runtime_log(
+            LogLevel::Debug,
+            "evidence",
+            format!("Vaka dizini taranıyor ({}): {}", subdir, dir.display()),
+        );
         let mut files = Vec::new();
         if !dir.is_dir() {
+            runtime_log(
+                LogLevel::Debug,
+                "evidence",
+                format!(
+                    "Klasor mevcut degil, bos liste donuluyor: {}",
+                    dir.display()
+                ),
+            );
             return Ok(files);
         }
 
-        for entry in fs::read_dir(dir)
-            .map_err(|err| WormError::io(HataKodu::DosyaOkuma, "Dizin okunamadi", err))?
-        {
+        for entry in fs::read_dir(dir).map_err(|err| {
+            let w_err = WormError::io(HataKodu::DosyaOkuma, "Dizin okunamadi", err);
+            runtime_log(
+                LogLevel::Error,
+                "evidence",
+                format!("Dizin okuma hatasi: {:?}", w_err),
+            );
+            w_err
+        })? {
             let entry = entry.map_err(|err| {
-                WormError::io(HataKodu::DosyaOkuma, "Dizin girdisi okunamadi", err)
+                let w_err = WormError::io(HataKodu::DosyaOkuma, "Dizin girdisi okunamadi", err);
+                runtime_log(
+                    LogLevel::Error,
+                    "evidence",
+                    format!("Dizin girdisi okuma hatasi: {:?}", w_err),
+                );
+                w_err
             })?;
             files.push(entry.path());
         }
         Ok(files)
     }
 
+    /// Vaka kasasının güncel dosya sayılarını döndürür.
     pub fn summary(&self) -> WormResult<EvidenceSummary> {
         Ok(EvidenceSummary {
             case_name: self.case_name.clone(),
@@ -135,6 +206,7 @@ impl EvidenceVault {
         })
     }
 
+    /// Kullanıcı/API alt klasör adını gerçek kasa klasörüne eşler.
     fn resolve_subdir(&self, subdir: &str) -> &Path {
         match subdir {
             "gunlukler" => &self.logs_dir,

@@ -7,6 +7,7 @@ export function androidPage({ t, icon, pageTitle, state, escapeHtml, backendRead
         ${androidImageModeCard("logical", t("android.mode.logical.title"), t("android.mode.logical.desc"), "android", "var(--text)", t("android.mode.logical.badge"), icon, escapeHtml)}
         ${androidImageModeCard("filesystem", t("android.mode.filesystem.title"), t("android.mode.filesystem.desc"), "folder", "var(--text)", t("android.mode.filesystem.badge"), icon, escapeHtml)}
         ${androidImageModeCard("ram", t("android.mode.ram.title"), t("android.mode.ram.desc"), "cpu", "var(--text)", t("android.mode.ram.badge"), icon, escapeHtml)}
+        ${androidImageModeCard("remote", t("android.mode.remote.title"), t("android.mode.remote.desc"), "wifi", "var(--text)", t("android.mode.remote.badge"), icon, escapeHtml)}
       </div>
     </section>
   `;
@@ -18,17 +19,21 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
   const status = android.adbStatus || null;
   const installed = Boolean(status?.installed);
   const devices = Array.isArray(android.devices) ? android.devices : [];
-  const selected = android.selectedDevice || devices[0]?.serial || "";
+  const selectedDevice = selectedAndroidDevice(devices, android.selectedDevice);
+  const selected = selectedDevice?.serial || "";
+  const selectedReady = isReadyAndroidDevice(selectedDevice);
   const statusTitle = status
     ? installed ? t("android.adb.installed") : t("android.adb.missing")
     : t("android.adb.unknown");
   const statusDetail = status?.message || (backendReady() ? t("android.adb.checkHint") : t("android.appModeRequired"));
   const deviceProfile = android.deviceProfile || null;
+  const capabilities = android.capabilities || null;
   const acquisitionProfile = android.logicalProfile || "full_logical";
 
   const isLogical = modeId === "logical";
   const isFilesystem = modeId === "filesystem";
   const isRam = modeId === "ram";
+  const isRemote = modeId === "remote";
   const job = isLogical 
     ? (android.logicalJob || null) 
     : (isFilesystem ? (android.filesystemJob || null) : (android.ramJob || null));
@@ -68,13 +73,14 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             </select>
           </div>
           <div class="button-row" style="margin-top:12px">
-            <button class="secondary-button" data-action="android-profile-fetch" ${selected ? "" : "disabled"}>${icon("search")} ${t("android.profile.fetch")}</button>
+            <button class="secondary-button" data-action="android-profile-fetch" ${selectedReady ? "" : "disabled"}>${icon("search")} ${t("android.profile.fetch")}</button>
           </div>
           ${deviceProfile ? `
             <div class="log-box" style="margin-top:12px">
               ${deviceProfileSummary(deviceProfile, t, escapeHtml)}
             </div>
           ` : ""}
+          ${capabilities ? capabilitySummary(capabilities, modeId, t, escapeHtml) : ""}
 
           ${isLogical ? `
             <div class="section-divider"></div>
@@ -93,7 +99,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             <div class="section-divider"></div>
             <p class="section-label">${t("android.logical.acquisitionTitle")}</p>
             <div class="button-row">
-              <button class="primary-button" data-action="android-start-logical" ${isActive ? "disabled" : ""}>${icon("android")} ${t("android.logical.start")}</button>
+              <button class="primary-button" data-action="android-start-logical" ${isActive || !selectedReady ? "disabled" : ""}>${icon("android")} ${t("android.logical.start")}</button>
               ${isRunning ? `<button class="secondary-button" data-action="android-pause-logical">${icon("pause")} ${t("workflow.pause")}</button>` : ""}
               ${isPaused ? `<button class="secondary-button" data-action="android-resume-logical">${icon("play")} ${t("workflow.resume")}</button>` : ""}
               ${isActive ? `<button class="danger-button" data-action="android-stop-logical">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
@@ -120,7 +126,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             <div class="section-divider"></div>
             <p class="section-label">${t("android.filesystem.acquisitionTitle") || "Aktarım"}</p>
             <div class="button-row">
-              <button class="primary-button" data-action="android-start-filesystem" ${isActive ? "disabled" : ""}>${icon("folder")} ${t("android.filesystem.start") || "Dosya Sistem İmajını Al"}</button>
+              <button class="primary-button" data-action="android-start-filesystem" ${isActive || !selectedReady ? "disabled" : ""}>${icon("folder")} ${t("android.filesystem.start") || "Dosya Sistem İmajını Al"}</button>
               ${isRunning ? `<button class="secondary-button" data-action="android-pause-filesystem">${icon("pause")} ${t("workflow.pause")}</button>` : ""}
               ${isPaused ? `<button class="secondary-button" data-action="android-resume-filesystem">${icon("play")} ${t("workflow.resume")}</button>` : ""}
               ${isActive ? `<button class="danger-button" data-action="android-stop-filesystem">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
@@ -147,13 +153,15 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             </div>
             <div class="field" style="flex-direction: row; align-items: center; gap: 10px;">
               <input type="checkbox" id="android-ram-has-root" data-android-ram-has-root style="width: 18px; height: 18px; cursor: pointer;" />
-              <label for="android-ram-has-root" style="cursor: pointer; user-select: none; font-size: 0.9rem; color: #acc0e4;">${t("android.filesystem.hasRoot") || "Cihazda Root Yetkisi Var (Doğrudan imaj al)"}</label>
+              <label for="android-ram-has-root" style="cursor: pointer; user-select: none; font-size: 0.9rem; color: #acc0e4;">${t("android.filesystem.hasRoot") || "Cihazda Root Yetkisi Var"}</label>
             </div>
+
+            ${(android.ramMode || "volatile_data") === "physical_memory_probe" ? lemonPreflightPanel(android.lemonPreflight, selected, t, icon, escapeHtml) : ""}
 
             <div class="section-divider"></div>
             <p class="section-label">${t("android.ram.acquisitionTitle") || "Aktarım"}</p>
             <div class="button-row">
-              <button class="primary-button" data-action="android-start-ram" ${isActive ? "disabled" : ""}>${icon("cpu")} ${t("android.ram.start") || "RAM İmajını Al"}</button>
+              <button class="primary-button" data-action="android-start-ram" ${isActive || !selectedReady ? "disabled" : ""}>${icon("cpu")} ${t("android.ram.start") || "RAM İmajını Al"}</button>
               ${isRunning ? `<button class="secondary-button" data-action="android-pause-ram">${icon("pause")} ${t("workflow.pause")}</button>` : ""}
               ${isPaused ? `<button class="secondary-button" data-action="android-resume-ram">${icon("play")} ${t("workflow.resume")}</button>` : ""}
               ${isActive ? `<button class="danger-button" data-action="android-stop-ram">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
@@ -164,6 +172,8 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             <div class="${progressClass.trim()}" data-progress style="--value:${progressValue}%"><span></span><b>${progressValue}%</b></div>
             <div class="log-box" id="android-log">${androidLogContent(android, t, modeId)}</div>
           ` : ""}
+
+          ${isRemote ? remoteAndroidPanel(android, selected, selectedReady, t, icon, escapeHtml) : ""}
         </div>
 
         <aside class="side-panel">
@@ -173,6 +183,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
           ${deviceProfile ? sideInfo(t("android.side.profile"), sideProfileSummary(deviceProfile, t), "info", icon) : ""}
           ${(isLogical || isFilesystem || isRam) && job ? sideInfo(t("android.side.lastAction"), job.message || "—", "clock", icon) : ""}
           ${(isLogical || isFilesystem || isRam) && isDone && job.result ? sideInfo(t("android.side.totalBytes"), formatBytes(job.result.total_bytes || 0), "disk", icon) : ""}
+          ${isRemote && android.remoteConnectResult ? sideInfo(t("android.remote.status") || "Bağlantı", android.remoteConnectResult.message || "—", android.remoteConnectResult.success ? "shield" : "android", icon) : ""}
         </aside>
       </div>
     </section>
@@ -202,6 +213,58 @@ function deviceProfileSummary(profile, t, escapeHtml) {
   return rows
     .map(([label, value]) => `<div class="tree-node"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(value)}</span></div>`)
     .join("");
+}
+
+function capabilitySummary(report, modeId, t, escapeHtml) {
+  const entries = capabilityEntriesForMode(report, modeId, t);
+  if (!entries.length) return "";
+  return `
+    <p class="section-label" style="margin-top:12px">${t("android.preflight.title")}</p>
+    <div class="log-box">
+      ${entries.map(([label, check]) => capabilityRow(label, check, t, escapeHtml)).join("")}
+    </div>
+  `;
+}
+
+function capabilityEntriesForMode(report, modeId, t) {
+  const common = [[t("android.capability.adb"), report.adb_authorized]];
+  if (modeId === "filesystem") {
+    return common.concat([
+      [t("android.capability.filesystemNonRoot"), report.filesystem_non_root],
+      [t("android.capability.filesystemRoot"), report.filesystem_root],
+    ]).filter(([, check]) => Boolean(check));
+  }
+  if (modeId === "ram") {
+    return common.concat([
+      [t("android.capability.volatileMemory"), report.volatile_memory],
+      [t("android.capability.processMemory"), report.process_memory_root],
+      [t("android.capability.lemonMemory"), report.lemon_physical_memory],
+    ]).filter(([, check]) => Boolean(check));
+  }
+  return common.concat([
+    [t("android.capability.logical"), report.logical_acquisition],
+    [t("android.capability.sharedStorage"), report.shared_storage],
+    [t("android.capability.bugreport"), report.bugreport],
+    [t("android.capability.backup"), report.adb_backup],
+  ]).filter(([, check]) => Boolean(check));
+}
+
+function capabilityRow(label, check, t, escapeHtml) {
+  const level = String(check?.level || "unsupported");
+  const pillClass = level === "supported" ? "ok" : (level === "partial" ? "warn" : "danger");
+  const pillText = level === "supported"
+    ? t("android.capability.supported")
+    : (level === "partial" ? t("android.capability.partial") : t("android.capability.unsupported"));
+  const detail = check?.recommendation || check?.reason || "";
+  return `
+    <div class="tree-node">
+      <strong>${escapeHtml(label)}</strong>
+      <span>
+        <span class="status-pill ${pillClass}">${escapeHtml(pillText)}</span>
+        ${detail ? `<small>${escapeHtml(detail)}</small>` : ""}
+      </span>
+    </div>
+  `;
 }
 
 function sideProfileSummary(profile, t) {
@@ -234,6 +297,31 @@ function formatBytes(bytes) {
   return `${(bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
 }
 
+function selectedAndroidDevice(devices, selectedSerial) {
+  const list = Array.isArray(devices) ? devices : [];
+  const selected = list.find((device) => device.serial === selectedSerial);
+  return selected || list.find(isReadyAndroidDevice) || list[0] || null;
+}
+
+function isReadyAndroidDevice(device) {
+  return String(device?.state || "").toLowerCase() === "device";
+}
+
+function requireReadyAndroidDevice(state, t, showToast) {
+  const device = selectedAndroidDevice(state.android?.devices || [], state.android?.selectedDevice);
+  if (!device?.serial) {
+    showToast(t("android.logical.deviceRequired"), "warning");
+    return null;
+  }
+  if (!isReadyAndroidDevice(device)) {
+    showToast(t("android.devices.notReady", { state: device.state || t("unknown") }), "warning");
+    return null;
+  }
+  if (!state.android) state.android = {};
+  state.android.selectedDevice = device.serial;
+  return device;
+}
+
 function androidMode(modeId, t) {
   const modes = {
     physical: {
@@ -255,6 +343,11 @@ function androidMode(modeId, t) {
       title: t("android.mode.ram.title"),
       desc: t("android.mode.ram.desc"),
       icon: "cpu"
+    },
+    remote: {
+      title: t("android.mode.remote.title") || "Remote Android / MESH",
+      desc: t("android.mode.remote.desc") || "TCP/IP ADB veya MESH üzerinden uzak cihaza bağlan",
+      icon: "wifi"
     }
   };
   return modes[modeId] || modes.logical;
@@ -347,6 +440,18 @@ export async function handleAndroidAction(button, deps) {
     await controlAndroidAcquisition(button, "ram", "resume", deps);
     return true;
   }
+  if (action === "android-remote-connect") {
+    await connectRemoteAndroid(button, deps);
+    return true;
+  }
+  if (action === "android-remote-disconnect") {
+    await disconnectRemoteAndroid(button, deps);
+    return true;
+  }
+  if (action === "android-lemon-preflight") {
+    await runLemonPreflight(button, deps);
+    return true;
+  }
   return false;
 }
 
@@ -354,14 +459,18 @@ export function syncAndroidDeviceSelection(select, { state, t, showToast }) {
   if (!state.android) state.android = {};
   state.android.selectedDevice = select.value;
   state.android.deviceProfile = null;
+  state.android.capabilities = null;
+  state.android.session = null;
   if (select.value) {
-    showToast(t("android.devices.selected", { serial: select.value }));
+    const device = selectedAndroidDevice(state.android.devices || [], select.value);
+    const type = isReadyAndroidDevice(device) ? "success" : "warning";
+    showToast(t("android.devices.selected", { serial: select.value }), type);
   }
 }
 
 async function checkAdb(button, { apiRequest, backendReady, state, t, showToast, render }) {
   if (!backendReady()) {
-    showToast(t("android.appModeRequired"), "error");
+    showToast(t("android.appModeRequired"), "warning");
     return;
   }
 
@@ -385,11 +494,11 @@ async function checkAdb(button, { apiRequest, backendReady, state, t, showToast,
 
 async function listDevices(button, { apiRequest, backendReady, state, t, showToast, render }) {
   if (!backendReady()) {
-    showToast(t("android.appModeRequired"), "error");
+    showToast(t("android.appModeRequired"), "warning");
     return;
   }
   if (!state.android?.adbStatus?.installed) {
-    showToast(t("android.adb.checkFirst"), "error");
+    showToast(t("android.adb.checkFirst"), "warning");
     return;
   }
 
@@ -399,13 +508,15 @@ async function listDevices(button, { apiRequest, backendReady, state, t, showToa
     const devices = Array.isArray(result.devices) ? result.devices : [];
     if (!state.android) state.android = {};
     state.android.devices = devices;
-    state.android.selectedDevice = devices[0]?.serial || "";
+    state.android.selectedDevice = selectedAndroidDevice(devices, state.android.selectedDevice)?.serial || "";
     state.android.deviceProfile = null;
+    state.android.capabilities = null;
+    state.android.session = null;
     render();
     showToast(devices.length
       ? t("android.devices.listed", { count: String(devices.length) })
       : t("android.devices.none"),
-      devices.length ? "success" : "error"
+      devices.length ? "success" : "warning"
     );
   } catch (error) {
     showToast(t("android.devices.listFailed", { message: error.message }), "error");
@@ -416,11 +527,11 @@ async function listDevices(button, { apiRequest, backendReady, state, t, showToa
 
 async function fetchDeviceProfile(button, { apiRequest, backendReady, state, t, showToast, render }) {
   if (!backendReady()) {
-    showToast(t("android.appModeRequired"), "error");
+    showToast(t("android.appModeRequired"), "warning");
     return;
   }
-  if (!state.android?.selectedDevice) {
-    showToast(t("android.logical.deviceRequired"), "error");
+  const device = requireReadyAndroidDevice(state, t, showToast);
+  if (!device) {
     return;
   }
 
@@ -429,10 +540,12 @@ async function fetchDeviceProfile(button, { apiRequest, backendReady, state, t, 
     const result = await apiRequest("/api/android-device-profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ serial: state.android.selectedDevice }),
+      body: JSON.stringify({ serial: device.serial }),
     });
     if (!state.android) state.android = {};
     state.android.deviceProfile = result.profile || null;
+    state.android.capabilities = result.capabilities || null;
+    state.android.session = result.session || null;
     render();
     showToast(t("android.profile.loaded"), "success");
   } catch (error) {
@@ -444,11 +557,11 @@ async function fetchDeviceProfile(button, { apiRequest, backendReady, state, t, 
 
 async function startLogicalAcquisition(button, { apiRequest, backendReady, state, t, showToast, render, resolveCase }) {
   if (!backendReady()) {
-    showToast(t("android.appModeRequired"), "error");
+    showToast(t("android.appModeRequired"), "warning");
     return;
   }
-  if (!state.android?.selectedDevice) {
-    showToast(t("android.logical.deviceRequired"), "error");
+  const device = requireReadyAndroidDevice(state, t, showToast);
+  if (!device) {
     return;
   }
 
@@ -463,7 +576,7 @@ async function startLogicalAcquisition(button, { apiRequest, backendReady, state
 
   button.disabled = true;
   try {
-    const body = { serial: state.android.selectedDevice, profile };
+    const body = { serial: device.serial, profile };
     if (caseName) body.case_name = caseName;
     const result = await apiRequest("/api/android-profile-acquisition", {
       method: "POST",
@@ -534,11 +647,11 @@ function pollLogicalJob(jobId, { apiRequest, state, t, showToast, render }) {
 
 async function startFilesystemAcquisition(button, { apiRequest, backendReady, state, t, showToast, render, resolveCase }) {
   if (!backendReady()) {
-    showToast(t("android.appModeRequired"), "error");
+    showToast(t("android.appModeRequired"), "warning");
     return;
   }
-  if (!state.android?.selectedDevice) {
-    showToast(t("android.logical.deviceRequired"), "error");
+  const device = requireReadyAndroidDevice(state, t, showToast);
+  if (!device) {
     return;
   }
 
@@ -554,7 +667,7 @@ async function startFilesystemAcquisition(button, { apiRequest, backendReady, st
   button.disabled = true;
   try {
     const body = { 
-      serial: state.android.selectedDevice,
+      serial: device.serial,
       has_root: hasRoot
     };
     if (caseName) body.case_name = caseName;
@@ -627,11 +740,11 @@ function pollFilesystemJob(jobId, { apiRequest, state, t, showToast, render }) {
 
 async function startRamAcquisition(button, { apiRequest, backendReady, state, t, showToast, render, resolveCase }) {
   if (!backendReady()) {
-    showToast(t("android.appModeRequired"), "error");
+    showToast(t("android.appModeRequired"), "warning");
     return;
   }
-  if (!state.android?.selectedDevice) {
-    showToast(t("android.logical.deviceRequired"), "error");
+  const device = requireReadyAndroidDevice(state, t, showToast);
+  if (!device) {
     return;
   }
 
@@ -650,7 +763,7 @@ async function startRamAcquisition(button, { apiRequest, backendReady, state, t,
   button.disabled = true;
   try {
     const body = { 
-      serial: state.android.selectedDevice,
+      serial: device.serial,
       has_root: hasRoot,
       mode
     };
@@ -758,4 +871,191 @@ function deviceOptions(devices, selected, t, escapeHtml) {
       return `<option value="${escapeHtml(serial)}"${isSelected}>${escapeHtml(label)}</option>`;
     })
     .join("");
+}
+
+// ---------------------------------------------------------------------------
+// Remote Android / MESH panel bileşenleri
+// ---------------------------------------------------------------------------
+
+function remoteAndroidPanel(android, selected, selectedReady, t, icon, escapeHtml) {
+  const connectResult = android.remoteConnectResult || null;
+  return `
+    <div class="section-divider"></div>
+    <p class="section-label">${t("android.remote.connectTitle") || "Uzak Cihaz Bağlantısı"}</p>
+    <div class="log-box" style="margin-bottom:12px">
+      <div class="tree-node">
+        <span>${icon("info")}</span>
+        <span style="font-size:0.85rem;color:#acc0e4">${escapeHtml(t("android.remote.hint") || "USB cihaz yoksa TCP/IP veya MESH endpoint girerek uzak Android cihaza bağlanabilirsin. Bağlandıktan sonra cihaz otomatik listelenir.")}</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>${t("android.remote.host") || "Host / IP"}</label>
+      <input class="input" type="text" id="android-remote-host" placeholder="192.168.1.50 veya mesh-peer" style="width:100%;padding:8px;background:var(--input-bg,#1a2540);border:1px solid var(--border,#2a3a5a);border-radius:6px;color:var(--text);" />
+    </div>
+    <div class="field">
+      <label>${t("android.remote.port") || "Port"}</label>
+      <input class="input" type="number" id="android-remote-port" value="5555" min="1" max="65535" style="width:120px;padding:8px;background:var(--input-bg,#1a2540);border:1px solid var(--border,#2a3a5a);border-radius:6px;color:var(--text);" />
+    </div>
+    <div class="field">
+      <label>${t("android.remote.kind") || "Tip"}</label>
+      <select class="select" id="android-remote-kind">
+        <option value="tcp_adb">${t("android.remote.kind.tcp") || "TCP/IP ADB (adb connect)"}</option>
+        <option value="mesh_relay">${t("android.remote.kind.mesh") || "MESH Relay Endpoint"}</option>
+      </select>
+    </div>
+    <div class="button-row" style="margin-top:12px">
+      <button class="primary-button" data-action="android-remote-connect">${icon("wifi")} ${t("android.remote.connect") || "Bağlan"}</button>
+      ${selected && selected.includes(":") ? `<button class="danger-button" data-action="android-remote-disconnect">${icon("stop")} ${t("android.remote.disconnect") || "Bağlantıyı Kes"}</button>` : ""}
+    </div>
+    ${connectResult ? `
+      <div class="log-box" style="margin-top:12px">
+        <div class="tree-node">
+          <span class="status-pill ${connectResult.success ? 'ok' : 'danger'}">${escapeHtml(connectResult.success ? (t("android.remote.connected") || "Bağlandı") : (t("android.remote.failed") || "Başarısız"))}</span>
+          <span style="font-size:0.85rem">${escapeHtml(connectResult.message || "")}</span>
+        </div>
+      </div>
+    ` : ""}
+  `;
+}
+
+function lemonPreflightPanel(preflight, serial, t, icon, escapeHtml) {
+  if (!preflight) {
+    return `
+      <div class="section-divider"></div>
+      <p class="section-label">${t("android.lemon.preflightTitle") || "Lemon Fiziksel RAM Ön Kontrol"}</p>
+      <div class="button-row">
+        <button class="secondary-button" data-action="android-lemon-preflight" ${serial ? "" : "disabled"}>${icon("search")} ${t("android.lemon.runPreflight") || "Ön Kontrolü Çalıştır"}</button>
+      </div>
+      <div class="log-box" style="margin-top:8px">
+        <div class="tree-node"><span style="font-size:0.85rem;color:#acc0e4">${escapeHtml(t("android.lemon.preflightHint") || "Lemon eBPF tabanlı fiziksel RAM aracıdır. Önce cihaz uygunluğunu kontrol et.")}</span></div>
+      </div>
+    `;
+  }
+
+  const statusPill = preflight.ready
+    ? `<span class="status-pill ok">${t("android.lemon.ready") || "Lemon Hazır"}</span>`
+    : `<span class="status-pill danger">${t("android.lemon.notReady") || "Uygun Değil"}</span>`;
+
+  const rows = [
+    [t("android.lemon.abi") || "Mimari", preflight.abi || "—", preflight.abi_supported ? "ok" : "danger"],
+    [t("android.lemon.root") || "Root", preflight.root_available ? (t("android.profile.rooted") || "Var") : (t("android.profile.notRooted") || "Yok"), preflight.root_available ? "ok" : "danger"],
+    [t("android.lemon.ebpf") || "eBPF/BTF", preflight.ebpf_btf_available ? (t("common.yes") || "Evet") : (t("common.no") || "Hayır"), preflight.ebpf_btf_available ? "ok" : "warn"],
+    [t("android.lemon.kcore") || "/proc/kcore", preflight.kcore_available ? (t("common.yes") || "Evet") : (t("common.no") || "Hayır"), preflight.kcore_available ? "ok" : "warn"],
+    [t("android.lemon.storage") || "Depolama", preflight.storage_ok ? (t("common.ok") || "Yeterli") : (t("android.lemon.storageInsuff") || "Yetersiz"), preflight.storage_ok ? "ok" : "danger"],
+    [t("android.lemon.ram") || "RAM", preflight.ram_mb ? `${preflight.ram_mb} MB` : "—", ""]
+  ];
+
+  return `
+    <div class="section-divider"></div>
+    <p class="section-label">${t("android.lemon.preflightTitle") || "Lemon Fiziksel RAM Ön Kontrol"}</p>
+    <div class="log-box">
+      <div class="tree-node" style="margin-bottom:8px">${statusPill}</div>
+      ${rows.map(([label, val, pill]) => `
+        <div class="tree-node">
+          <strong>${escapeHtml(label)}</strong>
+          <span>${pill ? `<span class="status-pill ${pill}">${escapeHtml(val)}</span>` : escapeHtml(val)}</span>
+        </div>
+      `).join("")}
+      ${preflight.kernel_version ? `<div class="tree-node"><strong>${t("android.lemon.kernel") || "Kernel"}</strong><span style="font-size:0.8rem">${escapeHtml(preflight.kernel_version)}</span></div>` : ""}
+      ${preflight.soc_warning ? `<div class="tree-node"><span class="status-pill warn">⚠ SoC</span><span style="font-size:0.82rem">${escapeHtml(preflight.soc_warning)}</span></div>` : ""}
+      ${!preflight.ready && preflight.reason ? `<div class="tree-node" style="margin-top:6px"><span style="color:#f87171;font-size:0.85rem">${escapeHtml(preflight.reason)}</span></div>` : ""}
+    </div>
+    <div class="button-row" style="margin-top:8px">
+      <button class="secondary-button" data-action="android-lemon-preflight" ${serial ? "" : "disabled"}>${icon("search")} ${t("android.lemon.recheck") || "Yeniden Kontrol Et"}</button>
+    </div>
+  `;
+}
+
+// ---------------------------------------------------------------------------
+// Remote + Lemon action handler'ları
+// ---------------------------------------------------------------------------
+
+async function connectRemoteAndroid(button, { apiRequest, backendReady, state, t, showToast, render }) {
+  if (!backendReady()) { showToast(t("android.appModeRequired"), "warning"); return; }
+  const hostInput = document.getElementById("android-remote-host");
+  const portInput = document.getElementById("android-remote-port");
+  const kindSelect = document.getElementById("android-remote-kind");
+  const host = hostInput?.value?.trim();
+  if (!host) { showToast(t("android.remote.hostRequired") || "Host gerekli", "warning"); return; }
+  const port = parseInt(portInput?.value || "5555", 10);
+  const kind = kindSelect?.value || "tcp_adb";
+
+  button.disabled = true;
+  try {
+    const result = await apiRequest("/api/android-remote-connect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ host, port, kind }),
+    });
+    if (!state.android) state.android = {};
+    state.android.remoteConnectResult = result;
+    if (result.success) {
+      // Cihazı listeye yenile
+      try {
+        const devResult = await apiRequest("/api/android-devices");
+        state.android.devices = Array.isArray(devResult.devices) ? devResult.devices : [];
+        state.android.selectedDevice = result.serial;
+      } catch { /* ignore */ }
+      showToast(`${t("android.remote.connected") || "Bağlandı"}: ${result.serial}`, "success");
+    } else {
+      showToast(result.message || t("android.remote.failed") || "Bağlantı başarısız", "error");
+    }
+    render();
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function disconnectRemoteAndroid(button, { apiRequest, backendReady, state, t, showToast, render }) {
+  if (!backendReady()) { showToast(t("android.appModeRequired"), "warning"); return; }
+  const serial = state.android?.selectedDevice;
+  if (!serial) return;
+
+  button.disabled = true;
+  try {
+    await apiRequest("/api/android-remote-disconnect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ serial }),
+    });
+    if (!state.android) state.android = {};
+    state.android.remoteConnectResult = null;
+    state.android.selectedDevice = "";
+    state.android.deviceProfile = null;
+    state.android.capabilities = null;
+    showToast(t("android.remote.disconnected") || "Bağlantı kesildi", "success");
+    render();
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function runLemonPreflight(button, { apiRequest, backendReady, state, t, showToast, render }) {
+  if (!backendReady()) { showToast(t("android.appModeRequired"), "warning"); return; }
+  const device = selectedAndroidDevice(state.android?.devices || [], state.android?.selectedDevice);
+  if (!device?.serial) { showToast(t("android.logical.deviceRequired"), "warning"); return; }
+
+  button.disabled = true;
+  try {
+    const result = await apiRequest("/api/android-lemon-preflight", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ serial: device.serial }),
+    });
+    if (!state.android) state.android = {};
+    state.android.lemonPreflight = result;
+    render();
+    showToast(result.ready
+      ? (t("android.lemon.readyToast") || "Lemon bu cihazda çalışabilir")
+      : (t("android.lemon.notReadyToast") || "Bu cihaz Lemon için uygun değil"),
+      result.ready ? "success" : "warning");
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    button.disabled = false;
+  }
 }

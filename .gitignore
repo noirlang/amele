@@ -6,3 +6,5 @@
 *.img
 *.dd
 agent.md
+__pycache__/
+*.pyc

@@ -26,7 +26,7 @@ export function analysisPage({ t, icon, state, pageTitle, pickerField, caseSelec
 }
 
 function renderImageAnalysis({ t, icon, state, pickerField }) {
-  const activeMount = state.imageMount?.mountDir || t("analysis.noImage");
+  const activeMount = state.imageMount?.label || state.imageMount?.mountDir || t("analysis.noImage");
   const defaultPath = state.imagePathInput || ".img, .dd, .raw, .iso ...";
   return `
     <div class="workflow-panel">
@@ -42,6 +42,9 @@ function renderImageAnalysis({ t, icon, state, pickerField }) {
       <div class="side-info">
         <span class="metric-icon">${icon("info")}</span>
         <span><strong>${t("analysis.status")}</strong><small data-analysis-status>${activeMount}</small></span>
+      </div>
+      <div data-analysis-log style="${state.imageMountLogHTML ? "" : "display:none"}">
+        ${state.imageMountLogHTML || ""}
       </div>
       
       <div class="forensic-split">
@@ -70,14 +73,30 @@ function renderImageAnalysis({ t, icon, state, pickerField }) {
 }
 
 function renderRamAnalysis({ t, icon, state, pickerField }) {
-  const defaultPath = state.ramAnalysisPathInput || ".bin, .raw, .tar ...";
+  const defaultPath = state.ramAnalysisPathInput || ".raw, .bin, .mem ...";
+  const osProfile = state.ramOsProfile || "windows";
+  const symbolDir = state.ramSymbolDirInput || ".symbols";
   return `
     <div class="workflow-panel">
       <p class="section-label">${t("analysis.tabRam")}</p>
       <p class="field-hint">${t("analysis.ramHint")}</p>
       ${pickerField(t("analysis.ramFile"), "ram-analysis-path", defaultPath, "file")}
       
+      <div style="margin-top: 14px; max-width: 400px; display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;">İşletim Sistemi Profili / OS Profile</span>
+        <select id="ram-os-profile" class="select" style="background: rgba(0,0,0,0.2); border: 1px solid var(--line); color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: 13px; outline: none; width: 100%;">
+          <option value="windows"${osProfile === "windows" ? " selected" : ""}>Windows (Volatility3)</option>
+          <option value="linux"${osProfile === "linux" ? " selected" : ""}>Linux (Volatility3)</option>
+        </select>
+      </div>
+
+      <div style="margin-top: 14px;">
+        ${pickerField(t("analysis.symbolDir"), "ram-symbol-dir", symbolDir, "folder")}
+      </div>
+
       <div class="button-row" style="margin-top:14px">
+        <button class="secondary-button" data-action="ram-preflight">${icon("info")} ${t("analysis.btnPreflight")}</button>
+        <button class="secondary-button" data-action="ram-symbol-install">${icon("download")} ${t("analysis.btnSymbolInstall")}</button>
         <button class="primary-button" data-action="ram-summary">${icon("search")} ${t("analysis.btnRamSummary")}</button>
         <button class="primary-button" data-action="ram-strings">${icon("shield")} ${t("analysis.btnStrings")}</button>
         <button class="primary-button" data-action="ram-carver">${icon("disk")} ${t("analysis.btnCarver")}</button>

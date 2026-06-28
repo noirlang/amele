@@ -1,9 +1,11 @@
+//! Android MFT kayıtlarını dosyaya yazan paket oluşturma mantığını içerir.
 use super::format::{Field, MftBundleInfo, Record, RecordType, RecordWriter};
 use super::outputs::sha256_file;
 use super::parsers::build_logical_records;
 use std::fs::{self, File};
 use std::path::Path;
 
+/// Mantıksal Android kayıtlarından binary evidence.mft paketi ve hash dosyası üretir.
 pub fn write_logical_mft_bundle(serial: &str, dir: &Path) -> Result<MftBundleInfo, String> {
     let file_name = "evidence.mft";
     let output_path = dir.join(file_name);

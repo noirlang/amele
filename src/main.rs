@@ -1,4 +1,10 @@
-use serde::Deserialize;
+//! Komut satırı girişini işler ve UI, browser veya helper modlarını başlatır.
+#![cfg_attr(
+    all(target_os = "windows", not(debug_assertions)),
+    windows_subsystem = "windows"
+)]
+use chrono::Local;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -7,14 +13,19 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
+use worm::android;
 use worm::disk;
+use worm::disk_analysis;
+use worm::evidence::EvidenceVault;
 use worm::hash::{self, HashAlgorithm};
 use worm::ram;
+use worm::ram_analysis;
 use worm::remote::RemoteConnection;
 use worm::server;
 use worm::settings::AppSettings;
 use worm::wireguard::{self, WireGuardConfig};
 
+/// CLI argümanını okuyup ilgili alt komutu veya UI modunu çalıştırır.
 fn main() {
     install_error_reporting();
 
@@ -23,6 +34,20 @@ fn main() {
         Some("settings-default") => print_default_settings(),
         Some("hash") => hash_command(args.collect()),
         Some("disk-list") => disk_list_command(),
+        Some("local-image") => local_image_command(args.collect()),
+        Some("local-ram") => local_ram_command(args.collect()),
+        Some("remote-ram") => remote_ram_command(args.collect()),
+        Some("image-analyze") => image_analyze_command(args.collect()),
+        Some("ram-summary") => ram_summary_command(args.collect()),
+        Some("ram-strings") => ram_strings_command(args.collect()),
+        Some("ram-carve") => ram_carve_command(args.collect()),
+        Some("ram-processes") => ram_processes_command(args.collect()),
+        Some("adb-status") | Some("android-adb-status") => android_adb_status_command(),
+        Some("android-devices") => android_devices_command(),
+        Some("android-profile") => android_profile_command(args.collect()),
+        Some("android-logical") => android_logical_command(args.collect()),
+        Some("android-filesystem") => android_filesystem_command(args.collect()),
+        Some("android-ram") => android_ram_command(args.collect()),
         Some("disk-list-helper") => disk_list_helper_command(args.collect()),
         Some("image-helper") => image_helper_command(args.collect()),
         Some("ram-helper") => ram_helper_command(args.collect()),
@@ -59,6 +84,7 @@ fn default_command() -> Result<(), String> {
     server::run_native()
 }
 
+/// Windows dışındaki sistemlerde argüman verilmezse sadece yardım metnini gösterir.
 #[cfg(not(target_os = "windows"))]
 fn default_command() -> Result<(), String> {
     print_help();
@@ -89,6 +115,7 @@ fn report_fatal_error(message: &str) {
 #[cfg(not(target_os = "windows"))]
 fn report_fatal_error(_message: &str) {}
 
+/// Windows başlangıç hatalarını log dosyasına ve mesaj kutusuna yazdırır.
 #[cfg(target_os = "windows")]
 mod windows_error {
     use std::fs::OpenOptions;
@@ -149,13 +176,35 @@ mod windows_error {
     }
 }
 
+/// Kullanıcıya desteklenen teknik CLI komutlarını gösterir.
 fn print_help() {
     println!(
-        "worm teknik CLI\n\n\
+        "Worm Forensic Tool CLI\n\n\
+         Kullanici komutlari:\n\
+           ui                                      Native uygulama penceresini ac\n\
+           ui-browser                              Debug icin tarayicida ac\n\
+           disk-list                               Yerel diskleri listele\n\
+           local-image <kaynak> <vaka> [disk_adı]  Yerel disk/dosya imaji al\n\
+           local-ram <avml|winpmem> <vaka> [arac] Yerel RAM imaji al\n\
+           remote-disks <ip> <port> [token]        Uzak agent disklerini listele\n\
+           remote-image <ip> <port> <disk_id> <cikti_klasoru> [token]\n\
+           remote-ram <ip> <port> <vaka> [token]   Uzak agent RAM imaji al\n\
+           adb-status                              ADB kurulumunu kontrol et\n\
+           android-devices                         Android cihazlarini listele\n\
+           android-profile <serial>                Android cihaz profilini yazdir\n\
+           android-logical <serial> <vaka> [quick|full|root]\n\
+           android-filesystem <serial> <vaka> [--root]\n\
+           android-ram <serial> <vaka> [volatile|root|physical] [--root]\n\
+           image-analyze <imaj> [mount_klasoru]    Disk imaj analiz ozeti\n\
+           ram-summary <ram> <windows|linux> [symbols]\n\
+           ram-strings <ram>                       RAM IOC/dizgi taramasi\n\
+           ram-carve <ram> <cikti_klasoru>         RAM dosya carving\n\
+           ram-processes <ram> <windows|linux> [symbols]\n\
+           hash <dosya> [algoritma]                md5/sha1/sha256/sha512 hash hesapla\n\
+           verify <imaj> <sha256>                  SHA256 imaj dogrulama yap\n\
+           wireguard-config <dosya>                Varsayilan WireGuard config uret\n\n\
          Komutlar:\n\
            settings-default              Varsayilan ayarlari JSON olarak yazdir\n\
-           hash <dosya> [algoritma]      md5/sha1/sha256/sha512 hash hesapla\n\
-           disk-list                     Yerel diskleri listele\n\
            disk-list-helper <json>        Yetkili disk listeleme yardimci komutu\n\
            image-helper <req> <res> <prg> [ctrl] Yetkili imaj alma yardimci komutu\n\
            ram-helper <req> <res> <prg> <ctrl> Yetkili RAM alma yardimci komutu\n\
@@ -163,18 +212,13 @@ fn print_help() {
            winpmem-install-helper <kaynak> <res> Yetkili WinPMEM kurulum yardimci komutu\n\
            mount-helper <req> <res>       Yetkili imaj mount yardimci komutu\n\
            disk-size <cihaz|dosya>       Disk veya dosya boyutu al\n\
-           verify <imaj> <sha256>        SHA256 imaj dogrulama yap\n\n\
-           remote-disks <ip> <port> [token]\n\
-           remote-image <ip> <port> <disk_id> <cikti_klasoru> [token]\n\
            remote-tool-check <ip> <port> <winpmem|avml> [token]\n\
            ram-status                    Yerel AVML/WinPMEM durumunu yazdir\n\
-           wireguard-config <dosya>      Varsayilan WireGuard config uret\n\n\
-           ui                            Rust backend'e bagli native uygulama penceresini ac\n\
-           ui-browser                    Debug icin tarayici penceresiyle ac\n\n\
-         Not: ui komutu yerel HTTP backend baslatir ve GTK/WebKit penceresini buraya baglar."
+         Not: paketlerde ana komut worm-forensic-tool'dur; geriye uyumluluk icin worm alias'i da bulunabilir."
     );
 }
 
+/// Varsayılan uygulama ayarlarını JSON olarak stdout'a yazar.
 fn print_default_settings() -> Result<(), String> {
     let settings = AppSettings::default();
     println!(
@@ -184,6 +228,7 @@ fn print_default_settings() -> Result<(), String> {
     Ok(())
 }
 
+/// Verilen dosya için seçilen hash algoritmasını çalıştırır.
 fn hash_command(args: Vec<String>) -> Result<(), String> {
     if args.is_empty() {
         return Err("Kullanim: hash <dosya> [algoritma]".to_string());
@@ -198,15 +243,279 @@ fn hash_command(args: Vec<String>) -> Result<(), String> {
     Ok(())
 }
 
+/// Yerel disk listesini JSON olarak üretir.
 fn disk_list_command() -> Result<(), String> {
     let disks = disk::list_disks().map_err(|err| err.to_string())?;
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&disks).map_err(|err| err.to_string())?
-    );
-    Ok(())
+    print_json(&disks)
 }
 
+/// Yerel disk veya dosya kaynağını vaka klasörüne imaj olarak yazar.
+fn local_image_command(args: Vec<String>) -> Result<(), String> {
+    if args.len() < 2 {
+        return Err("Kullanim: local-image <kaynak> <vaka> [disk_adı]".to_string());
+    }
+    let source = PathBuf::from(&args[0]);
+    let vault = cli_case_vault(&args[1])?;
+    let disk_name = args.get(2).map(String::as_str).unwrap_or_else(|| {
+        source
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("disk")
+    });
+    let target = vault.outputs_dir.join(format!(
+        "{}_{}.img",
+        cli_safe_stem(disk_name),
+        cli_timestamp()
+    ));
+    let task = disk::DiskAcquisitionTask::new(&source, &target);
+    let result = disk::run_disk_acquisition(&task, |done, total| {
+        print_progress("imaj", done, total);
+    })
+    .map_err(|err| crate_diagnostic(err.to_string()))?;
+    print_json(&json!({
+        "case": vault.case_name,
+        "target_path": result.target,
+        "bytes_copied": result.bytes_copied,
+        "total_bytes": result.total_bytes,
+        "sha256": result.sha256,
+    }))
+}
+
+/// AVML veya WinPMEM ile yerel RAM imajı alır.
+fn local_ram_command(args: Vec<String>) -> Result<(), String> {
+    if args.len() < 2 {
+        return Err("Kullanim: local-ram <avml|winpmem> <vaka> [arac_yolu]".to_string());
+    }
+    let tool = args[0].to_ascii_lowercase();
+    let vault = cli_case_vault(&args[1])?;
+    let target = vault.ram_dir.join(format!("ram_{}.raw", cli_timestamp()));
+    let candidate = args.get(2).map(Path::new).filter(|path| path.exists());
+    let token = ram::CancellationToken::default();
+    let result = match tool.as_str() {
+        "avml" => ram::acquire_with_avml(&target, candidate, &token, |done, total| {
+            print_progress("ram", done, total);
+        }),
+        "winpmem" => ram::acquire_with_winpmem(&target, candidate, &token, |done, total| {
+            print_progress("ram", done, total);
+        }),
+        _ => return Err("tool must be avml or winpmem".to_string()),
+    }
+    .map_err(|err| crate_diagnostic(err.to_string()))?;
+    let sha256 = hash::calculate_file_hash(&result.output_file, HashAlgorithm::Sha256)
+        .map_err(|err| crate_diagnostic(err.to_string()))?;
+    print_json(&json!({
+        "case": vault.case_name,
+        "target_path": result.output_file,
+        "bytes_written": result.bytes_written,
+        "sha256": sha256,
+    }))
+}
+
+/// Uzak agent üzerinde RAM edinimini başlatır ve sonucu vaka klasörüne indirir.
+fn remote_ram_command(args: Vec<String>) -> Result<(), String> {
+    if args.len() < 3 {
+        return Err("Kullanim: remote-ram <ip> <port> <vaka> [token]".to_string());
+    }
+    let ip = &args[0];
+    let port = parse_port(&args[1])?;
+    let vault = cli_case_vault(&args[2])?;
+    let token = args.get(3).cloned();
+    let target = vault
+        .ram_dir
+        .join(format!("{}_ram_{}.raw", cli_safe_stem(ip), cli_timestamp()));
+    let remote_file = target
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("remote_ram.raw")
+        .to_string();
+
+    let mut connection = RemoteConnection::connect(ip, port, token)
+        .map_err(|err| crate_diagnostic(err.to_string()))?;
+    let job_id = format!("cli-{}", std::process::id());
+    let remote_result = connection
+        .start_remote_ram(&remote_file, Some(&job_id), |done, total| {
+            print_progress("remote-ram", done, total);
+        })
+        .map_err(|err| crate_diagnostic(err.to_string()))?;
+    let download = connection
+        .download_ram_file(&remote_file, &target, Some(&job_id), |done, total| {
+            print_progress("download", done, total);
+        })
+        .map_err(|err| crate_diagnostic(err.to_string()))?;
+    let sha256 = download.sha256.or(remote_result.sha256).unwrap_or_else(|| {
+        hash::calculate_file_hash(&download.target_path, HashAlgorithm::Sha256)
+            .unwrap_or_else(|_| String::new())
+    });
+    print_json(&json!({
+        "case": vault.case_name,
+        "remote_job_id": remote_result.job_id,
+        "target_path": download.target_path,
+        "bytes_transferred": download.bytes_transferred,
+        "remote_bytes": remote_result.total_size,
+        "sha256": sha256,
+    }))
+}
+
+/// Disk imajını mount olmadan yapısal olarak analiz eder.
+fn image_analyze_command(args: Vec<String>) -> Result<(), String> {
+    if args.is_empty() {
+        return Err("Kullanim: image-analyze <imaj> [mount_klasoru]".to_string());
+    }
+    let image_path = PathBuf::from(&args[0]);
+    let mount_dir = args.get(1).map(PathBuf::from);
+    let report = disk_analysis::analyze_disk_image(&image_path, mount_dir.as_deref())
+        .map_err(|err| crate_diagnostic(err.to_string()))?;
+    print_json(&report)
+}
+
+/// RAM imajı için özet analiz üretir.
+fn ram_summary_command(args: Vec<String>) -> Result<(), String> {
+    if args.len() < 2 {
+        return Err("Kullanim: ram-summary <ram> <windows|linux> [symbols]".to_string());
+    }
+    let path = PathBuf::from(&args[0]);
+    let symbols = args.get(2).map(PathBuf::from);
+    let summary = ram_analysis::analyze_ram_summary_logged_with_symbol_dir(
+        &path,
+        Some(args[1].as_str()),
+        symbols.as_deref(),
+        None,
+    )
+    .map_err(|err| crate_diagnostic(err.to_string()))?;
+    print_json(&summary)
+}
+
+/// RAM imajında IOC/dizgi taraması yapar.
+fn ram_strings_command(args: Vec<String>) -> Result<(), String> {
+    if args.is_empty() {
+        return Err("Kullanim: ram-strings <ram>".to_string());
+    }
+    let matches = ram_analysis::analyze_ram_strings(Path::new(&args[0]))
+        .map_err(|err| crate_diagnostic(err.to_string()))?;
+    print_json(&matches)
+}
+
+/// RAM içinden sınırlı dosya carving yapar.
+fn ram_carve_command(args: Vec<String>) -> Result<(), String> {
+    if args.len() < 2 {
+        return Err("Kullanim: ram-carve <ram> <cikti_klasoru>".to_string());
+    }
+    let files = ram_analysis::carve_files(Path::new(&args[0]), Path::new(&args[1]))
+        .map_err(|err| crate_diagnostic(err.to_string()))?;
+    print_json(&files)
+}
+
+/// Volatility3 ile proses listesini çıkarmaya çalışır.
+fn ram_processes_command(args: Vec<String>) -> Result<(), String> {
+    if args.len() < 2 {
+        return Err("Kullanim: ram-processes <ram> <windows|linux> [symbols]".to_string());
+    }
+    let symbols = args.get(2).map(PathBuf::from);
+    let processes = worm::volatility::get_processes_logged_with_symbol_dir(
+        Path::new(&args[0]),
+        &args[1],
+        symbols.as_deref(),
+        None,
+    )
+    .map_err(crate_diagnostic)?;
+    print_json(&processes)
+}
+
+/// ADB kurulum durumunu JSON olarak yazar.
+fn android_adb_status_command() -> Result<(), String> {
+    print_json(&android::adb_status())
+}
+
+/// ADB ile bağlı Android cihazlarını listeler.
+fn android_devices_command() -> Result<(), String> {
+    let devices = android::list_devices()
+        .map_err(|err| crate_diagnostic(android::explain_android_error(err)))?;
+    print_json(&devices)
+}
+
+/// Android cihaz profilini çıkarır.
+fn android_profile_command(args: Vec<String>) -> Result<(), String> {
+    if args.is_empty() {
+        return Err("Kullanim: android-profile <serial>".to_string());
+    }
+    let profile = android::detect_device_profile(&args[0])
+        .map_err(|err| crate_diagnostic(android::explain_android_error(err)))?;
+    print_json(&profile)
+}
+
+/// Android mantıksal edinimi vaka klasörüne yazar.
+fn android_logical_command(args: Vec<String>) -> Result<(), String> {
+    if args.len() < 2 {
+        return Err("Kullanim: android-logical <serial> <vaka> [quick|full|root]".to_string());
+    }
+    let profile = args
+        .get(2)
+        .map(|value| android::AndroidAcquisitionProfile::from_id(value))
+        .unwrap_or(android::AndroidAcquisitionProfile::FullLogical);
+    let vault = cli_case_vault(&args[1])?;
+    let output_dir = vault
+        .android_dir
+        .join(format!("logical_{}", cli_timestamp()));
+    let result = android::orchestrated_acquisition(
+        &args[0],
+        &output_dir,
+        profile,
+        |done, total, category| print_step_progress("android-logical", done, total, category),
+        || false,
+    )
+    .map_err(|err| crate_diagnostic(android::explain_android_error(err)))?;
+    print_json(&result)
+}
+
+/// Android dosya sistemi edinimini vaka klasörüne yazar.
+fn android_filesystem_command(args: Vec<String>) -> Result<(), String> {
+    if args.len() < 2 {
+        return Err("Kullanim: android-filesystem <serial> <vaka> [--root]".to_string());
+    }
+    let has_root = args.iter().any(|arg| arg == "--root" || arg == "root");
+    let vault = cli_case_vault(&args[1])?;
+    let output_dir = vault
+        .android_dir
+        .join(format!("filesystem_{}", cli_timestamp()));
+    let result = android::orchestrated_filesystem_acquisition(
+        &args[0],
+        &output_dir,
+        has_root,
+        |done, total, category| print_step_progress("android-filesystem", done, total, category),
+        || false,
+    )
+    .map_err(|err| crate_diagnostic(android::explain_android_error(err)))?;
+    print_json(&result)
+}
+
+/// Android uçucu veri/RAM edinimini vaka klasörüne yazar.
+fn android_ram_command(args: Vec<String>) -> Result<(), String> {
+    if args.len() < 2 {
+        return Err(
+            "Kullanim: android-ram <serial> <vaka> [volatile|root|physical] [--root]".to_string(),
+        );
+    }
+    let mode = args
+        .get(2)
+        .filter(|value| !value.starts_with("--"))
+        .map(|value| android::AndroidRamMode::from_id(value))
+        .unwrap_or(android::AndroidRamMode::VolatileData);
+    let has_root = args.iter().any(|arg| arg == "--root" || arg == "root");
+    let vault = cli_case_vault(&args[1])?;
+    let output_dir = vault.android_dir.join(format!("ram_{}", cli_timestamp()));
+    let result = android::orchestrated_ram_acquisition(
+        &args[0],
+        &output_dir,
+        has_root,
+        mode,
+        |done, total, category| print_step_progress("android-ram", done, total, category),
+        || false,
+    )
+    .map_err(|err| crate_diagnostic(android::explain_android_error(err)))?;
+    print_json(&result)
+}
+
+/// Yetkili helper sürecinde diskleri listeleyip sonucu dosyaya yazar.
 fn disk_list_helper_command(args: Vec<String>) -> Result<(), String> {
     let Some(output) = args.first() else {
         return Err("Kullanim: disk-list-helper <json-cikti>".to_string());
@@ -222,6 +531,7 @@ fn disk_list_helper_command(args: Vec<String>) -> Result<(), String> {
     .map_err(|err| err.to_string())
 }
 
+/// Yetkili imaj alma helper'ının JSON istek alanlarını taşır.
 #[derive(Deserialize)]
 struct ImageHelperRequest {
     source: PathBuf,
@@ -230,6 +540,7 @@ struct ImageHelperRequest {
     owner_gid: Option<u32>,
 }
 
+/// Root/admin yetkisiyle disk imajı alır ve ilerlemeyi/result dosyalarını günceller.
 fn image_helper_command(args: Vec<String>) -> Result<(), String> {
     if !(3..=4).contains(&args.len()) {
         return Err(
@@ -280,6 +591,7 @@ fn image_helper_command(args: Vec<String>) -> Result<(), String> {
     write_json_file(&result_path, &payload)
 }
 
+/// Helper root olarak çalıştıysa çıkan dosyaları asıl kullanıcıya geri verir.
 fn restore_helper_output_owner(target: &Path, owner_uid: Option<u32>, owner_gid: Option<u32>) {
     let (Some(owner_uid), Some(owner_gid)) = (owner_uid, owner_gid) else {
         return;
@@ -294,6 +606,7 @@ fn restore_helper_output_owner(target: &Path, owner_uid: Option<u32>, owner_gid:
     }
 }
 
+/// İmaj dosyasının yanında oluşturulan SHA256 sidecar yolunu hesaplar.
 fn sha256_sidecar_path(target: &Path) -> PathBuf {
     target.with_extension(format!(
         "{}sha256",
@@ -305,6 +618,7 @@ fn sha256_sidecar_path(target: &Path) -> PathBuf {
     ))
 }
 
+/// UI'dan gelen pause/resume/stop kontrol dosyasını disk edinim durumuna çevirir.
 fn image_helper_control(control_path: Option<&Path>) -> disk::DiskAcquisitionControl {
     let Some(control_path) = control_path else {
         return disk::DiskAcquisitionControl::Continue;
@@ -326,6 +640,7 @@ fn image_helper_control(control_path: Option<&Path>) -> disk::DiskAcquisitionCon
     }
 }
 
+/// Yetkili RAM helper'ının çalıştıracağı araç ve çıktı bilgilerini taşır.
 #[derive(Deserialize)]
 struct RamHelperRequest {
     output_file: PathBuf,
@@ -335,6 +650,7 @@ struct RamHelperRequest {
     owner_gid: Option<u32>,
 }
 
+/// Root/admin yetkisiyle AVML veya WinPMEM çalıştırıp RAM çıktısını üretir.
 fn ram_helper_command(args: Vec<String>) -> Result<(), String> {
     if args.len() != 4 {
         return Err(
@@ -413,6 +729,7 @@ fn ram_helper_command(args: Vec<String>) -> Result<(), String> {
     write_json_file(&result_path, &payload)
 }
 
+/// RAM helper kontrol dosyasındaki pause/resume/stop durumunu token'a uygular.
 fn apply_ram_helper_control(token: &ram::CancellationToken, control_path: &Path) {
     let Some(value) = fs::read(control_path)
         .ok()
@@ -575,6 +892,7 @@ fn mount_helper_command(args: Vec<String>) -> Result<(), String> {
     write_json_file(&result_path, &payload)
 }
 
+#[cfg(target_os = "linux")]
 fn mount_image_readonly(image_path: &Path, mount_dir: &Path) -> Result<Value, String> {
     let direct = Command::new("mount")
         .arg("-o")
@@ -599,6 +917,79 @@ fn mount_image_readonly(image_path: &Path, mount_dir: &Path) -> Result<Value, St
         .map_err(|err| format!("{direct_error}\npartition scan failed: {err}"))
 }
 
+#[cfg(windows)]
+fn mount_image_readonly(image_path: &Path, _mount_dir: &Path) -> Result<Value, String> {
+    let mount_dir = windows_mount_image_readonly(image_path)?;
+    Ok(json!({
+        "ok": true,
+        "mount_dir": mount_dir,
+        "loop_device": Value::Null,
+    }))
+}
+
+#[cfg(not(any(target_os = "linux", windows)))]
+fn mount_image_readonly(_image_path: &Path, _mount_dir: &Path) -> Result<Value, String> {
+    Err("image mount helper is not supported on this platform".to_string())
+}
+
+#[cfg(windows)]
+fn windows_mount_image_readonly(image_path: &Path) -> Result<PathBuf, String> {
+    let output = Command::new("powershell")
+        .arg("-NoProfile")
+        .arg("-ExecutionPolicy")
+        .arg("Bypass")
+        .arg("-Command")
+        .arg(
+            "$ErrorActionPreference='Stop'; \
+             $image = $args[0]; \
+             Mount-DiskImage -ImagePath $image -Access ReadOnly | Out-Null; \
+             Start-Sleep -Milliseconds 500; \
+             $diskImage = Get-DiskImage -ImagePath $image; \
+             $disk = $diskImage | Get-Disk -ErrorAction Stop; \
+             $partition = $disk | Get-Partition | Where-Object { $_.Type -ne 'Reserved' } | Select-Object -First 1; \
+             $volume = $partition | Get-Volume -ErrorAction SilentlyContinue; \
+             if ($volume -and $volume.DriveLetter) { \
+               Write-Output ($volume.DriveLetter + ':\\'); \
+               exit 0; \
+             }; \
+             $accessPath = $partition.AccessPaths | Where-Object { $_ -like '*:\\*' -or $_ -like '\\\\?\\Volume*' } | Select-Object -First 1; \
+             if ($accessPath) { \
+               Write-Output $accessPath; \
+               exit 0; \
+             }; \
+             Dismount-DiskImage -ImagePath $image -ErrorAction SilentlyContinue; \
+             throw 'Mounted image has no drive letter. Windows supports ISO/VHD/VHDX here; raw DD/IMG needs a forensic image driver.'",
+        )
+        .arg(image_path)
+        .output()
+        .map_err(|err| err.to_string())?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        return Err(if stderr.is_empty() {
+            if stdout.is_empty() {
+                "Windows image mount failed".to_string()
+            } else {
+                stdout
+            }
+        } else {
+            stderr
+        });
+    }
+
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .last()
+        .map(PathBuf::from)
+        .ok_or_else(|| {
+            "Windows mount succeeded but did not return a readable mount path.".to_string()
+        })
+}
+
+#[cfg(target_os = "linux")]
 fn mount_partitioned_image(image_path: &Path, mount_dir: &Path) -> Result<Value, String> {
     let setup = Command::new("losetup")
         .arg("--find")
@@ -652,6 +1043,7 @@ fn mount_partitioned_image(image_path: &Path, mount_dir: &Path) -> Result<Value,
     })
 }
 
+#[cfg(target_os = "linux")]
 fn loop_mount_candidates(loop_device: &Path) -> Vec<PathBuf> {
     let mut candidates = Vec::new();
     if let Ok(output) = Command::new("lsblk")
@@ -694,6 +1086,7 @@ fn loop_mount_candidates(loop_device: &Path) -> Vec<PathBuf> {
     candidates
 }
 
+#[cfg(target_os = "linux")]
 fn unmount_image(mount_dir: &Path, loop_device: Option<&Path>) -> Result<(), String> {
     let output = Command::new("umount")
         .arg(mount_dir)
@@ -715,6 +1108,19 @@ fn unmount_image(mount_dir: &Path, loop_device: Option<&Path>) -> Result<(), Str
     Ok(())
 }
 
+#[cfg(windows)]
+fn unmount_image(_mount_dir: &Path, _loop_device: Option<&Path>) -> Result<(), String> {
+    Err(
+        "Windows mount helper unmount requires the image path and is handled by the UI process"
+            .to_string(),
+    )
+}
+
+#[cfg(not(any(target_os = "linux", windows)))]
+fn unmount_image(_mount_dir: &Path, _loop_device: Option<&Path>) -> Result<(), String> {
+    Err("image unmount helper is not supported on this platform".to_string())
+}
+
 fn command_error_message(output: &std::process::Output, fallback: &str) -> String {
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
     if stderr.is_empty() {
@@ -730,6 +1136,72 @@ fn write_json_file(path: &Path, value: &Value) -> Result<(), String> {
         serde_json::to_vec_pretty(value).map_err(|err| err.to_string())?,
     )
     .map_err(|err| err.to_string())
+}
+
+/// CLI komutları için varsayılan vaka klasörünü oluşturur.
+fn cli_case_vault(case_name: &str) -> Result<EvidenceVault, String> {
+    let clean = worm::api::sanitize_case_name(case_name);
+    EvidenceVault::create(worm::api::default_case_base_dir(), clean)
+        .map_err(|err| crate_diagnostic(err.to_string()))
+}
+
+/// Dosya adlarında güvenli kısa parça üretir.
+fn cli_safe_stem(value: &str) -> String {
+    let clean = value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.') {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('_')
+        .to_string();
+    if clean.is_empty() {
+        "output".to_string()
+    } else {
+        clean
+    }
+}
+
+/// CLI dosya adları için ortak zaman damgası üretir.
+fn cli_timestamp() -> String {
+    Local::now().format("%Y%m%d_%H%M%S").to_string()
+}
+
+/// JSON çıktıyı stdout'a pretty formatta yazar.
+fn print_json<T: Serialize>(value: &T) -> Result<(), String> {
+    println!(
+        "{}",
+        serde_json::to_string_pretty(value).map_err(|err| err.to_string())?
+    );
+    Ok(())
+}
+
+/// Byte bazlı ilerlemeyi stderr'e yüzde olarak yazar.
+fn print_progress(label: &str, done: u64, total: u64) {
+    if total == 0 {
+        eprintln!("{label}: {done} byte");
+    } else {
+        let percent = done.saturating_mul(100).checked_div(total).unwrap_or(0);
+        eprintln!("{label}: {percent}% [{done}/{total}]");
+    }
+}
+
+/// Adım bazlı ilerlemeyi stderr'e yazar.
+fn print_step_progress(label: &str, done: u32, total: u32, step: &str) {
+    if total == 0 {
+        eprintln!("{label}: {step}");
+    } else {
+        eprintln!("{label}: {}/{} {}", done.saturating_add(1), total, step);
+    }
+}
+
+/// CLI hatalarını uygulamanın zengin hata açıklamasıyla döndürür.
+fn crate_diagnostic(message: String) -> String {
+    worm::diagnostics::error_with_advice(&message)
 }
 
 fn disk_size_command(args: Vec<String>) -> Result<(), String> {

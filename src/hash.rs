@@ -1,3 +1,4 @@
+//! Dosya hash hesaplama ve yan hash dosyası üretme işlemlerini içerir.
 use crate::error::{HataKodu, WormError, WormResult};
 use digest::Digest;
 use md5::Md5;
@@ -11,6 +12,7 @@ use std::path::Path;
 pub const HASH_BUFFER_SIZE: usize = 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Desteklenen dosya bütünlük algoritmalarını temsil eder.
 pub enum HashAlgorithm {
     Md5,
     Sha1,
@@ -19,6 +21,7 @@ pub enum HashAlgorithm {
 }
 
 impl HashAlgorithm {
+    /// Hash algoritmasının raporda gösterilecek adını döndürür.
     pub fn name(self) -> &'static str {
         match self {
             HashAlgorithm::Md5 => "MD5",
@@ -28,6 +31,7 @@ impl HashAlgorithm {
         }
     }
 
+    /// Kullanıcı/API metnini hash algoritmasına çevirir.
     pub fn parse(value: &str) -> Option<Self> {
         match value.to_ascii_lowercase().as_str() {
             "md5" => Some(Self::Md5),
@@ -40,11 +44,13 @@ impl HashAlgorithm {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Hesaplanan hash algoritması ve değerini birlikte taşır.
 pub struct HashResult {
     pub algorithm: HashAlgorithm,
     pub value: String,
 }
 
+/// Çalışan hash context türünü tek enum altında saklar.
 enum HashState {
     Md5(Md5),
     Sha1(Sha1),
@@ -53,6 +59,7 @@ enum HashState {
 }
 
 impl HashState {
+    /// Seçilen algoritmaya uygun hash context oluşturur.
     fn new(algorithm: HashAlgorithm) -> Self {
         match algorithm {
             HashAlgorithm::Md5 => Self::Md5(Md5::new()),
@@ -62,6 +69,7 @@ impl HashState {
         }
     }
 
+    /// Okunan dosya parçasını ilgili hash contextine ekler.
     fn update(&mut self, data: &[u8]) {
         match self {
             HashState::Md5(ctx) => ctx.update(data),
@@ -71,6 +79,7 @@ impl HashState {
         }
     }
 
+    /// Hash contextini tamamlayıp hex string üretir.
     fn finalize(self) -> String {
         match self {
             HashState::Md5(ctx) => to_hex(&ctx.finalize()),
@@ -81,6 +90,7 @@ impl HashState {
     }
 }
 
+/// Tek algoritma için dosya hashini hesaplar.
 pub fn calculate_file_hash(path: impl AsRef<Path>, algorithm: HashAlgorithm) -> WormResult<String> {
     let results = calculate_multiple(path, &[algorithm])?;
     results
@@ -90,6 +100,7 @@ pub fn calculate_file_hash(path: impl AsRef<Path>, algorithm: HashAlgorithm) -> 
         .ok_or_else(|| WormError::new(HataKodu::Genel, "Hash sonucu uretilemedi"))
 }
 
+/// Dosyayı bir kez okuyarak birden fazla hash algoritmasını aynı anda hesaplar.
 pub fn calculate_multiple(
     path: impl AsRef<Path>,
     algorithms: &[HashAlgorithm],
@@ -131,10 +142,12 @@ pub fn calculate_multiple(
         .collect())
 }
 
+/// İki hash değerini büyük/küçük harf duyarsız karşılaştırır.
 pub fn compare_hash(left: &str, right: &str) -> bool {
     left.eq_ignore_ascii_case(right)
 }
 
+/// Hedef dosyanın yanına SHA-256 sidecar dosyası yazar.
 pub(crate) fn write_sha256_sidecar(target: &Path, hash: &str) -> WormResult<()> {
     let sidecar = target.with_extension(format!(
         "{}sha256",
@@ -154,6 +167,7 @@ pub(crate) fn write_sha256_sidecar(target: &Path, hash: &str) -> WormResult<()> 
         .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Hash dosyasi yazilamadi", err))
 }
 
+/// Byte dizisini küçük harf hex stringe çevirir.
 pub(crate) fn to_hex(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut out = String::with_capacity(bytes.len() * 2);

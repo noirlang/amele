@@ -1,5 +1,7 @@
+//! Yerel disk listeleme, imaj alma, duraklatma/durdurma ve hash üretimini yapar.
 use crate::error::{HataKodu, WormError, WormResult};
 use crate::hash::{to_hex, write_sha256_sidecar};
+use crate::logging::{LogLevel, runtime_log};
 use digest::Digest;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
@@ -16,6 +18,7 @@ pub const DEFAULT_READ_CHUNK: usize = 4 * 1024 * 1024;
 
 static DISK_ACQUISITION_CANCELLED: AtomicBool = AtomicBool::new(false);
 
+/// UI ve API'ye dönen yerel disk özet bilgisidir.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DiskInfo {
     pub device: PathBuf,
@@ -24,6 +27,7 @@ pub struct DiskInfo {
     pub accessible: bool,
 }
 
+/// Disk imajı alırken kullanılacak kaynak, hedef ve okuma ayarlarını taşır.
 #[derive(Debug, Clone)]
 pub struct DiskAcquisitionTask {
     pub source: PathBuf,
@@ -35,6 +39,7 @@ pub struct DiskAcquisitionTask {
     pub full_disk: bool,
 }
 
+/// Disk imajı alma tamamlandığında veya kısmi kaldığında dönen sonuçtur.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DiskAcquisitionResult {
     pub target: PathBuf,
@@ -45,6 +50,7 @@ pub struct DiskAcquisitionResult {
 }
 
 impl DiskAcquisitionTask {
+    /// Kaynak ve hedef ile varsayılan disk edinim görevi oluşturur.
     pub fn new(source: impl Into<PathBuf>, target: impl Into<PathBuf>) -> Self {
         Self {
             source: source.into(),
@@ -58,14 +64,17 @@ impl DiskAcquisitionTask {
     }
 }
 
+/// Dosya veya blok cihaz boyutunu platforma uygun yöntemle hesaplar.
 pub fn disk_size(path: impl AsRef<Path>) -> WormResult<u64> {
     disk_size_impl(path.as_ref())
 }
 
+/// Platforma göre yerel diskleri listeler.
 pub fn list_disks() -> WormResult<Vec<DiskInfo>> {
     list_disks_impl()
 }
 
+/// Basit iptal bayrağıyla disk imajı alma işlemini çalıştırır.
 pub fn run_disk_acquisition<F>(
     task: &DiskAcquisitionTask,
     progress: F,
@@ -83,6 +92,7 @@ where
     })
 }
 
+/// Disk imajı alırken dışarıdan gelen devam/duraklat/iptal durumudur.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiskAcquisitionControl {
     Continue,
@@ -90,6 +100,7 @@ pub enum DiskAcquisitionControl {
     Cancel,
 }
 
+/// Diskten hedef dosyaya parçalı okuma/yazma yapar, ilerleme ve SHA256 üretir.
 pub fn run_disk_acquisition_with_control<F, C>(
     task: &DiskAcquisitionTask,
     mut progress: F,
@@ -99,30 +110,81 @@ where
     F: FnMut(u64, u64),
     C: FnMut() -> DiskAcquisitionControl,
 {
+    runtime_log(
+        LogLevel::Info,
+        "disk",
+        format!(
+            "Disk imaj alma baslatildi. Kaynak: {}, Hedef: {}",
+            task.source.display(),
+            task.target.display()
+        ),
+    );
+
     let source_size = disk_size(&task.source)?;
     if source_size == 0 {
-        return Err(WormError::new(
-            HataKodu::DiskBoyut,
-            "Kaynak boyut alinamadi",
-        ));
+        let err = WormError::new(HataKodu::DiskBoyut, "Kaynak boyut alinamadi");
+        runtime_log(
+            LogLevel::Error,
+            "disk",
+            format!("Kaynak boyut sifir: {:?}", err),
+        );
+        return Err(err);
     }
 
     if let Some(parent) = task.target.parent() {
+        runtime_log(
+            LogLevel::Info,
+            "disk",
+            format!("Hedef klasor olusturuluyor: {}", parent.display()),
+        );
         fs::create_dir_all(parent).map_err(|err| {
-            WormError::io(HataKodu::DosyaYazma, "Hedef klasor olusturulamadi", err)
+            let w_err = WormError::io(HataKodu::DosyaYazma, "Hedef klasor olusturulamadi", err);
+            runtime_log(
+                LogLevel::Error,
+                "disk",
+                format!("Klasor olusturma hatasi: {:?}", w_err),
+            );
+            w_err
         })?;
     }
 
-    let mut source = File::open(&task.source)
-        .map_err(|err| WormError::io(HataKodu::DiskErisim, "Kaynak acilamadi", err))?;
+    let mut source = File::open(&task.source).map_err(|err| {
+        let w_err = WormError::io(HataKodu::DiskErisim, "Kaynak acilamadi", err);
+        runtime_log(
+            LogLevel::Error,
+            "disk",
+            format!("Kaynak acma hatasi: {:?}", w_err),
+        );
+        w_err
+    })?;
+
     if task.start_offset > 0 {
+        runtime_log(
+            LogLevel::Info,
+            "disk",
+            format!(
+                "Kaynak dosyasinda offset'e seek ediliyor: {}",
+                task.start_offset
+            ),
+        );
         source
             .seek(SeekFrom::Start(task.start_offset))
-            .map_err(|err| WormError::io(HataKodu::DiskOkuma, "Kaynak konumlanamadi", err))?;
+            .map_err(|err| {
+                let w_err = WormError::io(HataKodu::DiskOkuma, "Kaynak konumlanamadi", err);
+                runtime_log(LogLevel::Error, "disk", format!("Seek hatasi: {:?}", w_err));
+                w_err
+            })?;
     }
 
-    let mut target = File::create(&task.target)
-        .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Hedef dosya olusturulamadi", err))?;
+    let mut target = File::create(&task.target).map_err(|err| {
+        let w_err = WormError::io(HataKodu::DosyaYazma, "Hedef dosya olusturulamadi", err);
+        runtime_log(
+            LogLevel::Error,
+            "disk",
+            format!("Hedef dosya olusturma hatasi: {:?}", w_err),
+        );
+        w_err
+    })?;
 
     let available = source_size.saturating_sub(task.start_offset);
     let total = if task.full_disk {
@@ -132,7 +194,9 @@ where
     };
 
     if total == 0 {
-        return Err(WormError::new(HataKodu::DiskBoyut, "Kopyalanacak veri yok"));
+        let err = WormError::new(HataKodu::DiskBoyut, "Kopyalanacak veri yok");
+        runtime_log(LogLevel::Error, "disk", format!("Hata: {:?}", err));
+        return Err(err);
     }
 
     let chunk_size = task.chunk_size.max(4096);
@@ -150,6 +214,11 @@ where
                 continue;
             }
             DiskAcquisitionControl::Cancel => {
+                runtime_log(
+                    LogLevel::Warn,
+                    "disk",
+                    "Disk imaj alma kullanici tarafindan iptal edildi.",
+                );
                 cancelled = true;
                 break;
             }
@@ -162,11 +231,17 @@ where
                 let _ = target.flush();
                 drop(target);
                 let partial = mark_partial(&task.target)?;
-                return Err(WormError::io(
+                let w_err = WormError::io(
                     HataKodu::DiskOkuma,
                     format!("Disk okuma hatasi, partial={}", partial.display()),
                     err,
-                ));
+                );
+                runtime_log(
+                    LogLevel::Error,
+                    "disk",
+                    format!("Okuma hatasi: {:?}", w_err),
+                );
+                return Err(w_err);
             }
         };
         if read == 0 {
@@ -177,11 +252,17 @@ where
             let _ = target.flush();
             drop(target);
             let partial = mark_partial(&task.target)?;
-            return Err(WormError::io(
+            let w_err = WormError::io(
                 HataKodu::DosyaYazma,
                 format!("Yazma hatasi, partial={}", partial.display()),
                 err,
-            ));
+            );
+            runtime_log(
+                LogLevel::Error,
+                "disk",
+                format!("Yazma hatasi: {:?}", w_err),
+            );
+            return Err(w_err);
         }
 
         if let Some(ctx) = &mut sha256 {
@@ -195,11 +276,17 @@ where
     if let Err(err) = target.flush() {
         drop(target);
         let partial = mark_partial(&task.target)?;
-        return Err(WormError::io(
+        let w_err = WormError::io(
             HataKodu::DosyaYazma,
             format!("Hedef dosya flush edilemedi, partial={}", partial.display()),
             err,
-        ));
+        );
+        runtime_log(
+            LogLevel::Error,
+            "disk",
+            format!("Flush hatasi: {:?}", w_err),
+        );
+        return Err(w_err);
     }
     drop(target);
 
@@ -207,13 +294,33 @@ where
     if copied == total && !cancelled {
         if let Some(ctx) = sha256 {
             let hash = to_hex(&ctx.finalize());
-            write_sha256_sidecar(&task.target, &hash)?;
+            runtime_log(
+                LogLevel::Info,
+                "disk",
+                format!("SHA256 hash hesaplandi: {}. Sidecar yaziliyor.", hash),
+            );
+            write_sha256_sidecar(&task.target, &hash).map_err(|err| {
+                runtime_log(
+                    LogLevel::Error,
+                    "disk",
+                    format!("Sidecar yazma hatasi: {:?}", err),
+                );
+                err
+            })?;
             hash_value = Some(hash);
         }
         success = true;
     }
 
     if success {
+        runtime_log(
+            LogLevel::Info,
+            "disk",
+            format!(
+                "Disk imaj alma basariyla tamamlandi. Toplam {} bayt kopyalandi.",
+                copied
+            ),
+        );
         Ok(DiskAcquisitionResult {
             target: task.target.clone(),
             bytes_copied: copied,
@@ -223,7 +330,7 @@ where
         })
     } else {
         let partial = mark_partial(&task.target)?;
-        Err(WormError::new(
+        let w_err = WormError::new(
             if cancelled {
                 HataKodu::Genel
             } else {
@@ -235,38 +342,121 @@ where
                 total,
                 partial.display()
             ),
-        ))
+        );
+        runtime_log(
+            LogLevel::Error,
+            "disk",
+            format!("Imaj alma yarida kaldi: {:?}", w_err),
+        );
+        Err(w_err)
     }
 }
 
+/// Oluşturulan imajın SHA256 değerini beklenen değerle karşılaştırır.
 pub fn verify_image(image_path: impl AsRef<Path>, expected_sha256: &str) -> WormResult<bool> {
-    let actual = crate::hash::calculate_file_hash(image_path, crate::hash::HashAlgorithm::Sha256)?;
-    Ok(actual.eq_ignore_ascii_case(expected_sha256))
+    runtime_log(
+        LogLevel::Info,
+        "disk",
+        format!(
+            "Imaj dogrulamasi baslatildi: {}",
+            image_path.as_ref().display()
+        ),
+    );
+    let actual = crate::hash::calculate_file_hash(image_path, crate::hash::HashAlgorithm::Sha256)
+        .map_err(|err| {
+        runtime_log(
+            LogLevel::Error,
+            "disk",
+            format!("Hash hesaplama hatasi: {:?}", err),
+        );
+        err
+    })?;
+    let matched = actual.eq_ignore_ascii_case(expected_sha256);
+    if matched {
+        runtime_log(
+            LogLevel::Info,
+            "disk",
+            "Imaj dogrulamasi basarili (SHA256 eslesti).",
+        );
+    } else {
+        runtime_log(
+            LogLevel::Warn,
+            "disk",
+            format!(
+                "Imaj dogrulamasi basarisiz. Beklenen: {}, Bulunan: {}",
+                expected_sha256, actual
+            ),
+        );
+    }
+    Ok(matched)
 }
 
+/// Eski tekil disk edinim akışını iptal etmek için global bayrağı işaretler.
 pub fn cancel_disk_acquisition() {
+    runtime_log(
+        LogLevel::Info,
+        "disk",
+        "Disk imaj alma iptal talebi alindi.",
+    );
     DISK_ACQUISITION_CANCELLED.store(true, Ordering::SeqCst);
 }
 
+/// Başarısız veya iptal edilmiş imaj dosyasını .partial uzantısıyla korur.
 fn mark_partial(path: &Path) -> WormResult<PathBuf> {
     let partial = PathBuf::from(format!("{}.partial", path.display()));
     if path.exists() {
-        fs::rename(path, &partial)
-            .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Partial dosya tasinamadi", err))?;
+        runtime_log(
+            LogLevel::Info,
+            "disk",
+            format!(
+                "Yarida kalan dosya tasiniyor: {} -> {}",
+                path.display(),
+                partial.display()
+            ),
+        );
+        fs::rename(path, &partial).map_err(|err| {
+            let w_err = WormError::io(HataKodu::DosyaYazma, "Partial dosya tasinamadi", err);
+            runtime_log(
+                LogLevel::Error,
+                "disk",
+                format!("Rename hatasi: {:?}", w_err),
+            );
+            w_err
+        })?;
     }
     Ok(partial)
 }
 
 #[cfg(unix)]
+/// Unix sistemlerde dosya veya blok cihaz boyutunu ioctl/metaveri ile hesaplar.
 fn disk_size_impl(path: &Path) -> WormResult<u64> {
     use std::os::fd::AsRawFd;
     use std::os::unix::fs::FileTypeExt;
 
-    let file = File::open(path)
-        .map_err(|err| WormError::io(HataKodu::DiskErisim, "Disk/dosya acilamadi", err))?;
-    let metadata = file
-        .metadata()
-        .map_err(|err| WormError::io(HataKodu::DiskBoyut, "Disk metadata okunamadi", err))?;
+    runtime_log(
+        LogLevel::Debug,
+        "disk",
+        format!("Disk boyutu sorgulaniyor (Unix): {}", path.display()),
+    );
+
+    let file = File::open(path).map_err(|err| {
+        let w_err = WormError::io(HataKodu::DiskErisim, "Disk/dosya acilamadi", err);
+        runtime_log(
+            LogLevel::Error,
+            "disk",
+            format!("Disk acilamadi: {:?}", w_err),
+        );
+        w_err
+    })?;
+    let metadata = file.metadata().map_err(|err| {
+        let w_err = WormError::io(HataKodu::DiskBoyut, "Disk metadata okunamadi", err);
+        runtime_log(
+            LogLevel::Error,
+            "disk",
+            format!("Metadata okuma hatasi: {:?}", w_err),
+        );
+        w_err
+    })?;
 
     if metadata.is_file() {
         return Ok(metadata.len());
@@ -277,14 +467,26 @@ fn disk_size_impl(path: &Path) -> WormResult<u64> {
         const BLKGETSIZE64: libc::c_ulong = 0x8008_1272;
         let rc = unsafe { libc::ioctl(file.as_raw_fd(), BLKGETSIZE64, &mut bytes) };
         if rc == 0 && bytes > 0 {
+            runtime_log(
+                LogLevel::Info,
+                "disk",
+                format!("Blok cihazi boyutu ioctl ile okundu: {} bayt", bytes),
+            );
             return Ok(bytes);
         }
     }
 
-    Err(WormError::new(HataKodu::DiskBoyut, "Disk boyutu alinamadi"))
+    let w_err = WormError::new(HataKodu::DiskBoyut, "Disk boyutu alinamadi");
+    runtime_log(
+        LogLevel::Error,
+        "disk",
+        format!("Disk boyutu okunamadi: {:?}", w_err),
+    );
+    Err(w_err)
 }
 
 #[cfg(windows)]
+/// Windows sistemlerde PhysicalDrive boyutunu DeviceIoControl ile hesaplar.
 fn disk_size_impl(path: &Path) -> WormResult<u64> {
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::Foundation::{CloseHandle, GENERIC_READ, INVALID_HANDLE_VALUE};
@@ -294,10 +496,24 @@ fn disk_size_impl(path: &Path) -> WormResult<u64> {
     };
     use windows_sys::Win32::System::IO::DeviceIoControl;
 
+    runtime_log(
+        LogLevel::Debug,
+        "disk",
+        format!("Disk boyutu sorgulaniyor (Windows): {}", path.display()),
+    );
+
     if !path.to_string_lossy().starts_with(r"\\.\PhysicalDrive") {
         return std::fs::metadata(path)
             .map(|metadata| metadata.len())
-            .map_err(|err| WormError::io(HataKodu::DosyaAcilamadi, "Dosya boyutu alinamadi", err));
+            .map_err(|err| {
+                let w_err = WormError::io(HataKodu::DosyaAcilamadi, "Dosya boyutu alinamadi", err);
+                runtime_log(
+                    LogLevel::Error,
+                    "disk",
+                    format!("Windows metadata okuma hatasi: {:?}", w_err),
+                );
+                w_err
+            });
     }
 
     let wide: Vec<u16> = path
@@ -318,7 +534,13 @@ fn disk_size_impl(path: &Path) -> WormResult<u64> {
     };
 
     if handle == INVALID_HANDLE_VALUE {
-        return Err(WormError::new(HataKodu::DiskErisim, "Disk acilamadi"));
+        let w_err = WormError::new(HataKodu::DiskErisim, "Disk acilamadi");
+        runtime_log(
+            LogLevel::Error,
+            "disk",
+            format!("PhysicalDrive acilamadi: {:?}", w_err),
+        );
+        return Err(w_err);
     }
 
     let mut output = [0_u8; 8];
@@ -341,14 +563,26 @@ fn disk_size_impl(path: &Path) -> WormResult<u64> {
     }
 
     if ok == 0 {
-        return Err(WormError::new(HataKodu::DiskBoyut, "Disk boyutu alinamadi"));
+        let w_err = WormError::new(HataKodu::DiskBoyut, "Disk boyutu alinamadi");
+        runtime_log(
+            LogLevel::Error,
+            "disk",
+            format!("DeviceIoControl boyutu alamadi: {:?}", w_err),
+        );
+        return Err(w_err);
     }
 
     Ok(u64::from_le_bytes(output))
 }
 
 #[cfg(unix)]
+/// Linux/Unix sistemlerde bilinen blok cihaz adlarını tarayarak disk listesi üretir.
 fn list_disks_impl() -> WormResult<Vec<DiskInfo>> {
+    runtime_log(
+        LogLevel::Info,
+        "disk",
+        "Linux/Unix disk listesi taraniyor...",
+    );
     let mut candidates = Vec::new();
 
     for letter in b'a'..=b'p' {
@@ -375,11 +609,18 @@ fn list_disks_impl() -> WormResult<Vec<DiskInfo>> {
             });
         }
     }
+    runtime_log(
+        LogLevel::Info,
+        "disk",
+        format!("Disk listeleme bitti. Bulunan disk sayisi: {}", disks.len()),
+    );
     Ok(disks)
 }
 
 #[cfg(windows)]
+/// Windows sistemlerde PhysicalDrive0..31 aralığını tarayarak disk listesi üretir.
 fn list_disks_impl() -> WormResult<Vec<DiskInfo>> {
+    runtime_log(LogLevel::Info, "disk", "Windows disk listesi taraniyor...");
     let mut disks = Vec::new();
     for index in 0..32 {
         let device = PathBuf::from(format!(r"\\.\PhysicalDrive{index}"));
@@ -394,6 +635,14 @@ fn list_disks_impl() -> WormResult<Vec<DiskInfo>> {
             }
         }
     }
+    runtime_log(
+        LogLevel::Info,
+        "disk",
+        format!(
+            "Disk listeleme bitti (Windows). Bulunan disk sayisi: {}",
+            disks.len()
+        ),
+    );
     Ok(disks)
 }
 

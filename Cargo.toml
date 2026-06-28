@@ -1,6 +1,6 @@
 [package]
 name = "worm"
-version = "0.0.10"
+version = "0.0.11"
 edition = "2024"
 
 [dependencies]
@@ -26,8 +26,10 @@ windows-sys = { version = "0.61", features = [
     "Win32_System_IO",
     "Win32_System_Ioctl",
     "Win32_System_Memory",
+    "Win32_System_Registry",
     "Win32_System_SystemInformation",
     "Win32_System_Threading",
+    "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
 ] }
 winit = "0.30"

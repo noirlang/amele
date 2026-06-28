@@ -1,29 +1,36 @@
+//! Platforma göre native pencere açma ve WebView ortam hazırlığını yapar.
 #[cfg(target_os = "linux")]
+/// Linux WebKit/GTK ortam değişkenlerini hazırlar.
 pub fn prepare_environment() -> Result<(), String> {
     linux::prepare_environment()
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+/// Desteklenmeyen platformlarda ek ortam hazırlığı yapmadan döner.
 pub fn prepare_environment() -> Result<(), String> {
     Ok(())
 }
 
 #[cfg(target_os = "windows")]
+/// Windows WebView2 kullanıcı veri klasörünü hazırlar.
 pub fn prepare_environment() -> Result<(), String> {
     windows::prepare_environment()
 }
 
 #[cfg(target_os = "linux")]
+/// Linux GTK/WebKit penceresini verilen URL ile açar.
 pub fn run(url: &str) -> Result<(), String> {
     linux::run(url)
 }
 
 #[cfg(target_os = "windows")]
+/// Windows WRY/WebView2 penceresini verilen URL ile açar.
 pub fn run(url: &str) -> Result<(), String> {
     windows::run(url)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+/// Native pencere desteği olmayan platformlarda hata döndürür.
 pub fn run(_url: &str) -> Result<(), String> {
     Err("Native UI window is supported on Linux and Windows".to_string())
 }
@@ -37,12 +44,14 @@ mod linux {
 
     const GTK_WINDOW_TOPLEVEL: c_int = 0;
 
+    /// GTK/WebKit render ayarlarını güvenli varsayılanlara çeker.
     pub fn prepare_environment() -> Result<(), String> {
         set_env_if_missing("GDK_BACKEND", "x11");
         set_env_if_missing("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
         Ok(())
     }
 
+    /// Ortam değişkeni yoksa varsayılan değer atar.
     fn set_env_if_missing(key: &str, value: &str) {
         if std::env::var_os(key).is_none() {
             unsafe {
@@ -86,6 +95,7 @@ mod linux {
         ) -> c_ulong;
     }
 
+    /// GTK penceresi ve WebKit view oluşturup UI URL'ini yükler.
     pub fn run(url: &str) -> Result<(), String> {
         ensure_webkit_helper_available()?;
 
@@ -141,12 +151,14 @@ mod linux {
         Ok(())
     }
 
+    /// GTK pencere kapanınca ana döngüyü sonlandırır.
     unsafe extern "C" fn on_destroy(_widget: *mut c_void, _data: *mut c_void) {
         unsafe {
             gtk_main_quit();
         }
     }
 
+    /// WebKitNetworkProcess binary'si bulunabiliyor mu diye başlangıç kontrolü yapar.
     fn ensure_webkit_helper_available() -> Result<(), String> {
         if std::env::var_os("WORM_SKIP_WEBKIT_HELPER_CHECK").is_some() {
             return Ok(());
@@ -170,6 +182,7 @@ mod linux {
         ))
     }
 
+    /// Paket içi ve sistem WebKit helper aday yollarını üretir.
     fn webkit_helper_candidates() -> Vec<PathBuf> {
         let mut candidates = Vec::new();
         push_helper_from_env(&mut candidates, "WEBKIT_EXEC_PATH");
@@ -203,12 +216,14 @@ mod linux {
         candidates
     }
 
+    /// Ortam değişkeninden gelen WebKit helper klasörünü adaylara ekler.
     fn push_helper_from_env(candidates: &mut Vec<PathBuf>, key: &str) {
         if let Some(path) = std::env::var_os(key) {
             candidates.push(PathBuf::from(path).join("WebKitNetworkProcess"));
         }
     }
 
+    /// Prefix altındaki yaygın WebKit helper yollarını adaylara ekler.
     fn push_helper_dirs(candidates: &mut Vec<PathBuf>, prefix: impl AsRef<Path>) {
         let prefix = prefix.as_ref();
         candidates.push(
@@ -232,6 +247,7 @@ mod linux {
         );
     }
 
+    /// Native pencere ikon yolunu ortam değişkeni veya geliştirme assetinden bulur.
     fn app_icon_path() -> Option<std::path::PathBuf> {
         if let Some(path) = std::env::var_os("WORM_APP_ICON") {
             let path = std::path::PathBuf::from(path);
@@ -257,6 +273,7 @@ mod windows {
     use winit::window::{Window, WindowId};
     use wry::WebViewBuilder;
 
+    /// WebView2 kullanıcı veri klasörü yoksa geçici klasörde hazırlar.
     pub fn prepare_environment() -> Result<(), String> {
         if std::env::var_os("WEBVIEW2_USER_DATA_FOLDER").is_none() {
             let dir = std::env::temp_dir().join("worm-webview2");
@@ -273,6 +290,7 @@ mod windows {
         Ok(())
     }
 
+    /// Windows olay döngüsünü başlatıp WebView penceresini çalıştırır.
     pub fn run(url: &str) -> Result<(), String> {
         let event_loop = EventLoop::new().map_err(|err| {
             crate::diagnostics::startup_error(
@@ -293,6 +311,7 @@ mod windows {
         result
     }
 
+    /// Winit uygulama yaşam döngüsü boyunca pencere ve WebView nesnelerini tutar.
     struct WindowsApp {
         url: String,
         window: Option<Window>,
@@ -347,12 +366,14 @@ mod windows {
     }
 
     impl WindowsApp {
+        /// Başlangıç hatasını saklayıp olay döngüsünü kapatır.
         fn fail_startup(&mut self, event_loop: &ActiveEventLoop, message: String) {
             self.startup_error = Some(message);
             event_loop.exit();
         }
     }
 
+    /// WebView2 hatasını runtime kontrolüyle birlikte açıklayıcı mesaja çevirir.
     fn webview2_error_message(err: &str) -> String {
         let mut message = format!(
             "WebView2 view could not be created: {err}\nInstall Microsoft Edge WebView2 Evergreen Runtime and start Worm again."
@@ -371,6 +392,7 @@ mod windows {
         crate::diagnostics::startup_error("Windows WebView2 baslatilamadi.", &message)
     }
 
+    /// WebView2 runtime için bilinen klasör adaylarını üretir.
     fn webview2_candidates() -> Vec<PathBuf> {
         let mut candidates = Vec::new();
         if let Some(path) = std::env::var_os("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER") {
@@ -383,6 +405,7 @@ mod windows {
         candidates
     }
 
+    /// Program Files tabanlı WebView2 aday yolunu ekler.
     fn push_program_files_candidate(candidates: &mut Vec<PathBuf>, key: &str) {
         if let Some(base) = std::env::var_os(key) {
             candidates.push(

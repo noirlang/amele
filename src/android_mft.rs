@@ -1,3 +1,4 @@
+//! Android çıktılarından MFT benzeri yapılandırılmış bulgu paketleri üretir.
 mod bundle;
 mod format;
 mod outputs;

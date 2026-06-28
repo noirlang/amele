@@ -1,5 +1,6 @@
 import { androidModePage, androidPage, handleAndroidAction, syncAndroidDeviceSelection } from "./android.js";
 import { createApiRequest } from "./core/api.js";
+import { errorBoxHtml, normalizeErrorMessage } from "./core/errors.js";
 import { detectPlatform, platformLabel as platformName } from "./core/platform.js";
 import { canonicalRamFileName, compactLogLine, escapeHtml, formatBytes } from "./core/utils.js";
 import { icon, hydrateIcons, fontIcons } from "./icons.js";
@@ -11,13 +12,18 @@ import { agentPage } from "./pages/agent.js";
 import { analysisPage } from "./pages/analysis.js";
 import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel } from "./pages/other.js";
 import { workflowPage, pickerField, field, pageTitle, casePanel } from "./pages/workflow.js";
+import { initDeveloperMode, devLog } from "./developer.js";
 
-const APP_VERSION = "v0.0.10";
+const APP_VERSION = "v0.0.11";
 const assetPath = "./assets";
 const backendAvailable = location.protocol === "http:" || location.protocol === "https:";
 const urlParams = new URLSearchParams(window.location.search);
+const isDevConsole = urlParams.get("route") === "devlogs";
 const isNativeWebView = urlParams.get("native") === "1";
+const isNativeLinux =
+  isNativeWebView && /linux/i.test(`${navigator.platform || ""} ${navigator.userAgent || ""}`);
 if (isNativeWebView) document.documentElement.classList.add("native-webview");
+if (isNativeLinux) document.documentElement.classList.add("native-linux");
 
 const app = document.querySelector("#app");
 const view = document.querySelector("#view");
@@ -31,6 +37,7 @@ function initialLogMessages(language) {
 
 const state = {
   route: urlParams.get("route") || "home",
+  isDevConsole,
   theme: preferredTheme,
   language: preferredLanguage,
   platform: detectPlatform(),
@@ -44,6 +51,11 @@ const state = {
   cases: [],
   caseBaseDir: "",
   imageMount: null,
+  imageMountLogHTML: "",
+  imagePathInput: "",
+  ramAnalysisPathInput: "",
+  ramOsProfile: "windows",
+  ramSymbolDirInput: "",
   latestUpdate: null,
   android: {
     adbStatus: null,
@@ -238,10 +250,12 @@ function setRoute(route) {
   if (route.startsWith("workflow:")) {
     const workflow = workflows[route.split(":")[1]];
     if (workflow && isLocalWorkflowBlocked(workflow)) {
+      devLog("WARN", "ui:router", `Route blocked (platform mismatch): ${route} — expected ${workflow.platform}, got ${state.platform}`, apiRequest, backendReady);
       showToast(t("platformBlocked", { platform: workflow.platform }), "error");
       return;
     }
   }
+  devLog("DEBUG", "ui:router", `Navigate → ${route}`, apiRequest, backendReady);
   state.route = route;
   render();
 }
@@ -268,6 +282,7 @@ function setLanguage(language) {
 }
 
 function render() {
+  if (state.isDevConsole) return;
   const activeGroup = routeGroup(state.route);
   document.querySelectorAll("[data-route]").forEach((button) => {
     button.classList.toggle("active", button.dataset.route === activeGroup);
@@ -719,6 +734,10 @@ document.addEventListener("click", (event) => {
     if (imgInput) state.imagePathInput = imgInput.value.trim();
     const ramInput = document.querySelector("#ram-analysis-path");
     if (ramInput) state.ramAnalysisPathInput = ramInput.value.trim();
+    const ramOsSelect = document.querySelector("#ram-os-profile");
+    if (ramOsSelect) state.ramOsProfile = ramOsSelect.value || "windows";
+    const ramSymbolDir = document.querySelector("#ram-symbol-dir");
+    if (ramSymbolDir) state.ramSymbolDirInput = ramSymbolDir.value.trim();
 
     state.activeAnalysisTab = analysisTabButton.dataset.analysisTab;
     render();
@@ -726,11 +745,19 @@ document.addEventListener("click", (event) => {
   }
 
   const treeNode = event.target.closest(".tree-node");
-  if (treeNode) {
+  if (treeNode && treeNode.closest("#image-tree-root")) {
     const isDir = treeNode.dataset.isDir === "true";
     const relativePath = treeNode.dataset.path;
+    const isVirtual = treeNode.dataset.virtual === "true";
     document.querySelectorAll(".tree-node").forEach(el => el.classList.remove("active"));
     treeNode.classList.add("active");
+    if (isVirtual) {
+      if (isDir && treeNode.dataset.hasChildren === "true") {
+        toggleExistingTreeChildren(treeNode);
+      }
+      showVirtualTreeInfo(treeNode);
+      return;
+    }
     if (isDir) {
       expandTreeNode(treeNode, relativePath);
     } else {
@@ -811,6 +838,16 @@ document.addEventListener("change", (event) => {
   const androidDeviceSelect = event.target.closest("[data-android-device-select]");
   if (androidDeviceSelect) {
     syncAndroidDeviceSelection(androidDeviceSelect, { state, t, showToast });
+  }
+
+  const ramOsSelect = event.target.closest("#ram-os-profile");
+  if (ramOsSelect) {
+    state.ramOsProfile = ramOsSelect.value || "windows";
+  }
+
+  const ramSymbolDir = event.target.closest("#ram-symbol-dir");
+  if (ramSymbolDir) {
+    state.ramSymbolDirInput = ramSymbolDir.value.trim();
   }
 });
 
@@ -1054,20 +1091,32 @@ async function handleAction(button) {
       });
       state.imageMount = {
         imagePath: result.image_path,
-        mountDir: result.mount_dir
+        mountDir: result.mount_dir || "",
+        mountMode: result.mount_mode || "mounted",
+        label: result.mount_mode === "analysis-only"
+          ? t("analysis.analysisOnlyStatus")
+          : t("analysis.mounted", { path: result.mount_dir })
       };
+      state.imageMountLogHTML = renderMountResultInfo(result);
       state.imageMountTreeHTML = renderTree(result.tree);
       const container = document.querySelector("#image-tree-root");
       if (container) {
         container.innerHTML = state.imageMountTreeHTML;
       }
+      const summaryContainer = document.querySelector("#disk-analysis-results");
+      if (summaryContainer && result.analysis) {
+        summaryContainer.style.display = "block";
+        summaryContainer.innerHTML = renderDiskAnalysisSummary(result.analysis);
+        hydrateIcons(summaryContainer);
+      }
       setAnalysisStatus(
-        t("analysis.mounted", { path: result.mount_dir }),
-        t("analysis.mountedLog")
+        state.imageMount.label,
+        state.imageMountLogHTML
       );
-      showToast(t("analysis.mountPrepared"));
+      showToast(result.mount_mode === "analysis-only" ? t("analysis.analysisOnlyPrepared") : t("analysis.mountPrepared"));
     } catch (error) {
-      setAnalysisStatus(t("analysis.noImage"), t("analysis.mountFailed", { message: error.message }));
+      state.imageMountLogHTML = "";
+      setAnalysisStatus(t("analysis.noImage"), renderErrorPanel(t("analysis.errorTitle"), error));
       showToast(t("analysis.mountFailed", { message: error.message }), "error");
     }
     return;
@@ -1078,6 +1127,7 @@ async function handleAction(button) {
       await apiRequest("/api/image-unmount", { method: "POST" });
       state.imageMount = null;
       state.imageMountTreeHTML = "";
+      state.imageMountLogHTML = "";
       const container = document.querySelector("#image-tree-root");
       if (container) {
         container.innerHTML = `<div class="log-box">${t("analysis.outputWaiting")}</div>`;
@@ -1089,6 +1139,11 @@ async function handleAction(button) {
             Klasör yapısında bir dosyaya tıklayarak içeriğini inceleyebilirsiniz.<br/>Click a file on the left to preview it.
           </div>
         `;
+      }
+      const summary = document.querySelector("#disk-analysis-results");
+      if (summary) {
+        summary.style.display = "none";
+        summary.innerHTML = "";
       }
       setAnalysisStatus(t("analysis.unmounted"), t("analysis.noActiveMount"));
       showToast(t("analysis.unmounted"));
@@ -1120,7 +1175,7 @@ async function handleAction(button) {
       }
       showToast(t("analysis.doneAnalysis"));
     } catch (error) {
-      if (container) container.innerHTML = `<div class="log-box" style="color:#ff5f68">${escapeHtml(t("analysis.summaryFailed", { message: error.message }))}</div>`;
+      if (container) container.innerHTML = renderErrorPanel(t("analysis.errorTitle"), error);
       showToast(t("analysis.summaryFailed", { message: error.message }), "error");
     }
     return;
@@ -1132,6 +1187,8 @@ async function handleAction(button) {
       showToast("Önce geçerli bir RAM dosyası seçin / Select a valid RAM file first", "error");
       return;
     }
+    const osProfile = document.querySelector("#ram-os-profile")?.value || "windows";
+    const symbolDir = ramSymbolDirValue();
     document.querySelector("#ram-analysis-results").style.display = "block";
     document.querySelector("#ram-split-view").style.display = "none";
     document.querySelector("#ram-flat-results-panel").style.display = "block";
@@ -1140,11 +1197,22 @@ async function handleAction(button) {
     const flatTitle = document.querySelector("#ram-flat-title");
     const flatResults = document.querySelector("#ram-flat-results-list");
     if (flatTitle) flatTitle.textContent = t("analysis.ramSummary");
-    if (flatResults) flatResults.innerHTML = `<div class="log-box">${escapeHtml(t("analysis.runningAnalysis"))}</div>`;
+    
+    if (flatResults) flatResults.innerHTML = ramConsoleHtml("Canlı Analiz Konsolu", [
+      "Volatility3 ile uçucu bellek analizi başlatılıyor...",
+      "İlk çalıştırmada sembol çözümleme/indirme sürebilir."
+    ]);
     try {
-      const result = await apiRequest("/api/ram-analyze-summary", {
+      const start = await apiRequest("/api/ram-analyze-summary-start", {
         method: "POST",
-        body: JSON.stringify({ path: ramPath })
+        body: JSON.stringify({ path: ramPath, os_type: osProfile, symbol_dir: symbolDir })
+      });
+      if (!start.job_id) throw new Error(t("workflow.jobIdMissing"));
+      const result = await waitForAcquisitionJob(start.job_id, {
+        onUpdate(job) {
+          updateRamConsole("#ram-flat-results-list", job, "Canlı Analiz Konsolu");
+          if (statusLbl && job.message) statusLbl.textContent = job.message;
+        }
       });
       document.querySelector("#stat-strings-count").textContent = String(result.string_match_count || 0);
       document.querySelector("#stat-carved-count").textContent = "-";
@@ -1157,8 +1225,87 @@ async function handleAction(button) {
       showToast(t("analysis.doneAnalysis"));
     } catch (error) {
       if (statusLbl) statusLbl.textContent = "Hata / Failed";
-      if (flatResults) flatResults.innerHTML = `<div class="log-box" style="color:#ff5f68">${escapeHtml(t("analysis.summaryFailed", { message: error.message }))}</div>`;
+      if (flatResults) {
+        flatResults.innerHTML += renderErrorPanel(t("analysis.errorTitle"), error);
+      }
       showToast(t("analysis.summaryFailed", { message: error.message }), "error");
+    }
+    return;
+  }
+
+  if (action === "ram-preflight") {
+    const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
+    if (!ramPath || ramPath.startsWith(".")) {
+      showToast("Önce geçerli bir RAM dosyası seçin / Select a valid RAM file first", "error");
+      return;
+    }
+    const osProfile = document.querySelector("#ram-os-profile")?.value || "windows";
+    const symbolDir = ramSymbolDirValue();
+    document.querySelector("#ram-analysis-results").style.display = "block";
+    document.querySelector("#ram-split-view").style.display = "none";
+    document.querySelector("#ram-flat-results-panel").style.display = "block";
+    const flatTitle = document.querySelector("#ram-flat-title");
+    const flatResults = document.querySelector("#ram-flat-results-list");
+    const statusLbl = document.querySelector("#stat-status-lbl");
+    if (flatTitle) flatTitle.textContent = t("analysis.preflightTitle");
+    if (statusLbl) statusLbl.textContent = "Ön kontrol / Preflight";
+    if (flatResults) flatResults.innerHTML = ramConsoleHtml(t("analysis.preflightTitle"), [
+      "Volatility yolu, symbol dizini ve Linux kernel banner bilgisi kontrol ediliyor..."
+    ]);
+    try {
+      const result = await apiRequest("/api/ram-volatility-preflight", {
+        method: "POST",
+        body: JSON.stringify({ path: ramPath, os_type: osProfile, symbol_dir: symbolDir })
+      });
+      if (statusLbl) statusLbl.textContent = result.ready ? "Hazır / Ready" : "Eksik / Missing";
+      if (flatResults) flatResults.innerHTML = renderVolatilityPreflight(result);
+      showToast(result.ready ? "Volatility ön kontrol hazır." : "Volatility ön kontrol eksik uyarılar verdi.", result.ready ? "success" : "error");
+    } catch (error) {
+      if (statusLbl) statusLbl.textContent = "Hata / Failed";
+      if (flatResults) flatResults.innerHTML = renderErrorPanel(t("analysis.preflightFailedTitle"), error);
+      showToast("Volatility ön kontrol başarısız: " + error.message, "error");
+    }
+    return;
+  }
+
+  if (action === "ram-symbol-install") {
+    const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
+    if (!ramPath || ramPath.startsWith(".")) {
+      showToast("Önce geçerli bir RAM dosyası seçin / Select a valid RAM file first", "error");
+      return;
+    }
+    const osProfile = document.querySelector("#ram-os-profile")?.value || "windows";
+    const symbolDir = ramSymbolDirValue();
+    document.querySelector("#ram-analysis-results").style.display = "block";
+    document.querySelector("#ram-split-view").style.display = "none";
+    document.querySelector("#ram-flat-results-panel").style.display = "block";
+    const flatTitle = document.querySelector("#ram-flat-title");
+    const flatResults = document.querySelector("#ram-flat-results-list");
+    const statusLbl = document.querySelector("#stat-status-lbl");
+    if (flatTitle) flatTitle.textContent = t("analysis.symbolInstallTitle");
+    if (statusLbl) statusLbl.textContent = t("analysis.symbolInstallRunning");
+    if (flatResults) flatResults.innerHTML = ramConsoleHtml(t("analysis.symbolInstallTitle"), [
+      t("analysis.symbolInstallScanning"),
+      t("analysis.symbolInstallExact")
+    ]);
+    try {
+      const result = await apiRequest("/api/ram-volatility-symbol-install", {
+        method: "POST",
+        body: JSON.stringify({ path: ramPath, os_type: osProfile, symbol_dir: symbolDir })
+      });
+      if (result.symbol_dir) {
+        state.ramSymbolDirInput = result.symbol_dir;
+        const input = document.querySelector("#ram-symbol-dir");
+        if (input) input.value = result.symbol_dir;
+      }
+      const symbolReady = result.installed || result.status === "windows-automatic";
+      if (statusLbl) statusLbl.textContent = symbolReady ? t("analysis.symbolInstallDone") : t("analysis.symbolInstallMissing");
+      if (flatResults) flatResults.innerHTML = renderVolatilitySymbolInstall(result);
+      showToast(result.message || t("analysis.symbolInstallDone"), symbolReady ? "success" : "error");
+    } catch (error) {
+      if (statusLbl) statusLbl.textContent = "Hata / Failed";
+      if (flatResults) flatResults.innerHTML = renderErrorPanel(t("analysis.symbolInstallFailedTitle"), error);
+      showToast(t("analysis.symbolInstallFailed", { message: error.message }), "error");
     }
     return;
   }
@@ -1182,7 +1329,7 @@ async function handleAction(button) {
       }
       showToast(t("analysis.doneAnalysis"));
     } catch (error) {
-      if (container) container.innerHTML = `<div class="log-box" style="color:#ff5f68">${escapeHtml(t("analysis.summaryFailed", { message: error.message }))}</div>`;
+      if (container) container.innerHTML = renderErrorPanel(t("analysis.errorTitle"), error);
       showToast(t("analysis.summaryFailed", { message: error.message }), "error");
     }
     return;
@@ -1234,7 +1381,7 @@ async function handleAction(button) {
       showToast("Dizgi analizi başarıyla tamamlandı.");
     } catch (error) {
       if (statusLbl) statusLbl.textContent = "Hata / Failed";
-      flatResults.innerHTML = `<div class="log-box" style="color:#ff5f68">Analiz başarısız: ${escapeHtml(error.message)}</div>`;
+      flatResults.innerHTML = renderErrorPanel(t("analysis.stringsFailedTitle"), error);
       showToast("RAM dizgi analizi başarısız oldu: " + error.message, "error");
     }
     return;
@@ -1294,7 +1441,7 @@ async function handleAction(button) {
       showToast("Dosya kurtarma (carving) başarıyla tamamlandı.");
     } catch (error) {
       if (statusLbl) statusLbl.textContent = "Hata / Failed";
-      leftList.innerHTML = `<div class="log-box" style="color:#ff5f68">Kurtarma başarısız: ${escapeHtml(error.message)}</div>`;
+      leftList.innerHTML = renderErrorPanel(t("analysis.carvingFailedTitle"), error);
       showToast("RAM dosya kurtarma başarısız: " + error.message, "error");
     }
     return;
@@ -1306,6 +1453,8 @@ async function handleAction(button) {
       showToast("Önce geçerli bir RAM dosyası seçin / Select a valid RAM file first", "error");
       return;
     }
+    const osProfile = document.querySelector("#ram-os-profile")?.value || "windows";
+    const symbolDir = ramSymbolDirValue();
 
     document.querySelector("#ram-analysis-results").style.display = "block";
     document.querySelector("#ram-split-view").style.display = "grid";
@@ -1315,7 +1464,9 @@ async function handleAction(button) {
     document.querySelector("#ram-right-panel-title").textContent = "Proses Detayları / Process Inspector";
 
     const leftList = document.querySelector("#ram-left-list");
-    leftList.innerHTML = `<div class="log-box" style="text-align:center;padding:20px">⌛ Proses tablosu çıkartılıyor... / Reading process lists...</div>`;
+    leftList.innerHTML = ramConsoleHtml("Canlı Proses Analiz Konsolu", [
+      "Volatility3 ile proses tablosu çıkartılıyor..."
+    ]);
     const rightContent = document.querySelector("#ram-right-content");
     rightContent.innerHTML = `<div class="log-box" style="display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center">Proses seçildiğinde bellek haritası ve arama alanları burada açılacak.<br/>Select a process from the left to inspect memory maps.</div>`;
 
@@ -1323,9 +1474,16 @@ async function handleAction(button) {
     if (statusLbl) statusLbl.textContent = t("analysis.runningAnalysis");
 
     try {
-      const result = await apiRequest("/api/ram-list-processes", {
+      const start = await apiRequest("/api/ram-list-processes-start", {
         method: "POST",
-        body: JSON.stringify({ path: ramPath })
+        body: JSON.stringify({ path: ramPath, os_type: osProfile, symbol_dir: symbolDir })
+      });
+      if (!start.job_id) throw new Error(t("workflow.jobIdMissing"));
+      const result = await waitForAcquisitionJob(start.job_id, {
+        onUpdate(job) {
+          updateRamConsole("#ram-left-list", job, "Canlı Proses Analiz Konsolu");
+          if (statusLbl && job.message) statusLbl.textContent = job.message;
+        }
       });
 
       const count = result.length || 0;
@@ -1347,7 +1505,7 @@ async function handleAction(button) {
       }
     } catch (error) {
       if (statusLbl) statusLbl.textContent = "Hata / Failed";
-      leftList.innerHTML = `<div class="log-box" style="color:#ff5f68">Proses tablosu alınamadı: ${escapeHtml(error.message)}</div>`;
+      leftList.innerHTML = renderErrorPanel(t("analysis.processFailedTitle"), error);
       showToast("Proses listeleme başarısız: " + error.message, "error");
     }
     return;
@@ -1428,15 +1586,21 @@ function showToast(message, type = "success") {
     toast.className = "toast";
     document.body.appendChild(toast);
   }
-  toast.textContent = message;
-  toast.title = message;
+  const displayMessage = type === "error" ? normalizeErrorMessage(message) : String(message ?? "");
+  toast.textContent = displayMessage;
+  toast.title = displayMessage;
   toast.dataset.type = type;
   toast.classList.add("visible");
   window.clearTimeout(showToast.timer);
   showToast.timer = window.setTimeout(
     () => toast.classList.remove("visible"),
-    type === "error" ? 12000 : 3200
+    type === "error" ? Math.min(18000, 9000 + displayMessage.length * 18) : 3200
   );
+}
+
+function renderErrorPanel(title, errorOrMessage) {
+  const message = errorOrMessage?.message || errorOrMessage || t("unknown");
+  return errorBoxHtml(title, message);
 }
 
 function installUiErrorHandlers() {
@@ -1818,12 +1982,13 @@ function acquisitionPercent(job) {
   return Math.max(0, Math.min(100, Math.floor((done * 100) / total)));
 }
 
-async function waitForAcquisitionJob(jobId) {
+async function waitForAcquisitionJob(jobId, options = {}) {
   while (true) {
     const job = await apiRequest("/api/acquisition-status", {
       method: "POST",
       body: JSON.stringify({ job_id: jobId })
     });
+    if (typeof options.onUpdate === "function") options.onUpdate(job);
     const percent = acquisitionPercent(job);
     setProgress(percent, `${percent}%`);
     if (job.message) updateSide("last-action", job.message);
@@ -1838,6 +2003,107 @@ async function waitForAcquisitionJob(jobId) {
 
     await new Promise((resolve) => window.setTimeout(resolve, 500));
   }
+}
+
+function ramConsoleHtml(title, logs = []) {
+  const entries = Array.isArray(logs) && logs.length
+    ? logs
+    : ["Analiz başlatıldı. Volatility3 çıktısı bekleniyor..."];
+  return `
+    <div class="log-box ram-analysis-console">
+      <strong>${escapeHtml(title)}</strong>
+      <pre>${entries.map((line) => escapeHtml(line)).join("\n")}</pre>
+    </div>
+  `;
+}
+
+function updateRamConsole(selector, job, title = "Canlı Analiz Konsolu") {
+  const container = document.querySelector(selector);
+  if (!container) return;
+  const logs = Array.isArray(job.logs) ? job.logs : [];
+  container.innerHTML = ramConsoleHtml(title, logs);
+  container.scrollTop = container.scrollHeight;
+}
+
+function ramSymbolDirValue() {
+  const value = document.querySelector("#ram-symbol-dir")?.value.trim() || "";
+  if (!value || value.startsWith(".")) return null;
+  state.ramSymbolDirInput = value;
+  return value;
+}
+
+function renderVolatilityPreflight(result) {
+  const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+  const recommendations = Array.isArray(result.recommendations) ? result.recommendations : [];
+  const banners = Array.isArray(result.banners) ? result.banners : [];
+  const symbolDirs = Array.isArray(result.symbol_dirs) ? result.symbol_dirs : [];
+  const matches = Array.isArray(result.matching_symbols) ? result.matching_symbols : [];
+  const badge = result.ready
+    ? `<span class="status-pill ok">${escapeHtml(t("analysis.preflightReady"))}</span>`
+    : `<span class="status-pill danger">${escapeHtml(t("analysis.preflightMissing"))}</span>`;
+  return `
+    <div class="analysis-summary">
+      <p class="section-label">${escapeHtml(t("analysis.preflightTitle"))}</p>
+      <div class="summary-grid">
+        <div><strong>${escapeHtml(t("analysis.preflightStatus"))}</strong><span>${badge}</span></div>
+        <div><strong>vol.py</strong><span>${escapeHtml(result.vol_py || t("analysis.preflightNotFound"))}</span></div>
+        <div><strong>${escapeHtml(t("analysis.preflightSymbols"))}</strong><span>${Number(result.symbol_count || 0)} ${escapeHtml(t("analysis.preflightTotal"))} · ${Number(result.linux_symbol_count || 0)} Linux</span></div>
+        <div><strong>${escapeHtml(t("analysis.preflightMatch"))}</strong><span>${matches.length ? `${matches.length} symbol` : escapeHtml(t("analysis.preflightNoMatch"))}</span></div>
+      </div>
+      <div class="section-divider"></div>
+      <div class="log-box">
+        <strong>${escapeHtml(t("analysis.preflightBanners"))}</strong>
+        <pre>${banners.length ? banners.map(escapeHtml).join("\n") : escapeHtml(t("analysis.preflightNoBanner"))}</pre>
+      </div>
+      <div class="log-box">
+        <strong>${escapeHtml(t("analysis.preflightSymbolDirs"))}</strong>
+        <pre>${symbolDirs.length ? symbolDirs.map(escapeHtml).join("\n") : escapeHtml(t("analysis.preflightNoSymbolDir"))}</pre>
+      </div>
+      ${warnings.length ? `<div class="log-box" style="color:#ffb4b4"><strong>${escapeHtml(t("analysis.preflightWarnings"))}</strong><pre>${warnings.map(escapeHtml).join("\n")}</pre></div>` : ""}
+      ${recommendations.length ? `<div class="log-box"><strong>${escapeHtml(t("analysis.preflightRecommendations"))}</strong><pre>${recommendations.map(escapeHtml).join("\n")}</pre></div>` : ""}
+    </div>
+  `;
+}
+
+function renderVolatilitySymbolInstall(result) {
+  const banners = Array.isArray(result.banners) ? result.banners : [];
+  const matches = Array.isArray(result.matches) ? result.matches : [];
+  const recommendations = Array.isArray(result.recommendations) ? result.recommendations : [];
+  const preflight = result.preflight || null;
+  const ready = Boolean(preflight?.ready || result.status === "windows-automatic");
+  const badge = ready
+    ? `<span class="status-pill ok">${escapeHtml(t("analysis.preflightReady"))}</span>`
+    : `<span class="status-pill danger">${escapeHtml(t("analysis.preflightMissing"))}</span>`;
+  const matchLines = matches.map((item) => {
+    const remotePath = item.remote_path || item.url || "";
+    return `${item.banner || "-"}\n  -> ${remotePath}`;
+  });
+  return `
+    <div class="analysis-summary">
+      <p class="section-label">${escapeHtml(t("analysis.symbolInstallTitle"))}</p>
+      <div class="summary-grid">
+        <div><strong>${escapeHtml(t("analysis.preflightStatus"))}</strong><span>${badge}</span></div>
+        <div><strong>${escapeHtml(t("analysis.symbolDir"))}</strong><span>${escapeHtml(result.symbol_dir || "-")}</span></div>
+        <div><strong>${escapeHtml(t("analysis.symbolInstallTarget"))}</strong><span>${escapeHtml(result.target || "-")}</span></div>
+        <div><strong>SHA256</strong><span>${escapeHtml(result.sha256 || "-")}</span></div>
+      </div>
+      <div class="section-divider"></div>
+      <div class="log-box">
+        <strong>${escapeHtml(t("analysis.symbolInstallMessage"))}</strong>
+        <pre>${escapeHtml(result.message || "-")}</pre>
+      </div>
+      <div class="log-box">
+        <strong>${escapeHtml(t("analysis.preflightBanners"))}</strong>
+        <pre>${banners.length ? banners.map(escapeHtml).join("\n") : escapeHtml(t("analysis.preflightNoBanner"))}</pre>
+      </div>
+      <div class="log-box">
+        <strong>${escapeHtml(t("analysis.symbolInstallMatches"))}</strong>
+        <pre>${matchLines.length ? matchLines.map(escapeHtml).join("\n") : escapeHtml(t("analysis.preflightNoMatch"))}</pre>
+      </div>
+      ${preflight ? renderVolatilityPreflight(preflight) : ""}
+      ${recommendations.length ? `<div class="log-box"><strong>${escapeHtml(t("analysis.preflightRecommendations"))}</strong><pre>${recommendations.map(escapeHtml).join("\n")}</pre></div>` : ""}
+    </div>
+  `;
 }
 
 async function sendAcquisitionControl(action) {
@@ -1990,7 +2256,35 @@ function setAnalysisStatus(status, log) {
   const statusNode = document.querySelector("[data-analysis-status]");
   const logNode = document.querySelector("[data-analysis-log]");
   if (statusNode) statusNode.textContent = status;
-  if (logNode) logNode.innerHTML = log;
+  state.imageMountLogHTML = log || "";
+  if (logNode) {
+    logNode.innerHTML = log || "";
+    logNode.style.display = log ? "" : "none";
+  }
+}
+
+function renderMountResultInfo(result) {
+  const mode = result.mount_mode || "mounted";
+  const analysis = result.analysis || {};
+  const filesystems = Array.isArray(analysis.filesystems) ? analysis.filesystems : [];
+  const partitions = Array.isArray(analysis.partitions) ? analysis.partitions : [];
+  const status = mode === "analysis-only"
+    ? t("analysis.analysisOnlyLog")
+    : t("analysis.mountedLog");
+  const details = [
+    analysis.image_type ? `${t("analysis.imageType")}: ${analysis.image_type}` : "",
+    analysis.size ? `${t("analysis.imageSize")}: ${formatBytes(analysis.size)}` : "",
+    analysis.partition_scheme ? `${t("analysis.partitionScheme")}: ${analysis.partition_scheme}` : "",
+    `${t("analysis.partitionCount")}: ${partitions.length}`,
+    `${t("analysis.filesystemCount")}: ${filesystems.length}`
+  ].filter(Boolean);
+  return `
+    <div class="mount-info-panel">
+      <strong>${escapeHtml(status)}</strong>
+      ${result.mount_error ? `<pre>${escapeHtml(result.mount_error)}</pre>` : ""}
+      ${details.length ? `<div class="mount-info-grid">${details.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}
+    </div>
+  `;
 }
 
 function renderDiskAnalysisSummary(result) {
@@ -2090,19 +2384,23 @@ function analysisList(title, items, tone = "") {
 
 function renderTree(node, depth = 0) {
   if (!node) return `<div class="log-box">${escapeHtml(t("analysis.outputWaiting"))}</div>`;
+  const isVirtual = Boolean(node.virtual);
+  const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+  const expanded = isVirtual && depth === 0;
   const fileIcon = node.is_dir ? "📁" : "📄";
-  const toggle = node.is_dir ? `<span class="toggle-icon">▸</span>` : "";
+  const toggle = node.is_dir ? `<span class="toggle-icon">${expanded ? "▾" : "▸"}</span>` : "";
   const sizeStr = node.is_dir ? "" : `<span class="node-size">${formatBytes(node.size)}</span>`;
+  const note = node.note || node.name || "";
   
   let relativePath = node.path;
-  if (state.imageMount && state.imageMount.mountDir) {
+  if (!isVirtual && state.imageMount && state.imageMount.mountDir) {
     if (node.path.startsWith(state.imageMount.mountDir)) {
       relativePath = node.path.substring(state.imageMount.mountDir.length);
     }
   }
 
   const current = `
-    <div class="tree-node" data-path="${escapeHtml(relativePath)}" data-is-dir="${node.is_dir}">
+    <div class="tree-node" data-path="${escapeHtml(relativePath)}" data-is-dir="${node.is_dir}" data-virtual="${isVirtual}" data-has-children="${hasChildren}" data-note="${escapeHtml(note)}">
       <span style="width:16px;display:inline-block">${toggle}</span>
       <span class="node-icon">${fileIcon}</span>
       <span class="node-name">${escapeHtml(node.name || node.path.split('/').pop() || "/")}</span>
@@ -2111,8 +2409,8 @@ function renderTree(node, depth = 0) {
     <div class="tree-children-container"></div>
   `;
 
-  const children = Array.isArray(node.children) && node.children.length > 0
-    ? `<div class="tree-children" style="padding-left:14px; display:none">${node.children.map(child => renderTree(child, depth + 1)).join("")}</div>`
+  const children = hasChildren
+    ? `<div class="tree-children" style="padding-left:14px; display:${expanded ? "block" : "none"}">${node.children.map(child => renderTree(child, depth + 1)).join("")}</div>`
     : "";
 
   return current + children;
@@ -2322,22 +2620,17 @@ async function downloadUpdatePackage() {
 }
 
 async function expandTreeNode(nodeElement, relativePath) {
-  const childrenContainer = nodeElement.nextElementSibling;
-  if (childrenContainer && childrenContainer.classList.contains("tree-children")) {
-    if (childrenContainer.style.display === "none") {
-      childrenContainer.style.display = "block";
-      nodeElement.querySelector(".toggle-icon").innerHTML = "▾";
-    } else {
-      childrenContainer.style.display = "none";
-      nodeElement.querySelector(".toggle-icon").innerHTML = "▸";
-    }
+  if (toggleExistingTreeChildren(nodeElement)) {
     return;
   }
 
   const tempContainer = document.createElement("div");
   tempContainer.className = "tree-children";
   tempContainer.style.paddingLeft = "14px";
-  nodeElement.parentNode.insertBefore(tempContainer, nodeElement.nextSibling.nextSibling);
+  const placeholder = nodeElement.nextElementSibling?.classList.contains("tree-children-container")
+    ? nodeElement.nextElementSibling
+    : null;
+  nodeElement.parentNode.insertBefore(tempContainer, placeholder ? placeholder.nextSibling : nodeElement.nextSibling);
 
   try {
     nodeElement.querySelector(".toggle-icon").innerHTML = "⌛";
@@ -2374,6 +2667,42 @@ async function expandTreeNode(nodeElement, relativePath) {
     tempContainer.remove();
     showToast("Klasör açma başarısız: " + error.message, "error");
   }
+}
+
+function findExistingTreeChildren(nodeElement) {
+  let sibling = nodeElement.nextElementSibling;
+  if (sibling?.classList.contains("tree-children-container")) {
+    sibling = sibling.nextElementSibling;
+  }
+  return sibling?.classList.contains("tree-children") ? sibling : null;
+}
+
+function toggleExistingTreeChildren(nodeElement) {
+  const childrenContainer = findExistingTreeChildren(nodeElement);
+  if (!childrenContainer) return false;
+  const toggleIcon = nodeElement.querySelector(".toggle-icon");
+  if (childrenContainer.style.display === "none") {
+    childrenContainer.style.display = "block";
+    if (toggleIcon) toggleIcon.innerHTML = "▾";
+  } else {
+    childrenContainer.style.display = "none";
+    if (toggleIcon) toggleIcon.innerHTML = "▸";
+  }
+  return true;
+}
+
+function showVirtualTreeInfo(nodeElement) {
+  const container = document.querySelector("#image-file-preview");
+  if (!container) return;
+  const title = nodeElement.querySelector(".node-name")?.textContent?.trim() || t("analysis.virtualInfo");
+  const note = nodeElement.dataset.note || title;
+  container.innerHTML = `
+    <div class="log-box" style="padding:20px;white-space:pre-wrap">
+      <strong>${escapeHtml(title)}</strong>
+      <div class="section-divider"></div>
+      ${escapeHtml(note)}
+    </div>
+  `;
 }
 
 async function previewImageFile(relativePath) {
@@ -2416,7 +2745,7 @@ async function previewImageFile(relativePath) {
       </div>
     `;
   } catch (error) {
-    container.innerHTML = `<div class="log-box" style="color:#ff5f68;padding:20px">Hata / Error: ${escapeHtml(error.message)}</div>`;
+    container.innerHTML = renderErrorPanel(t("analysis.previewFailedTitle"), error);
   }
 }
 
@@ -2424,14 +2753,28 @@ async function inspectProcessDetails(pid, name) {
   const rightContent = document.querySelector("#ram-right-content");
   if (!rightContent) return;
   
-  rightContent.innerHTML = `<div class="log-box" style="text-align:center;padding:20px">⌛ Proses bellek haritası yükleniyor...</div>`;
+  const osProfile = document.querySelector("#ram-os-profile")?.value || "windows";
+  rightContent.innerHTML = ramConsoleHtml("Canlı Proses Detay Konsolu", [
+    "Volatility3 ile proses detayları yükleniyor...",
+    osProfile === "windows" ? "DLL listesi çıkarılıyor." : "Açık dosyalar listeleniyor."
+  ]);
   
   const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
+  const symbolDir = ramSymbolDirValue();
   try {
-    const result = await apiRequest("/api/ram-process-details", {
+    const start = await apiRequest("/api/ram-process-details-start", {
       method: "POST",
-      body: JSON.stringify({ path: ramPath, pid })
+      body: JSON.stringify({ path: ramPath, pid, os_type: osProfile, symbol_dir: symbolDir })
     });
+    if (!start.job_id) throw new Error(t("workflow.jobIdMissing"));
+    const result = await waitForAcquisitionJob(start.job_id, {
+      onUpdate(job) {
+        updateRamConsole("#ram-right-content", job, "Canlı Proses Detay Konsolu");
+      }
+    });
+    
+    const label = osProfile === "windows" ? "Yüklenen DLL Modülleri (Loaded DLLs)" : 
+                  "Açık Dosyalar (Open Files / lsof)";
     
     rightContent.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:14px;padding:12px">
@@ -2440,8 +2783,8 @@ async function inspectProcessDetails(pid, name) {
           <span style="font-size:12px;color:var(--muted)">Döküm: ${result.dumps?.length || 0} segment</span>
         </div>
         
-        <p style="margin:0;font-size:12px;font-weight:bold;color:var(--muted)">Bellek Haritaları (Maps)</p>
-        <div class="maps-pre-box">${escapeHtml(result.maps || "Bellek haritası yok")}</div>
+        <p style="margin:0;font-size:12px;font-weight:bold;color:var(--muted)">${escapeHtml(label)}</p>
+        <div class="maps-pre-box">${escapeHtml(result.maps || "Detay bulunamadı")}</div>
         
         <div class="section-divider" style="margin:8px 0"></div>
         
@@ -2456,7 +2799,7 @@ async function inspectProcessDetails(pid, name) {
     `;
     hydrateIcons(rightContent);
   } catch (error) {
-    rightContent.innerHTML = `<div class="log-box" style="color:#ff5f68">Hata: ${escapeHtml(error.message)}</div>`;
+    rightContent.innerHTML = renderErrorPanel(t("analysis.processDetailFailedTitle"), error);
   }
 }
 
@@ -2477,13 +2820,14 @@ async function runProcessMemorySearch(pid) {
     return;
   }
   
-  resultsDiv.innerHTML = `<div class="log-box" style="text-align:center;padding:10px">⌛ Proses hafızası taranıyor...</div>`;
+  const osProfile = document.querySelector("#ram-os-profile")?.value || "windows";
+  resultsDiv.innerHTML = `<div class="log-box" style="text-align:center;padding:10px">⌛ Uçucu bellek taranıyor...</div>`;
   
   const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
   try {
     const result = await apiRequest("/api/ram-process-search", {
       method: "POST",
-      body: JSON.stringify({ path: ramPath, pid, query })
+      body: JSON.stringify({ path: ramPath, pid, query, os_type: osProfile })
     });
     
     const count = result.length || 0;
@@ -2506,7 +2850,7 @@ async function runProcessMemorySearch(pid) {
       `;
     }
   } catch (error) {
-    resultsDiv.innerHTML = `<div class="log-box" style="color:#ff5f68">Arama başarısız: ${escapeHtml(error.message)}</div>`;
+    resultsDiv.innerHTML = renderErrorPanel(t("analysis.searchFailedTitle"), error);
   }
 }
 
@@ -2551,7 +2895,7 @@ async function previewCarvedFile(filePath) {
       </div>
     `;
   } catch (error) {
-    rightContent.innerHTML = `<div class="log-box" style="color:#ff5f68;padding:20px">Önizleme başarısız: ${escapeHtml(error.message)}</div>`;
+    rightContent.innerHTML = renderErrorPanel(t("analysis.previewFailedTitle"), error);
   }
 }
 
@@ -2560,3 +2904,7 @@ setTheme(state.theme);
 installUiErrorHandlers();
 hydrateIcons();
 render();
+
+// Developer mode — 5 kez logoya tıklayınca aktifleşir
+initDeveloperMode({ apiRequest, backendReady });
+devLog("INFO", "ui:startup", `Worm ${APP_VERSION} başlatıldı — platform: ${state.platform}, dil: ${state.language}, tema: ${state.theme}, backend: ${backendAvailable}`, apiRequest, backendReady);

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product
+    Id="*"
+    Name="Worm Forensic Tool"
+    Language="1033"
+    Version="$(var.ProductVersion)"
+    Manufacturer="noirLang"
+    UpgradeCode="9D444D82-6DC7-47DB-AFC9-182A55504721">
+    <Package
+      InstallerVersion="500"
+      Compressed="yes"
+      InstallScope="perMachine"
+      Platform="x64"
+      Description="Worm Forensic Tool desktop application" />
+
+    <MajorUpgrade
+      AllowSameVersionUpgrades="yes"
+      DowngradeErrorMessage="A newer Worm Forensic Tool version is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="WormIcon" SourceFile="$(var.WormIcon)" />
+    <Property Id="ARPPRODUCTICON" Value="WormIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://worm.noirlang.tr" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseRtf)" />
+
+    <Condition Message="Worm Forensic Tool requires a 64-bit Windows installation.">
+      VersionNT64
+    </Condition>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLFOLDER" Name="Worm Forensic Tool">
+          <Directory Id="INSTALLBINDIR" Name="bin" />
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ProgramMenuDir" Name="Worm Forensic Tool" />
+      </Directory>
+      <Directory Id="DesktopFolder" />
+    </Directory>
+
+    <DirectoryRef Id="INSTALLBINDIR">
+      <Component Id="ApplicationShortcuts" Guid="A1931DF0-C9AA-45AF-B68A-D4BEF49DFB39" Win64="yes">
+        <Shortcut
+          Id="StartMenuShortcut"
+          Directory="ProgramMenuDir"
+          Name="Worm Forensic Tool"
+          Description="Open Worm Forensic Tool"
+          Target="[INSTALLBINDIR]worm.exe"
+          WorkingDirectory="INSTALLBINDIR"
+          Icon="WormIcon" />
+        <Shortcut
+          Id="DesktopShortcut"
+          Directory="DesktopFolder"
+          Name="Worm Forensic Tool"
+          Description="Open Worm Forensic Tool"
+          Target="[INSTALLBINDIR]worm.exe"
+          WorkingDirectory="INSTALLBINDIR"
+          Icon="WormIcon" />
+        <RemoveFolder Id="RemoveProgramMenuDir" Directory="ProgramMenuDir" On="uninstall" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\noirLang\Worm Forensic Tool"
+          Name="Installed"
+          Type="integer"
+          Value="1"
+          KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="Complete" Title="Worm Forensic Tool" Level="1" Display="expand">
+      <ComponentGroupRef Id="WormFiles" />
+      <ComponentRef Id="ApplicationShortcuts" />
+    </Feature>
+
+    <UIRef Id="WixUI_InstallDir" />
+  </Product>
+</Wix>

@@ -1,3 +1,4 @@
+//! Genel amaçlı iş kuyruğu ve iş durum takibi altyapısını sağlar.
 use crate::logging::Logger;
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
@@ -9,6 +10,7 @@ use std::sync::{Arc, Condvar, Mutex};
 static NEXT_JOB_ID: AtomicI32 = AtomicI32::new(1);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Kuyruktaki işin yaşam döngüsü durumunu belirtir.
 pub enum JobStatus {
     Bekliyor,
     Calisiyor,
@@ -18,6 +20,7 @@ pub enum JobStatus {
 }
 
 impl JobStatus {
+    /// İş durumunu arayüz/rapor için Türkçe metne çevirir.
     pub fn text(self) -> &'static str {
         match self {
             JobStatus::Bekliyor => "Bekliyor",
@@ -30,6 +33,7 @@ impl JobStatus {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Kuyruğa eklenebilen genel iş türlerini belirtir.
 pub enum JobType {
     DiskEdinim,
     HashHesapla,
@@ -40,6 +44,7 @@ pub enum JobType {
 }
 
 impl JobType {
+    /// İş türünü arayüz/rapor için Türkçe metne çevirir.
     pub fn text(self) -> &'static str {
         match self {
             JobType::DiskEdinim => "Disk Edinim",
@@ -53,6 +58,7 @@ impl JobType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Tek bir arka plan işinin kimlik, durum, süre ve çıktı bilgisini taşır.
 pub struct Job {
     pub id: i32,
     pub job_type: JobType,
@@ -67,6 +73,7 @@ pub struct Job {
 }
 
 impl Job {
+    /// Yeni işi benzersiz ID ile bekliyor durumunda oluşturur.
     pub fn new(job_type: JobType, description: impl Into<String>) -> Self {
         Self {
             id: NEXT_JOB_ID.fetch_add(1, Ordering::SeqCst),
@@ -82,6 +89,7 @@ impl Job {
         }
     }
 
+    /// Durumu, ilerlemeyi ve başlangıç/bitiş zamanlarını günceller.
     pub fn update_status(&mut self, status: JobStatus, progress: Option<u8>) {
         self.status = status;
         if let Some(progress) = progress {
@@ -101,20 +109,24 @@ impl Job {
         }
     }
 
+    /// İşi başarılı tamamlandı olarak işaretler.
     pub fn complete(&mut self, output_dir: Option<PathBuf>) {
         self.update_status(JobStatus::Tamamlandi, Some(100));
         self.output_dir = output_dir;
     }
 
+    /// İşi hata durumuna alır ve hata mesajını saklar.
     pub fn fail(&mut self, message: impl Into<String>) {
         self.update_status(JobStatus::Hata, None);
         self.error_message = Some(message.into());
     }
 
+    /// İşi iptal edildi olarak işaretler.
     pub fn cancel(&mut self) {
         self.update_status(JobStatus::IptalEdildi, None);
     }
 
+    /// İşin ürettiği çıktı dosyasını kayıt altına alır.
     pub fn add_output_file(&mut self, path: impl Into<PathBuf>) {
         self.produced_files.push(path.into());
     }
@@ -122,6 +134,7 @@ impl Job {
 
 pub type SharedJob = Arc<Mutex<Job>>;
 
+/// Çoklu thread arasında paylaşılan basit iş kuyruğudur.
 pub struct JobQueue {
     queue: Mutex<VecDeque<SharedJob>>,
     condvar: Condvar,
@@ -130,6 +143,7 @@ pub struct JobQueue {
 }
 
 impl JobQueue {
+    /// Yeni kuyruk ve koşul değişkeni oluşturur.
     pub fn new(logger: Option<Logger>) -> Self {
         if let Some(logger) = &logger {
             logger.info("Is kuyrugu olusturuldu");
@@ -142,6 +156,7 @@ impl JobQueue {
         }
     }
 
+    /// İşi kuyruğa ekler ve bekleyen worker'ı uyandırır.
     pub fn push(&self, job: Job) -> SharedJob {
         let shared = Arc::new(Mutex::new(job));
         if let Ok(mut queue) = self.queue.lock() {
@@ -156,6 +171,7 @@ impl JobQueue {
         shared
     }
 
+    /// İş gelene kadar bekler veya kuyruk kapanırsa None döner.
     pub fn pop_wait(&self) -> Option<SharedJob> {
         let mut queue = self.queue.lock().ok()?;
         loop {
@@ -169,6 +185,7 @@ impl JobQueue {
         }
     }
 
+    /// Kuyruğu durdurur ve bekleyen thread'leri uyandırır.
     pub fn stop(&self) {
         if let Ok(mut running) = self.running.lock() {
             *running = false;

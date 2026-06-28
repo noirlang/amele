@@ -1,3 +1,4 @@
+//! Disk, hash, uzak agent, imaj bağlama ve sistem işlemleri API uçlarını içerir.
 use chrono::Local;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -19,6 +20,7 @@ use crate::server::{Response, json_error, json_ok};
 
 use super::{
     ImageMountState,
+    acquisition_jobs,
     cleanup_helper_files,
     create_acquisition_job,
     current_image_mount,
@@ -49,6 +51,7 @@ use super::{
 use super::linux_mount_image_readonly;
 
 #[derive(Deserialize)]
+/// Yerel imaj alma isteğinde kaynak, çıktı ve vaka bilgisini taşır.
 pub struct LocalImageRequest {
     pub source: String,
     pub disk_name: Option<String>,
@@ -57,6 +60,7 @@ pub struct LocalImageRequest {
 }
 
 #[derive(Deserialize)]
+/// Uzak disk imajı alma isteğinde agent bağlantısı ve hedef disk bilgisini taşır.
 pub struct RemoteImageRequest {
     pub ip: String,
     pub port: u16,
@@ -68,12 +72,203 @@ pub struct RemoteImageRequest {
 }
 
 #[derive(Deserialize)]
+/// Uzak agent bağlantı bilgilerini taşır.
 pub struct RemoteRequest {
     pub ip: String,
     pub port: u16,
     pub token: Option<String>,
 }
 
+#[derive(Deserialize)]
+/// UI veya frontend tarafının developer log'a eklemek istediği satırı taşır.
+struct DeveloperLogRequest {
+    level: Option<String>,
+    scope: Option<String>,
+    message: String,
+}
+
+/// Developer konsolunu sistem tarayıcısında açar (native WebView'da window.open çalışmaz).
+pub fn open_dev_console_endpoint() -> Response {
+    let port = crate::api::current_server_port();
+    let url = format!("http://127.0.0.1:{}/?route=devlogs", port);
+    crate::logging::runtime_log(
+        crate::logging::LogLevel::Info,
+        "api:devconsole",
+        format!("Developer konsolu aciliyor: {}", url),
+    );
+    match open_external_url(&url) {
+        Ok(()) => json_ok(json!({ "opened": true, "url": url })),
+        Err(err) => json_error(500, err),
+    }
+}
+
+/// Developer mod penceresinin okuyacağı runtime log, job ve sistem özetini döndürür.
+pub fn developer_logs_endpoint() -> Response {
+    json_ok(json!({
+        "logs": crate::logging::runtime_logs(1000),
+        "log_file": crate::logging::runtime_log_file_path(),
+        "jobs": developer_job_snapshot(),
+        "system": developer_system_snapshot(),
+    }))
+}
+
+/// Frontend tarafındaki hata ve kritik olayları backend runtime log'una işler.
+pub fn developer_log_endpoint(body: &[u8]) -> Response {
+    let request: DeveloperLogRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+    let level = match request
+        .level
+        .as_deref()
+        .unwrap_or("info")
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "error" => crate::logging::LogLevel::Error,
+        "warn" | "warning" => crate::logging::LogLevel::Warn,
+        "debug" => crate::logging::LogLevel::Debug,
+        _ => crate::logging::LogLevel::Info,
+    };
+    let scope = request.scope.unwrap_or_else(|| "ui".to_string());
+    crate::logging::runtime_log(level, scope, request.message);
+    json_ok(json!({ "ok": true }))
+}
+
+/// Developer paneli için aktif/son işlerin sade özetini üretir.
+fn developer_job_snapshot() -> Vec<Value> {
+    acquisition_jobs()
+        .lock()
+        .map(|jobs| {
+            jobs.iter()
+                .map(|(id, job)| {
+                    json!({
+                        "id": id,
+                        "status": job.status,
+                        "done": job.done,
+                        "total": job.total,
+                        "message": job.message,
+                        "log_count": job.logs.len(),
+                        "error": job.error,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Platform, yetki, yol ve paket bilgilerini tek yerde özetler.
+fn developer_system_snapshot() -> Value {
+    let env_keys = [
+        "APPDIR",
+        "DISPLAY",
+        "WAYLAND_DISPLAY",
+        "XDG_CURRENT_DESKTOP",
+        "GDK_BACKEND",
+        "WEBKIT_DISABLE_DMABUF_RENDERER",
+        "WEBKIT_EXEC_PATH",
+        "WEBVIEW2_USER_DATA_FOLDER",
+        "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER",
+        "PATH",
+        "HOME",
+        "USER",
+        "USERNAME",
+        "SHELL",
+        "LANG",
+        "LC_ALL",
+        "TZ",
+        "LOGNAME",
+        "HOSTNAME",
+    ];
+    let env = env_keys
+        .iter()
+        .map(|key| {
+            let value = std::env::var(key)
+                .ok()
+                .map(|value| {
+                    if *key == "PATH" && value.len() > 280 {
+                        format!("{}...", &value[..280])
+                    } else {
+                        value
+                    }
+                })
+                .unwrap_or_else(|| "(yok)".to_string());
+            json!({ "key": key, "value": value })
+        })
+        .collect::<Vec<_>>();
+
+    let hostname = std::env::var("HOSTNAME")
+        .or_else(|_| std::env::var("COMPUTERNAME"))
+        .ok();
+    let username = std::env::var("USER")
+        .or_else(|_| std::env::var("USERNAME"))
+        .ok();
+    let timezone = std::env::var("TZ").ok().or_else(|| {
+        std::panic::catch_unwind(|| chrono::Local::now().format("%Z").to_string()).ok()
+    });
+
+    let server_port = crate::api::current_server_port();
+
+    // Sistem belleği (yalnızca Linux)
+    let (total_memory, free_memory) = get_system_memory();
+
+    json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "os": std::env::consts::OS,
+        "family": std::env::consts::FAMILY,
+        "arch": std::env::consts::ARCH,
+        "pid": std::process::id(),
+        "cwd": std::env::current_dir().ok(),
+        "exe": std::env::current_exe().ok(),
+        "ui_root": crate::server::ui_root(),
+        "is_elevated": process_is_root(),
+        "runtime_log_file": crate::logging::runtime_log_file_path(),
+        "server_port": server_port,
+        "hostname": hostname,
+        "username": username,
+        "timezone": timezone,
+        "total_memory": total_memory,
+        "free_memory": free_memory,
+        "env": env,
+    })
+}
+
+/// Linux /proc/meminfo'dan sistem belleği bilgisi alır.
+fn get_system_memory() -> (Option<u64>, Option<u64>) {
+    #[cfg(target_os = "linux")]
+    {
+        let content = match std::fs::read_to_string("/proc/meminfo") {
+            Ok(c) => c,
+            Err(_) => return (None, None),
+        };
+        let mut total = None;
+        let mut free = None;
+        for line in content.lines() {
+            if let Some(val) = line.strip_prefix("MemTotal:") {
+                total = val
+                    .trim()
+                    .split_whitespace()
+                    .next()
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .map(|kb| kb * 1024);
+            } else if let Some(val) = line.strip_prefix("MemAvailable:") {
+                free = val
+                    .trim()
+                    .split_whitespace()
+                    .next()
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .map(|kb| kb * 1024);
+            }
+        }
+        (total, free)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        (None, None)
+    }
+}
+
+/// Uzak agent bağlantı bilgisini doğrular.
 pub fn connect_endpoint(body: &[u8]) -> Response {
     let request = match parse_remote_request(body) {
         Ok(request) => request,
@@ -93,6 +288,7 @@ pub fn connect_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Yerel diskleri listeler; yetki gerekiyorsa helper ile tekrar dener.
 pub fn disk_list_endpoint() -> Response {
     match disk::list_disks() {
         Ok(disks) => {
@@ -105,7 +301,7 @@ pub fn disk_list_endpoint() -> Response {
                     Err(err) => json_ok(json!({
                         "disks": disks,
                         "elevated": false,
-                        "elevation_error": err,
+                        "elevation_error": crate::diagnostics::error_with_advice(&err),
                     })),
                 }
             } else {
@@ -121,6 +317,7 @@ pub fn disk_list_endpoint() -> Response {
     }
 }
 
+/// Disk listesinde erişilemez cihaz varsa yetki yükseltme gerekip gerekmediğini belirler.
 fn should_request_elevated_disk_list(disks: &[disk::DiskInfo]) -> bool {
     #[cfg(target_os = "linux")]
     {
@@ -135,6 +332,7 @@ fn should_request_elevated_disk_list(disks: &[disk::DiskInfo]) -> bool {
     disks.is_empty() || disks.iter().any(|disk| !disk.accessible)
 }
 
+/// Dosya hash hesaplama API isteğini işler.
 pub fn hash_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct HashRequest {
@@ -167,6 +365,7 @@ pub fn hash_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// API'den gelen hash algoritması stringlerini enum listesine çevirir.
 fn parse_algorithms(values: Option<Vec<String>>) -> Result<Vec<HashAlgorithm>, String> {
     let values = values.unwrap_or_else(|| {
         vec![
@@ -186,6 +385,7 @@ fn parse_algorithms(values: Option<Vec<String>>) -> Result<Vec<HashAlgorithm>, S
     Ok(algorithms)
 }
 
+/// Yerel disk/dosya imajı alma işini arka planda başlatır.
 pub fn local_image_endpoint(body: &[u8]) -> Response {
     let request: LocalImageRequest = match serde_json::from_slice(body) {
         Ok(request) => request,
@@ -216,6 +416,7 @@ pub fn local_image_endpoint(body: &[u8]) -> Response {
     }))
 }
 
+/// Yerel disk imajı alma işini çalıştırır ve job durumunu günceller.
 fn run_local_image_job(
     job_id: String,
     request: LocalImageRequest,
@@ -280,12 +481,16 @@ fn run_local_image_job(
     }
 }
 
+/// Yetkisiz kalınırsa disk imajını yetkili helper üzerinden alır.
 fn run_elevated_local_image_job(
     job_id: &str,
     task: &DiskAcquisitionTask,
     control: &ram::CancellationToken,
 ) {
-    update_acquisition_message(job_id, "Yetki bekleniyor");
+    update_acquisition_message(
+        job_id,
+        "Yetki bekleniyor: Linux'ta sudo/pkexec parola penceresini, Windows'ta UAC Evet/Hayır penceresini onaylayın.",
+    );
     let stem = helper_file_stem("worm-image-helper");
     let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
     let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
@@ -323,6 +528,10 @@ fn run_elevated_local_image_job(
             return;
         }
     };
+    update_acquisition_message(
+        job_id,
+        &format!("Yetki helper başlatıldı: {}", child.method()),
+    );
 
     loop {
         if control.is_cancelled() {
@@ -365,9 +574,8 @@ fn run_elevated_local_image_job(
         match child.try_wait() {
             Ok(Some(status)) => {
                 if !status.success() {
-                    let error = super::read_helper_error(&result_path).unwrap_or_else(|| {
-                        "yetki yükseltme iptal edildi veya başarısız oldu".to_string()
-                    });
+                    let error = super::read_helper_error(&result_path)
+                        .unwrap_or_else(|| child.failure_message(&status));
                     cleanup_helper_files(&[
                         &request_path,
                         &result_path,
@@ -423,6 +631,7 @@ fn run_elevated_local_image_job(
     }
 }
 
+/// Uzak agent üzerindeki disk listesini alır.
 pub fn remote_disks_endpoint(body: &[u8]) -> Response {
     let request = match parse_remote_request(body) {
         Ok(request) => request,
@@ -443,6 +652,7 @@ pub fn remote_disks_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Uzak agent üzerinden disk imajı alma işini başlatır.
 pub fn remote_image_endpoint(body: &[u8]) -> Response {
     let request: RemoteImageRequest = match serde_json::from_slice(body) {
         Ok(request) => request,
@@ -479,6 +689,7 @@ pub fn remote_image_endpoint(body: &[u8]) -> Response {
     }))
 }
 
+/// Uzak imaj alma işini çalıştırır ve indirilen dosyayı vaka klasörüne yazar.
 fn run_remote_image_job(job_id: String, request: RemoteImageRequest) {
     match RemoteConnection::connect(&request.ip, request.port, request.token) {
         Ok(mut connection) => {
@@ -539,6 +750,7 @@ fn run_remote_image_job(job_id: String, request: RemoteImageRequest) {
     }
 }
 
+/// Tamamlanan imaj için SHA-256 değerini sonuç dosyası veya dosya üzerinden kesinleştirir.
 fn finalize_image_sha256(
     job_id: &str,
     target_path: &Path,
@@ -553,6 +765,7 @@ fn finalize_image_sha256(
     Ok(sha256)
 }
 
+/// Uzak agent üstündeki AVML/WinPMEM gibi araç durumunu kontrol eder.
 pub fn remote_tool_check_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct ToolRequest {
@@ -583,6 +796,7 @@ pub fn remote_tool_check_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// API body içinden RemoteRequest parse eder.
 fn parse_remote_request(body: &[u8]) -> Result<RemoteRequest, Response> {
     let request: RemoteRequest =
         serde_json::from_slice(body).map_err(|err| json_error(400, err.to_string()))?;
@@ -595,6 +809,7 @@ fn parse_remote_request(body: &[u8]) -> Result<RemoteRequest, Response> {
     Ok(request)
 }
 
+/// Seçilen imajı salt-okunur bağlar ve analiz özetini döndürür.
 pub fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct ImageMountRequest {
@@ -651,55 +866,18 @@ pub fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
     #[cfg(windows)]
     {
         let _ = image_unmount_current();
-        let output = Command::new("powershell")
-            .arg("-NoProfile")
-            .arg("-ExecutionPolicy")
-            .arg("Bypass")
-            .arg("-Command")
-            .arg(
-                "$ErrorActionPreference='Stop'; \
-                 $image = $args[0]; \
-                 $disk = Mount-DiskImage -ImagePath $image -Access ReadOnly -PassThru; \
-                 Start-Sleep -Milliseconds 500; \
-                 $volume = $disk | Get-Volume | Select-Object -First 1; \
-                 if (-not $volume -or -not $volume.DriveLetter) { \
-                   Dismount-DiskImage -ImagePath $image -ErrorAction SilentlyContinue; \
-                   throw 'Mounted image has no drive letter. Windows supports ISO/VHD/VHDX here; raw DD/IMG needs a forensic image driver.' \
-                 }; \
-                 Write-Output ($volume.DriveLetter + ':\\')",
-            )
-            .arg(&image_path)
-            .output();
-
-        match output {
-            Ok(output) if output.status.success() => {
-                let mount_dir = PathBuf::from(String::from_utf8_lossy(&output.stdout).trim());
-                let tree = directory_tree_json(&mount_dir, 3, 400);
-                let state = ImageMountState {
-                    image_path: image_path.clone(),
-                    mount_dir: mount_dir.clone(),
-                };
-                if let Ok(mut current) = current_image_mount().lock() {
-                    *current = Some(state);
+        match windows_mount_image_readonly(&image_path) {
+            Ok(mount_dir) => windows_mount_success_response(&image_path, mount_dir),
+            Err(err) if windows_mount_error_can_retry_elevated(&err) && !process_is_root() => {
+                match elevated_windows_mount_image_readonly(&image_path) {
+                    Ok(mount_dir) => windows_mount_success_response(&image_path, mount_dir),
+                    Err(elevated_err) => image_analysis_only_response(
+                        &image_path,
+                        format!("{err}\nYetkili Windows mount denemesi başarısız: {elevated_err}"),
+                    ),
                 }
-                json_ok(json!({
-                    "image_path": image_path,
-                    "mount_dir": mount_dir,
-                    "tree": tree,
-                }))
             }
-            Ok(output) => {
-                let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-                json_error(
-                    500,
-                    if stderr.is_empty() {
-                        "Windows image mount failed".to_string()
-                    } else {
-                        stderr
-                    },
-                )
-            }
-            Err(err) => json_error(500, err.to_string()),
+            Err(err) => image_analysis_only_response(&image_path, err),
         }
     }
 
@@ -712,6 +890,407 @@ pub fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
     }
 }
 
+#[cfg(windows)]
+/// Windows PowerShell Storage modülüyle ISO/VHD/VHDX imajını salt-okunur bağlar.
+fn windows_mount_image_readonly(image_path: &Path) -> Result<PathBuf, String> {
+    let output = Command::new("powershell")
+        .arg("-NoProfile")
+        .arg("-ExecutionPolicy")
+        .arg("Bypass")
+        .arg("-Command")
+        .arg(
+            "$ErrorActionPreference='Stop'; \
+             $image = $args[0]; \
+             Mount-DiskImage -ImagePath $image -Access ReadOnly | Out-Null; \
+             Start-Sleep -Milliseconds 500; \
+             $diskImage = Get-DiskImage -ImagePath $image; \
+             $disk = $diskImage | Get-Disk -ErrorAction Stop; \
+             $partition = $disk | Get-Partition | Where-Object { $_.Type -ne 'Reserved' } | Select-Object -First 1; \
+             $volume = $partition | Get-Volume -ErrorAction SilentlyContinue; \
+             if ($volume -and $volume.DriveLetter) { \
+               Write-Output ($volume.DriveLetter + ':\\'); \
+               exit 0; \
+             }; \
+             $accessPath = $partition.AccessPaths | Where-Object { $_ -like '*:\\*' -or $_ -like '\\\\?\\Volume*' } | Select-Object -First 1; \
+             if ($accessPath) { \
+               Write-Output $accessPath; \
+               exit 0; \
+             }; \
+             Dismount-DiskImage -ImagePath $image -ErrorAction SilentlyContinue; \
+             throw 'Mounted image has no drive letter. Windows supports ISO/VHD/VHDX here; raw DD/IMG needs a forensic image driver.'",
+        )
+        .arg(image_path)
+        .output()
+        .map_err(|err| err.to_string())?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        return Err(if stderr.is_empty() {
+            if stdout.is_empty() {
+                "Windows image mount failed".to_string()
+            } else {
+                stdout
+            }
+        } else {
+            stderr
+        });
+    }
+
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .last()
+        .map(PathBuf::from)
+        .ok_or_else(|| {
+            "Windows mount succeeded but did not return a readable mount path.".to_string()
+        })
+}
+
+#[cfg(windows)]
+/// Windows mount sonucu başarılıysa ortak JSON cevabını üretir.
+fn windows_mount_success_response(image_path: &Path, mount_dir: PathBuf) -> Response {
+    let tree = directory_tree_json(&mount_dir, 3, 400);
+    let analysis = disk_analysis_value(image_path, Some(&mount_dir));
+    let state = ImageMountState {
+        image_path: image_path.to_path_buf(),
+        mount_dir: mount_dir.clone(),
+    };
+    if let Ok(mut current) = current_image_mount().lock() {
+        *current = Some(state);
+    }
+    json_ok(json!({
+        "image_path": image_path,
+        "mount_dir": mount_dir,
+        "mount_mode": "mounted",
+        "tree": tree,
+        "analysis": analysis,
+    }))
+}
+
+#[cfg(windows)]
+/// Windows'ta Mount-DiskImage yetki isterse UAC helper üzerinden tekrar dener.
+fn elevated_windows_mount_image_readonly(image_path: &Path) -> Result<PathBuf, String> {
+    let stem = helper_file_stem("worm-windows-mount-helper");
+    let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
+    let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
+    let mount_dir = std::env::temp_dir().join(format!("{stem}-mount-placeholder"));
+    write_json_file(
+        &request_path,
+        &json!({
+            "action": "mount",
+            "image_path": image_path,
+            "mount_dir": mount_dir,
+        }),
+    )?;
+
+    let args = vec![
+        "mount-helper".to_string(),
+        request_path.to_string_lossy().into_owned(),
+        result_path.to_string_lossy().into_owned(),
+    ];
+    let mut child = match spawn_elevated_helper(&args) {
+        Ok(child) => child,
+        Err(err) => {
+            cleanup_helper_files(&[&request_path, &result_path]);
+            return Err(err);
+        }
+    };
+
+    let status = child.wait()?;
+    let helper_result = read_helper_json(&result_path).ok();
+    cleanup_helper_files(&[&request_path, &result_path]);
+    if !status.success() {
+        return Err(helper_result
+            .as_ref()
+            .and_then(|value| value.get("error"))
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .unwrap_or_else(|| child.failure_message(&status)));
+    }
+
+    let helper_result =
+        helper_result.ok_or_else(|| "Windows mount helper result dosyası dönmedi".to_string())?;
+    if helper_result.get("ok").and_then(Value::as_bool) != Some(true) {
+        return Err(helper_result
+            .get("error")
+            .and_then(Value::as_str)
+            .unwrap_or("Windows mount helper başarısız")
+            .to_string());
+    }
+
+    let mount_dir = helper_result
+        .get("mount_dir")
+        .and_then(Value::as_str)
+        .map(PathBuf::from)
+        .ok_or_else(|| "Windows mount helper mount yolunu döndürmedi".to_string())?;
+    if !mount_dir.exists() {
+        return Err(format!(
+            "Windows mount helper okunabilir mount yolu döndürmedi: {}",
+            mount_dir.display()
+        ));
+    }
+    Ok(mount_dir)
+}
+
+#[cfg(windows)]
+/// Windows mount hatası yetki ile tekrar denenebilir mi kontrol eder.
+fn windows_mount_error_can_retry_elevated(message: &str) -> bool {
+    let lower = message.to_lowercase();
+    lower.contains("access is denied")
+        || lower.contains("access denied")
+        || lower.contains("erişim engellendi")
+        || lower.contains("administrator")
+        || lower.contains("privilege")
+        || lower.contains("requires elevation")
+        || lower.contains("0x80070005")
+}
+
+#[cfg(windows)]
+/// İmaj analiz sonucunu JSON değerine çevirir.
+fn disk_analysis_value(image_path: &Path, mount_dir: Option<&Path>) -> Value {
+    match disk_analysis::analyze_disk_image(image_path, mount_dir) {
+        Ok(report) => serde_json::to_value(report).unwrap_or(Value::Null),
+        Err(err) => json!({
+            "analysis_error": err.to_string(),
+            "warnings": [err.to_string()],
+            "recommendations": ["Imaj dosyası okunabilirliğini ve dosya izinlerini kontrol edin."],
+        }),
+    }
+}
+
+#[cfg(windows)]
+/// Mount başarısız olsa bile sadece imaj analiz sonucunu döndürür.
+fn image_analysis_only_response(image_path: &Path, mount_error: impl Into<String>) -> Response {
+    let mount_error = mount_error.into();
+    match disk_analysis::analyze_disk_image(image_path, None) {
+        Ok(report) => {
+            let tree = virtual_image_tree_json(image_path, Some(&report), Some(&mount_error));
+            let analysis = serde_json::to_value(&report).unwrap_or(Value::Null);
+            json_ok(json!({
+                "image_path": image_path,
+                "mount_dir": Value::Null,
+                "mount_mode": "analysis-only",
+                "mount_error": mount_error,
+                "message": "İmaj doğrudan bağlanamadı; bölüm ve dosya sistemi analiz görünümü açıldı.",
+                "tree": tree,
+                "analysis": analysis,
+            }))
+        }
+        Err(err) => json_ok(json!({
+            "image_path": image_path,
+            "mount_dir": Value::Null,
+            "mount_mode": "analysis-only",
+            "mount_error": mount_error,
+            "analysis_error": err.to_string(),
+            "message": "İmaj doğrudan bağlanamadı ve analiz özeti çıkarılamadı.",
+            "tree": virtual_image_tree_json(image_path, None, Some(&mount_error)),
+            "analysis": Value::Null,
+        })),
+    }
+}
+
+#[cfg(windows)]
+/// Mount edilemeyen imaj için sanal bölüm/dosya sistemi ağacı üretir.
+fn virtual_image_tree_json(
+    image_path: &Path,
+    report: Option<&disk_analysis::DiskImageAnalysis>,
+    mount_error: Option<&str>,
+) -> Value {
+    let file_name = image_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("image")
+        .to_string();
+    let mut root_children = Vec::new();
+
+    if let Some(error) = mount_error.filter(|value| !value.trim().is_empty()) {
+        root_children.push(virtual_dir(
+            "Bağlama Durumu / Mount Status",
+            "virtual:/mount-status",
+            vec![
+                virtual_leaf("Doğrudan bağlama başarısız", "virtual:/mount-status/error", error),
+                virtual_leaf(
+                    "Windows notu",
+                    "virtual:/mount-status/windows-note",
+                    "ISO/VHD/VHDX imajları Windows tarafından bağlanabilir. Raw DD/IMG imajlarında içerik gezmek için dosya sistemi sürücüsü veya forensic image driver gerekebilir.",
+                ),
+            ],
+        ));
+    }
+
+    if let Some(report) = report {
+        root_children.push(virtual_dir(
+            "İmaj Bilgileri / Image Info",
+            "virtual:/image-info",
+            vec![
+                virtual_leaf(
+                    format!("Tip: {}", report.image_type),
+                    "virtual:/image-info/type",
+                    &report.image_type,
+                ),
+                virtual_leaf(
+                    format!("Boyut: {}", format_bytes_for_report(report.size)),
+                    "virtual:/image-info/size",
+                    format!("{} byte", report.size),
+                ),
+                virtual_leaf(
+                    format!("Bölüm şeması: {}", report.partition_scheme),
+                    "virtual:/image-info/partition-scheme",
+                    &report.partition_scheme,
+                ),
+            ],
+        ));
+
+        let partition_children = if report.partitions.is_empty() {
+            vec![virtual_leaf(
+                "Bölüm bulunamadı",
+                "virtual:/partitions/empty",
+                "MBR/GPT bölüm kaydı bulunamadı. İmaj tek bölüm/raw volume olabilir.",
+            )]
+        } else {
+            report
+                .partitions
+                .iter()
+                .map(|part| {
+                    virtual_dir(
+                        format!("{}. {} {}", part.index, part.scheme, part.type_name),
+                        format!("virtual:/partitions/{}", part.index),
+                        vec![
+                            virtual_leaf(
+                                format!("Başlangıç LBA: {}", part.start_lba),
+                                format!("virtual:/partitions/{}/start-lba", part.index),
+                                format!("Start LBA: {}", part.start_lba),
+                            ),
+                            virtual_leaf(
+                                format!("Boyut: {}", format_bytes_for_report(part.size)),
+                                format!("virtual:/partitions/{}/size", part.index),
+                                format!("{} sektör · {}", part.sectors, part.type_code),
+                            ),
+                            virtual_leaf(
+                                format!(
+                                    "Ad: {}",
+                                    if part.name.is_empty() {
+                                        "-"
+                                    } else {
+                                        &part.name
+                                    }
+                                ),
+                                format!("virtual:/partitions/{}/name", part.index),
+                                if part.name.is_empty() {
+                                    "-"
+                                } else {
+                                    &part.name
+                                },
+                            ),
+                        ],
+                    )
+                })
+                .collect()
+        };
+        root_children.push(virtual_dir(
+            "Bölümler / Partitions",
+            "virtual:/partitions",
+            partition_children,
+        ));
+
+        let filesystem_children = if report.filesystems.is_empty() {
+            vec![virtual_leaf(
+                "Dosya sistemi imzası bulunamadı",
+                "virtual:/filesystems/empty",
+                "NTFS, FAT, exFAT, ext veya ISO9660 imzası yakalanamadı.",
+            )]
+        } else {
+            report
+                .filesystems
+                .iter()
+                .enumerate()
+                .map(|(index, fs)| {
+                    virtual_leaf(
+                        format!("{} @ {} ({})", fs.fs_type, fs.offset, fs.source),
+                        format!("virtual:/filesystems/{}", index + 1),
+                        format!(
+                            "{} imzası {} byte offsetinde bulundu.",
+                            fs.fs_type, fs.offset
+                        ),
+                    )
+                })
+                .collect()
+        };
+        root_children.push(virtual_dir(
+            "Dosya Sistemleri / Filesystems",
+            "virtual:/filesystems",
+            filesystem_children,
+        ));
+
+        if !report.warnings.is_empty() {
+            root_children.push(virtual_dir(
+                "Uyarılar / Warnings",
+                "virtual:/warnings",
+                report
+                    .warnings
+                    .iter()
+                    .enumerate()
+                    .map(|(index, warning)| {
+                        virtual_leaf(warning, format!("virtual:/warnings/{}", index + 1), warning)
+                    })
+                    .collect(),
+            ));
+        }
+    }
+
+    virtual_dir(file_name, "virtual:/image", root_children)
+}
+
+#[cfg(windows)]
+/// Sanal imaj ağacında klasör düğümü üretir.
+fn virtual_dir(name: impl Into<String>, path: impl Into<String>, children: Vec<Value>) -> Value {
+    json!({
+        "name": name.into(),
+        "path": path.into(),
+        "is_dir": true,
+        "size": 0,
+        "virtual": true,
+        "children": children,
+    })
+}
+
+#[cfg(windows)]
+/// Sanal imaj ağacında yaprak düğüm üretir.
+fn virtual_leaf(
+    name: impl Into<String>,
+    path: impl Into<String>,
+    note: impl Into<String>,
+) -> Value {
+    json!({
+        "name": name.into(),
+        "path": path.into(),
+        "is_dir": false,
+        "size": 0,
+        "virtual": true,
+        "note": note.into(),
+    })
+}
+
+#[cfg(windows)]
+/// Bayt değerini kısa rapor metnine çevirir.
+fn format_bytes_for_report(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
+    let mut size = bytes as f64;
+    let mut unit = 0_usize;
+    while size >= 1024.0 && unit < UNITS.len() - 1 {
+        size /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{bytes} {}", UNITS[unit])
+    } else {
+        format!("{size:.1} {}", UNITS[unit])
+    }
+}
+
+/// Bağlı imajı kaldırır ve loop/helper temizliğini yapar.
 pub fn image_unmount_endpoint() -> Response {
     match image_unmount_current() {
         Ok(Some(mount_dir)) => json_ok(json!({ "mount_dir": mount_dir })),
@@ -720,6 +1299,7 @@ pub fn image_unmount_endpoint() -> Response {
     }
 }
 
+/// İmajı mount etmeden disk analizi yapar.
 pub fn image_analyze_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct AnalyzeRequest {
@@ -761,6 +1341,7 @@ pub fn image_analyze_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Bağlı imaj veya sanal imaj ağacında klasör gezintisi sağlar.
 pub fn image_browse_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct BrowseRequest {
@@ -829,6 +1410,7 @@ pub fn image_browse_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Bağlı imajdan seçilen dosyayı güvenli boyut sınırıyla okur.
 pub fn image_read_file_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct ReadRequest {
@@ -954,6 +1536,7 @@ pub fn image_read_file_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// GitHub release API üzerinden güncelleme bilgisi alır.
 pub fn update_check_endpoint() -> Response {
     let output = Command::new("curl")
         .arg("-L")
@@ -1012,6 +1595,7 @@ pub fn update_check_endpoint() -> Response {
     }))
 }
 
+/// Seçilen release asset'ini indirir ve hash doğrulaması yapar.
 pub fn update_download_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct UpdateDownloadRequest {
@@ -1101,6 +1685,7 @@ pub fn update_download_endpoint(body: &[u8]) -> Response {
     }))
 }
 
+/// İndirilmiş güncelleme paketini platforma göre çalıştırır.
 pub fn update_install_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct UpdateInstallRequest {
@@ -1125,6 +1710,7 @@ pub fn update_install_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Güvenli harici URL'yi sistem tarayıcısında açar.
 pub fn open_url_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct OpenUrlRequest {
@@ -1147,6 +1733,7 @@ pub fn open_url_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Native dosya/klasör seçici açar.
 pub fn pick_path_endpoint(directory: bool) -> Response {
     match pick_path(directory) {
         Ok(Some(path)) => json_ok(json!({ "path": path })),
@@ -1155,6 +1742,7 @@ pub fn pick_path_endpoint(directory: bool) -> Response {
     }
 }
 
+/// Platforma göre dosya veya klasör seçici çalıştırır.
 fn pick_path(directory: bool) -> Result<Option<String>, String> {
     #[cfg(windows)]
     {
@@ -1168,6 +1756,7 @@ fn pick_path(directory: bool) -> Result<Option<String>, String> {
 }
 
 #[cfg(not(windows))]
+/// Unix ortamında zenity/kdialog/yad ile dosya seçici açar.
 fn pick_path_unix(directory: bool) -> Result<Option<String>, String> {
     let candidates: &[(&str, &[&str])] = if directory {
         &[
@@ -1209,6 +1798,7 @@ fn pick_path_unix(directory: bool) -> Result<Option<String>, String> {
 }
 
 #[cfg(windows)]
+/// Windows PowerShell ile dosya veya klasör seçici açar.
 fn pick_path_windows(directory: bool) -> Result<Option<String>, String> {
     let script = if directory {
         r#"
@@ -1268,6 +1858,7 @@ exit 1
     }
 }
 
+/// Platforma göre harici URL açma komutunu çalıştırır.
 fn open_external_url(url: &str) -> Result<(), String> {
     #[cfg(target_os = "linux")]
     {
@@ -1319,6 +1910,7 @@ fn open_external_url(url: &str) -> Result<(), String> {
     }
 }
 
+/// Sadece izin verilen URL şemalarını kabul eder.
 fn validate_external_url(value: &str) -> Result<String, String> {
     let url = value.trim();
     if url.is_empty() {
@@ -1337,11 +1929,13 @@ fn validate_external_url(value: &str) -> Result<String, String> {
     }
 }
 
+/// Klasör ağacını JSON olarak üretir.
 fn directory_tree_json(root: &Path, max_depth: usize, max_entries: usize) -> Value {
     let mut used = 0_usize;
     directory_tree_json_inner(root, root, 0, max_depth, max_entries, &mut used)
 }
 
+/// Klasör ağacı üretimini derinlik ve toplam girdi sınırıyla rekürsif yürütür.
 fn directory_tree_json_inner(
     root: &Path,
     path: &Path,
@@ -1399,6 +1993,7 @@ fn directory_tree_json_inner(
     Value::Object(node)
 }
 
+/// Platforma uygun release asset'ini seçer.
 fn preferred_update_asset(assets: &[Value]) -> Value {
     let candidates: &[&str] = if cfg!(target_os = "windows") {
         &["windows", ".msi", ".exe"]
@@ -1425,6 +2020,7 @@ fn preferred_update_asset(assets: &[Value]) -> Value {
         .unwrap_or(Value::Null)
 }
 
+/// İndirilen asset adını güvenli dosya adına çevirir.
 pub fn sanitize_download_name(value: &str) -> String {
     value
         .chars()
@@ -1440,6 +2036,7 @@ pub fn sanitize_download_name(value: &str) -> String {
         .to_string()
 }
 
+/// Güncelleme kurulum dosyasını platforma uygun komutla başlatır.
 fn launch_update_installer(path: &Path) -> Result<String, String> {
     let extension = path
         .extension()
@@ -1485,12 +2082,14 @@ fn launch_update_installer(path: &Path) -> Result<String, String> {
     }
 }
 
+/// Güncelleme indirmeleri için varsayılan klasörü döndürür.
 fn default_download_dir() -> PathBuf {
     super::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("Downloads")
 }
 
+/// İmaj çıktısı için vaka klasörü veya kullanıcı klasöründen hedef dizini hesaplar.
 fn image_output_dir(output: &str, case_name: Option<&str>) -> Result<PathBuf, String> {
     let case_name = case_name
         .map(str::trim)
@@ -1513,6 +2112,7 @@ fn image_output_dir(output: &str, case_name: Option<&str>) -> Result<PathBuf, St
     }
 }
 
+/// İmaj edinimi için klasör ve standart dosya adını birleştirir.
 fn acquisition_target_path(
     source: &str,
     disk_name: Option<&str>,
@@ -1537,6 +2137,7 @@ fn acquisition_target_path(
     output.join(file_name)
 }
 
+/// Disk adı/IP/tarih içeren standart imaj dosya adı üretir.
 fn canonical_image_file_name(
     remote_ip: Option<&str>,
     disk_id: &str,
@@ -1572,6 +2173,7 @@ fn canonical_image_file_name(
     )
 }
 
+/// Yerel imaj kaynağı için root/admin yetkisi gerekip gerekmediğini tahmin eder.
 fn local_image_source_requires_elevation(source: &Path) -> bool {
     #[cfg(target_os = "linux")]
     {
@@ -1596,6 +2198,7 @@ fn local_image_source_requires_elevation(source: &Path) -> bool {
     }
 }
 
+/// Yerel imaj hatasının yetki yükseltmeyle tekrar denenebilir olup olmadığını belirler.
 fn local_image_error_can_retry_elevated(message: &str) -> bool {
     if !(cfg!(target_os = "linux") || cfg!(windows)) {
         return false;
