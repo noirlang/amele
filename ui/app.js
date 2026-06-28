@@ -18,6 +18,7 @@ const APP_VERSION = "v0.0.11";
 const assetPath = "./assets";
 const backendAvailable = location.protocol === "http:" || location.protocol === "https:";
 const urlParams = new URLSearchParams(window.location.search);
+const isDevConsole = urlParams.get("route") === "devlogs";
 const isNativeWebView = urlParams.get("native") === "1";
 const isNativeLinux =
   isNativeWebView && /linux/i.test(`${navigator.platform || ""} ${navigator.userAgent || ""}`);
@@ -36,6 +37,7 @@ function initialLogMessages(language) {
 
 const state = {
   route: urlParams.get("route") || "home",
+  isDevConsole,
   theme: preferredTheme,
   language: preferredLanguage,
   platform: detectPlatform(),
@@ -280,6 +282,7 @@ function setLanguage(language) {
 }
 
 function render() {
+  if (state.isDevConsole) return;
   const activeGroup = routeGroup(state.route);
   document.querySelectorAll("[data-route]").forEach((button) => {
     button.classList.toggle("active", button.dataset.route === activeGroup);

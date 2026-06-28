@@ -27,6 +27,11 @@ pub struct AndroidDevice {
 
 /// Sistemde ADB kurulu mu ve çalışıyor mu diye kontrol eder.
 pub fn adb_status() -> AdbStatus {
+    crate::logging::runtime_log(
+        crate::logging::LogLevel::Debug,
+        "android:adb",
+        "ADB durumu kontrol ediliyor...",
+    );
     match Command::new("adb").arg("version").output() {
         Ok(output) if output.status.success() => {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -36,6 +41,13 @@ pub fn adb_status() -> AdbStatus {
                 .clone()
                 .or_else(|| path.clone())
                 .unwrap_or_else(|| "adb".to_string());
+
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Info,
+                "android:adb",
+                format!("ADB calisiyor: {}", detail),
+            );
+
             AdbStatus {
                 installed: true,
                 version,
@@ -49,6 +61,13 @@ pub fn adb_status() -> AdbStatus {
             let message = first_non_empty(&stderr)
                 .or_else(|| first_non_empty(&stdout))
                 .unwrap_or_else(|| "ADB calistirildi ama surum alinamadi".to_string());
+
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Warn,
+                "android:adb",
+                format!("ADB calisti ama basarisiz oldu: {}", message),
+            );
+
             AdbStatus {
                 installed: false,
                 version: None,
@@ -56,57 +75,117 @@ pub fn adb_status() -> AdbStatus {
                 message,
             }
         }
-        Err(err) if err.kind() == io::ErrorKind::NotFound => AdbStatus {
-            installed: false,
-            version: None,
-            path: None,
-            message: "ADB bulunamadi".to_string(),
-        },
-        Err(err) => AdbStatus {
-            installed: false,
-            version: None,
-            path: None,
-            message: format!("ADB kontrol edilemedi: {err}"),
-        },
+        Err(err) if err.kind() == io::ErrorKind::NotFound => {
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Warn,
+                "android:adb",
+                "ADB bulunamadi (hata: NotFound)",
+            );
+            AdbStatus {
+                installed: false,
+                version: None,
+                path: None,
+                message: "ADB bulunamadi".to_string(),
+            }
+        }
+        Err(err) => {
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Error,
+                "android:adb",
+                format!("ADB kontrol edilirken beklenmeyen hata: {}", err),
+            );
+            AdbStatus {
+                installed: false,
+                version: None,
+                path: None,
+                message: format!("ADB kontrol edilemedi: {err}"),
+            }
+        }
     }
 }
 
 /// Bağlı Android cihazlarını adb devices -l ile listeler.
 pub fn list_devices() -> Result<Vec<AndroidDevice>, String> {
+    crate::logging::runtime_log(
+        crate::logging::LogLevel::Debug,
+        "android:adb",
+        "Bagli Android cihazlari listeleniyor...",
+    );
     let output = Command::new("adb")
         .args(["devices", "-l"])
         .output()
         .map_err(|err| {
-            if err.kind() == io::ErrorKind::NotFound {
+            let msg = if err.kind() == io::ErrorKind::NotFound {
                 "ADB bulunamadi".to_string()
             } else {
                 format!("ADB cihaz listesi alinamadi: {err}")
-            }
+            };
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Error,
+                "android:adb",
+                format!("ADB devices komutu basarisiz: {}", msg),
+            );
+            msg
         })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
-        return Err(first_non_empty(&stderr)
+        let detail = first_non_empty(&stderr)
             .or_else(|| first_non_empty(&stdout))
-            .unwrap_or_else(|| "ADB cihaz listesi basarisiz oldu".to_string()));
+            .unwrap_or_else(|| "ADB cihaz listesi basarisiz oldu".to_string());
+
+        crate::logging::runtime_log(
+            crate::logging::LogLevel::Error,
+            "android:adb",
+            format!("ADB devices komutu basarisiz cikis kodu: {}", detail),
+        );
+        return Err(detail);
     }
 
-    Ok(parse_adb_devices(&String::from_utf8_lossy(&output.stdout)))
+    let devices_raw = String::from_utf8_lossy(&output.stdout);
+    let devices = parse_adb_devices(&devices_raw);
+
+    crate::logging::runtime_log(
+        crate::logging::LogLevel::Info,
+        "android:adb",
+        format!(
+            "Bulunan Android cihaz sayisi: {} ({:?})",
+            devices.len(),
+            devices.iter().map(|d| &d.serial).collect::<Vec<_>>()
+        ),
+    );
+    Ok(devices)
 }
 
 /// Seri numarası verilen cihazda kısa ADB komutu çalıştırır.
 pub(super) fn run_adb_command(serial: &str, args: &[&str]) -> Result<String, String> {
+    let cmd_str = args.join(" ");
+    crate::logging::runtime_log(
+        crate::logging::LogLevel::Debug,
+        "android:adb:cmd",
+        format!("ADB KOMUT GONDERILDI [{}] → adb {}", serial, cmd_str),
+    );
+
     let output = Command::new("adb")
         .args(["-s", serial])
         .args(args)
         .output()
         .map_err(|err| {
-            if err.kind() == io::ErrorKind::NotFound {
+            let msg = if err.kind() == io::ErrorKind::NotFound {
                 "ADB bulunamadi".to_string()
             } else {
                 format!("ADB komutu calistirilamadi: {err}")
-            }
+            };
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Error,
+                "android:adb:cmd",
+                format!(
+                    "ADB KOMUT HATA [{}] → adb {} | Hata: {}",
+                    serial, cmd_str, msg
+                ),
+            );
+            msg
         })?;
 
     if !output.status.success() {
@@ -115,9 +194,39 @@ pub(super) fn run_adb_command(serial: &str, args: &[&str]) -> Result<String, Str
         let detail = first_non_empty(&stderr)
             .or_else(|| first_non_empty(&stdout))
             .unwrap_or_else(|| "ADB komutu basarisiz oldu".to_string());
+
+        crate::logging::runtime_log(
+            crate::logging::LogLevel::Error,
+            "android:adb:cmd",
+            format!(
+                "ADB KOMUT BASARISIZ [{}] → adb {} | HTTP/Cikis: {}",
+                serial, cmd_str, detail
+            ),
+        );
         return Err(detail);
     }
-    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+
+    let result = String::from_utf8_lossy(&output.stdout).into_owned();
+    let result_preview = result.trim();
+    let short_res = if result_preview.len() > 120 {
+        format!(
+            "{}... (toplam {} karakter)",
+            &result_preview[..120],
+            result_preview.len()
+        )
+    } else {
+        result_preview.to_string()
+    };
+
+    crate::logging::runtime_log(
+        crate::logging::LogLevel::Debug,
+        "android:adb:cmd",
+        format!(
+            "ADB KOMUT BASARILI [{}] → adb {} | Yanit: {}",
+            serial, cmd_str, short_res
+        ),
+    );
+    Ok(result)
 }
 
 /// Uzayabilecek ADB komutlarını zaman aşımıyla çalıştırır.

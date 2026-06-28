@@ -126,7 +126,9 @@ fn run_android_profile_acquisition_job(
             crate::logging::runtime_log(
                 crate::logging::LogLevel::Error,
                 "android:profil",
-                format!("IS BASARISIZ (vaka hatasi) | job_id={job_id} | serial={serial} | hata={err}"),
+                format!(
+                    "IS BASARISIZ (vaka hatasi) | job_id={job_id} | serial={serial} | hata={err}"
+                ),
             );
             fail_acquisition_job_with_message(&job_id, err, "Android profil edinimi basarisiz");
             return;
@@ -139,7 +141,9 @@ fn run_android_profile_acquisition_job(
             crate::logging::runtime_log(
                 crate::logging::LogLevel::Error,
                 "android:profil",
-                format!("IS BASARISIZ (klasor hatasi) | job_id={job_id} | serial={serial} | hata={err}"),
+                format!(
+                    "IS BASARISIZ (klasor hatasi) | job_id={job_id} | serial={serial} | hata={err}"
+                ),
             );
             fail_acquisition_job_with_message(&job_id, err, "Android profil edinimi basarisiz");
             return;
@@ -149,7 +153,10 @@ fn run_android_profile_acquisition_job(
     crate::logging::runtime_log(
         crate::logging::LogLevel::Info,
         "android:profil",
-        format!("Cikti dizini hazir: {:?} | job_id={job_id} | serial={serial}", android_dir),
+        format!(
+            "Cikti dizini hazir: {:?} | job_id={job_id} | serial={serial}",
+            android_dir
+        ),
     );
 
     if let Err(err) = std::fs::create_dir_all(&android_dir) {
@@ -189,8 +196,7 @@ fn run_android_profile_acquisition_job(
                 "android:profil",
                 format!(
                     "IS TAMAMLANDI | job_id={job_id} | serial={serial} | {success_count}/{total_count} adim basarili | {fail_count} basarisiz | {} byte | cikti={:?}",
-                    result.total_bytes,
-                    result.output_dir,
+                    result.total_bytes, result.output_dir,
                 ),
             );
             if !result.errors.is_empty() {
@@ -223,7 +229,9 @@ fn run_android_profile_acquisition_job(
             crate::logging::runtime_log(
                 crate::logging::LogLevel::Error,
                 "android:profil",
-                format!("IS BASARISIZ | job_id={job_id} | serial={serial} | ham_hata={err} | aciklama={explained}"),
+                format!(
+                    "IS BASARISIZ | job_id={job_id} | serial={serial} | ham_hata={err} | aciklama={explained}"
+                ),
             );
             fail_android_job(&job_id, err, "Android profil edinimi basarisiz");
         }
@@ -366,7 +374,9 @@ fn run_android_logical_job(
             crate::logging::runtime_log(
                 crate::logging::LogLevel::Error,
                 "android:logical",
-                format!("IS BASARISIZ | job_id={job_id} | serial={serial} | ham_hata={err} | aciklama={explained}"),
+                format!(
+                    "IS BASARISIZ | job_id={job_id} | serial={serial} | ham_hata={err} | aciklama={explained}"
+                ),
             );
             fail_android_job(&job_id, err, "Android imaj alma basarisiz");
         }
@@ -505,7 +515,9 @@ fn run_android_filesystem_job(
             crate::logging::runtime_log(
                 crate::logging::LogLevel::Error,
                 "android:filesystem",
-                format!("IS BASARISIZ | job_id={job_id} | serial={serial} | ham_hata={err} | aciklama={explained}"),
+                format!(
+                    "IS BASARISIZ | job_id={job_id} | serial={serial} | ham_hata={err} | aciklama={explained}"
+                ),
             );
             fail_android_job(&job_id, err, "Android dosya sistemi imaj alma basarisiz");
         }
@@ -653,7 +665,9 @@ fn run_android_ram_job(
             crate::logging::runtime_log(
                 crate::logging::LogLevel::Error,
                 "android:ram",
-                format!("IS BASARISIZ | job_id={job_id} | serial={serial} | ham_hata={err} | aciklama={explained}"),
+                format!(
+                    "IS BASARISIZ | job_id={job_id} | serial={serial} | ham_hata={err} | aciklama={explained}"
+                ),
             );
             fail_android_job(&job_id, err, "Android RAM imaj alma basarisiz");
         }

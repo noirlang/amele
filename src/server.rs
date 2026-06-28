@@ -164,7 +164,7 @@ fn serve(listener: TcpListener) {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-        thread::spawn(|| {
+                thread::spawn(|| {
                     if let Err(err) = handle_stream(stream) {
                         crate::logging::runtime_log(
                             crate::logging::LogLevel::Warn,
@@ -316,7 +316,11 @@ fn handle_stream(stream: TcpStream) -> Result<(), String> {
         if status >= 400 {
             let body_preview = String::from_utf8_lossy(&response.body);
             let preview = body_preview.trim();
-            let short = if preview.len() > 400 { &preview[..400] } else { preview };
+            let short = if preview.len() > 400 {
+                &preview[..400]
+            } else {
+                preview
+            };
             crate::logging::runtime_log(
                 level,
                 "server:api:error",

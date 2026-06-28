@@ -2932,6 +2932,35 @@ code {
   z-index: 10;
 }
 
+/* Standalone Mod Stilleri (Ayrı OS penceresi) */
+.dev-standalone-body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #080d1a;
+}
+.dev-standalone-shell {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  display: flex;
+}
+.dev-panel-standalone {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.dev-panel-standalone .dev-header {
+  cursor: default !important; /* Standalone pencerede sürükleme yapılmaz, OS yönetir */
+}
+
+
 
 .dev-title-row {
   display: flex;

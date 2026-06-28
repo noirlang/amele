@@ -1,7 +1,7 @@
 /**
  * developer.js — Worm Forensic Tool Developer Mode
  *
- * Ana logoya 5 kez tıklayınca açılan bağımsız, sürüklenebilir ve boyutlandırılabilir
+ * Ana logoya 5 kez tıklayınca bağımsız, sürüklenebilir ve boyutlandırılabilir
  * geliştirici paneli. Log açıkken arkadaki ana uygulamada gezinebilirsiniz.
  */
 
@@ -26,12 +26,13 @@ let filterText       = "";
 let pinToBottom      = true;
 let frontendLogBuf   = [];       // console override buffer
 
-// Pencere Pozisyon Bilgisi
+// Pencere Pozisyon Bilgisi (Yüzen mod için fallback)
 let posX = 100;
 let posY = 80;
 let width = 850;
 let height = 550;
 let isMaximized = false;
+let isStandaloneMode = false;
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -40,6 +41,15 @@ let isMaximized = false;
  */
 export function initDeveloperMode({ apiRequest, backendReady }) {
   _installConsoleOverride(apiRequest, backendReady);
+  
+  // URL parametre kontrolü: Eğer standalone log ekranındaysak, doğrudan arayüzü çiz
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get("route") === "devlogs") {
+    isStandaloneMode = true;
+    _initStandalone(apiRequest, backendReady);
+    return;
+  }
+
   _installBrandClickCounter(apiRequest, backendReady);
   _logBrowserEnv(apiRequest, backendReady);
 }
@@ -70,7 +80,7 @@ function _installBrandClickCounter(apiRequest, backendReady) {
     if (clickCount >= DEV_CLICK_TARGET) {
       clickCount = 0;
       clearTimeout(clickTimer);
-      toggleDevPanel(apiRequest, backendReady);
+      _openStandaloneWindow();
       return;
     }
 
@@ -96,76 +106,56 @@ function _showClickHint(logo, remaining) {
   hint._timer = setTimeout(() => hint.classList.remove("visible"), 800);
 }
 
-// ─── Panel Toggle ─────────────────────────────────────────────────────────────
-
-function toggleDevPanel(apiRequest, backendReady) {
-  if (devOpen) {
-    closeDevPanel();
-  } else {
-    openDevPanel(apiRequest, backendReady);
+function _openStandaloneWindow() {
+  const url = window.location.origin + window.location.pathname + "?route=devlogs";
+  // Ayrı OS Penceresi olarak aç
+  const win = window.open(
+    url,
+    "WormDevConsole",
+    "width=950,height=650,menubar=no,status=no,toolbar=no,location=no,personalbar=no"
+  );
+  if (win) {
+    win.focus();
   }
 }
 
-function openDevPanel(apiRequest, backendReady) {
+// ─── Standalone Mode Init ─────────────────────────────────────────────────────
+
+function _initStandalone(apiRequest, backendReady) {
   devOpen = true;
+  document.body.classList.add("dev-standalone-body");
 
-  document.getElementById("dev-overlay")?.remove();
+  const appContainer = document.getElementById("app");
+  if (appContainer) {
+    appContainer.className = "dev-standalone-shell";
+    appContainer.innerHTML = _buildPanelHtml();
+  }
 
-  const overlay = document.createElement("div");
-  overlay.id = "dev-overlay";
-  overlay.className = "dev-overlay";
-  overlay.innerHTML = _buildPanelHtml();
-  document.body.appendChild(overlay);
+  // Standalone modda kapat butonu window'u kapatsın
+  const closeBtn = document.getElementById("dev-close-btn");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => {
+      window.close();
+    });
+  }
 
-  const panel = document.getElementById("dev-panel");
-  
-  _applyGeometry(panel);
+  // Standalone modda maximize butonunu OS yönettiği için gizleyelim veya window resize yaptıralım
+  const maxBtn = document.getElementById("dev-maximize-btn");
+  if (maxBtn) {
+    maxBtn.style.display = "none";
+  }
 
-  requestAnimationFrame(() => {
-    overlay.classList.add("open");
-  });
-
-  _bindPanelEvents(overlay, apiRequest, backendReady);
-  _makeDraggable(panel);
+  _bindPanelEvents(null, apiRequest, backendReady);
   _startPolling(apiRequest, backendReady);
   _refreshPanel();
-}
-
-function closeDevPanel() {
-  devOpen = false;
-  _stopPolling();
-
-  const overlay = document.getElementById("dev-overlay");
-  if (overlay) {
-    overlay.classList.remove("open");
-    overlay.addEventListener("transitionend", () => overlay.remove(), { once: true });
-  }
-}
-
-// ─── Geometry Helpers ─────────────────────────────────────────────────────────
-
-function _applyGeometry(panel) {
-  if (!panel) return;
-  if (isMaximized) {
-    panel.style.top = "0px";
-    panel.style.left = "0px";
-    panel.style.width = "100vw";
-    panel.style.height = "100vh";
-    panel.classList.add("maximized");
-  } else {
-    panel.style.top = `${posY}px`;
-    panel.style.left = `${posX}px`;
-    panel.style.width = `${width}px`;
-    panel.style.height = `${height}px`;
-    panel.classList.remove("maximized");
-  }
 }
 
 // ─── HTML Builder ─────────────────────────────────────────────────────────────
 
 function _buildPanelHtml() {
+  const closeTitle = isStandaloneMode ? "Penceriyi Kapat" : "Gizle";
   return `
-    <div class="dev-panel" role="dialog" aria-label="Developer Panel" id="dev-panel">
+    <div class="dev-panel ${isStandaloneMode ? "dev-panel-standalone" : ""}" role="dialog" aria-label="Developer Panel" id="dev-panel">
       <div class="dev-header" id="dev-header">
         <div class="dev-title-row">
           <span class="dev-badge">🐛 DEV</span>
@@ -177,7 +167,7 @@ function _buildPanelHtml() {
           <button class="dev-btn dev-btn-sm" id="dev-export-btn" title="Logları dışa aktar">💾 Dışa Aktar</button>
           <button class="dev-btn dev-btn-sm" id="dev-copy-btn" title="Panoya kopyala">📋 Kopyala</button>
           <button class="dev-btn dev-btn-sm" id="dev-maximize-btn" title="Ekranı Kapla">🗖</button>
-          <button class="dev-btn dev-btn-sm dev-btn-danger" id="dev-close-btn" title="Kapat">✕</button>
+          <button class="dev-btn dev-btn-sm dev-btn-danger" id="dev-close-btn" title="${closeTitle}">✕</button>
         </div>
       </div>
 
@@ -228,15 +218,16 @@ function _buildPanelHtml() {
         <span id="dev-status-right">Son güncelleme: <b id="dev-last-update">—</b></span>
       </div>
       
-      <!-- Resize Handle -->
-      <div class="dev-resize-handle" id="dev-resize-handle"></div>
+      <!-- Resize Handle (Yalnızca yüzen modda) -->
+      ${isStandaloneMode ? "" : `<div class="dev-resize-handle" id="dev-resize-handle"></div>`}
     </div>
   `;
 }
 
-// ─── Draggable and Resizable Logic ────────────────────────────────────────────
+// ─── Draggable and Resizable Logic (Geriye Dönük Uyumluluk ve Yüzen Mod için) ────────────────
 
 function _makeDraggable(panel) {
+  if (isStandaloneMode || !panel) return;
   const header = document.getElementById("dev-header");
   let startX = 0, startY = 0;
 
@@ -279,17 +270,17 @@ function _makeDraggable(panel) {
     document.removeEventListener("mouseup", mouseUpHandler);
   }
 
-  // Boyutlandırma (Resize)
   const resizeHandle = document.getElementById("dev-resize-handle");
-  resizeHandle.addEventListener("mousedown", (e) => {
-    if (isMaximized) return;
-    e.preventDefault();
-    startX = e.clientX;
-    startY = e.clientY;
+  if (resizeHandle) {
+    resizeHandle.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      startX = e.clientX;
+      startY = e.clientY;
 
-    document.addEventListener("mousemove", resizeMouseMoveHandler);
-    document.addEventListener("mouseup", resizeMouseUpHandler);
-  });
+      document.addEventListener("mousemove", resizeMouseMoveHandler);
+      document.addEventListener("mouseup", resizeMouseUpHandler);
+    });
+  }
 
   function resizeMouseMoveHandler(e) {
     const dx = e.clientX - startX;
@@ -312,6 +303,7 @@ function _makeDraggable(panel) {
 }
 
 function _toggleMaximize(panel) {
+  if (isStandaloneMode || !panel) return;
   isMaximized = !isMaximized;
   const btn = document.getElementById("dev-maximize-btn");
   if (btn) {
@@ -321,29 +313,58 @@ function _toggleMaximize(panel) {
   _applyGeometry(panel);
 }
 
+function _applyGeometry(panel) {
+  if (isStandaloneMode || !panel) return;
+  if (isMaximized) {
+    panel.style.top = "0px";
+    panel.style.left = "0px";
+    panel.style.width = "100vw";
+    panel.style.height = "100vh";
+    panel.classList.add("maximized");
+  } else {
+    panel.style.top = `${posY}px`;
+    panel.style.left = `${posX}px`;
+    panel.style.width = `${width}px`;
+    panel.style.height = `${height}px`;
+    panel.classList.remove("maximized");
+  }
+}
+
 // ─── Event Bindings ───────────────────────────────────────────────────────────
 
 function _bindPanelEvents(overlay, apiRequest, backendReady) {
   const panel = document.getElementById("dev-panel");
 
-  // Kapatma
-  document.getElementById("dev-close-btn")?.addEventListener("click", closeDevPanel);
+  if (!isStandaloneMode) {
+    document.getElementById("dev-close-btn")?.addEventListener("click", () => {
+      devOpen = false;
+      _stopPolling();
+      const overlayEl = document.getElementById("dev-overlay");
+      if (overlayEl) {
+        overlayEl.classList.remove("open");
+        overlayEl.addEventListener("transitionend", () => overlayEl.remove(), { once: true });
+      }
+    });
 
-  // Maximize butonu
-  document.getElementById("dev-maximize-btn")?.addEventListener("click", () => {
-    _toggleMaximize(panel);
-  });
+    document.getElementById("dev-maximize-btn")?.addEventListener("click", () => {
+      _toggleMaximize(panel);
+    });
 
-  // Klavye ESC
-  const keyHandler = (e) => {
-    if (e.key === "Escape" && devOpen) {
-      closeDevPanel();
-      document.removeEventListener("keydown", keyHandler);
-    }
-  };
-  document.addEventListener("keydown", keyHandler);
+    const keyHandler = (e) => {
+      if (e.key === "Escape" && devOpen) {
+        devOpen = false;
+        _stopPolling();
+        const overlayEl = document.getElementById("dev-overlay");
+        if (overlayEl) {
+          overlayEl.classList.remove("open");
+          overlayEl.addEventListener("transitionend", () => overlayEl.remove(), { once: true });
+        }
+        document.removeEventListener("keydown", keyHandler);
+      }
+    };
+    document.addEventListener("keydown", keyHandler);
+  }
 
-  // Filtreler
   document.getElementById("dev-filter-level")?.addEventListener("change", (e) => {
     filterLevel = e.target.value;
     _refreshPanel();
@@ -359,7 +380,6 @@ function _bindPanelEvents(overlay, apiRequest, backendReady) {
     if (pinToBottom) _scrollToBottom();
   });
 
-  // Temizle
   document.getElementById("dev-clear-btn")?.addEventListener("click", () => {
     allLogs = [];
     lastLogSeq = 0;
@@ -367,12 +387,10 @@ function _bindPanelEvents(overlay, apiRequest, backendReady) {
     _refreshPanel();
   });
 
-  // Dışa aktar
   document.getElementById("dev-export-btn")?.addEventListener("click", () => {
     _exportLogs();
   });
 
-  // Panoya kopyala
   document.getElementById("dev-copy-btn")?.addEventListener("click", () => {
     const visible = _filteredLogs();
     const text = visible.map(_formatLogLine).join("\n");
@@ -382,7 +400,6 @@ function _bindPanelEvents(overlay, apiRequest, backendReady) {
     }).catch(() => {});
   });
 
-  // Sekmeler
   document.querySelectorAll("[data-dev-tab]").forEach(tab => {
     tab.addEventListener("click", () => {
       document.querySelectorAll(".dev-tab").forEach(t => t.classList.remove("active"));
