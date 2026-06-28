@@ -1,4 +1,5 @@
 //! Volatility3 entegrasyonu, sembol kontrolü ve RAM proses analizi işlemlerini yürütür.
+use crate::logging::{LogLevel, runtime_log};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeSet;
@@ -249,6 +250,17 @@ fn run_volatility_command(
     plugin: &str,
     log: Option<Arc<dyn Fn(String) + Send + Sync>>,
 ) -> Result<Value, String> {
+    let args_debug = args.join(" ");
+    runtime_log(
+        LogLevel::Info,
+        "volatility",
+        format!(
+            "Volatility3 sureci baslatiliyor. Cwd: {}, Komut: python3 {}",
+            workdir.display(),
+            args_debug
+        ),
+    );
+
     let mut child = Command::new("python3")
         .args(&args)
         .current_dir(workdir)
@@ -257,7 +269,11 @@ fn run_volatility_command(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|err| format!("python3 çalıştırılamadı: {err}"))?;
+        .map_err(|err| {
+            let err_msg = format!("python3 çalıştırılamadı: {err}");
+            runtime_log(LogLevel::Error, "volatility", &err_msg);
+            err_msg
+        })?;
 
     let stdout_buffer = Arc::new(Mutex::new(String::new()));
     let stderr_buffer = Arc::new(Mutex::new(String::new()));
@@ -270,9 +286,11 @@ fn run_volatility_command(
         .take()
         .map(|stderr| spawn_reader(stderr, "stderr", stderr_buffer.clone(), log.clone(), true));
 
-    let status = child
-        .wait()
-        .map_err(|err| format!("Volatility3 süreci beklenemedi: {err}"))?;
+    let status = child.wait().map_err(|err| {
+        let err_msg = format!("Volatility3 süreci beklenemedi: {err}");
+        runtime_log(LogLevel::Error, "volatility", &err_msg);
+        err_msg
+    })?;
     if let Some(handle) = stdout_thread {
         let _ = handle.join();
     }
@@ -290,25 +308,40 @@ fn run_volatility_command(
         .unwrap_or_default();
 
     if !status.success() {
-        return Err(format_volatility_error(plugin, &stdout, &stderr));
+        let err_msg = format_volatility_error(plugin, &stdout, &stderr);
+        runtime_log(
+            LogLevel::Error,
+            "volatility",
+            format!("Volatility3 basarisiz: {}", err_msg),
+        );
+        return Err(err_msg);
     }
 
     let clean_json = trim_to_json(&stdout).ok_or_else(|| {
-        format!(
+        let err_msg = format!(
             "Volatility3 JSON çıktısı bulunamadı. Plugin: {plugin}. Çıktı: {}",
             stdout.trim()
-        )
+        );
+        runtime_log(LogLevel::Error, "volatility", &err_msg);
+        err_msg
     })?;
 
     let parsed = serde_json::from_str(clean_json).map_err(|err| {
-        format!(
+        let err_msg = format!(
             "Volatility3 JSON çıktısı parse edilemedi: {err}. Plugin: {plugin}. Ham çıktı: {}",
             stdout.trim()
-        )
+        );
+        runtime_log(LogLevel::Error, "volatility", &err_msg);
+        err_msg
     })?;
     if let Some(log) = &log {
         log(format!("Volatility3 tamamlandı: {plugin}"));
     }
+    runtime_log(
+        LogLevel::Info,
+        "volatility",
+        format!("Volatility3 tamamlandi: {plugin}"),
+    );
     Ok(parsed)
 }
 
@@ -361,6 +394,14 @@ fn volatility_cache_path() -> Option<PathBuf> {
 
     roots.into_iter().find_map(|root| {
         let path = root.join("worm").join("volatility3");
+        runtime_log(
+            LogLevel::Debug,
+            "volatility",
+            format!(
+                "Volatility cache dizini kontrol ediliyor: {}",
+                path.display()
+            ),
+        );
         fs::create_dir_all(&path).ok().map(|_| path)
     })
 }
@@ -494,16 +535,30 @@ pub fn scan_linux_banners(
     limit: usize,
     log: Option<Arc<dyn Fn(String) + Send + Sync>>,
 ) -> Result<Vec<String>, String> {
-    let mut file = File::open(file_path).map_err(|err| format!("RAM imajı açılamadı: {err}"))?;
+    runtime_log(
+        LogLevel::Info,
+        "volatility",
+        format!(
+            "Native Linux kernel banner taramasi baslatildi: {}",
+            file_path.display()
+        ),
+    );
+    let mut file = File::open(file_path).map_err(|err| {
+        let err_msg = format!("RAM imajı açılamadı: {err}");
+        runtime_log(LogLevel::Error, "volatility", &err_msg);
+        err_msg
+    })?;
     let mut buffer = vec![0_u8; LINUX_BANNER_SCAN_CHUNK];
     let mut carry = Vec::new();
     let mut found = BTreeSet::new();
     let mut scanned = 0_u64;
 
     loop {
-        let read = file
-            .read(&mut buffer)
-            .map_err(|err| format!("RAM imajı okunamadı: {err}"))?;
+        let read = file.read(&mut buffer).map_err(|err| {
+            let err_msg = format!("RAM imajı okunamadı: {err}");
+            runtime_log(LogLevel::Error, "volatility", &err_msg);
+            err_msg
+        })?;
         if read == 0 {
             break;
         }
@@ -528,6 +583,14 @@ pub fn scan_linux_banners(
                             banners.len()
                         ));
                     }
+                    runtime_log(
+                        LogLevel::Info,
+                        "volatility",
+                        format!(
+                            "Linux banner taramasi tamamlandi (limit ulasildi): {} aday",
+                            banners.len()
+                        ),
+                    );
                     return Ok(banners);
                 }
             }
@@ -551,6 +614,15 @@ pub fn scan_linux_banners(
             scanned / 1024 / 1024
         ));
     }
+    runtime_log(
+        LogLevel::Info,
+        "volatility",
+        format!(
+            "Linux banner taramasi bitti. Toplam {} MB tarandi, {} aday bulundu.",
+            scanned / 1024 / 1024,
+            banners.len()
+        ),
+    );
     Ok(banners)
 }
 
@@ -561,6 +633,16 @@ pub fn preflight_ram_image(
     symbol_dir: Option<&Path>,
     log: Option<Arc<dyn Fn(String) + Send + Sync>>,
 ) -> VolatilityPreflight {
+    runtime_log(
+        LogLevel::Info,
+        "volatility",
+        format!(
+            "RAM imaji on kontrolu baslatildi. OS: {}, RAM Dosyasi: {}",
+            os_type,
+            file_path.display()
+        ),
+    );
+
     let vol_py = locate_vol_py();
     let mut warnings = Vec::new();
     let mut recommendations = Vec::new();
@@ -574,6 +656,11 @@ pub fn preflight_ram_image(
         recommendations.push(
             "WORM_VOLATILITY3_PATH ile vol.py veya volatility3 klasörünü tanımlayın.".to_string(),
         );
+        runtime_log(
+            LogLevel::Warn,
+            "volatility",
+            "Volatility3 vol.py bulunamadi.",
+        );
     }
 
     if os_type == "linux" {
@@ -582,7 +669,14 @@ pub fn preflight_ram_image(
         }
         match scan_linux_banners(file_path, 1, log.clone()) {
             Ok(items) => banners = items,
-            Err(err) => warnings.push(format!("Linux banner taraması başarısız: {err}")),
+            Err(err) => {
+                warnings.push(format!("Linux banner taraması başarısız: {err}"));
+                runtime_log(
+                    LogLevel::Error,
+                    "volatility",
+                    format!("Linux banner taramasi hatasi: {err}"),
+                );
+            }
         }
     }
 
@@ -608,7 +702,14 @@ pub fn preflight_ram_image(
                     }
                 }
             }
-            Err(err) => warnings.push(format!("Volatility ISF bilgisi alınamadı: {err}")),
+            Err(err) => {
+                warnings.push(format!("Volatility ISF bilgisi alınamadı: {err}"));
+                runtime_log(
+                    LogLevel::Error,
+                    "volatility",
+                    format!("ISF bilgisi alma hatasi: {err}"),
+                );
+            }
         }
     }
 
@@ -619,6 +720,11 @@ pub fn preflight_ram_image(
                 "Dosyanın ham fiziksel RAM imajı olduğundan ve edinimin temiz tamamlandığından emin olun."
                     .to_string(),
             );
+            runtime_log(
+                LogLevel::Warn,
+                "volatility",
+                "Linux kernel banner adayi bulunamadi.",
+            );
         } else if matching_symbols.is_empty() {
             warnings.push(format!(
                 "Linux kernel banner bulundu ama eşleşen Volatility3 ISF symbol dosyası yok: {}",
@@ -627,6 +733,11 @@ pub fn preflight_ram_image(
             recommendations.push(
                 "Bu kernel için dwarf2json ile ISF üretip volatility3/symbols/linux altına koyun."
                     .to_string(),
+            );
+            runtime_log(
+                LogLevel::Warn,
+                "volatility",
+                "Eşleşen Volatility3 ISF symbol dosyası yok.",
             );
         }
     }
@@ -637,6 +748,11 @@ pub fn preflight_ram_image(
         .collect::<Vec<_>>();
     if symbol_dirs.is_empty() {
         warnings.push("Volatility symbol dizini bulunamadı.".to_string());
+        runtime_log(
+            LogLevel::Warn,
+            "volatility",
+            "Volatility symbol dizini bulunamadı.",
+        );
     }
 
     let ready = if os_type == "linux" {
@@ -644,6 +760,20 @@ pub fn preflight_ram_image(
     } else {
         vol_py.is_some()
     };
+
+    if ready {
+        runtime_log(
+            LogLevel::Info,
+            "volatility",
+            "RAM imaji on kontrolu basarili. Volatility hazır.",
+        );
+    } else {
+        runtime_log(
+            LogLevel::Warn,
+            "volatility",
+            "RAM imaji on kontrolu tamamlanamadi veya eksiklikler var.",
+        );
+    }
 
     VolatilityPreflight {
         ready,

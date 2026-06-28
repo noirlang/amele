@@ -1,5 +1,6 @@
 //! AVML/WinPMEM durum kontrolü, RAM edinimi ve süreç kontrolünü yönetir.
 use crate::error::{HataKodu, WormError, WormResult};
+use crate::logging::{LogLevel, runtime_log};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Read;
@@ -114,32 +115,77 @@ where
     #[cfg(not(windows))]
     {
         let mut progress = progress;
+        runtime_log(
+            LogLevel::Info,
+            "ram",
+            format!(
+                "AVML ile RAM edinimi baslatildi. Cikis dosyasi: {}",
+                output_file.as_ref().display()
+            ),
+        );
         if !is_root_or_admin() {
-            return Err(WormError::new(
+            let err = WormError::new(
                 HataKodu::YetkisizErisim,
                 "RAM edinimi icin root yetkisi gerekli",
-            ));
+            );
+            runtime_log(LogLevel::Error, "ram", format!("Yetki hatasi: {:?}", err));
+            return Err(err);
         }
 
-        let avml = find_avml(candidate)
-            .ok_or_else(|| WormError::new(HataKodu::DosyaAcilamadi, "AVML bulunamadi"))?;
+        let avml = find_avml(candidate).ok_or_else(|| {
+            let err = WormError::new(HataKodu::DosyaAcilamadi, "AVML bulunamadi");
+            runtime_log(
+                LogLevel::Error,
+                "ram",
+                format!("AVML bulunamadi hatasi: {:?}", err),
+            );
+            err
+        })?;
         if let Some(parent) = output_file.as_ref().parent() {
+            runtime_log(
+                LogLevel::Info,
+                "ram",
+                format!("RAM cikti klasoru olusturuluyor: {}", parent.display()),
+            );
             fs::create_dir_all(parent).map_err(|err| {
-                WormError::io(
+                let w_err = WormError::io(
                     HataKodu::DosyaYazma,
                     "RAM cikti klasoru olusturulamadi",
                     err,
-                )
+                );
+                runtime_log(
+                    LogLevel::Error,
+                    "ram",
+                    format!("Klasor olusturma hatasi: {:?}", w_err),
+                );
+                w_err
             })?;
         }
 
         let total = physical_ram_size();
+        runtime_log(
+            LogLevel::Info,
+            "ram",
+            format!(
+                "AVML komutu calistiriliyor: {} {}",
+                avml.display(),
+                output_file.as_ref().display()
+            ),
+        );
         let mut child = Command::new(&avml)
             .arg(output_file.as_ref())
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|err| WormError::io(HataKodu::Genel, "AVML baslatilamadi", err))?;
+            .map_err(|err| {
+                let w_err = WormError::io(HataKodu::Genel, "AVML baslatilamadi", err);
+                runtime_log(
+                    LogLevel::Error,
+                    "ram",
+                    format!("AVML spawn hatasi: {:?}", w_err),
+                );
+                w_err
+            })?;
         monitor_child_file(
             &mut child,
             output_file.as_ref(),
@@ -192,21 +238,49 @@ where
     #[cfg(windows)]
     {
         let mut progress = progress;
+        runtime_log(
+            LogLevel::Info,
+            "ram",
+            format!(
+                "WinPMEM ile RAM edinimi baslatildi. Cikis dosyasi: {}",
+                output_file.as_ref().display()
+            ),
+        );
         if !is_root_or_admin() {
-            return Err(WormError::new(
+            let err = WormError::new(
                 HataKodu::YetkisizErisim,
                 "Administrator privileges required",
-            ));
+            );
+            runtime_log(LogLevel::Error, "ram", format!("Yetki hatasi: {:?}", err));
+            return Err(err);
         }
-        let winpmem = find_winpmem(candidate)
-            .ok_or_else(|| WormError::new(HataKodu::DosyaAcilamadi, "WinPMEM bulunamadi"))?;
+        let winpmem = find_winpmem(candidate).ok_or_else(|| {
+            let err = WormError::new(HataKodu::DosyaAcilamadi, "WinPMEM bulunamadi");
+            runtime_log(
+                LogLevel::Error,
+                "ram",
+                format!("WinPMEM bulunamadi hatasi: {:?}", err),
+            );
+            err
+        })?;
         if let Some(parent) = output_file.as_ref().parent() {
+            runtime_log(
+                LogLevel::Info,
+                "ram",
+                format!("RAM cikti klasoru olusturuluyor: {}", parent.display()),
+            );
             fs::create_dir_all(parent).map_err(|err| {
-                WormError::io(
+                let w_err = WormError::io(
                     HataKodu::DosyaYazma,
                     "RAM cikti klasoru olusturulamadi",
                     err,
-                )
+                );
+                runtime_log(
+                    LogLevel::Error,
+                    "ram",
+                    format!("Klasor olusturma hatasi: {:?}", w_err),
+                );
+                w_err
             })?;
         }
 
@@ -235,6 +309,19 @@ where
         for command in commands {
             let mut iter = command.into_iter();
             let executable = iter.next().expect("command has executable");
+            let args_debug: Vec<String> = iter
+                .clone()
+                .map(|s| s.to_string_lossy().into_owned())
+                .collect();
+            runtime_log(
+                LogLevel::Info,
+                "ram",
+                format!(
+                    "WinPMEM komutu calistiriliyor: {} {:?}",
+                    executable.to_string_lossy(),
+                    args_debug
+                ),
+            );
             let mut child = Command::new(executable)
                 .args(iter)
                 .stdout(Stdio::piped())
@@ -254,17 +341,35 @@ where
                         return result;
                     }
                     last_error = result.err().map(|err| err.to_string()).unwrap_or_default();
+                    runtime_log(
+                        LogLevel::Warn,
+                        "ram",
+                        format!(
+                            "WinPMEM komutu basarisiz oldu, sonraki denenecek. Hata: {}",
+                            last_error
+                        ),
+                    );
                 }
                 Err(err) => {
                     last_error = err.to_string();
+                    runtime_log(
+                        LogLevel::Warn,
+                        format!("WinPMEM spawn hatasi: {}", last_error),
+                    );
                 }
             }
         }
 
-        Err(WormError::new(
+        let w_err = WormError::new(
             HataKodu::Genel,
             format!("WinPMEM komutu baslatilamadi: {last_error}"),
-        ))
+        );
+        runtime_log(
+            LogLevel::Error,
+            "ram",
+            format!("WinPMEM tamamen basarisiz: {:?}", w_err),
+        );
+        Err(w_err)
     }
 }
 
@@ -284,6 +389,11 @@ where
     let mut child_paused = false;
     loop {
         if cancellation.is_cancelled() {
+            runtime_log(
+                LogLevel::Warn,
+                "ram",
+                "RAM edinimi iptal edildi. Alt surec sonlandiriliyor.",
+            );
             if child_paused {
                 resume_child(child);
             }
@@ -294,6 +404,7 @@ where
 
         if cancellation.is_paused() {
             if !child_paused {
+                runtime_log(LogLevel::Info, "ram", "RAM edinimi duraklatiliyor...");
                 pause_child(child);
                 child_paused = true;
             }
@@ -302,6 +413,7 @@ where
         }
 
         if child_paused {
+            runtime_log(LogLevel::Info, "ram", "RAM edinimi devam ettiriliyor...");
             resume_child(child);
             child_paused = false;
         }
@@ -311,6 +423,11 @@ where
                 .map(|metadata| metadata.len())
                 .unwrap_or(0);
             if status.success() && size > 0 {
+                runtime_log(
+                    LogLevel::Info,
+                    "ram",
+                    format!("RAM edinimi tamamlandi. Toplam {} bayt yazildi.", size),
+                );
                 progress(size, total);
                 return Ok(RamAcquisitionResult {
                     output_file: output_file.to_path_buf(),
@@ -327,10 +444,20 @@ where
             } else {
                 format!("RAM araci basarisiz oldu: {status}\nAyrıntı: {stderr}")
             };
+            runtime_log(
+                LogLevel::Error,
+                "ram",
+                format!("RAM araci hatasi: {}", detail),
+            );
             return Err(WormError::new(HataKodu::DosyaYazma, detail));
         }
 
         if started.elapsed() > timeout {
+            runtime_log(
+                LogLevel::Error,
+                "ram",
+                "RAM edinimi zaman asimi limitine ulasti.",
+            );
             let _ = child.kill();
             let _ = child.wait();
             return Err(WormError::new(HataKodu::Genel, "RAM edinimi zaman asimi"));
@@ -353,6 +480,14 @@ fn pause_child(child: &Child) {
 
     #[cfg(windows)]
     {
+        runtime_log(
+            LogLevel::Info,
+            "ram",
+            format!(
+                "Windows alt sureci duraklatmak icin powershell cagiriliyor, PID={}",
+                child.id()
+            ),
+        );
         let _ = Command::new("powershell")
             .args([
                 "-NoProfile",
@@ -377,6 +512,14 @@ fn resume_child(child: &Child) {
 
     #[cfg(windows)]
     {
+        runtime_log(
+            LogLevel::Info,
+            "ram",
+            format!(
+                "Windows alt sureci devam ettirmek icin powershell cagiriliyor, PID={}",
+                child.id()
+            ),
+        );
         let _ = Command::new("powershell")
             .args([
                 "-NoProfile",
@@ -443,6 +586,11 @@ fn find_in_path(binary: &str) -> Option<PathBuf> {
 pub fn physical_ram_size() -> u64 {
     #[cfg(target_os = "linux")]
     {
+        runtime_log(
+            LogLevel::Debug,
+            "ram",
+            "Linux fiziksel RAM boyutu /proc/meminfo dosyasindan okunuyor.",
+        );
         if let Ok(meminfo) = fs::read_to_string("/proc/meminfo") {
             for line in meminfo.lines() {
                 if let Some(rest) = line.strip_prefix("MemTotal:") {
@@ -451,9 +599,21 @@ pub fn physical_ram_size() -> u64 {
                         .next()
                         .and_then(|value| value.parse::<u64>().ok())
                         .unwrap_or(0);
-                    return kb * 1024;
+                    let bytes = kb * 1024;
+                    runtime_log(
+                        LogLevel::Info,
+                        "ram",
+                        format!("Fiziksel RAM boyutu saptandi: {} bayt", bytes),
+                    );
+                    return bytes;
                 }
             }
+        } else {
+            runtime_log(
+                LogLevel::Warn,
+                "ram",
+                "/proc/meminfo okunurken hata olustu.",
+            );
         }
         0
     }
@@ -461,6 +621,11 @@ pub fn physical_ram_size() -> u64 {
     #[cfg(windows)]
     {
         use windows_sys::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
+        runtime_log(
+            LogLevel::Debug,
+            "ram",
+            "Windows fiziksel RAM boyutu GlobalMemoryStatusEx ile aliniyor.",
+        );
         let mut info = MEMORYSTATUSEX {
             dwLength: std::mem::size_of::<MEMORYSTATUSEX>() as u32,
             dwMemoryLoad: 0,
@@ -473,7 +638,21 @@ pub fn physical_ram_size() -> u64 {
             ullAvailExtendedVirtual: 0,
         };
         let ok = unsafe { GlobalMemoryStatusEx(&mut info) };
-        if ok != 0 { info.ullTotalPhys } else { 0 }
+        if ok != 0 {
+            runtime_log(
+                LogLevel::Info,
+                "ram",
+                format!("Fiziksel RAM boyutu saptandi: {} bayt", info.ullTotalPhys),
+            );
+            info.ullTotalPhys
+        } else {
+            runtime_log(
+                LogLevel::Warn,
+                "ram",
+                "GlobalMemoryStatusEx basarisiz oldu.",
+            );
+            0
+        }
     }
 
     #[cfg(not(any(target_os = "linux", windows)))]
@@ -486,6 +665,7 @@ pub fn physical_ram_size() -> u64 {
 pub fn is_root_or_admin() -> bool {
     #[cfg(windows)]
     {
+        runtime_log(LogLevel::Debug, "ram", "Windows yetkileri denetleniyor...");
         Command::new("cmd")
             .args(["/C", "net", "session"])
             .stdout(Stdio::null())
@@ -497,6 +677,11 @@ pub fn is_root_or_admin() -> bool {
 
     #[cfg(unix)]
     {
+        runtime_log(
+            LogLevel::Debug,
+            "ram",
+            "Unix/Linux root yetkisi geteuid ile denetleniyor...",
+        );
         unsafe { libc::geteuid() == 0 }
     }
 
