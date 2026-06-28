@@ -84,6 +84,52 @@ fn start_background() -> Result<String, String> {
     })?;
     let url = format!("http://{addr}/");
 
+    // Başlangıç logları
+    crate::logging::runtime_log(
+        crate::logging::LogLevel::Info,
+        "server:startup",
+        format!(
+            "Worm {} baslatildi | OS: {} {} {} | PID: {} | EXE: {:?} | UI: {:?} | PORT: {}",
+            env!("CARGO_PKG_VERSION"),
+            std::env::consts::OS,
+            std::env::consts::FAMILY,
+            std::env::consts::ARCH,
+            std::process::id(),
+            std::env::current_exe().unwrap_or_default(),
+            ui_root(),
+            addr.port(),
+        ),
+    );
+    crate::logging::runtime_log(
+        crate::logging::LogLevel::Info,
+        "server:startup",
+        format!(
+            "CWD: {:?} | HOME: {:?} | APPDIR: {:?} | DISPLAY: {:?} | WAYLAND: {:?}",
+            std::env::current_dir().unwrap_or_default(),
+            std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")),
+            std::env::var_os("APPDIR"),
+            std::env::var_os("DISPLAY"),
+            std::env::var_os("WAYLAND_DISPLAY"),
+        ),
+    );
+
+    #[cfg(target_os = "linux")]
+    {
+        // Linux'ta yetki ve ortam bilgisi
+        let is_root = crate::api::process_is_root();
+        crate::logging::runtime_log(
+            crate::logging::LogLevel::Info,
+            "server:startup",
+            format!(
+                "Linux is_root: {} | XDG_DESKTOP: {:?} | GDK_BACKEND: {:?} | WEBKIT_EXEC: {:?}",
+                is_root,
+                std::env::var_os("XDG_CURRENT_DESKTOP"),
+                std::env::var_os("GDK_BACKEND"),
+                std::env::var_os("WEBKIT_EXEC_PATH"),
+            ),
+        );
+    }
+
     thread::Builder::new()
         .name("worm-ui-server".to_string())
         .spawn(move || serve(listener))
@@ -93,6 +139,12 @@ fn start_background() -> Result<String, String> {
                 &err.to_string(),
             )
         })?;
+
+    crate::logging::runtime_log(
+        crate::logging::LogLevel::Info,
+        "server:startup",
+        format!("UI sunucusu hazir: {url}"),
+    );
 
     Ok(url)
 }

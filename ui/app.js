@@ -12,6 +12,7 @@ import { agentPage } from "./pages/agent.js";
 import { analysisPage } from "./pages/analysis.js";
 import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel } from "./pages/other.js";
 import { workflowPage, pickerField, field, pageTitle, casePanel } from "./pages/workflow.js";
+import { initDeveloperMode, devLog } from "./developer.js";
 
 const APP_VERSION = "v0.0.11";
 const assetPath = "./assets";
@@ -247,10 +248,12 @@ function setRoute(route) {
   if (route.startsWith("workflow:")) {
     const workflow = workflows[route.split(":")[1]];
     if (workflow && isLocalWorkflowBlocked(workflow)) {
+      devLog("WARN", "ui:router", `Route blocked (platform mismatch): ${route} — expected ${workflow.platform}, got ${state.platform}`, apiRequest, backendReady);
       showToast(t("platformBlocked", { platform: workflow.platform }), "error");
       return;
     }
   }
+  devLog("DEBUG", "ui:router", `Navigate → ${route}`, apiRequest, backendReady);
   state.route = route;
   render();
 }
@@ -2898,3 +2901,7 @@ setTheme(state.theme);
 installUiErrorHandlers();
 hydrateIcons();
 render();
+
+// Developer mode — 5 kez logoya tıklayınca aktifleşir
+initDeveloperMode({ apiRequest, backendReady });
+devLog("INFO", "ui:startup", `Worm ${APP_VERSION} başlatıldı — platform: ${state.platform}, dil: ${state.language}, tema: ${state.theme}, backend: ${backendAvailable}`, apiRequest, backendReady);

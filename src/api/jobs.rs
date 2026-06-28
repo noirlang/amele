@@ -43,6 +43,11 @@ pub fn create_acquisition_job(message: &str) -> (String, crate::ram::Cancellatio
     if let Ok(mut jobs) = acquisition_jobs().lock() {
         jobs.insert(job_id.clone(), job);
     }
+    crate::logging::runtime_log(
+        crate::logging::LogLevel::Info,
+        "job",
+        format!("{job_id} baslatildi: {message}"),
+    );
     (job_id, control)
 }
 
@@ -56,14 +61,23 @@ pub fn update_acquisition_progress_message(job_id: &str, done: u64, total: u64, 
     if let Ok(mut jobs) = acquisition_jobs().lock()
         && let Some(job) = jobs.get_mut(job_id)
     {
+        let previous_percent = progress_percent(job.done, job.total);
         job.status = "running".to_string();
         job.done = done;
         job.total = total;
+        let next_percent = progress_percent(done, total);
         job.message = if total > 0 {
-            format!("{label}: {}%", progress_percent(done, total))
+            format!("{label}: {next_percent}%")
         } else {
             label.to_string()
         };
+        if should_log_progress(previous_percent, next_percent, done, total) {
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Debug,
+                "job-progress",
+                format!("{job_id} | {} | done={done} total={total}", job.message),
+            );
+        }
     }
 }
 
@@ -74,6 +88,11 @@ pub fn update_acquisition_message(job_id: &str, message: &str) {
     {
         job.message = message.to_string();
         push_log(job, message);
+        crate::logging::runtime_log(
+            crate::logging::LogLevel::Info,
+            "job-message",
+            format!("{job_id} | {message}"),
+        );
     }
 }
 
@@ -83,6 +102,11 @@ pub fn append_acquisition_log(job_id: &str, message: &str) {
         && let Some(job) = jobs.get_mut(job_id)
     {
         push_log(job, message);
+        crate::logging::runtime_log(
+            crate::logging::LogLevel::Debug,
+            "job-log",
+            format!("{job_id} | {message}"),
+        );
     }
 }
 
@@ -102,6 +126,11 @@ pub fn finish_acquisition_job_with_message(job_id: &str, result: Value, message:
         push_log(job, message);
         job.result = Some(result);
         job.error = None;
+        crate::logging::runtime_log(
+            crate::logging::LogLevel::Info,
+            "job",
+            format!("{job_id} tamamlandi: {message}"),
+        );
     }
 }
 
@@ -115,6 +144,11 @@ pub fn fail_acquisition_job_with_message(job_id: &str, error: String, message: &
         job.message = message.to_string();
         push_log(job, message);
         push_log(job, &error);
+        crate::logging::runtime_log(
+            crate::logging::LogLevel::Error,
+            "job",
+            format!("{job_id} basarisiz: {message} | {error}"),
+        );
         job.error = Some(error);
     }
 }
@@ -137,4 +171,11 @@ fn push_log(job: &mut AcquisitionJob, message: &str) {
 
 fn progress_percent(done: u64, total: u64) -> u64 {
     if total == 0 { 0 } else { done * 100 / total }
+}
+
+fn should_log_progress(previous: u64, next: u64, done: u64, total: u64) -> bool {
+    if total == 0 {
+        return false;
+    }
+    done == 0 || done >= total || previous / 10 != next / 10
 }
