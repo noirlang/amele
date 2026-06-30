@@ -331,6 +331,7 @@ function render() {
     const pageCtx = {
       t,
       icon,
+      state,
       assetPath,
       pageTitle,
       pickerField: boundPickerField,
