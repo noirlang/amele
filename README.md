@@ -8,7 +8,7 @@
 
 [Website](https://amele.noirlang.tr) | [Releases](https://github.com/noirlang/amele/releases) | [Contributing](CONTRIBUTING.md) | [Security](SECURITY.md) | [Linux Agent](https://github.com/noirlang/amele-linux) | [Windows Agent](https://github.com/noirlang/amele-win)
 
-<video src="https://github.com/user-attachments/assets/a2094bcf-3488-4983-b47f-02e240d503bb" width="700" controls></video>
+<img src="amele.gif" alt="Amele Forensic Tool Demo" width="700" />
 
 </div>
 
