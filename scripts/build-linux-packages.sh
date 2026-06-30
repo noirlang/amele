@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="${DIST_DIR:-$ROOT_DIR/dist}"
 STAGE_DIR="$DIST_DIR/linux-package-root"
-PACKAGE_NAME="worm-forensic-tool"
+PACKAGE_NAME="amele-forensic-tool"
 VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' "$ROOT_DIR/Cargo.toml" | head -n1)"
 
 if [[ -z "$VERSION" ]]; then
@@ -20,28 +20,28 @@ require_tool() {
 }
 
 prepare_stage() {
-  if [[ ! -x "$ROOT_DIR/target/release/worm" ]]; then
+  if [[ ! -x "$ROOT_DIR/target/release/amele" ]]; then
     cargo build --release --locked
   fi
 
   rm -rf "$STAGE_DIR"
   mkdir -p \
     "$STAGE_DIR/usr/bin" \
-    "$STAGE_DIR/usr/share/worm/ui" \
-    "$STAGE_DIR/usr/share/worm/tools" \
-    "$STAGE_DIR/usr/share/worm/vendor" \
+    "$STAGE_DIR/usr/share/amele/ui" \
+    "$STAGE_DIR/usr/share/amele/tools" \
+    "$STAGE_DIR/usr/share/amele/vendor" \
     "$STAGE_DIR/usr/share/applications" \
     "$STAGE_DIR/usr/share/icons/hicolor/256x256/apps"
 
-  install -m 755 "$ROOT_DIR/target/release/worm" "$STAGE_DIR/usr/bin/worm-forensic-tool"
-  ln -s worm-forensic-tool "$STAGE_DIR/usr/bin/worm"
-  cp -a "$ROOT_DIR/ui/." "$STAGE_DIR/usr/share/worm/ui/"
-  cp -a "$ROOT_DIR/tools/." "$STAGE_DIR/usr/share/worm/tools/"
-  cp -a "$ROOT_DIR/vendor/volatility3" "$STAGE_DIR/usr/share/worm/vendor/"
-  install -m 644 "$ROOT_DIR/packaging/appimage/worm.desktop" \
-    "$STAGE_DIR/usr/share/applications/worm.desktop"
+  install -m 755 "$ROOT_DIR/target/release/amele" "$STAGE_DIR/usr/bin/amele-forensic-tool"
+  ln -s amele-forensic-tool "$STAGE_DIR/usr/bin/amele"
+  cp -a "$ROOT_DIR/ui/." "$STAGE_DIR/usr/share/amele/ui/"
+  cp -a "$ROOT_DIR/tools/." "$STAGE_DIR/usr/share/amele/tools/"
+  cp -a "$ROOT_DIR/vendor/volatility3" "$STAGE_DIR/usr/share/amele/vendor/"
+  install -m 644 "$ROOT_DIR/packaging/appimage/amele.desktop" \
+    "$STAGE_DIR/usr/share/applications/amele.desktop"
   install -m 644 "$ROOT_DIR/ui/assets/logo/icon.png" \
-    "$STAGE_DIR/usr/share/icons/hicolor/256x256/apps/worm.png"
+    "$STAGE_DIR/usr/share/icons/hicolor/256x256/apps/amele.png"
 }
 
 build_deb() {
@@ -77,8 +77,8 @@ build_rpm() {
   mkdir -p "$rpm_top/BUILD" "$rpm_top/BUILDROOT" "$rpm_top/RPMS" "$rpm_top/SOURCES" "$rpm_top/SPECS" "$rpm_top/SRPMS"
 
   cat >"$spec" <<'EOF'
-Name: worm-forensic-tool
-Version: %{_worm_version}
+Name: amele-forensic-tool
+Version: %{_amele_version}
 Release: 1%{?dist}
 Summary: Desktop forensic acquisition tool
 License: GPL-3.0-or-later
@@ -99,20 +99,20 @@ Amele Forensic Tool collects disk, RAM, and Android evidence for authorized fore
 
 %install
 mkdir -p %{buildroot}
-cp -a %{_worm_stagedir}/* %{buildroot}/
+cp -a %{_amele_stagedir}/* %{buildroot}/
 
 %files
-/usr/bin/worm
-/usr/bin/worm-forensic-tool
-/usr/share/worm
-/usr/share/applications/worm.desktop
-/usr/share/icons/hicolor/256x256/apps/worm.png
+/usr/bin/amele
+/usr/bin/amele-forensic-tool
+/usr/share/amele
+/usr/share/applications/amele.desktop
+/usr/share/icons/hicolor/256x256/apps/amele.png
 EOF
 
   rpmbuild -bb "$spec" \
     --define "_topdir $rpm_top" \
-    --define "_worm_version $VERSION" \
-    --define "_worm_stagedir $STAGE_DIR"
+    --define "_amele_version $VERSION" \
+    --define "_amele_stagedir $STAGE_DIR"
 
   local built
   built="$(find "$rpm_top/RPMS" -type f -name '*.rpm' | head -n1)"

@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LINUXDEPLOY="/tmp/linuxdeploy-x86_64.AppImage"
 RUNTIME_FILE="/tmp/runtime-x86_64"
-EXTRACT_DIR="/tmp/appimage_extracted_worm_ci"
+EXTRACT_DIR="/tmp/appimage_extracted_amele_ci"
 GLIBC_CEILING="2.35"
 
 # CI konteynerinde oluşan çıktıları runner kullanıcısına geri verir.

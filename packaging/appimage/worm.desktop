@@ -1,9 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=Worm Forensic Tool
+Name=Amele Forensic Tool
 Comment=Disk and RAM acquisition for forensic workflows
-Exec=worm-forensic-tool ui
-Icon=worm
+Exec=amele-forensic-tool ui
+Icon=amele
 Terminal=false
 Categories=Utility;Security;
-StartupWMClass=Worm Forensic Tool
+StartupWMClass=Amele Forensic Tool

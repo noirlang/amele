@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Worm Volatility3 worker.
+"""Amele Volatility3 worker.
 
 This small wrapper keeps Volatility3's Python-specific setup in Python while
 the Rust application stays responsible for UI, jobs, and JSON parsing.
@@ -23,14 +23,14 @@ LINUX_BANNER_SCAN_CHUNK = 8 * 1024 * 1024
 
 
 def log(message: str) -> None:
-    print(f"[worm-volatility-worker] {message}", file=sys.stderr, flush=True)
+    print(f"[amele-volatility-worker] {message}", file=sys.stderr, flush=True)
 
 
 def resolve_vol_invocation(explicit: str | None) -> tuple[list[str], Path | None, str, dict[str, str]]:
     candidates: list[Path] = []
     if explicit:
         candidates.append(Path(explicit))
-    for key in ("WORM_VOLATILITY3_PATH", "VOLATILITY3_PATH"):
+    for key in ("AMELE_VOLATILITY3_PATH", "VOLATILITY3_PATH"):
         value = os.environ.get(key)
         if value:
             candidates.append(Path(value))
@@ -81,7 +81,7 @@ def cache_dir() -> Path:
     roots.append(Path(tempfile.gettempdir()))
 
     for root in roots:
-        path = root / "worm" / "volatility3"
+        path = root / "amele" / "volatility3"
         try:
             path.mkdir(parents=True, exist_ok=True)
             return path
@@ -188,7 +188,7 @@ def preflight(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description="Worm Volatility3 worker")
+    parser = argparse.ArgumentParser(description="Amele Volatility3 worker")
     sub = parser.add_subparsers(dest="command", required=True)
 
     plugin = sub.add_parser("plugin")

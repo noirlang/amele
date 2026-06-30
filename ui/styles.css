@@ -115,7 +115,7 @@ button {
 .native-webview .sidebar,
 .native-webview .topbar,
 .native-webview .hero,
-.native-webview .worm-art,
+.native-webview .amele-art,
 .native-webview .action-tile,
 .native-webview .forensic-card,
 .native-webview .workflow-panel,
@@ -142,7 +142,7 @@ button {
   animation: none;
 }
 
-.native-webview .worm-art img {
+.native-webview .amele-art img {
   filter: none;
 }
 
@@ -547,7 +547,7 @@ button {
   margin-top: 34px;
 }
 
-.worm-art {
+.amele-art {
   position: relative;
   display: grid;
   place-items: center;
@@ -560,14 +560,14 @@ button {
     linear-gradient(145deg, #030609, #06130f);
 }
 
-.worm-art img {
+.amele-art img {
   width: min(76%, 280px);
   max-height: 280px;
   object-fit: contain;
   filter: drop-shadow(0 26px 48px rgba(0, 0, 0, 0.42));
 }
 
-.worm-art span {
+.amele-art span {
   font-family: Georgia, "Times New Roman", serif;
   font-size: clamp(56px, 8vw, 92px);
   font-weight: 900;
@@ -2175,7 +2175,7 @@ svg {
 }
 
 .hero,
-.worm-art,
+.amele-art,
 .action-tile,
 .forensic-card,
 .workflow-panel,
@@ -2197,7 +2197,7 @@ svg {
   box-shadow: none !important;
 }
 
-.theme-light .worm-art {
+.theme-light .amele-art {
   background: #111111 !important;
   border-color: rgba(0, 0, 0, 0.16) !important;
   --ring-fill: #111111;
@@ -2400,7 +2400,7 @@ code {
 .tree-panel,
 .preview-panel,
 .about-hero,
-.worm-art,
+.amele-art,
 .contributor-card,
 .company-logo-card,
 .ram-stat-card,
@@ -2437,7 +2437,7 @@ code {
 .tree-panel::before,
 .preview-panel::before,
 .about-hero::before,
-.worm-art::before,
+.amele-art::before,
 .contributor-card::before,
 .company-logo-card::before,
 .ram-stat-card::before,
@@ -2525,7 +2525,7 @@ code {
 .tree-panel::after,
 .preview-panel::after,
 .about-hero::after,
-.worm-art::after,
+.amele-art::after,
 .contributor-card::after,
 .company-logo-card::after,
 .ram-stat-card::after,
@@ -2547,7 +2547,7 @@ code {
 .tree-panel > *,
 .preview-panel > *,
 .about-hero > *,
-.worm-art > *,
+.amele-art > *,
 .contributor-card > *,
 .company-logo-card > *,
 .ram-stat-card > *,
@@ -2570,7 +2570,7 @@ code {
 .tree-panel:hover::before,
 .preview-panel:hover::before,
 .about-hero:hover::before,
-.worm-art:hover::before,
+.amele-art:hover::before,
 .contributor-card:hover::before,
 .company-logo-card:hover::before,
 .ram-stat-card:hover::before,
@@ -2604,7 +2604,7 @@ code {
 .tree-panel:hover,
 .preview-panel:hover,
 .about-hero:hover,
-.worm-art:hover,
+.amele-art:hover,
 .contributor-card:hover,
 .company-logo-card:hover,
 .ram-stat-card:hover,
@@ -2682,7 +2682,7 @@ code {
 .native-linux .tree-panel,
 .native-linux .preview-panel,
 .native-linux .about-hero,
-.native-linux .worm-art,
+.native-linux .amele-art,
 .native-linux .contributor-card,
 .native-linux .company-logo-card,
 .native-linux .ram-stat-card,
@@ -2711,7 +2711,7 @@ code {
 .native-linux .tree-panel::before,
 .native-linux .preview-panel::before,
 .native-linux .about-hero::before,
-.native-linux .worm-art::before,
+.native-linux .amele-art::before,
 .native-linux .contributor-card::before,
 .native-linux .company-logo-card::before,
 .native-linux .ram-stat-card::before,
@@ -2739,7 +2739,7 @@ code {
 .native-linux .tree-panel:hover::before,
 .native-linux .preview-panel:hover::before,
 .native-linux .about-hero:hover::before,
-.native-linux .worm-art:hover::before,
+.native-linux .amele-art:hover::before,
 .native-linux .contributor-card:hover::before,
 .native-linux .company-logo-card:hover::before,
 .native-linux .ram-stat-card:hover::before,

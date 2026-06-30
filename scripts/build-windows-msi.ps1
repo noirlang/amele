@@ -9,13 +9,13 @@ $RootDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $DistDir = Join-Path $RootDir "dist"
 $StageDir = Join-Path $DistDir "windows-stage"
 $WixDir = Join-Path $DistDir "wix"
-$BinaryPath = Join-Path $RootDir "target\release\worm.exe"
-$ProductWxs = Join-Path $RootDir "packaging\windows\worm.wxs"
+$BinaryPath = Join-Path $RootDir "target\release\amele.exe"
+$ProductWxs = Join-Path $RootDir "packaging\windows\amele.wxs"
 $LicenseRtf = Join-Path $RootDir "packaging\windows\license.rtf"
-$IconPath = Join-Path $RootDir "packaging\windows\worm.ico"
+$IconPath = Join-Path $RootDir "packaging\windows\amele.ico"
 
 if ([string]::IsNullOrWhiteSpace($OutputPath)) {
-    $OutputPath = Join-Path $DistDir "worm-windows-x64.msi"
+    $OutputPath = Join-Path $DistDir "amele-windows-x64.msi"
 }
 
 function Invoke-CheckedCommand {
@@ -75,14 +75,14 @@ if (-not (Test-Path $IconPath)) {
 
 Remove-Item $StageDir, $WixDir -Recurse -Force -ErrorAction SilentlyContinue
 New-Item (Join-Path $StageDir "bin") -ItemType Directory -Force | Out-Null
-New-Item (Join-Path $StageDir "share\worm") -ItemType Directory -Force | Out-Null
+New-Item (Join-Path $StageDir "share\amele") -ItemType Directory -Force | Out-Null
 New-Item $WixDir -ItemType Directory -Force | Out-Null
 
-Copy-Item $BinaryPath (Join-Path $StageDir "bin\worm.exe")
-Copy-Item (Join-Path $RootDir "ui") (Join-Path $StageDir "share\worm\ui") -Recurse
-Copy-Item (Join-Path $RootDir "tools") (Join-Path $StageDir "share\worm\tools") -Recurse
-New-Item (Join-Path $StageDir "share\worm\vendor") -ItemType Directory -Force | Out-Null
-Copy-Item (Join-Path $RootDir "vendor\volatility3") (Join-Path $StageDir "share\worm\vendor\volatility3") -Recurse
+Copy-Item $BinaryPath (Join-Path $StageDir "bin\amele.exe")
+Copy-Item (Join-Path $RootDir "ui") (Join-Path $StageDir "share\amele\ui") -Recurse
+Copy-Item (Join-Path $RootDir "tools") (Join-Path $StageDir "share\amele\tools") -Recurse
+New-Item (Join-Path $StageDir "share\amele\vendor") -ItemType Directory -Force | Out-Null
+Copy-Item (Join-Path $RootDir "vendor\volatility3") (Join-Path $StageDir "share\amele\vendor\volatility3") -Recurse
 
 $Heat = Find-WixTool "heat"
 $Candle = Find-WixTool "candle"
@@ -92,13 +92,13 @@ $ProductObject = Join-Path $WixDir "product.wixobj"
 $HarvestedObject = Join-Path $WixDir "harvested.wixobj"
 
 Invoke-CheckedCommand -Command $Heat -Arguments @(
-    "dir", $StageDir, "-nologo", "-cg", "WormFiles", "-dr", "INSTALLFOLDER",
+    "dir", $StageDir, "-nologo", "-cg", "AmeleFiles", "-dr", "INSTALLFOLDER",
     "-srd", "-sfrag", "-sreg", "-scom", "-ag", "-var", "var.StageDir",
     "-out", $HarvestedWxs
 )
 Invoke-CheckedCommand -Command $Candle -Arguments @(
     "-nologo", "-arch", "x64", "-dProductVersion=$Version",
-    "-dWormIcon=$IconPath", "-dLicenseRtf=$LicenseRtf",
+    "-dAmeleIcon=$IconPath", "-dLicenseRtf=$LicenseRtf",
     "-out", $ProductObject, $ProductWxs
 )
 Invoke-CheckedCommand -Command $Candle -Arguments @(

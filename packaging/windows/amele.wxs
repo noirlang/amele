@@ -2,7 +2,7 @@
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <Product
     Id="*"
-    Name="Worm Forensic Tool"
+    Name="Amele Forensic Tool"
     Language="1033"
     Version="$(var.ProductVersion)"
     Manufacturer="noirLang"
@@ -12,31 +12,31 @@
       Compressed="yes"
       InstallScope="perMachine"
       Platform="x64"
-      Description="Worm Forensic Tool desktop application" />
+      Description="Amele Forensic Tool desktop application" />
 
     <MajorUpgrade
       AllowSameVersionUpgrades="yes"
-      DowngradeErrorMessage="A newer Worm Forensic Tool version is already installed." />
+      DowngradeErrorMessage="A newer Amele Forensic Tool version is already installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
-    <Icon Id="WormIcon" SourceFile="$(var.WormIcon)" />
-    <Property Id="ARPPRODUCTICON" Value="WormIcon" />
-    <Property Id="ARPURLINFOABOUT" Value="https://worm.noirlang.tr" />
+    <Icon Id="AmeleIcon" SourceFile="$(var.AmeleIcon)" />
+    <Property Id="ARPPRODUCTICON" Value="AmeleIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://amele.noirlang.tr" />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
     <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseRtf)" />
 
-    <Condition Message="Worm Forensic Tool requires a 64-bit Windows installation.">
+    <Condition Message="Amele Forensic Tool requires a 64-bit Windows installation.">
       VersionNT64
     </Condition>
 
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFiles64Folder">
-        <Directory Id="INSTALLFOLDER" Name="Worm Forensic Tool">
+        <Directory Id="INSTALLFOLDER" Name="Amele Forensic Tool">
           <Directory Id="INSTALLBINDIR" Name="bin" />
         </Directory>
       </Directory>
       <Directory Id="ProgramMenuFolder">
-        <Directory Id="ProgramMenuDir" Name="Worm Forensic Tool" />
+        <Directory Id="ProgramMenuDir" Name="Amele Forensic Tool" />
       </Directory>
       <Directory Id="DesktopFolder" />
     </Directory>
@@ -46,23 +46,23 @@
         <Shortcut
           Id="StartMenuShortcut"
           Directory="ProgramMenuDir"
-          Name="Worm Forensic Tool"
-          Description="Open Worm Forensic Tool"
-          Target="[INSTALLBINDIR]worm.exe"
+          Name="Amele Forensic Tool"
+          Description="Open Amele Forensic Tool"
+          Target="[INSTALLBINDIR]amele.exe"
           WorkingDirectory="INSTALLBINDIR"
-          Icon="WormIcon" />
+          Icon="AmeleIcon" />
         <Shortcut
           Id="DesktopShortcut"
           Directory="DesktopFolder"
-          Name="Worm Forensic Tool"
-          Description="Open Worm Forensic Tool"
-          Target="[INSTALLBINDIR]worm.exe"
+          Name="Amele Forensic Tool"
+          Description="Open Amele Forensic Tool"
+          Target="[INSTALLBINDIR]amele.exe"
           WorkingDirectory="INSTALLBINDIR"
-          Icon="WormIcon" />
+          Icon="AmeleIcon" />
         <RemoveFolder Id="RemoveProgramMenuDir" Directory="ProgramMenuDir" On="uninstall" />
         <RegistryValue
           Root="HKCU"
-          Key="Software\noirLang\Worm Forensic Tool"
+          Key="Software\noirLang\Amele Forensic Tool"
           Name="Installed"
           Type="integer"
           Value="1"
@@ -70,8 +70,8 @@
       </Component>
     </DirectoryRef>
 
-    <Feature Id="Complete" Title="Worm Forensic Tool" Level="1" Display="expand">
-      <ComponentGroupRef Id="WormFiles" />
+    <Feature Id="Complete" Title="Amele Forensic Tool" Level="1" Display="expand">
+      <ComponentGroupRef Id="AmeleFiles" />
       <ComponentRef Id="ApplicationShortcuts" />
     </Feature>
 
