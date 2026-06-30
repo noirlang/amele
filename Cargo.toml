@@ -38,5 +38,5 @@ wry = "0.55"
 [dev-dependencies]
 tempfile = "3"
 
-[build-dependencies]
+[target.'cfg(windows)'.build-dependencies]
 winres = "0.1"
