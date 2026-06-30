@@ -169,11 +169,12 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION }) {
   `;
 }
 
-export function aboutPage({ t, icon, APP_VERSION, assetPath }) {
+export function aboutPage({ t, icon, APP_VERSION, assetPath, theme }) {
+  const logoFile = theme === "light" ? "logo-siyah.png" : "logo.png";
   return `
     <section class="page">
       <div class="about-hero">
-        <span class="about-logo"><img src="${assetPath}/logo/logo.png" alt="Amele logo" /></span>
+        <span class="about-logo"><img src="${assetPath}/logo/${logoFile}" alt="Amele logo" /></span>
         <div>
           <h1>Amele Forensic Tool</h1>
           <span class="status-badge">${t("about.version", { version: APP_VERSION })}</span>

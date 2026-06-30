@@ -1,9 +1,10 @@
-export function homePage({ t, icon, assetPath }) {
+export function homePage({ t, icon, assetPath, theme }) {
+  const logoFile = theme === "light" ? "yazili-logo-siyah.png" : "yazili-logo-beyaz.png";
   return `
     <section class="page">
       <div class="hero home-hero">
         <div class="amele-art">
-          <img src="${assetPath}/logo/logo.png" alt="Amele logo" />
+          <img src="${assetPath}/logo/${logoFile}" alt="Amele logo" />
         </div>
       </div>
 

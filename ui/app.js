@@ -270,6 +270,11 @@ function setTheme(theme) {
   localStorage.setItem("amele-theme", theme);
   app.classList.toggle("theme-light", theme === "light");
   app.classList.toggle("theme-dark", theme !== "light");
+  
+  const brandImg = document.getElementById("brand-logo-img");
+  if (brandImg) {
+    brandImg.src = theme === "light" ? "./assets/logo/logo-siyah.png" : "./assets/logo/logo.png";
+  }
 }
 
 function setLanguage(language) {
@@ -326,7 +331,6 @@ function render() {
     const pageCtx = {
       t,
       icon,
-      state,
       assetPath,
       pageTitle,
       pickerField: boundPickerField,
@@ -336,8 +340,16 @@ function render() {
       detailPanel: boundDetailPanel,
       toolHub: (platform) => toolHub(platform),
       platformLabel,
-      APP_VERSION
+      APP_VERSION,
+      theme: state.theme
     };
+
+    // Sync brand image source based on current theme state
+    const brandImg = document.getElementById("brand-logo-img");
+    if (brandImg) {
+      brandImg.src = state.theme === "light" ? "./assets/logo/logo-siyah.png" : "./assets/logo/logo.png";
+    }
+
     view.innerHTML = routes[state.route]?.(pageCtx) || homePage(pageCtx);
   }
 
