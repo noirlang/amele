@@ -33,6 +33,7 @@ globalThis.document = {
   },
   querySelector: () => mockElement,
   querySelectorAll: () => [],
+  getElementById: () => mockElement,
   addEventListener: (event, callback) => {
     if (event === "click") {
       clickListener = callback;

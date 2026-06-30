@@ -271,7 +271,7 @@ function setTheme(theme) {
   app.classList.toggle("theme-light", theme === "light");
   app.classList.toggle("theme-dark", theme !== "light");
   
-  const brandImg = document.getElementById("brand-logo-img");
+  const brandImg = document.querySelector("#brand-logo-img");
   if (brandImg) {
     brandImg.src = theme === "light" ? "./assets/logo/logo-siyah.png" : "./assets/logo/logo.png";
   }
@@ -346,7 +346,7 @@ function render() {
     };
 
     // Sync brand image source based on current theme state
-    const brandImg = document.getElementById("brand-logo-img");
+    const brandImg = document.querySelector("#brand-logo-img");
     if (brandImg) {
       brandImg.src = state.theme === "light" ? "./assets/logo/logo-siyah.png" : "./assets/logo/logo.png";
     }
