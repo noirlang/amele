@@ -22,8 +22,7 @@ node --test tests/routes.test.js
 
 - `cargo fmt --all -- --check` must pass. Always run `cargo fmt` before committing.
 - CI uses `-D warnings` (converted from `RUSTFLAGS`). Fmt + no warnings required.
-- CI builds: Linux (AppImage/DEB/RPM/Arch via Docker Debian 12) and Windows (MSI via WiX 3.14).
-- Every commit to `main` or `rewrite-rust` produces a prerelease with downloadable packages.
+- Every push to the `dev` branch triggers the CI pipeline. However, **full builds and prereleases** are only run if the commit message contains the `[build]` tag (or via `workflow_dispatch` manual trigger).
 
 ## Architecture
 
@@ -56,8 +55,8 @@ node --test tests/routes.test.js
 ## Repos & remotes
 
 - `upstream` → `noirlang/amele` (main repo)
-- `origin` → `favilances/amele-next` (personal fork)
-- `amele-next` → `amele-next/amele-next` (org fork)
+- `wormnext` → `worm-next/worm-next` (active repo)
+
 
 ## Quirks
 

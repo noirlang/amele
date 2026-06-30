@@ -137,3 +137,18 @@ https://amele.noirlang.tr/amele-win.exe
 ```
 
 Connect to an agent from the app with IP address, port, and optional token.
+
+## CI/CD / Automated Builds
+
+This project uses **GitHub Actions** for automated building and packaging. 
+
+To save runner resources, full builds and prereleases are only triggered when the commit message contains the `[build]` tag:
+
+```bash
+git commit -m "feat: add new feature [build]"
+```
+
+Commits without the `[build]` tag will be pushed to the `dev` branch but will not trigger build workflows.
+
+**Manual Build:** You can also trigger the build workflow manually from the "Actions" tab in GitHub by clicking "Run workflow".
+
