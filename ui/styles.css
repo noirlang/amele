@@ -448,13 +448,13 @@ button {
 .home-hero {
   grid-template-columns: 1fr;
   justify-items: center;
-  min-height: 220px;
+  min-height: 280px;
   padding: 36px 46px;
 }
 
 .home-hero .amele-art {
-  width: min(200px, 100%);
-  min-height: 120px;
+  width: min(340px, 100%);
+  min-height: 150px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -464,7 +464,7 @@ button {
   width: 100%;
   height: auto;
   object-fit: contain;
-  max-height: 120px;
+  max-height: 150px;
 }
 
 .home-hero .hero-actions {
