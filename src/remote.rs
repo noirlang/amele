@@ -1,5 +1,5 @@
 //! Linux/Windows agent protokolüyle uzak disk ve RAM edinim bağlantılarını yönetir.
-use crate::error::{HataKodu, AmeleError, AmeleResult};
+use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::settings::DEFAULT_CHUNK_SIZE;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
@@ -78,10 +78,14 @@ impl RemoteConnection {
             .map_err(|err| AmeleError::io(HataKodu::Baglanti, "Baglanti basarisiz", err))?;
         stream
             .set_read_timeout(Some(HELLO_TIMEOUT))
-            .map_err(|err| AmeleError::io(HataKodu::Baglanti, "Socket timeout ayarlanamadi", err))?;
+            .map_err(|err| {
+                AmeleError::io(HataKodu::Baglanti, "Socket timeout ayarlanamadi", err)
+            })?;
         stream
             .set_write_timeout(Some(HELLO_TIMEOUT))
-            .map_err(|err| AmeleError::io(HataKodu::Baglanti, "Socket timeout ayarlanamadi", err))?;
+            .map_err(|err| {
+                AmeleError::io(HataKodu::Baglanti, "Socket timeout ayarlanamadi", err)
+            })?;
         let writer = stream
             .try_clone()
             .map_err(|err| AmeleError::io(HataKodu::Baglanti, "Socket clone basarisiz", err))?;
@@ -240,7 +244,9 @@ impl RemoteConnection {
         self.reader
             .get_ref()
             .set_read_timeout(None)
-            .map_err(|err| AmeleError::io(HataKodu::Baglanti, "Socket timeout kapatilamadi", err))?;
+            .map_err(|err| {
+                AmeleError::io(HataKodu::Baglanti, "Socket timeout kapatilamadi", err)
+            })?;
 
         let mut transferred = 0_u64;
         let mut buffer = vec![0_u8; DEFAULT_CHUNK_SIZE];
@@ -325,7 +331,9 @@ impl RemoteConnection {
         self.reader
             .get_ref()
             .set_read_timeout(None)
-            .map_err(|err| AmeleError::io(HataKodu::Baglanti, "Socket timeout kapatilamadi", err))?;
+            .map_err(|err| {
+                AmeleError::io(HataKodu::Baglanti, "Socket timeout kapatilamadi", err)
+            })?;
         self.send_json(&request)?;
 
         let mut actual_job_id = job_id.unwrap_or_default().to_string();

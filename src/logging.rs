@@ -1,5 +1,5 @@
 //! Uygulama günlüklerini dosyaya ve bellekteki kısa kuyruğa yazar.
-use crate::error::{HataKodu, AmeleError, AmeleResult};
+use crate::error::{AmeleError, AmeleResult, HataKodu};
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File, OpenOptions};

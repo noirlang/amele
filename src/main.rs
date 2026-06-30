@@ -3,16 +3,6 @@
     all(target_os = "windows", not(debug_assertions)),
     windows_subsystem = "windows"
 )]
-use chrono::Local;
-use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
-use std::time::Duration;
 use amele::android;
 use amele::disk;
 use amele::disk_analysis;
@@ -24,6 +14,16 @@ use amele::remote::RemoteConnection;
 use amele::server;
 use amele::settings::AppSettings;
 use amele::wireguard::{self, WireGuardConfig};
+use chrono::Local;
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
+use std::time::Duration;
 
 /// CLI argümanını okuyup ilgili alt komutu veya UI modunu çalıştırır.
 fn main() {

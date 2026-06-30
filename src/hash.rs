@@ -1,5 +1,5 @@
 //! Dosya hash hesaplama ve yan hash dosyası üretme işlemlerini içerir.
-use crate::error::{HataKodu, AmeleError, AmeleResult};
+use crate::error::{AmeleError, AmeleResult, HataKodu};
 use digest::Digest;
 use md5::Md5;
 use serde::{Deserialize, Serialize};
@@ -91,7 +91,10 @@ impl HashState {
 }
 
 /// Tek algoritma için dosya hashini hesaplar.
-pub fn calculate_file_hash(path: impl AsRef<Path>, algorithm: HashAlgorithm) -> AmeleResult<String> {
+pub fn calculate_file_hash(
+    path: impl AsRef<Path>,
+    algorithm: HashAlgorithm,
+) -> AmeleResult<String> {
     let results = calculate_multiple(path, &[algorithm])?;
     results
         .into_iter()

@@ -1,5 +1,5 @@
 //! Kullanıcı ayarları ve varsayılan uygulama tercihlerini tanımlar.
-use crate::error::{HataKodu, AmeleError, AmeleResult};
+use crate::error::{AmeleError, AmeleResult, HataKodu};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};

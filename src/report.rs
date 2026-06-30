@@ -1,5 +1,5 @@
 //! Vaka ve edinim çıktılarından TXT/JSON rapor dosyaları üretir.
-use crate::error::{HataKodu, AmeleError, AmeleResult};
+use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::evidence::EvidenceVault;
 use chrono::Local;
 use serde::{Deserialize, Serialize};
@@ -131,8 +131,9 @@ pub fn create_report(
                 "sistem": system,
                 "vaka": vault.map(vault_report_json),
             });
-            fs::write(target, serde_json::to_string_pretty(&content)?)
-                .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "JSON rapor yazilamadi", err))?;
+            fs::write(target, serde_json::to_string_pretty(&content)?).map_err(|err| {
+                AmeleError::io(HataKodu::DosyaYazma, "JSON rapor yazilamadi", err)
+            })?;
         }
     }
 

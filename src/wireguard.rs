@@ -1,5 +1,5 @@
 //! WireGuard VPN yapılandırmasını doğrular ve config dosyasına dönüştürür.
-use crate::error::{HataKodu, AmeleError, AmeleResult};
+use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::logging::{LogLevel, runtime_log};
 use serde::{Deserialize, Serialize};
 use std::fs;
