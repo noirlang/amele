@@ -95,6 +95,12 @@ mod linux {
         ) -> c_ulong;
     }
 
+    #[link(name = "glib-2.0")]
+    unsafe extern "C" {
+        fn g_set_prgname(prgname: *const c_char);
+        fn g_set_application_name(application_name: *const c_char);
+    }
+
     /// GTK penceresi ve WebKit view oluşturup UI URL'ini yükler.
     pub fn run(url: &str) -> Result<(), String> {
         ensure_webkit_helper_available()?;
@@ -104,6 +110,11 @@ mod linux {
         let uri = CString::new(url).map_err(|err| err.to_string())?;
 
         unsafe {
+            let prgname = CString::new("amele").map_err(|err| err.to_string())?;
+            let app_name = CString::new("Amele Forensic Tool").map_err(|err| err.to_string())?;
+            g_set_prgname(prgname.as_ptr());
+            g_set_application_name(app_name.as_ptr());
+
             if gtk_init_check(ptr::null_mut(), ptr::null_mut()) == 0 {
                 return Err(crate::diagnostics::startup_error(
                     "GTK ekrana baglanamadi.",

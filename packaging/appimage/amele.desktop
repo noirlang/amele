@@ -6,4 +6,4 @@ Exec=amele-forensic-tool ui
 Icon=amele
 Terminal=false
 Categories=Utility;Security;
-StartupWMClass=Amele Forensic Tool
+StartupWMClass=amele
