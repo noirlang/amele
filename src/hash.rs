@@ -1,5 +1,5 @@
 //! Dosya hash hesaplama ve yan hash dosyası üretme işlemlerini içerir.
-use crate::error::{HataKodu, WormError, WormResult};
+use crate::error::{HataKodu, AmeleError, AmeleResult};
 use digest::Digest;
 use md5::Md5;
 use serde::{Deserialize, Serialize};
@@ -91,29 +91,29 @@ impl HashState {
 }
 
 /// Tek algoritma için dosya hashini hesaplar.
-pub fn calculate_file_hash(path: impl AsRef<Path>, algorithm: HashAlgorithm) -> WormResult<String> {
+pub fn calculate_file_hash(path: impl AsRef<Path>, algorithm: HashAlgorithm) -> AmeleResult<String> {
     let results = calculate_multiple(path, &[algorithm])?;
     results
         .into_iter()
         .next()
         .map(|result| result.value)
-        .ok_or_else(|| WormError::new(HataKodu::Genel, "Hash sonucu uretilemedi"))
+        .ok_or_else(|| AmeleError::new(HataKodu::Genel, "Hash sonucu uretilemedi"))
 }
 
 /// Dosyayı bir kez okuyarak birden fazla hash algoritmasını aynı anda hesaplar.
 pub fn calculate_multiple(
     path: impl AsRef<Path>,
     algorithms: &[HashAlgorithm],
-) -> WormResult<Vec<HashResult>> {
+) -> AmeleResult<Vec<HashResult>> {
     if algorithms.is_empty() {
-        return Err(WormError::new(
+        return Err(AmeleError::new(
             HataKodu::Genel,
             "En az bir hash algoritmasi gerekli",
         ));
     }
 
     let mut file = File::open(path.as_ref())
-        .map_err(|err| WormError::io(HataKodu::DosyaAcilamadi, "Hash dosyasi acilamadi", err))?;
+        .map_err(|err| AmeleError::io(HataKodu::DosyaAcilamadi, "Hash dosyasi acilamadi", err))?;
     let mut states: Vec<(HashAlgorithm, HashState)> = algorithms
         .iter()
         .copied()
@@ -124,7 +124,7 @@ pub fn calculate_multiple(
     loop {
         let read = file
             .read(&mut buffer)
-            .map_err(|err| WormError::io(HataKodu::DosyaOkuma, "Hash dosyasi okunamadi", err))?;
+            .map_err(|err| AmeleError::io(HataKodu::DosyaOkuma, "Hash dosyasi okunamadi", err))?;
         if read == 0 {
             break;
         }
@@ -148,7 +148,7 @@ pub fn compare_hash(left: &str, right: &str) -> bool {
 }
 
 /// Hedef dosyanın yanına SHA-256 sidecar dosyası yazar.
-pub(crate) fn write_sha256_sidecar(target: &Path, hash: &str) -> WormResult<()> {
+pub(crate) fn write_sha256_sidecar(target: &Path, hash: &str) -> AmeleResult<()> {
     let sidecar = target.with_extension(format!(
         "{}sha256",
         target
@@ -158,13 +158,13 @@ pub(crate) fn write_sha256_sidecar(target: &Path, hash: &str) -> WormResult<()> 
             .unwrap_or_default()
     ));
     let mut file = File::create(&sidecar)
-        .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Hash dosyasi olusturulamadi", err))?;
+        .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "Hash dosyasi olusturulamadi", err))?;
     let name = target
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or_default();
     writeln!(file, "{hash}  {name}")
-        .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Hash dosyasi yazilamadi", err))
+        .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "Hash dosyasi yazilamadi", err))
 }
 
 /// Byte dizisini küçük harf hex stringe çevirir.

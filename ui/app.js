@@ -27,9 +27,9 @@ if (isNativeLinux) document.documentElement.classList.add("native-linux");
 
 const app = document.querySelector("#app");
 const view = document.querySelector("#view");
-const preferredLanguage = localStorage.getItem("worm-language") || "tr";
+const preferredLanguage = localStorage.getItem("amele-language") || "tr";
 const requestedTheme = urlParams.get("theme");
-const preferredTheme = ["dark", "light"].includes(requestedTheme || "") ? requestedTheme : localStorage.getItem("worm-theme") || "dark";
+const preferredTheme = ["dark", "light"].includes(requestedTheme || "") ? requestedTheme : localStorage.getItem("amele-theme") || "dark";
 
 function initialLogMessages(language) {
   return [translate(language, backendAvailable ? "log.appReady" : "log.previewMode")];
@@ -180,7 +180,7 @@ const workflows = {
     title: L("Uzak Windows Sunucu Bağlantısı", "Remote Windows Server Connection"),
     desc: L("Bağlanın, disk seçin, imaj alın.", "Connect, select a disk, acquire an image."),
     mode: "remote-disk",
-    output: "/home/raodrin/Worm/Ciktilar",
+    output: "/home/raodrin/Amele/Ciktilar",
     diskLabel: L("Disk seçilmedi", "No disk selected")
   },
   "linux-remote-disk": {
@@ -189,7 +189,7 @@ const workflows = {
     title: L("Uzak Linux Disk Bağlantısı", "Remote Linux Disk Connection"),
     desc: L("Bağlanın, /dev disk seçin, imaj alın.", "Connect, select a /dev disk, acquire an image."),
     mode: "remote-disk",
-    output: "/home/raodrin/Worm/Ciktilar",
+    output: "/home/raodrin/Amele/Ciktilar",
     diskLabel: L("Disk seçilmedi", "No disk selected")
   },
   "windows-local-disk": {
@@ -198,7 +198,7 @@ const workflows = {
     title: L("Windows Yerel Disk İmajı", "Windows Local Disk Image"),
     desc: L("PhysicalDrive seçin ve imaj alın.", "Select a PhysicalDrive and acquire an image."),
     mode: "local-disk",
-    output: "C:\\Worm\\Ciktilar",
+    output: "C:\\Amele\\Ciktilar",
     diskLabel: L("Disk seçilmedi", "No disk selected")
   },
   "linux-local-disk": {
@@ -207,7 +207,7 @@ const workflows = {
     title: L("Linux Yerel Disk İmajı", "Linux Local Disk Image"),
     desc: L("Blok cihaz seçin ve imaj alın.", "Select a block device and acquire an image."),
     mode: "local-disk",
-    output: "/home/raodrin/Worm/Ciktilar",
+    output: "/home/raodrin/Amele/Ciktilar",
     diskLabel: L("Disk seçilmedi", "No disk selected")
   },
   "windows-remote-ram": {
@@ -267,14 +267,14 @@ function isLocalWorkflowBlocked(workflow) {
 
 function setTheme(theme) {
   state.theme = theme;
-  localStorage.setItem("worm-theme", theme);
+  localStorage.setItem("amele-theme", theme);
   app.classList.toggle("theme-light", theme === "light");
   app.classList.toggle("theme-dark", theme !== "light");
 }
 
 function setLanguage(language) {
   state.language = language;
-  localStorage.setItem("worm-language", language);
+  localStorage.setItem("amele-language", language);
   document.documentElement.lang = language;
   document.querySelectorAll("[data-i18n]").forEach((node) => {
     node.textContent = t(node.dataset.i18n);
@@ -496,7 +496,7 @@ async function loadEvidenceCases({ silent = true } = {}) {
 
 function updateCaseControls() {
   document.querySelectorAll("[data-case-base]").forEach((node) => {
-    node.textContent = state.caseBaseDir || "~/Worm/Vakalar";
+    node.textContent = state.caseBaseDir || "~/Amele/Vakalar";
   });
 
   const selected = state.pendingCaseName || state.activeCase?.case_name || "";
@@ -559,7 +559,7 @@ function caseOutputLabel(caseName, subdir = "ciktilar") {
   };
   const folder = folderBySubdir[subdir] || "ciktilar";
   if (state.caseBaseDir) return `${state.caseBaseDir}/${caseName || "vaka"}/${folder}`;
-  return `~/Worm/Vakalar/${caseName || "vaka"}/${folder}`;
+  return `~/Amele/Vakalar/${caseName || "vaka"}/${folder}`;
 }
 
 function reportCaseName() {
@@ -2907,4 +2907,4 @@ render();
 
 // Developer mode — 5 kez logoya tıklayınca aktifleşir
 initDeveloperMode({ apiRequest, backendReady });
-devLog("INFO", "ui:startup", `Worm ${APP_VERSION} başlatıldı — platform: ${state.platform}, dil: ${state.language}, tema: ${state.theme}, backend: ${backendAvailable}`, apiRequest, backendReady);
+devLog("INFO", "ui:startup", `Amele ${APP_VERSION} başlatıldı — platform: ${state.platform}, dil: ${state.language}, tema: ${state.theme}, backend: ${backendAvailable}`, apiRequest, backendReady);

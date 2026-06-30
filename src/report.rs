@@ -1,5 +1,5 @@
 //! Vaka ve edinim çıktılarından TXT/JSON rapor dosyaları üretir.
-use crate::error::{HataKodu, WormError, WormResult};
+use crate::error::{HataKodu, AmeleError, AmeleResult};
 use crate::evidence::EvidenceVault;
 use chrono::Local;
 use serde::{Deserialize, Serialize};
@@ -49,10 +49,10 @@ pub fn new_report_file_name(case_name: &str, format: ReportFormat) -> String {
 }
 
 /// Tek dosya için ad, boyut ve değiştirme zamanı özeti üretir.
-pub fn file_summary(path: impl AsRef<Path>) -> WormResult<String> {
+pub fn file_summary(path: impl AsRef<Path>) -> AmeleResult<String> {
     let path = path.as_ref();
     let metadata = fs::metadata(path)
-        .map_err(|err| WormError::io(HataKodu::DosyaAcilamadi, "Dosya bulunamadi", err))?;
+        .map_err(|err| AmeleError::io(HataKodu::DosyaAcilamadi, "Dosya bulunamadi", err))?;
     let name = path
         .file_name()
         .and_then(|name| name.to_str())
@@ -72,11 +72,11 @@ pub fn file_summary(path: impl AsRef<Path>) -> WormResult<String> {
 }
 
 /// Var olan TXT raporun sonuna sistem bilgisini ekler.
-pub fn append_system_info(path: impl AsRef<Path>) -> WormResult<()> {
+pub fn append_system_info(path: impl AsRef<Path>) -> AmeleResult<()> {
     let mut file = OpenOptions::new()
         .append(true)
         .open(path.as_ref())
-        .map_err(|err| WormError::io(HataKodu::DosyaAcilamadi, "Rapor dosyasi acilamadi", err))?;
+        .map_err(|err| AmeleError::io(HataKodu::DosyaAcilamadi, "Rapor dosyasi acilamadi", err))?;
     let info = system_info();
     writeln!(file, "\n========================================")
         .and_then(|_| writeln!(file, "SISTEM BILGISI"))
@@ -94,7 +94,7 @@ pub fn append_system_info(path: impl AsRef<Path>) -> WormResult<()> {
                 Local::now().format("%Y-%m-%d %H:%M:%S")
             )
         })
-        .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Sistem bilgisi yazilamadi", err))
+        .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "Sistem bilgisi yazilamadi", err))
 }
 
 /// TXT veya JSON raporu hedef dosyaya oluşturur.
@@ -103,18 +103,18 @@ pub fn create_report(
     format: ReportFormat,
     target: impl AsRef<Path>,
     vault: Option<&EvidenceVault>,
-) -> WormResult<PathBuf> {
+) -> AmeleResult<PathBuf> {
     let target = target.as_ref();
     if let Some(parent) = target.parent() {
         fs::create_dir_all(parent).map_err(|err| {
-            WormError::io(HataKodu::DosyaYazma, "Rapor klasoru olusturulamadi", err)
+            AmeleError::io(HataKodu::DosyaYazma, "Rapor klasoru olusturulamadi", err)
         })?;
     }
 
     match format {
         ReportFormat::Txt => {
             fs::write(target, render_txt(info, vault))
-                .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Rapor yazilamadi", err))?;
+                .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "Rapor yazilamadi", err))?;
             append_system_info(target)?;
         }
         ReportFormat::Json => {
@@ -132,7 +132,7 @@ pub fn create_report(
                 "vaka": vault.map(vault_report_json),
             });
             fs::write(target, serde_json::to_string_pretty(&content)?)
-                .map_err(|err| WormError::io(HataKodu::DosyaYazma, "JSON rapor yazilamadi", err))?;
+                .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "JSON rapor yazilamadi", err))?;
         }
     }
 

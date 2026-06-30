@@ -1,4 +1,4 @@
-# Worm UI Prototype
+# Amele UI Prototype
 
 This is a dependency-free frontend shell. It mirrors the original Qt page coverage while following the modern dark forensic visual direction from the supplied screenshots.
 

@@ -221,7 +221,7 @@ pub fn report_create_endpoint(body: &[u8]) -> Response {
         .source
         .as_deref()
         .map(str::trim)
-        .unwrap_or("Worm Forensic Tool");
+        .unwrap_or("Amele Forensic Tool");
     let hash_sha256 = request
         .hash_sha256
         .as_deref()
@@ -232,7 +232,7 @@ pub fn report_create_endpoint(body: &[u8]) -> Response {
         description: description.to_string(),
         creator: std::env::var("USER")
             .or_else(|_| std::env::var("USERNAME"))
-            .unwrap_or_else(|_| "worm".to_string()),
+            .unwrap_or_else(|_| "amele".to_string()),
         source: source.to_string(),
         hash_sha256: hash_sha256.to_string(),
         date: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),

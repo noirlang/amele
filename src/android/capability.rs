@@ -166,10 +166,10 @@ pub fn write_android_capability_report(
 fn adb_echo_ok(serial: &str) -> bool {
     run_adb_command_timeout(
         serial,
-        &["shell", "echo worm_adb_ok"],
+        &["shell", "echo amele_adb_ok"],
         Duration::from_secs(5),
     )
-    .map(|output| output.contains("worm_adb_ok"))
+    .map(|output| output.contains("amele_adb_ok"))
     .unwrap_or(false)
 }
 

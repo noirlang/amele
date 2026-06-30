@@ -164,12 +164,12 @@ where
             // Fiziksel bellek kapalıysa proses odaklı mantıksal döküme geçilir.
             let script_path = output_dir.join("memdump.sh");
             let script_content = r#"#!/system/bin/sh
-# WORM Forensic Suite - Logical RAM & Volatile Memory Dumper
-OUT_DIR="/data/local/tmp/worm_ram_dumps"
+# AMELE Forensic Suite - Logical RAM & Volatile Memory Dumper
+OUT_DIR="/data/local/tmp/amele_ram_dumps"
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
-echo "[WORM] Uçucu bellek analizi başlatıldı..."
+echo "[AMELE] Uçucu bellek analizi başlatıldı..."
 
 # List of interesting process names or package patterns
 ps -A -o PID,NAME | while read -r pid name; do
@@ -186,7 +186,7 @@ ps -A -o PID,NAME | while read -r pid name; do
     
     [ $is_interesting -eq 0 ] && continue
     
-    echo "[WORM_PROGRESS] Dumping: $name ($pid)"
+    echo "[AMELE_PROGRESS] Dumping: $name ($pid)"
     PID_DIR="$OUT_DIR/$pid"
     mkdir -p "$PID_DIR"
     echo "$name" > "$PID_DIR/name.txt"
@@ -213,11 +213,11 @@ ps -A -o PID,NAME | while read -r pid name; do
   fi
 done
 
-echo "[WORM] Uçucu bellekler paketleniyor..."
+echo "[AMELE] Uçucu bellekler paketleniyor..."
 cd /data/local/tmp
-tar -cf worm_ram_dumps.tar worm_ram_dumps
-rm -rf worm_ram_dumps
-echo "[WORM] DONE"
+tar -cf amele_ram_dumps.tar amele_ram_dumps
+rm -rf amele_ram_dumps
+echo "[AMELE] DONE"
 "#;
 
             std::fs::write(&script_path, script_content)
@@ -282,8 +282,8 @@ echo "[WORM] DONE"
                     return Err("Kullanici tarafindan iptal edildi".to_string());
                 }
                 if let Ok(l) = line {
-                    if l.starts_with("[WORM_PROGRESS]") {
-                        let proc_info = l.trim_start_matches("[WORM_PROGRESS] ").trim();
+                    if l.starts_with("[AMELE_PROGRESS]") {
+                        let proc_info = l.trim_start_matches("[AMELE_PROGRESS] ").trim();
                         progress(1, 3, &format!("RAM imajı aktarılıyor: {}", proc_info));
                     }
                 }
@@ -305,7 +305,7 @@ echo "[WORM] DONE"
                     "-s",
                     serial,
                     "pull",
-                    "/data/local/tmp/worm_ram_dumps.tar",
+                    "/data/local/tmp/amele_ram_dumps.tar",
                     output_path.to_str().unwrap(),
                 ])
                 .output()
@@ -320,9 +320,9 @@ echo "[WORM] DONE"
 
             // Cihazdaki geçici betik ve arşiv temizlenir.
             let rm_cmd = if use_su {
-                "su -c 'rm -f /data/local/tmp/memdump.sh /data/local/tmp/worm_ram_dumps.tar'"
+                "su -c 'rm -f /data/local/tmp/memdump.sh /data/local/tmp/amele_ram_dumps.tar'"
             } else {
-                "rm -f /data/local/tmp/memdump.sh /data/local/tmp/worm_ram_dumps.tar"
+                "rm -f /data/local/tmp/memdump.sh /data/local/tmp/amele_ram_dumps.tar"
             };
             let _ = Command::new("adb")
                 .args(["-s", serial, "shell", rm_cmd])

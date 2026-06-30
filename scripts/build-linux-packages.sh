@@ -59,13 +59,13 @@ Section: utils
 Priority: optional
 Architecture: amd64
 Maintainer: favilances <favilances@proton.me>
-Homepage: https://worm.noirlang.tr
+Homepage: https://amele.noirlang.tr
 Depends: libc6 (>= 2.35), libgtk-3-0, libwebkit2gtk-4.1-0, python3, curl, util-linux
 Description: Desktop forensic acquisition tool
- Worm Forensic Tool collects disk, RAM, and Android evidence for authorized forensic workflows.
+ Amele Forensic Tool collects disk, RAM, and Android evidence for authorized forensic workflows.
 EOF
 
-  dpkg-deb --root-owner-group --build "$root" "$DIST_DIR/worm-linux-x64.deb"
+  dpkg-deb --root-owner-group --build "$root" "$DIST_DIR/amele-linux-x64.deb"
 }
 
 build_rpm() {
@@ -82,7 +82,7 @@ Version: %{_worm_version}
 Release: 1%{?dist}
 Summary: Desktop forensic acquisition tool
 License: GPL-3.0-or-later
-URL: https://worm.noirlang.tr
+URL: https://amele.noirlang.tr
 BuildArch: x86_64
 Requires: gtk3
 Requires: webkit2gtk4.1
@@ -91,7 +91,7 @@ Requires: curl
 Requires: util-linux
 
 %description
-Worm Forensic Tool collects disk, RAM, and Android evidence for authorized forensic workflows.
+Amele Forensic Tool collects disk, RAM, and Android evidence for authorized forensic workflows.
 
 %prep
 
@@ -120,7 +120,7 @@ EOF
     echo "RPM output was not produced" >&2
     exit 1
   fi
-  cp "$built" "$DIST_DIR/worm-linux-x64.rpm"
+  cp "$built" "$DIST_DIR/amele-linux-x64.rpm"
 }
 
 build_arch() {
@@ -140,7 +140,7 @@ pkgname = $PACKAGE_NAME
 pkgbase = $PACKAGE_NAME
 pkgver = $VERSION-1
 pkgdesc = Desktop forensic acquisition tool
-url = https://worm.noirlang.tr
+url = https://amele.noirlang.tr
 builddate = $(date -u +%s)
 packager = favilances <favilances@proton.me>
 size = $installed_size
@@ -156,7 +156,7 @@ EOF
   (
     cd "$root"
     bsdtar --format=gnutar --uid 0 --gid 0 --uname root --gname root -cf - .PKGINFO usr \
-      | zstd -f -19 -T0 -o "$DIST_DIR/worm-linux-x64.pkg.tar.zst"
+      | zstd -f -19 -T0 -o "$DIST_DIR/amele-linux-x64.pkg.tar.zst"
   )
 }
 
@@ -164,11 +164,11 @@ write_hashes() {
   (
     cd "$DIST_DIR"
     sha256sum \
-      worm-linux-x64.AppImage \
-      worm-linux-x64.deb \
-      worm-linux-x64.rpm \
-      worm-linux-x64.pkg.tar.zst \
-      >worm-linux-packages.sha256
+      amele-linux-x64.AppImage \
+      amele-linux-x64.deb \
+      amele-linux-x64.rpm \
+      amele-linux-x64.pkg.tar.zst \
+      >amele-linux-packages.sha256
   )
 }
 

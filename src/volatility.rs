@@ -43,7 +43,7 @@ pub struct VolatilityPreflight {
 pub fn locate_vol_py() -> Option<PathBuf> {
     let mut paths = Vec::new();
 
-    if let Ok(value) = env::var("WORM_VOLATILITY3_PATH") {
+    if let Ok(value) = env::var("AMELE_VOLATILITY3_PATH") {
         push_volatility_candidate(&mut paths, PathBuf::from(value));
     }
     if let Ok(value) = env::var("VOLATILITY3_PATH") {
@@ -64,7 +64,7 @@ pub fn locate_vol_py() -> Option<PathBuf> {
     {
         push_volatility_candidate(&mut paths, dir.join("volatility3"));
         push_volatility_candidate(&mut paths, dir.join("vendor/volatility3"));
-        push_volatility_candidate(&mut paths, dir.join("../share/worm/vendor/volatility3"));
+        push_volatility_candidate(&mut paths, dir.join("../share/amele/vendor/volatility3"));
         push_volatility_candidate(&mut paths, dir.join("../volatility3"));
         push_volatility_candidate(&mut paths, dir.join("../vendor/volatility3"));
         push_volatility_candidate(&mut paths, dir.join("../../volatility3"));
@@ -89,26 +89,26 @@ pub fn locate_vol_py() -> Option<PathBuf> {
 /// Paketlenen yardımcı Python worker dosyasının yolunu bulur.
 pub fn locate_worker_py() -> Option<PathBuf> {
     let mut paths = Vec::new();
-    if let Ok(value) = env::var("WORM_VOLATILITY_WORKER_PATH") {
+    if let Ok(value) = env::var("AMELE_VOLATILITY_WORKER_PATH") {
         paths.push(PathBuf::from(value));
     }
 
     if let Ok(cwd) = env::current_dir() {
-        paths.push(cwd.join("tools/worm_volatility_worker.py"));
-        paths.push(cwd.join("../tools/worm_volatility_worker.py"));
-        paths.push(cwd.join("../../tools/worm_volatility_worker.py"));
+        paths.push(cwd.join("tools/amele_volatility_worker.py"));
+        paths.push(cwd.join("../tools/amele_volatility_worker.py"));
+        paths.push(cwd.join("../../tools/amele_volatility_worker.py"));
     }
 
     if let Ok(exe) = env::current_exe()
         && let Some(dir) = exe.parent()
     {
-        paths.push(dir.join("tools/worm_volatility_worker.py"));
-        paths.push(dir.join("../tools/worm_volatility_worker.py"));
-        paths.push(dir.join("../share/worm/tools/worm_volatility_worker.py"));
-        paths.push(dir.join("../../tools/worm_volatility_worker.py"));
+        paths.push(dir.join("tools/amele_volatility_worker.py"));
+        paths.push(dir.join("../tools/amele_volatility_worker.py"));
+        paths.push(dir.join("../share/amele/tools/amele_volatility_worker.py"));
+        paths.push(dir.join("../../tools/amele_volatility_worker.py"));
     }
 
-    paths.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tools/worm_volatility_worker.py"));
+    paths.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tools/amele_volatility_worker.py"));
 
     paths
         .into_iter()
@@ -160,7 +160,7 @@ pub fn run_volatility_plugin_logged_with_symbol_dir(
 
     let Some(vol_py) = locate_vol_py() else {
         return Err(
-            "Volatility3 vol.py bulunamadı. WORM_VOLATILITY3_PATH ile vol.py/volatility3 klasörünü veya WORM_VOLATILITY_WORKER_PATH ile worker yolunu belirtin."
+            "Volatility3 vol.py bulunamadı. AMELE_VOLATILITY3_PATH ile vol.py/volatility3 klasörünü veya AMELE_VOLATILITY_WORKER_PATH ile worker yolunu belirtin."
                 .to_string(),
         );
     };
@@ -353,8 +353,8 @@ fn configured_symbol_dirs(symbol_dir: Option<&Path>) -> Vec<PathBuf> {
     }
 
     for key in [
-        "WORM_VOLATILITY3_SYMBOL_DIRS",
-        "WORM_VOLATILITY3_SYMBOL_DIR",
+        "AMELE_VOLATILITY3_SYMBOL_DIRS",
+        "AMELE_VOLATILITY3_SYMBOL_DIR",
     ] {
         if let Ok(value) = env::var(key) {
             for item in value
@@ -393,7 +393,7 @@ fn volatility_cache_path() -> Option<PathBuf> {
     roots.push(env::temp_dir());
 
     roots.into_iter().find_map(|root| {
-        let path = root.join("worm").join("volatility3");
+        let path = root.join("amele").join("volatility3");
         runtime_log(
             LogLevel::Debug,
             "volatility",
@@ -476,7 +476,7 @@ fn format_volatility_error(plugin: &str, stdout: &str, stderr: &str) -> String {
 
     let lower = format!("{stdout}\n{stderr}").to_ascii_lowercase();
     if lower.contains("invalid choice") {
-        message.push_str("\n\nSeçilen Volatility3 kurulumunda bu plugin bulunmuyor. volatility3 klasörünü güncelleyin veya WORM_VOLATILITY3_PATH ile doğru vol.py yolunu verin.");
+        message.push_str("\n\nSeçilen Volatility3 kurulumunda bu plugin bulunmuyor. volatility3 klasörünü güncelleyin veya AMELE_VOLATILITY3_PATH ile doğru vol.py yolunu verin.");
     }
     if lower.contains("unsatisfied requirement")
         || lower.contains("layer_name")
@@ -654,7 +654,7 @@ pub fn preflight_ram_image(
     if vol_py.is_none() {
         warnings.push("Volatility3 vol.py bulunamadı.".to_string());
         recommendations.push(
-            "WORM_VOLATILITY3_PATH ile vol.py veya volatility3 klasörünü tanımlayın.".to_string(),
+            "AMELE_VOLATILITY3_PATH ile vol.py veya volatility3 klasörünü tanımlayın.".to_string(),
         );
         runtime_log(
             LogLevel::Warn,

@@ -96,12 +96,12 @@ function _openStandaloneWindow(apiRequest, backendReady) {
         window.location.href = url;
       });
     } else {
-      const win = window.open(url, "WormDevConsole", "width=950,height=650,menubar=no,status=no,toolbar=no,location=no,personalbar=no");
+      const win = window.open(url, "AmeleDevConsole", "width=950,height=650,menubar=no,status=no,toolbar=no,location=no,personalbar=no");
       if (win) win.focus();
     }
   } else {
     const url = window.location.origin + window.location.pathname + "?route=devlogs";
-    const win = window.open(url, "WormDevConsole", "width=950,height=650,menubar=no,status=no,toolbar=no,location=no,personalbar=no");
+    const win = window.open(url, "AmeleDevConsole", "width=950,height=650,menubar=no,status=no,toolbar=no,location=no,personalbar=no");
     if (win) {
       win.focus();
     }
@@ -138,7 +138,7 @@ function _buildPanelHtml() {
       <div class="dev-header" id="dev-header">
         <div class="dev-title-row">
           <span class="dev-badge">🔬 DEV</span>
-          <span class="dev-title">Worm Developer Console</span>
+          <span class="dev-title">Amele Developer Console</span>
           <span class="dev-subtitle" id="dev-log-count">— loglar yükleniyor</span>
         </div>
         <div class="dev-header-actions">
@@ -839,7 +839,7 @@ function _exportLogs() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `worm-dev-log-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}.txt`;
+  a.download = `amele-dev-log-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}.txt`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }

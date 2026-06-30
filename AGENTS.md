@@ -1,4 +1,4 @@
-# worm-next
+# amele-next
 
 Rust 2024 edition native desktop app (wry+WebKit/WebView2). Single binary, no workspace.
 
@@ -55,9 +55,9 @@ node --test tests/routes.test.js
 
 ## Repos & remotes
 
-- `upstream` → `noirlang/worm` (main repo)
-- `origin` → `favilances/worm-next` (personal fork)
-- `wormnext` → `worm-next/worm-next` (org fork)
+- `upstream` → `noirlang/amele` (main repo)
+- `origin` → `favilances/amele-next` (personal fork)
+- `amele-next` → `amele-next/amele-next` (org fork)
 
 ## Quirks
 

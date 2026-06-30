@@ -84,7 +84,7 @@ function formatBackendConnectionError(path, error, backendAvailable) {
     `Kod: ${advice.code}`,
     `Neden: ${advice.detail}`,
     backendAvailable
-      ? "Çözüm: Uygulama backend süreci kapanmış olabilir; Worm'u yeniden başlatın."
+      ? "Çözüm: Uygulama backend süreci kapanmış olabilir; Amele'u yeniden başlatın."
       : "Çözüm: Bu işlem sadece masaüstü uygulama modunda çalışır."
   ].join("\n");
 }

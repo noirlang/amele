@@ -99,7 +99,7 @@ mod linux {
     pub fn run(url: &str) -> Result<(), String> {
         ensure_webkit_helper_available()?;
 
-        let title = CString::new("Worm Forensic Tool").map_err(|err| err.to_string())?;
+        let title = CString::new("Amele Forensic Tool").map_err(|err| err.to_string())?;
         let destroy = CString::new("destroy").map_err(|err| err.to_string())?;
         let uri = CString::new(url).map_err(|err| err.to_string())?;
 
@@ -160,7 +160,7 @@ mod linux {
 
     /// WebKitNetworkProcess binary'si bulunabiliyor mu diye başlangıç kontrolü yapar.
     fn ensure_webkit_helper_available() -> Result<(), String> {
-        if std::env::var_os("WORM_SKIP_WEBKIT_HELPER_CHECK").is_some() {
+        if std::env::var_os("AMELE_SKIP_WEBKIT_HELPER_CHECK").is_some() {
             return Ok(());
         }
 
@@ -249,7 +249,7 @@ mod linux {
 
     /// Native pencere ikon yolunu ortam değişkeni veya geliştirme assetinden bulur.
     fn app_icon_path() -> Option<std::path::PathBuf> {
-        if let Some(path) = std::env::var_os("WORM_APP_ICON") {
+        if let Some(path) = std::env::var_os("AMELE_APP_ICON") {
             let path = std::path::PathBuf::from(path);
             if path.exists() {
                 return Some(path);
@@ -276,7 +276,7 @@ mod windows {
     /// WebView2 kullanıcı veri klasörü yoksa geçici klasörde hazırlar.
     pub fn prepare_environment() -> Result<(), String> {
         if std::env::var_os("WEBVIEW2_USER_DATA_FOLDER").is_none() {
-            let dir = std::env::temp_dir().join("worm-webview2");
+            let dir = std::env::temp_dir().join("amele-webview2");
             std::fs::create_dir_all(&dir).map_err(|err| {
                 crate::diagnostics::startup_error(
                     "WebView2 kullanici veri klasoru hazirlanamadi.",
@@ -326,7 +326,7 @@ mod windows {
             }
 
             let attributes = Window::default_attributes()
-                .with_title("Worm Forensic Tool")
+                .with_title("Amele Forensic Tool")
                 .with_inner_size(LogicalSize::new(1280.0, 820.0));
             let window = match event_loop.create_window(attributes) {
                 Ok(window) => window,
@@ -376,7 +376,7 @@ mod windows {
     /// WebView2 hatasını runtime kontrolüyle birlikte açıklayıcı mesaja çevirir.
     fn webview2_error_message(err: &str) -> String {
         let mut message = format!(
-            "WebView2 view could not be created: {err}\nInstall Microsoft Edge WebView2 Evergreen Runtime and start Worm again."
+            "WebView2 view could not be created: {err}\nInstall Microsoft Edge WebView2 Evergreen Runtime and start Amele again."
         );
         let candidates = webview2_candidates();
         if !candidates.iter().any(|path| path.exists()) {

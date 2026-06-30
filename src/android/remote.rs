@@ -2,7 +2,7 @@
 //!
 //! Bu modül doğrudan MESH kodu içermez (AGPL lisans nedeniyle).
 //! Bunun yerine MESH'i harici bir remote ADB transport noktası olarak kullanır:
-//! kullanıcı MESH endpoint'ini belirtir, Worm standart `adb connect ip:port` ile bağlanır.
+//! kullanıcı MESH endpoint'ini belirtir, Amele standart `adb connect ip:port` ile bağlanır.
 
 use super::adb::run_adb_command_timeout;
 use serde::{Deserialize, Serialize};

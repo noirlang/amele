@@ -17,7 +17,7 @@ pub fn classify_error(message: &str) -> ErrorAdvice {
         return ErrorAdvice {
             code: "WEBVIEW2_RUNTIME",
             detail: "Windows native pencere WebView2 runtime olmadan acilamaz.",
-            suggestion: "Microsoft Edge WebView2 Evergreen Runtime kurun, sonra Worm'u tekrar baslatin.",
+            suggestion: "Microsoft Edge WebView2 Evergreen Runtime kurun, sonra Amele'u tekrar baslatin.",
         };
     }
 
@@ -25,7 +25,7 @@ pub fn classify_error(message: &str) -> ErrorAdvice {
         return ErrorAdvice {
             code: "WINDOWS_RUNTIME_DLL",
             detail: "Windows Visual C++ runtime DLL dosyasi sistemde bulunamadi.",
-            suggestion: "Guncel Worm paketini kullanin. Eski paketlerde Microsoft Visual C++ Redistributable kurulumu gerekebilir.",
+            suggestion: "Guncel Amele paketini kullanin. Eski paketlerde Microsoft Visual C++ Redistributable kurulumu gerekebilir.",
         };
     }
 
@@ -41,7 +41,7 @@ pub fn classify_error(message: &str) -> ErrorAdvice {
         return ErrorAdvice {
             code: "LINUX_RUNTIME_INCOMPATIBLE",
             detail: "Linux paketi sistemdeki glibc/runtime surumuyle uyumlu degil.",
-            suggestion: "Daha eski glibc ile derlenmis Worm paketini, .deb/.rpm paketini veya desteklenen dagitim surumunu kullanin.",
+            suggestion: "Daha eski glibc ile derlenmis Amele paketini, .deb/.rpm paketini veya desteklenen dagitim surumunu kullanin.",
         };
     }
 
@@ -78,7 +78,7 @@ pub fn classify_error(message: &str) -> ErrorAdvice {
         return ErrorAdvice {
             code: "ELEVATION_FAILED",
             detail: "Islem root/administrator yetkisi gerektiriyor ancak yetki onayi tamamlanamadi.",
-            suggestion: "Linux'ta sudo/pkexec parola penceresini onaylayin; pencere acilmiyorsa polkit agent veya zenity/kdialog/ssh-askpass kurun. Windows'ta UAC penceresini onaylayin veya Worm'u yonetici olarak baslatin.",
+            suggestion: "Linux'ta sudo/pkexec parola penceresini onaylayin; pencere acilmiyorsa polkit agent veya zenity/kdialog/ssh-askpass kurun. Windows'ta UAC penceresini onaylayin veya Amele'u yonetici olarak baslatin.",
         };
     }
 
@@ -171,7 +171,7 @@ pub fn classify_error(message: &str) -> ErrorAdvice {
         return ErrorAdvice {
             code: "ACQUISITION_TOOL_MISSING",
             detail: "Gerekli edinim araci bulunamadi veya calistirilamadi.",
-            suggestion: "Arac kontrolunu tekrar calistirin ve indir/kur butonuyla AVML veya WinPMEM'i Worm'un bekledigi konuma kurun.",
+            suggestion: "Arac kontrolunu tekrar calistirin ve indir/kur butonuyla AVML veya WinPMEM'i Amele'un bekledigi konuma kurun.",
         };
     }
 
@@ -201,7 +201,7 @@ pub fn classify_error(message: &str) -> ErrorAdvice {
         return ErrorAdvice {
             code: "LOCAL_PORT_BUSY",
             detail: "Yerel UI backend portu acilamadi.",
-            suggestion: "Arka planda kalmis Worm sureclerini kapatin ve uygulamayi tekrar baslatin.",
+            suggestion: "Arka planda kalmis Amele sureclerini kapatin ve uygulamayi tekrar baslatin.",
         };
     }
 

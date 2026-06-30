@@ -5,9 +5,9 @@ export function agentPage({ t, icon, state, pageTitle }) {
       <div class="doc-grid">
         ${agentDoc({
           title: "Windows Agent",
-          repo: "https://github.com/noirlang/worm-win",
-          binary: "worm-win.exe",
-          url: "https://worm.noirlang.tr/worm-win.exe",
+          repo: "https://github.com/noirlang/amele-win",
+          binary: "amele-win.exe",
+          url: "https://amele.noirlang.tr/amele-win.exe",
           note: t("agent.windowsNote"),
           iconName: "windows",
           stepsTr: [
@@ -23,9 +23,9 @@ export function agentPage({ t, icon, state, pageTitle }) {
         }, state, icon)}
         ${agentDoc({
           title: "Linux Agent",
-          repo: "https://github.com/noirlang/worm-linux",
-          binary: "worm-linux",
-          url: "https://worm.noirlang.tr/worm-linux",
+          repo: "https://github.com/noirlang/amele-linux",
+          binary: "amele-linux",
+          url: "https://amele.noirlang.tr/amele-linux",
           note: t("agent.linuxNote"),
           iconName: "linux",
           stepsTr: [

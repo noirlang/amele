@@ -1,5 +1,5 @@
 //! WireGuard VPN yapılandırmasını doğrular ve config dosyasına dönüştürür.
-use crate::error::{HataKodu, WormError, WormResult};
+use crate::error::{HataKodu, AmeleError, AmeleResult};
 use crate::logging::{LogLevel, runtime_log};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -32,7 +32,7 @@ impl WireGuardManager {
     }
 
     /// wg-quick up ile WireGuard bağlantısını başlatır.
-    pub fn start(&mut self, config_file: impl AsRef<Path>) -> WormResult<()> {
+    pub fn start(&mut self, config_file: impl AsRef<Path>) -> AmeleResult<()> {
         if self.active {
             runtime_log(LogLevel::Info, "wireguard", "WireGuard tüneli zaten aktif.");
             return Ok(());
@@ -41,7 +41,7 @@ impl WireGuardManager {
         #[cfg(windows)]
         {
             let _ = config_file;
-            let err = WormError::new(
+            let err = AmeleError::new(
                 HataKodu::Genel,
                 "Windows surumunde WireGuard otomatik baslatma desteklenmiyor",
             );
@@ -69,7 +69,7 @@ impl WireGuardManager {
                 .arg(&config_file)
                 .status()
                 .map_err(|err| {
-                    let w_err = WormError::io(HataKodu::Genel, "wg-quick baslatilamadi", err);
+                    let w_err = AmeleError::io(HataKodu::Genel, "wg-quick baslatilamadi", err);
                     runtime_log(
                         LogLevel::Error,
                         "wireguard",
@@ -78,7 +78,7 @@ impl WireGuardManager {
                     w_err
                 })?;
             if !status.success() {
-                let err = WormError::new(
+                let err = AmeleError::new(
                     HataKodu::Genel,
                     format!("WireGuard baslatilamadi: {status}"),
                 );
@@ -101,7 +101,7 @@ impl WireGuardManager {
     }
 
     /// wg-quick down ile aktif WireGuard bağlantısını durdurur.
-    pub fn stop(&mut self) -> WormResult<()> {
+    pub fn stop(&mut self) -> AmeleResult<()> {
         if !self.active {
             runtime_log(
                 LogLevel::Info,
@@ -114,7 +114,7 @@ impl WireGuardManager {
         #[cfg(windows)]
         {
             self.active = false;
-            let err = WormError::new(
+            let err = AmeleError::new(
                 HataKodu::Genel,
                 "Windows surumunde WireGuard otomatik durdurma desteklenmiyor",
             );
@@ -129,7 +129,7 @@ impl WireGuardManager {
         #[cfg(not(windows))]
         {
             let config = self.config_file.clone().ok_or_else(|| {
-                let err = WormError::new(HataKodu::Genel, "WireGuard config bilinmiyor");
+                let err = AmeleError::new(HataKodu::Genel, "WireGuard config bilinmiyor");
                 runtime_log(LogLevel::Error, "wireguard", format!("Hata: {:?}", err));
                 err
             })?;
@@ -146,7 +146,7 @@ impl WireGuardManager {
                 .arg(&config)
                 .status()
                 .map_err(|err| {
-                    let w_err = WormError::io(HataKodu::Genel, "wg-quick durdurulamadi", err);
+                    let w_err = AmeleError::io(HataKodu::Genel, "wg-quick durdurulamadi", err);
                     runtime_log(
                         LogLevel::Error,
                         "wireguard",
@@ -156,7 +156,7 @@ impl WireGuardManager {
                 })?;
             self.active = false;
             if !status.success() {
-                let err = WormError::new(
+                let err = AmeleError::new(
                     HataKodu::Genel,
                     format!("WireGuard durdurulamadi: {status}"),
                 );
@@ -209,7 +209,7 @@ impl Default for WireGuardConfig<'_> {
 }
 
 /// WireGuard config dosyasını diske yazar.
-pub fn create_config(path: impl AsRef<Path>, config: &WireGuardConfig<'_>) -> WormResult<PathBuf> {
+pub fn create_config(path: impl AsRef<Path>, config: &WireGuardConfig<'_>) -> AmeleResult<PathBuf> {
     let path = path.as_ref();
     runtime_log(
         LogLevel::Info,
@@ -229,7 +229,7 @@ pub fn create_config(path: impl AsRef<Path>, config: &WireGuardConfig<'_>) -> Wo
             ),
         );
         fs::create_dir_all(parent).map_err(|err| {
-            let w_err = WormError::io(
+            let w_err = AmeleError::io(
                 HataKodu::DosyaYazma,
                 "WireGuard config klasoru olusturulamadi",
                 err,
@@ -274,7 +274,7 @@ pub fn create_config(path: impl AsRef<Path>, config: &WireGuardConfig<'_>) -> Wo
         ),
     );
     fs::write(path, content).map_err(|err| {
-        let w_err = WormError::io(HataKodu::DosyaYazma, "WireGuard config yazilamadi", err);
+        let w_err = AmeleError::io(HataKodu::DosyaYazma, "WireGuard config yazilamadi", err);
         runtime_log(
             LogLevel::Error,
             "wireguard",

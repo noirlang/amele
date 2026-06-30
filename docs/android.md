@@ -6,7 +6,7 @@
 
 ### Genel Bakış
 
-Worm'un Android modülü modüler bir altyapı üzerine inşa edilmiştir. Her toplama işi bağımsız bir modül olarak çalışır ve ortak `AndroidSession` / `AndroidCapabilityReport` altyapısını kullanır.
+Amele'un Android modülü modüler bir altyapı üzerine inşa edilmiştir. Her toplama işi bağımsız bir modül olarak çalışır ve ortak `AndroidSession` / `AndroidCapabilityReport` altyapısını kullanır.
 
 ### Mimari
 
@@ -31,7 +31,7 @@ src/android/
 Her edinim aşağıdaki yapıyla organize edilir:
 
 ```
-~/Worm/Vakalar/{vaka}/android/{cihaz}_{tarih}/
+~/Amele/Vakalar/{vaka}/android/{cihaz}_{tarih}/
 ├── manifest.json          ← Tüm artefaktların özeti (hash, boyut, modül)
 ├── manifest.json.sha256
 ├── device_profile.json    ← Model, build, root, API, SoC, kernel
@@ -285,7 +285,7 @@ Teknik detay:   adb bugreport exited with code 1
 
 ### Overview
 
-Worm's Android module is built on a modular architecture. Each collection job runs as an independent module, sharing the common `AndroidSession` / `AndroidCapabilityReport` infrastructure.
+Amele's Android module is built on a modular architecture. Each collection job runs as an independent module, sharing the common `AndroidSession` / `AndroidCapabilityReport` infrastructure.
 
 ### Architecture
 
@@ -310,7 +310,7 @@ src/android/
 Each acquisition is organized as follows:
 
 ```
-~/Worm/Cases/{case}/android/{device}_{date}/
+~/Amele/Cases/{case}/android/{device}_{date}/
 ├── manifest.json          ← Summary of all artifacts (hash, size, module)
 ├── manifest.json.sha256
 ├── device_profile.json    ← Model, build, root, API, SoC, kernel

@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APPDIR="$ROOT_DIR/dist/WormForensicTool.AppDir"
-APPIMAGE="$ROOT_DIR/dist/worm-linux-x64.AppImage"
+APPDIR="$ROOT_DIR/dist/AmeleForensicTool.AppDir"
+APPIMAGE="$ROOT_DIR/dist/amele-linux-x64.AppImage"
 LINUXDEPLOY="${LINUXDEPLOY:-/tmp/linuxdeploy-x86_64.AppImage}"
 RUNTIME_FILE="${RUNTIME_FILE:-/tmp/runtime-x86_64}"
 

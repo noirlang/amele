@@ -38,7 +38,7 @@ pub fn wireguard_manager() -> &'static Mutex<crate::wireguard::WireGuardManager>
     WIREGUARD_MANAGER.get_or_init(|| Mutex::new(crate::wireguard::WireGuardManager::new()))
 }
 
-/// Worm/Vakalar varsayılan vaka taban klasörünü döndürür.
+/// Amele/Vakalar varsayılan vaka taban klasörünü döndürür.
 pub fn default_case_base_dir() -> PathBuf {
     #[cfg(test)]
     if let Some(path) = test_case_base_dir()
@@ -51,7 +51,7 @@ pub fn default_case_base_dir() -> PathBuf {
 
     home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("Worm")
+        .join("Amele")
         .join("Vakalar")
 }
 

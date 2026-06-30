@@ -22,4 +22,4 @@ pub mod settings;
 pub mod volatility;
 pub mod wireguard;
 
-pub use error::{ErrorInfo, HataKodu, WormError, WormResult};
+pub use error::{ErrorInfo, HataKodu, AmeleError, AmeleResult};

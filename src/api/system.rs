@@ -491,7 +491,7 @@ fn run_elevated_local_image_job(
         job_id,
         "Yetki bekleniyor: Linux'ta sudo/pkexec parola penceresini, Windows'ta UAC Evet/Hayır penceresini onaylayın.",
     );
-    let stem = helper_file_stem("worm-image-helper");
+    let stem = helper_file_stem("amele-image-helper");
     let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
     let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
     let progress_path = std::env::temp_dir().join(format!("{stem}-progress.json"));
@@ -832,7 +832,7 @@ pub fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
     {
         let _ = image_unmount_current();
         let mount_dir = std::env::temp_dir().join(format!(
-            "worm-image-mount-{}",
+            "amele-image-mount-{}",
             Local::now().format("%Y%m%d%H%M%S")
         ));
         if let Err(err) = fs::create_dir_all(&mount_dir) {
@@ -972,7 +972,7 @@ fn windows_mount_success_response(image_path: &Path, mount_dir: PathBuf) -> Resp
 #[cfg(windows)]
 /// Windows'ta Mount-DiskImage yetki isterse UAC helper üzerinden tekrar dener.
 fn elevated_windows_mount_image_readonly(image_path: &Path) -> Result<PathBuf, String> {
-    let stem = helper_file_stem("worm-windows-mount-helper");
+    let stem = helper_file_stem("amele-windows-mount-helper");
     let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
     let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
     let mount_dir = std::env::temp_dir().join(format!("{stem}-mount-placeholder"));
@@ -1543,7 +1543,7 @@ pub fn update_check_endpoint() -> Response {
         .arg("--fail")
         .arg("--silent")
         .arg("--show-error")
-        .arg("https://api.github.com/repos/noirlang/worm/releases/latest")
+        .arg("https://api.github.com/repos/noirlang/amele/releases/latest")
         .output();
     let output = match output {
         Ok(output) if output.status.success() => output,
@@ -1630,7 +1630,7 @@ pub fn update_download_endpoint(body: &[u8]) -> Response {
         .filter(|value| !value.is_empty())
         .map(sanitize_download_name)
         .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| "worm-update.bin".to_string());
+        .unwrap_or_else(|| "amele-update.bin".to_string());
     let target = output_dir.join(name);
     let output = Command::new("curl")
         .arg("-L")

@@ -13,17 +13,17 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
-use worm::android;
-use worm::disk;
-use worm::disk_analysis;
-use worm::evidence::EvidenceVault;
-use worm::hash::{self, HashAlgorithm};
-use worm::ram;
-use worm::ram_analysis;
-use worm::remote::RemoteConnection;
-use worm::server;
-use worm::settings::AppSettings;
-use worm::wireguard::{self, WireGuardConfig};
+use amele::android;
+use amele::disk;
+use amele::disk_analysis;
+use amele::evidence::EvidenceVault;
+use amele::hash::{self, HashAlgorithm};
+use amele::ram;
+use amele::ram_analysis;
+use amele::remote::RemoteConnection;
+use amele::server;
+use amele::settings::AppSettings;
+use amele::wireguard::{self, WireGuardConfig};
 
 /// CLI argümanını okuyup ilgili alt komutu veya UI modunu çalıştırır.
 fn main() {
@@ -99,7 +99,7 @@ fn install_error_reporting() {
             .map(|loc| format!("{}:{}", loc.file(), loc.line()))
             .unwrap_or_else(|| "unknown location".to_string());
         windows_error::report(&format!(
-            "Unexpected Worm startup crash:\n\n{info}\n\nLocation: {location}"
+            "Unexpected Amele startup crash:\n\n{info}\n\nLocation: {location}"
         ));
     }));
 }
@@ -131,7 +131,7 @@ mod windows_error {
             write_log(path, message);
         }
 
-        let mut body = format!("Worm Forensic Tool could not start.\n\n{message}");
+        let mut body = format!("Amele Forensic Tool could not start.\n\n{message}");
         if let Some(path) = log_path {
             body.push_str(&format!("\n\nLog file:\n{}", path.display()));
         }
@@ -155,11 +155,11 @@ mod windows_error {
         std::env::var_os("LOCALAPPDATA")
             .map(PathBuf::from)
             .or_else(|| std::env::var_os("TEMP").map(PathBuf::from))
-            .map(|base| base.join("Worm").join("worm.log"))
+            .map(|base| base.join("Amele").join("amele.log"))
     }
 
     fn show_message(message: &str) {
-        let title = wide_null("Worm Forensic Tool");
+        let title = wide_null("Amele Forensic Tool");
         let body = wide_null(message);
         unsafe {
             MessageBoxW(
@@ -179,7 +179,7 @@ mod windows_error {
 /// Kullanıcıya desteklenen teknik CLI komutlarını gösterir.
 fn print_help() {
     println!(
-        "Worm Forensic Tool CLI\n\n\
+        "Amele Forensic Tool CLI\n\n\
          Kullanici komutlari:\n\
            ui                                      Native uygulama penceresini ac\n\
            ui-browser                              Debug icin tarayicida ac\n\
@@ -214,7 +214,7 @@ fn print_help() {
            disk-size <cihaz|dosya>       Disk veya dosya boyutu al\n\
            remote-tool-check <ip> <port> <winpmem|avml> [token]\n\
            ram-status                    Yerel AVML/WinPMEM durumunu yazdir\n\
-         Not: paketlerde ana komut worm-forensic-tool'dur; geriye uyumluluk icin worm alias'i da bulunabilir."
+         Not: paketlerde ana komut amele-forensic-tool'dur; geriye uyumluluk icin amele alias'i da bulunabilir."
     );
 }
 
@@ -411,7 +411,7 @@ fn ram_processes_command(args: Vec<String>) -> Result<(), String> {
         return Err("Kullanim: ram-processes <ram> <windows|linux> [symbols]".to_string());
     }
     let symbols = args.get(2).map(PathBuf::from);
-    let processes = worm::volatility::get_processes_logged_with_symbol_dir(
+    let processes = amele::volatility::get_processes_logged_with_symbol_dir(
         Path::new(&args[0]),
         &args[1],
         symbols.as_deref(),
@@ -703,8 +703,8 @@ fn ram_helper_command(args: Vec<String>) -> Result<(), String> {
                 );
             })
         }
-        _ => Err(worm::error::WormError::new(
-            worm::error::HataKodu::Genel,
+        _ => Err(amele::error::AmeleError::new(
+            amele::error::HataKodu::Genel,
             "Desteklenmeyen RAM araci",
         )),
     };
@@ -774,7 +774,7 @@ fn install_avml_binary(source: &Path) -> Result<Value, String> {
     }
 
     let target = Path::new("/usr/bin/avml");
-    let temp = Path::new("/usr/bin/.worm-avml.tmp");
+    let temp = Path::new("/usr/bin/.amele-avml.tmp");
     fs::copy(source, temp).map_err(|err| format!("AVML /usr/bin altina kopyalanamadi: {err}"))?;
     let mut permissions = fs::metadata(temp)
         .map_err(|err| err.to_string())?
@@ -832,7 +832,7 @@ fn install_winpmem_binary(source: &Path) -> Result<Value, String> {
     let target_dir = Path::new(r"C:\Tools");
     fs::create_dir_all(target_dir).map_err(|err| format!("C:\\Tools olusturulamadi: {err}"))?;
     let target = target_dir.join(ram::WINPMEM_NAME);
-    let temp = target_dir.join(".worm-winpmem.tmp");
+    let temp = target_dir.join(".amele-winpmem.tmp");
     fs::copy(source, &temp)
         .map_err(|err| format!("WinPMEM C:\\Tools altina kopyalanamadi: {err}"))?;
     if target.exists() {
@@ -1140,8 +1140,8 @@ fn write_json_file(path: &Path, value: &Value) -> Result<(), String> {
 
 /// CLI komutları için varsayılan vaka klasörünü oluşturur.
 fn cli_case_vault(case_name: &str) -> Result<EvidenceVault, String> {
-    let clean = worm::api::sanitize_case_name(case_name);
-    EvidenceVault::create(worm::api::default_case_base_dir(), clean)
+    let clean = amele::api::sanitize_case_name(case_name);
+    EvidenceVault::create(amele::api::default_case_base_dir(), clean)
         .map_err(|err| crate_diagnostic(err.to_string()))
 }
 
@@ -1201,7 +1201,7 @@ fn print_step_progress(label: &str, done: u32, total: u32, step: &str) {
 
 /// CLI hatalarını uygulamanın zengin hata açıklamasıyla döndürür.
 fn crate_diagnostic(message: String) -> String {
-    worm::diagnostics::error_with_advice(&message)
+    amele::diagnostics::error_with_advice(&message)
 }
 
 fn disk_size_command(args: Vec<String>) -> Result<(), String> {

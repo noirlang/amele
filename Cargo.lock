@@ -41,6 +41,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "amele"
+version = "0.0.12"
+dependencies = [
+ "base64",
+ "chrono",
+ "digest 0.11.3",
+ "libc",
+ "md-5",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2 0.11.0",
+ "tar",
+ "tempfile",
+ "windows-sys 0.61.2",
+ "winit",
+ "wry",
+]
+
+[[package]]
 name = "android-activity"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3807,27 +3828,6 @@ dependencies = [
  "serde_json",
  "unicode-xid",
  "wasmparser",
-]
-
-[[package]]
-name = "worm"
-version = "0.0.12"
-dependencies = [
- "base64",
- "chrono",
- "digest 0.11.3",
- "libc",
- "md-5",
- "regex",
- "serde",
- "serde_json",
- "sha1",
- "sha2 0.11.0",
- "tar",
- "tempfile",
- "windows-sys 0.61.2",
- "winit",
- "wry",
 ]
 
 [[package]]

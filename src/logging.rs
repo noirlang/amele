@@ -1,5 +1,5 @@
 //! Uygulama günlüklerini dosyaya ve bellekteki kısa kuyruğa yazar.
-use crate::error::{HataKodu, WormError, WormResult};
+use crate::error::{HataKodu, AmeleError, AmeleResult};
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File, OpenOptions};
@@ -64,13 +64,13 @@ fn runtime_log_store() -> &'static Mutex<RuntimeLogStore> {
     })
 }
 
-/// Runtime log dosyasını kullanıcı Worm klasörü altında açar.
+/// Runtime log dosyasını kullanıcı Amele klasörü altında açar.
 fn open_runtime_log_file() -> Option<(PathBuf, File)> {
     let base = std::env::var_os("HOME")
         .or_else(|| std::env::var_os("USERPROFILE"))
         .map(PathBuf::from)
         .unwrap_or_else(std::env::temp_dir)
-        .join("Worm")
+        .join("Amele")
         .join("gunlukler");
     fs::create_dir_all(&base).ok()?;
     let path = base.join(format!(
@@ -110,7 +110,7 @@ pub fn runtime_log(level: LogLevel, scope: impl AsRef<str>, message: impl AsRef<
 
     if level >= LogLevel::Warn {
         eprintln!(
-            "[WORM {}] {}: {}",
+            "[AMELE {}] {}: {}",
             level.as_str(),
             entry.scope,
             entry.message
@@ -162,11 +162,11 @@ pub struct Logger {
 
 impl Logger {
     /// Vaka için yeni günlük dosyası açar.
-    pub fn start(case_name: impl AsRef<str>, log_dir: impl AsRef<Path>) -> WormResult<Self> {
+    pub fn start(case_name: impl AsRef<str>, log_dir: impl AsRef<Path>) -> AmeleResult<Self> {
         let case_name = case_name.as_ref().to_string();
         let log_dir = log_dir.as_ref().to_path_buf();
         fs::create_dir_all(&log_dir).map_err(|err| {
-            WormError::io(HataKodu::DosyaYazma, "Gunluk klasoru olusturulamadi", err)
+            AmeleError::io(HataKodu::DosyaYazma, "Gunluk klasoru olusturulamadi", err)
         })?;
 
         let file_name = format!("{}_{}.log", case_name, Local::now().format("%Y%m%d_%H%M%S"));
@@ -176,7 +176,7 @@ impl Logger {
             .append(true)
             .open(&active_file)
             .map_err(|err| {
-                WormError::io(HataKodu::DosyaAcilamadi, "Gunluk dosyasi acilamadi", err)
+                AmeleError::io(HataKodu::DosyaAcilamadi, "Gunluk dosyasi acilamadi", err)
             })?;
 
         let logger = Self {

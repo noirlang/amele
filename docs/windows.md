@@ -8,8 +8,8 @@
 
 Windows modülü iki farklı çalışma modunu destekler:
 
-1. **Yerel İmaj Alma** — Worm'un çalıştığı Windows makinedeki disklerden doğrudan imaj alma
-2. **Uzak İmaj Alma** — Hedef Windows makineye yerleştirilen `worm-win` ajanı üzerinden ağdan imaj ve RAM edinimi
+1. **Yerel İmaj Alma** — Amele'un çalıştığı Windows makinedeki disklerden doğrudan imaj alma
+2. **Uzak İmaj Alma** — Hedef Windows makineye yerleştirilen `amele-win` ajanı üzerinden ağdan imaj ve RAM edinimi
 
 ### Yerel İmaj Alma
 
@@ -56,9 +56,9 @@ Administrator yetkisi gerektirir.
 3. winpmem.exe -o <output_file> -1
 ```
 
-### Uzak İmaj Alma (worm-win Ajanı)
+### Uzak İmaj Alma (amele-win Ajanı)
 
-Hedef Windows makineye `worm-win` ajanı yerleştirilir ve TCP üzerinden JSON protokolü ile iletişim kurulur.
+Hedef Windows makineye `amele-win` ajanı yerleştirilir ve TCP üzerinden JSON protokolü ile iletişim kurulur.
 
 #### Protokol
 
@@ -69,7 +69,7 @@ Hedef Windows makineye `worm-win` ajanı yerleştirilir ve TCP üzerinden JSON p
 | Kimlik Doğrulama | `guvenlik_anahtar_b64` | Base64 token (opsiyonel) |
 | Veri Akışı | Binary stream | JSON kontrol mesajları arasında ham veri |
 
-> **Not:** Protokol alanları Türkçe'dir (`komut`, `durum`, `diskler`, `boyut` vb.). Bu `worm-linux` ve `worm-win` ajanlarıyla geriye dönük uyumluluk için zorunludur.
+> **Not:** Protokol alanları Türkçe'dir (`komut`, `durum`, `diskler`, `boyut` vb.). Bu `amele-linux` ve `amele-win` ajanlarıyla geriye dönük uyumluluk için zorunludur.
 
 #### Uzak Disk İmajı
 
@@ -95,7 +95,7 @@ Hedef Windows makineye `worm-win` ajanı yerleştirilir ve TCP üzerinden JSON p
 ### Çıktı Klasör Yapısı
 
 ```
-~/Worm/Vakalar/{vaka_adı}/
+~/Amele/Vakalar/{vaka_adı}/
 ├── {ip}_{disk}_{tarih}.img          # Disk imajı
 ├── {ip}_{disk}_{tarih}.img.sha256   # SHA-256 hash
 ├── {ip}_{disk}_{tarih}.img.md5      # MD5 hash (uzak edinimde)
@@ -117,8 +117,8 @@ Hedef Windows makineye `worm-win` ajanı yerleştirilir ve TCP üzerinden JSON p
 
 The Windows module supports two operating modes:
 
-1. **Local Imaging** — Direct disk imaging from the machine running Worm
-2. **Remote Imaging** — Network-based disk and RAM acquisition via `worm-win` agent deployed on the target
+1. **Local Imaging** — Direct disk imaging from the machine running Amele
+2. **Remote Imaging** — Network-based disk and RAM acquisition via `amele-win` agent deployed on the target
 
 ### Local Imaging
 
@@ -165,9 +165,9 @@ Requires Administrator privileges.
 3. winpmem.exe -o <output_file> -1
 ```
 
-### Remote Imaging (worm-win Agent)
+### Remote Imaging (amele-win Agent)
 
-A `worm-win` agent is deployed on the target Windows machine, communicating over TCP with a JSON protocol.
+A `amele-win` agent is deployed on the target Windows machine, communicating over TCP with a JSON protocol.
 
 #### Protocol
 
@@ -178,7 +178,7 @@ A `worm-win` agent is deployed on the target Windows machine, communicating over
 | Authentication | `guvenlik_anahtar_b64` | Base64 token (optional) |
 | Data Transfer | Binary stream | Raw data between JSON control messages |
 
-> **Note:** Protocol field names are in Turkish (`komut`, `durum`, `diskler`, `boyut`, etc.). This is mandatory for backward compatibility with `worm-linux` and `worm-win` agents.
+> **Note:** Protocol field names are in Turkish (`komut`, `durum`, `diskler`, `boyut`, etc.). This is mandatory for backward compatibility with `amele-linux` and `amele-win` agents.
 
 #### Remote Disk Image
 
@@ -204,7 +204,7 @@ A `worm-win` agent is deployed on the target Windows machine, communicating over
 ### Output Folder Structure
 
 ```
-~/Worm/Vakalar/{case_name}/
+~/Amele/Vakalar/{case_name}/
 ├── {ip}_{disk}_{date}.img          # Disk image
 ├── {ip}_{disk}_{date}.img.sha256   # SHA-256 hash
 ├── {ip}_{disk}_{date}.img.md5      # MD5 hash (remote acquisition)

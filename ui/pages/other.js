@@ -30,7 +30,7 @@ export function detailPanel({ tab, t, icon, state, pickerField, field, escapeHtm
       <p class="section-label">${t("case.management")}</p>
       <div class="side-info">
         <span class="metric-icon">${icon("folder")}</span>
-        <span><strong>${t("case.location")}</strong><small data-case-base>${escapeHtml(state.caseBaseDir || "~/Worm/Vakalar")}</small></span>
+        <span><strong>${t("case.location")}</strong><small data-case-base>${escapeHtml(state.caseBaseDir || "~/Amele/Vakalar")}</small></span>
       </div>
       <p class="field-hint">${t("case.fixedLocation")}</p>
       ${field(t("case.name"), '<input id="case-name" class="input" placeholder="Case_2026_001" />')}
@@ -154,7 +154,7 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION }) {
           <h3>${t("settings.update")}</h3>
           <div class="settings-meta">
             <span>${t("settings.installed")}: ${APP_VERSION}</span>
-            <span>Asset: ${state.platform === "windows" ? "worm-windows-x64.msi" : "worm-linux-x64.AppImage"}</span>
+            <span>Asset: ${state.platform === "windows" ? "amele-windows-x64.msi" : "amele-linux-x64.AppImage"}</span>
           </div>
           <div class="progress-bar" data-update-progress style="--value:0%"><span></span><b>0%</b></div>
           <div class="button-row">
@@ -173,9 +173,9 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath }) {
   return `
     <section class="page">
       <div class="about-hero">
-        <span class="about-logo"><img src="${assetPath}/logo/logo.png" alt="Worm logo" /></span>
+        <span class="about-logo"><img src="${assetPath}/logo/logo.png" alt="Amele logo" /></span>
         <div>
-          <h1>Worm Forensic Tool</h1>
+          <h1>Amele Forensic Tool</h1>
           <span class="status-badge">${t("about.version", { version: APP_VERSION })}</span>
           <p>${t("about.desc")}</p>
         </div>

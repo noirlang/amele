@@ -1,18 +1,18 @@
 <div align="center">
 
-<img src="ui/assets/logo/logo.png" alt="Worm Logo" width="96" />
+<img src="ui/assets/logo/logo.png" alt="Amele Logo" width="96" />
 
 # Contributing
 
-*How to support Worm Forensic Tool.*
+*How to support Amele Forensic Tool.*
 
-[Repository](https://github.com/noirlang/worm) | [Website](https://worm.noirlang.tr) | [Issues](https://github.com/noirlang/worm/issues) | [Security](SECURITY.md)
+[Repository](https://github.com/noirlang/amele) | [Website](https://amele.noirlang.tr) | [Issues](https://github.com/noirlang/amele/issues) | [Security](SECURITY.md)
 
 </div>
 
 ## How to Contribute
 
-Worm is a forensic acquisition tool, so every contribution should be clear, reproducible, and safe to test.
+Amele is a forensic acquisition tool, so every contribution should be clear, reproducible, and safe to test.
 
 - Report bugs with the operating system, architecture, command or screen used, expected result, actual result, and logs.
 - Use small test images or reproduction steps instead of sharing sensitive forensic data.

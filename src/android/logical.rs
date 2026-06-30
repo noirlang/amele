@@ -525,7 +525,7 @@ fn collect_disk_usage(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
 
 /// Ekran görüntüsünü cihazda üretip vaka klasörüne çeker.
 fn collect_screenshot(serial: &str, dir: &std::path::Path) -> AcquisitionItem {
-    let remote_path = "/sdcard/worm_screenshot.png";
+    let remote_path = "/sdcard/amele_screenshot.png";
     // Önce cihaz tarafında geçici ekran görüntüsü oluşturulur.
     if let Err(err) = run_adb_command(serial, &["shell", "screencap", "-p", remote_path]) {
         return AcquisitionItem {
@@ -1098,7 +1098,7 @@ fn collect_debug_heap_dumps(serial: &str, dir: &std::path::Path) -> AcquisitionI
         };
 
         let safe_package = sanitize_file_component(package);
-        let remote_path = format!("/sdcard/Download/worm_heap_{safe_package}_{pid}.hprof");
+        let remote_path = format!("/sdcard/Download/amele_heap_{safe_package}_{pid}.hprof");
         let local_file = format!("{safe_package}_{pid}.hprof");
         let local_path = target_dir.join(&local_file);
         let local_arg = local_path.to_string_lossy().into_owned();

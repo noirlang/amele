@@ -25,7 +25,7 @@ pub fn write_logical_mft_bundle(serial: &str, dir: &Path) -> Result<MftBundleInf
         let record = Record::new(
             RecordType::Telemetry,
             vec![
-                Field::string(0x01, "worm.mft.status"),
+                Field::string(0x01, "amele.mft.status"),
                 Field::string(0x02, "no structured Android records were extracted"),
             ],
         );

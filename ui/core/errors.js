@@ -5,7 +5,7 @@ const KNOWN_ERROR_RULES = [
     code: "ELEVATION_FAILED",
     patterns: ["uac", "runas", "pkexec", "sudo", "askpass", "polkit", "yetki yükseltme", "yetki yukseltme", "root yetkisi", "administrator privileges", "requires administrator"],
     detail: "İşlem root/administrator yetkisi gerektiriyor ancak yetki onayı tamamlanamadı.",
-    suggestion: "Linux'ta sudo/pkexec parola penceresini onaylayın; pencere açılmıyorsa polkit agent veya zenity/kdialog/ssh-askpass kurun. Windows'ta UAC penceresini onaylayın veya Worm'u yönetici olarak başlatın."
+    suggestion: "Linux'ta sudo/pkexec parola penceresini onaylayın; pencere açılmıyorsa polkit agent veya zenity/kdialog/ssh-askpass kurun. Windows'ta UAC penceresini onaylayın veya Amele'u yönetici olarak başlatın."
   },
   {
     code: "PERMISSION_DENIED",
@@ -47,7 +47,7 @@ const KNOWN_ERROR_RULES = [
     code: "TOOL_MISSING",
     patterns: ["avml", "winpmem", "not installed", "command not found", "araç bulunamadı", "arac bulunamadi"],
     detail: "Gerekli edinim aracı bulunamadı veya çalıştırılamadı.",
-    suggestion: "Araç kontrolünü tekrar çalıştırın ve varsa indir/kur butonuyla aracı Worm'un beklediği konuma kurun."
+    suggestion: "Araç kontrolünü tekrar çalıştırın ve varsa indir/kur butonuyla aracı Amele'un beklediği konuma kurun."
   },
   {
     code: "CONNECTION_FAILED",

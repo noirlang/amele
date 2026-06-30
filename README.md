@@ -1,12 +1,12 @@
 <div align="center">
 
-<img src="ui/assets/logo/logo.png" alt="Worm Logo" width="120" />
+<img src="ui/assets/logo/logo.png" alt="Amele Logo" width="120" />
 
-# Worm Forensic Tool
+# Amele Forensic Tool
 
 *Collect digital evidence in one place. Disk, RAM, and Android acquisition.*
 
-[Website](https://worm.noirlang.tr) | [Releases](https://github.com/noirlang/worm/releases) | [Contributing](CONTRIBUTING.md) | [Security](SECURITY.md) | [Linux Agent](https://github.com/noirlang/worm-linux) | [Windows Agent](https://github.com/noirlang/worm-win)
+[Website](https://amele.noirlang.tr) | [Releases](https://github.com/noirlang/amele/releases) | [Contributing](CONTRIBUTING.md) | [Security](SECURITY.md) | [Linux Agent](https://github.com/noirlang/amele-linux) | [Windows Agent](https://github.com/noirlang/amele-win)
 
 <video src="https://github.com/user-attachments/assets/a2094bcf-3488-4983-b47f-02e240d503bb" width="700" controls></video>
 
@@ -14,7 +14,7 @@
 
 ## Overview
 
-Worm is a desktop forensic acquisition tool for authorized investigations. It brings disk imaging, memory acquisition, Android collection, hash verification, case output handling, image viewing, and reporting into one native application.
+Amele is a desktop forensic acquisition tool for authorized investigations. It brings disk imaging, memory acquisition, Android collection, hash verification, case output handling, image viewing, and reporting into one native application.
 
 The app runs as a real desktop window on Linux and Windows.
 
@@ -35,17 +35,17 @@ The app runs as a real desktop window on Linux and Windows.
 
 Release builds are published on GitHub Releases and on the website.
 
-- Linux AppImage: `worm-linux-x64.AppImage`
-- Linux DEB: `worm-linux-x64.deb`
-- Linux RPM: `worm-linux-x64.rpm`
-- Arch Linux package: `worm-linux-x64.pkg.tar.zst`
-- Windows MSI: `worm-windows-x64.msi`
+- Linux AppImage: `amele-linux-x64.AppImage`
+- Linux DEB: `amele-linux-x64.deb`
+- Linux RPM: `amele-linux-x64.rpm`
+- Arch Linux package: `amele-linux-x64.pkg.tar.zst`
+- Windows MSI: `amele-windows-x64.msi`
 
 Agent binaries:
 
 ```text
-https://worm.noirlang.tr/worm-linux
-https://worm.noirlang.tr/worm-win.exe
+https://amele.noirlang.tr/amele-linux
+https://amele.noirlang.tr/amele-win.exe
 ```
 
 ## Build Requirements
@@ -111,7 +111,7 @@ cargo run -- ui
 Run the release binary:
 
 ```bash
-./target/release/worm ui
+./target/release/amele ui
 ```
 
 Open the browser-backed debug UI:
@@ -125,15 +125,15 @@ cargo run -- ui-browser
 Run the Linux agent on the target machine:
 
 ```bash
-wget -O worm-linux https://worm.noirlang.tr/worm-linux
-chmod +x worm-linux
-./worm-linux
+wget -O amele-linux https://amele.noirlang.tr/amele-linux
+chmod +x amele-linux
+./amele-linux
 ```
 
 Download the Windows agent:
 
 ```text
-https://worm.noirlang.tr/worm-win.exe
+https://amele.noirlang.tr/amele-win.exe
 ```
 
 Connect to an agent from the app with IP address, port, and optional token.

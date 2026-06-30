@@ -1,5 +1,5 @@
 //! AVML/WinPMEM durum kontrolü, RAM edinimi ve süreç kontrolünü yönetir.
-use crate::error::{HataKodu, WormError, WormResult};
+use crate::error::{HataKodu, AmeleError, AmeleResult};
 use crate::logging::{LogLevel, runtime_log};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -96,7 +96,7 @@ pub fn acquire_with_avml<F>(
     candidate: Option<&Path>,
     cancellation: &CancellationToken,
     progress: F,
-) -> WormResult<RamAcquisitionResult>
+) -> AmeleResult<RamAcquisitionResult>
 where
     F: FnMut(u64, u64),
 {
@@ -106,7 +106,7 @@ where
         let _ = candidate;
         let _ = cancellation;
         let _ = progress;
-        Err(WormError::new(
+        Err(AmeleError::new(
             HataKodu::YetkisizErisim,
             "AVML Windows uzerinde kullanilmaz",
         ))
@@ -124,7 +124,7 @@ where
             ),
         );
         if !is_root_or_admin() {
-            let err = WormError::new(
+            let err = AmeleError::new(
                 HataKodu::YetkisizErisim,
                 "RAM edinimi icin root yetkisi gerekli",
             );
@@ -133,7 +133,7 @@ where
         }
 
         let avml = find_avml(candidate).ok_or_else(|| {
-            let err = WormError::new(HataKodu::DosyaAcilamadi, "AVML bulunamadi");
+            let err = AmeleError::new(HataKodu::DosyaAcilamadi, "AVML bulunamadi");
             runtime_log(
                 LogLevel::Error,
                 "ram",
@@ -148,7 +148,7 @@ where
                 format!("RAM cikti klasoru olusturuluyor: {}", parent.display()),
             );
             fs::create_dir_all(parent).map_err(|err| {
-                let w_err = WormError::io(
+                let w_err = AmeleError::io(
                     HataKodu::DosyaYazma,
                     "RAM cikti klasoru olusturulamadi",
                     err,
@@ -178,7 +178,7 @@ where
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|err| {
-                let w_err = WormError::io(HataKodu::Genel, "AVML baslatilamadi", err);
+                let w_err = AmeleError::io(HataKodu::Genel, "AVML baslatilamadi", err);
                 runtime_log(
                     LogLevel::Error,
                     "ram",
@@ -219,7 +219,7 @@ pub fn acquire_with_winpmem<F>(
     candidate: Option<&Path>,
     cancellation: &CancellationToken,
     progress: F,
-) -> WormResult<RamAcquisitionResult>
+) -> AmeleResult<RamAcquisitionResult>
 where
     F: FnMut(u64, u64),
 {
@@ -229,7 +229,7 @@ where
         let _ = candidate;
         let _ = cancellation;
         let _ = progress;
-        Err(WormError::new(
+        Err(AmeleError::new(
             HataKodu::YetkisizErisim,
             "WinPMEM sadece Windows uzerinde desteklenir",
         ))
@@ -247,7 +247,7 @@ where
             ),
         );
         if !is_root_or_admin() {
-            let err = WormError::new(
+            let err = AmeleError::new(
                 HataKodu::YetkisizErisim,
                 "Administrator privileges required",
             );
@@ -255,7 +255,7 @@ where
             return Err(err);
         }
         let winpmem = find_winpmem(candidate).ok_or_else(|| {
-            let err = WormError::new(HataKodu::DosyaAcilamadi, "WinPMEM bulunamadi");
+            let err = AmeleError::new(HataKodu::DosyaAcilamadi, "WinPMEM bulunamadi");
             runtime_log(
                 LogLevel::Error,
                 "ram",
@@ -270,7 +270,7 @@ where
                 format!("RAM cikti klasoru olusturuluyor: {}", parent.display()),
             );
             fs::create_dir_all(parent).map_err(|err| {
-                let w_err = WormError::io(
+                let w_err = AmeleError::io(
                     HataKodu::DosyaYazma,
                     "RAM cikti klasoru olusturulamadi",
                     err,
@@ -361,7 +361,7 @@ where
             }
         }
 
-        let w_err = WormError::new(
+        let w_err = AmeleError::new(
             HataKodu::Genel,
             format!("WinPMEM komutu baslatilamadi: {last_error}"),
         );
@@ -382,7 +382,7 @@ fn monitor_child_file<F>(
     timeout: Duration,
     cancellation: &CancellationToken,
     progress: &mut F,
-) -> WormResult<RamAcquisitionResult>
+) -> AmeleResult<RamAcquisitionResult>
 where
     F: FnMut(u64, u64),
 {
@@ -400,7 +400,7 @@ where
             }
             let _ = child.kill();
             let _ = child.wait();
-            return Err(WormError::new(HataKodu::Genel, "RAM edinimi iptal edildi"));
+            return Err(AmeleError::new(HataKodu::Genel, "RAM edinimi iptal edildi"));
         }
 
         if cancellation.is_paused() {
@@ -450,7 +450,7 @@ where
                 "ram",
                 format!("RAM araci hatasi: {}", detail),
             );
-            return Err(WormError::new(HataKodu::DosyaYazma, detail));
+            return Err(AmeleError::new(HataKodu::DosyaYazma, detail));
         }
 
         if started.elapsed() > timeout {
@@ -461,7 +461,7 @@ where
             );
             let _ = child.kill();
             let _ = child.wait();
-            return Err(WormError::new(HataKodu::Genel, "RAM edinimi zaman asimi"));
+            return Err(AmeleError::new(HataKodu::Genel, "RAM edinimi zaman asimi"));
         }
 
         if let Ok(metadata) = fs::metadata(output_file) {

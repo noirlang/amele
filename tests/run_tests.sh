@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Worm Forensic Tool - Premium Test Runner
+# Amele Forensic Tool - Premium Test Runner
 # ==============================================================================
 
 # Set styling colors
@@ -14,7 +14,7 @@ RESET="\033[0m"
 
 # Header
 echo -e "${CYAN}======================================================================${RESET}"
-echo -e "${BOLD}${CYAN}      🐛 Worm Forensic Tool - Unified Diagnostic & Test Suite${RESET}"
+echo -e "${BOLD}${CYAN}      🐛 Amele Forensic Tool - Unified Diagnostic & Test Suite${RESET}"
 echo -e "${CYAN}======================================================================${RESET}"
 echo -e "${BLUE}Starting full verification of Backend, Frontend, and Translation assets...${RESET}"
 echo ""
@@ -88,7 +88,7 @@ fi
 echo -e "${CYAN}----------------------------------------------------------------------${RESET}"
 
 if [ $BACKEND_PASS -eq 1 ] && [ $I18N_PASS -eq 1 ] && [ $ROUTES_PASS -eq 1 ]; then
-  echo -e "${BOLD}${GREEN}✨ ALL SYSTEMS NOMINAL: Worm Forensic Tool is 100% ready for deployment!${RESET}"
+  echo -e "${BOLD}${GREEN}✨ ALL SYSTEMS NOMINAL: Amele Forensic Tool is 100% ready for deployment!${RESET}"
   exit 0
 else
   echo -e "${BOLD}${RED}⚠️ DIAGNOSTIC WARNING: Some verification stages failed. Please resolve them.${RESET}"

@@ -1,5 +1,5 @@
 //! Vaka klasörü, kanıt kasası, notlar ve çıktı dizini yönetimini sağlar.
-use crate::error::{HataKodu, WormError, WormResult};
+use crate::error::{HataKodu, AmeleError, AmeleResult};
 use crate::logging::{LogLevel, Logger, runtime_log};
 use chrono::Local;
 use serde::{Deserialize, Serialize};
@@ -35,7 +35,7 @@ pub struct EvidenceVault {
 
 impl EvidenceVault {
     /// Vaka klasör ağacını oluşturur ve günlük kaydını başlatır.
-    pub fn create(base_dir: impl AsRef<Path>, case_name: impl AsRef<str>) -> WormResult<Self> {
+    pub fn create(base_dir: impl AsRef<Path>, case_name: impl AsRef<str>) -> AmeleResult<Self> {
         let case_name = case_name.as_ref().to_string();
         runtime_log(
             LogLevel::Info,
@@ -67,7 +67,7 @@ impl EvidenceVault {
                 format!("Vaka alt dizini olusturuluyor: {}", dir.display()),
             );
             fs::create_dir_all(dir).map_err(|err| {
-                let w_err = WormError::io(
+                let w_err = AmeleError::io(
                     HataKodu::DosyaYazma,
                     format!("Vaka dizini olusturulamadi: {}", dir.display()),
                     err,
@@ -114,7 +114,7 @@ impl EvidenceVault {
     }
 
     /// Kullanıcı notunu zaman damgalı dosya olarak notlar klasörüne yazar.
-    pub fn add_note(&self, note: &str) -> WormResult<PathBuf> {
+    pub fn add_note(&self, note: &str) -> AmeleResult<PathBuf> {
         let _guard = self.lock.lock().ok();
         let now = Local::now();
         let file_name = format!("not_{}.txt", now.format("%Y%m%d_%H%M%S"));
@@ -131,7 +131,7 @@ impl EvidenceVault {
             note
         );
         fs::write(&path, content).map_err(|err| {
-            let w_err = WormError::io(HataKodu::DosyaYazma, "Not yazilamadi", err);
+            let w_err = AmeleError::io(HataKodu::DosyaYazma, "Not yazilamadi", err);
             runtime_log(
                 LogLevel::Error,
                 "evidence",
@@ -151,7 +151,7 @@ impl EvidenceVault {
     }
 
     /// Kasa alt klasöründeki dosyaları listeler.
-    pub fn list_files(&self, subdir: &str) -> WormResult<Vec<PathBuf>> {
+    pub fn list_files(&self, subdir: &str) -> AmeleResult<Vec<PathBuf>> {
         let dir = self.resolve_subdir(subdir);
         runtime_log(
             LogLevel::Debug,
@@ -172,7 +172,7 @@ impl EvidenceVault {
         }
 
         for entry in fs::read_dir(dir).map_err(|err| {
-            let w_err = WormError::io(HataKodu::DosyaOkuma, "Dizin okunamadi", err);
+            let w_err = AmeleError::io(HataKodu::DosyaOkuma, "Dizin okunamadi", err);
             runtime_log(
                 LogLevel::Error,
                 "evidence",
@@ -181,7 +181,7 @@ impl EvidenceVault {
             w_err
         })? {
             let entry = entry.map_err(|err| {
-                let w_err = WormError::io(HataKodu::DosyaOkuma, "Dizin girdisi okunamadi", err);
+                let w_err = AmeleError::io(HataKodu::DosyaOkuma, "Dizin girdisi okunamadi", err);
                 runtime_log(
                     LogLevel::Error,
                     "evidence",
@@ -195,7 +195,7 @@ impl EvidenceVault {
     }
 
     /// Vaka kasasının güncel dosya sayılarını döndürür.
-    pub fn summary(&self) -> WormResult<EvidenceSummary> {
+    pub fn summary(&self) -> AmeleResult<EvidenceSummary> {
         Ok(EvidenceSummary {
             case_name: self.case_name.clone(),
             case_dir: self.case_dir.clone(),

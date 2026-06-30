@@ -2,8 +2,8 @@ export function homePage({ t, icon, assetPath }) {
   return `
     <section class="page">
       <div class="hero home-hero">
-        <div class="worm-art">
-          <img src="${assetPath}/logo/logo.png" alt="Worm logo" />
+        <div class="amele-art">
+          <img src="${assetPath}/logo/logo.png" alt="Amele logo" />
         </div>
       </div>
 

@@ -108,14 +108,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release-assets
-          cp dist/worm-linux-x64.AppImage \
-            "release-assets/worm-forensic-tool-${ASSET_SUFFIX}-linux-x64.AppImage"
-          cp dist/worm-linux-x64.deb \
-            "release-assets/worm-forensic-tool-${ASSET_SUFFIX}-linux-x64.deb"
-          cp dist/worm-linux-x64.rpm \
-            "release-assets/worm-forensic-tool-${ASSET_SUFFIX}-linux-x64.rpm"
-          cp dist/worm-linux-x64.pkg.tar.zst \
-            "release-assets/worm-forensic-tool-${ASSET_SUFFIX}-linux-x64.pkg.tar.zst"
+          cp dist/amele-linux-x64.AppImage \
+            "release-assets/amele-forensic-tool-${ASSET_SUFFIX}-linux-x64.AppImage"
+          cp dist/amele-linux-x64.deb \
+            "release-assets/amele-forensic-tool-${ASSET_SUFFIX}-linux-x64.deb"
+          cp dist/amele-linux-x64.rpm \
+            "release-assets/amele-forensic-tool-${ASSET_SUFFIX}-linux-x64.rpm"
+          cp dist/amele-linux-x64.pkg.tar.zst \
+            "release-assets/amele-forensic-tool-${ASSET_SUFFIX}-linux-x64.pkg.tar.zst"
 
       - name: Upload Linux packages
         uses: actions/upload-artifact@v7
@@ -153,17 +153,17 @@ jobs:
           $VsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
           $VsPath = & $VsWhere -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           $VcVars = Join-Path $VsPath "VC\Auxiliary\Build\vcvars64.bat"
-          cmd /c "`"$VcVars`" && dumpbin /HEADERS target\release\worm.exe > headers.txt && dumpbin /DEPENDENTS target\release\worm.exe > dependents.txt"
+          cmd /c "`"$VcVars`" && dumpbin /HEADERS target\release\amele.exe > headers.txt && dumpbin /DEPENDENTS target\release\amele.exe > dependents.txt"
           if ($LASTEXITCODE -ne 0) { throw "dumpbin verification failed" }
           $Headers = Get-Content headers.txt -Raw
           $Dependencies = Get-Content dependents.txt -Raw
           Write-Host $Headers
           Write-Host $Dependencies
           if ($Headers -notmatch 'subsystem \(Windows GUI\)') {
-            throw "worm.exe was not linked as a Windows GUI application"
+            throw "amele.exe was not linked as a Windows GUI application"
           }
           if ($Dependencies -match 'VCRUNTIME|MSVCP') {
-            throw "worm.exe still depends on the external Visual C++ runtime"
+            throw "amele.exe still depends on the external Visual C++ runtime"
           }
 
       - name: Install WiX Toolset 3.14
@@ -187,8 +187,8 @@ jobs:
         shell: pwsh
         run: |
           New-Item release-assets -ItemType Directory -Force | Out-Null
-          Copy-Item dist\worm-windows-x64.msi `
-            "release-assets\worm-forensic-tool-$env:ASSET_SUFFIX-windows-x64.msi"
+          Copy-Item dist\amele-windows-x64.msi `
+            "release-assets\amele-forensic-tool-$env:ASSET_SUFFIX-windows-x64.msi"
 
       - name: Upload Windows MSI
         uses: actions/upload-artifact@v7
@@ -223,8 +223,8 @@ jobs:
         run: |
           set -euo pipefail
           cd release-assets
-          sha256sum worm-forensic-tool-* \
-            > "worm-forensic-tool-${ASSET_SUFFIX}-SHA256SUMS.txt"
+          sha256sum amele-forensic-tool-* \
+            > "amele-forensic-tool-${ASSET_SUFFIX}-SHA256SUMS.txt"
           cd ..
           cat > release-notes.md <<EOF
           Automated development release for **${RELEASE_TITLE}**.

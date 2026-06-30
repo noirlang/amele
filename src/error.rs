@@ -5,7 +5,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::sync::{Mutex, OnceLock};
 
-pub type WormResult<T> = Result<T, WormError>;
+pub type AmeleResult<T> = Result<T, AmeleError>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
@@ -104,13 +104,13 @@ impl Default for ErrorInfo {
 
 #[derive(Debug, Clone)]
 /// Uygulama içi Result tiplerinde kullanılan ana hata modelidir.
-pub struct WormError {
+pub struct AmeleError {
     pub code: HataKodu,
     pub message: String,
 }
 
-impl WormError {
-    /// Belirli hata kodu ve mesajla yeni WormError oluşturur.
+impl AmeleError {
+    /// Belirli hata kodu ve mesajla yeni AmeleError oluşturur.
     pub fn new(code: HataKodu, message: impl Into<String>) -> Self {
         Self {
             code,
@@ -118,32 +118,32 @@ impl WormError {
         }
     }
 
-    /// Genel hata koduyla hızlı WormError oluşturur.
+    /// Genel hata koduyla hızlı AmeleError oluşturur.
     pub fn genel(message: impl Into<String>) -> Self {
         Self::new(HataKodu::Genel, message)
     }
 
-    /// IO hatasını bağlam metniyle WormError'a sarar.
+    /// IO hatasını bağlam metniyle AmeleError'a sarar.
     pub fn io(code: HataKodu, context: impl Into<String>, err: std::io::Error) -> Self {
         Self::new(code, format!("{}: {}", context.into(), err))
     }
 }
 
-impl Display for WormError {
+impl Display for AmeleError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}: {}", self.code.text(), self.message)
     }
 }
 
-impl Error for WormError {}
+impl Error for AmeleError {}
 
-impl From<std::io::Error> for WormError {
+impl From<std::io::Error> for AmeleError {
     fn from(value: std::io::Error) -> Self {
         Self::io(HataKodu::Dosya, "IO hatasi", value)
     }
 }
 
-impl From<serde_json::Error> for WormError {
+impl From<serde_json::Error> for AmeleError {
     fn from(value: serde_json::Error) -> Self {
         Self::new(HataKodu::ProtokolJson, value.to_string())
     }

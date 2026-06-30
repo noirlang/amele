@@ -1,5 +1,5 @@
 //! Linux/Windows agent protokolüyle uzak disk ve RAM edinim bağlantılarını yönetir.
-use crate::error::{HataKodu, WormError, WormResult};
+use crate::error::{HataKodu, AmeleError, AmeleResult};
 use crate::settings::DEFAULT_CHUNK_SIZE;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
@@ -67,24 +67,24 @@ pub struct RemoteConnection {
 
 impl RemoteConnection {
     /// Agent'a TCP ile bağlanır, hello/token el sıkışmasını yapar.
-    pub fn connect(host: impl Into<String>, port: u16, token: Option<String>) -> WormResult<Self> {
+    pub fn connect(host: impl Into<String>, port: u16, token: Option<String>) -> AmeleResult<Self> {
         let host = host.into();
         let addr = (host.as_str(), port)
             .to_socket_addrs()
-            .map_err(|err| WormError::io(HataKodu::Baglanti, "Adres cozumlenemedi", err))?
+            .map_err(|err| AmeleError::io(HataKodu::Baglanti, "Adres cozumlenemedi", err))?
             .next()
-            .ok_or_else(|| WormError::new(HataKodu::Baglanti, "Adres bulunamadi"))?;
+            .ok_or_else(|| AmeleError::new(HataKodu::Baglanti, "Adres bulunamadi"))?;
         let stream = TcpStream::connect_timeout(&addr, HELLO_TIMEOUT)
-            .map_err(|err| WormError::io(HataKodu::Baglanti, "Baglanti basarisiz", err))?;
+            .map_err(|err| AmeleError::io(HataKodu::Baglanti, "Baglanti basarisiz", err))?;
         stream
             .set_read_timeout(Some(HELLO_TIMEOUT))
-            .map_err(|err| WormError::io(HataKodu::Baglanti, "Socket timeout ayarlanamadi", err))?;
+            .map_err(|err| AmeleError::io(HataKodu::Baglanti, "Socket timeout ayarlanamadi", err))?;
         stream
             .set_write_timeout(Some(HELLO_TIMEOUT))
-            .map_err(|err| WormError::io(HataKodu::Baglanti, "Socket timeout ayarlanamadi", err))?;
+            .map_err(|err| AmeleError::io(HataKodu::Baglanti, "Socket timeout ayarlanamadi", err))?;
         let writer = stream
             .try_clone()
-            .map_err(|err| WormError::io(HataKodu::Baglanti, "Socket clone basarisiz", err))?;
+            .map_err(|err| AmeleError::io(HataKodu::Baglanti, "Socket clone basarisiz", err))?;
         let mut connection = Self {
             host,
             port,
@@ -111,13 +111,13 @@ impl RemoteConnection {
     }
 
     /// Uzak agent üzerindeki diskleri listeler.
-    pub fn list_disks(&mut self) -> WormResult<Vec<RemoteDisk>> {
+    pub fn list_disks(&mut self) -> AmeleResult<Vec<RemoteDisk>> {
         self.last_error.clear();
         self.send_json(&json!({"komut": "disk_listele"}))?;
         let response = self.read_json_line()?;
         if !is_ok(&response) {
             self.last_error = message_from(&response, "Beklenmeyen yanit");
-            return Err(WormError::new(HataKodu::Protokol, self.last_error.clone()));
+            return Err(AmeleError::new(HataKodu::Protokol, self.last_error.clone()));
         }
 
         Ok(response
@@ -155,17 +155,17 @@ impl RemoteConnection {
         target_dir: impl AsRef<Path>,
         job_id: Option<&str>,
         mut progress: F,
-    ) -> WormResult<RemoteTransferResult>
+    ) -> AmeleResult<RemoteTransferResult>
     where
         F: FnMut(u64, u64),
     {
         fs::create_dir_all(target_dir.as_ref()).map_err(|err| {
-            WormError::io(HataKodu::DosyaYazma, "Hedef klasor olusturulamadi", err)
+            AmeleError::io(HataKodu::DosyaYazma, "Hedef klasor olusturulamadi", err)
         })?;
         let file_name = canonical_image_file_name(Some(&self.host), disk_id, disk_name);
         let target_path = target_dir.as_ref().join(file_name);
         let mut target = File::create(&target_path)
-            .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Hedef dosya acilamadi", err))?;
+            .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "Hedef dosya acilamadi", err))?;
 
         let mut request = json!({
             "komut": "imaj_baslat",
@@ -183,7 +183,7 @@ impl RemoteConnection {
             let message = message_from(&start_response, "Imaj baslatilamadi");
             drop(target);
             mark_partial(&target_path)?;
-            return Err(WormError::new(HataKodu::Protokol, message));
+            return Err(AmeleError::new(HataKodu::Protokol, message));
         }
 
         let mut transfer_job_id = start_response
@@ -217,7 +217,7 @@ impl RemoteConnection {
                 let message = message_from(&event, "Uzak ajan imaj hatasi");
                 drop(target);
                 mark_partial(&target_path)?;
-                return Err(WormError::new(HataKodu::Protokol, message));
+                return Err(AmeleError::new(HataKodu::Protokol, message));
             }
             if event.get("tur").and_then(Value::as_str) == Some("ilerleme") {
                 let done = event
@@ -231,7 +231,7 @@ impl RemoteConnection {
         if total == 0 {
             drop(target);
             mark_partial(&target_path)?;
-            return Err(WormError::new(
+            return Err(AmeleError::new(
                 HataKodu::DiskBoyut,
                 "Uzak disk boyutu alinamadi",
             ));
@@ -240,7 +240,7 @@ impl RemoteConnection {
         self.reader
             .get_ref()
             .set_read_timeout(None)
-            .map_err(|err| WormError::io(HataKodu::Baglanti, "Socket timeout kapatilamadi", err))?;
+            .map_err(|err| AmeleError::io(HataKodu::Baglanti, "Socket timeout kapatilamadi", err))?;
 
         let mut transferred = 0_u64;
         let mut buffer = vec![0_u8; DEFAULT_CHUNK_SIZE];
@@ -249,30 +249,30 @@ impl RemoteConnection {
             let read = self
                 .reader
                 .read(&mut buffer[..to_read])
-                .map_err(|err| WormError::io(HataKodu::AgAlma, "Uzak veri okunamadi", err))?;
+                .map_err(|err| AmeleError::io(HataKodu::AgAlma, "Uzak veri okunamadi", err))?;
             if read == 0 {
                 drop(target);
                 mark_partial(&target_path)?;
-                return Err(WormError::new(
+                return Err(AmeleError::new(
                     HataKodu::BaglantiKesildi,
                     "Ajan baglantisi kesildi",
                 ));
             }
             target
                 .write_all(&buffer[..read])
-                .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Uzak veri yazilamadi", err))?;
+                .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "Uzak veri yazilamadi", err))?;
             transferred += read as u64;
             progress(transferred, total);
         }
         target.flush().map_err(|err| {
-            WormError::io(HataKodu::DosyaYazma, "Hedef dosya flush edilemedi", err)
+            AmeleError::io(HataKodu::DosyaYazma, "Hedef dosya flush edilemedi", err)
         })?;
         drop(target);
 
         let end = self.read_json_line()?;
         if end.get("tur").and_then(Value::as_str) != Some("bitti") {
             mark_partial(&target_path)?;
-            return Err(WormError::new(
+            return Err(AmeleError::new(
                 HataKodu::Protokol,
                 message_from(&end, "Bitis mesaji alinamadi"),
             ));
@@ -292,14 +292,14 @@ impl RemoteConnection {
     }
 
     /// Uzak Windows agent üstünde WinPMEM durumunu kontrol eder.
-    pub fn check_winpmem(&mut self) -> WormResult<RemoteToolStatus> {
+    pub fn check_winpmem(&mut self) -> AmeleResult<RemoteToolStatus> {
         self.send_json(&json!({"komut": "winpmem_kontrol"}))?;
         let response = self.read_json_line()?;
         parse_tool_status(&response, "winpmem_mevcut", "winpmem_yol")
     }
 
     /// Uzak Linux agent üstünde AVML durumunu kontrol eder.
-    pub fn check_avml(&mut self) -> WormResult<RemoteToolStatus> {
+    pub fn check_avml(&mut self) -> AmeleResult<RemoteToolStatus> {
         self.send_json(&json!({"komut": "avml_kontrol"}))?;
         let response = self.read_json_line()?;
         parse_tool_status(&response, "avml_mevcut", "avml_yol")
@@ -311,7 +311,7 @@ impl RemoteConnection {
         output_file: &str,
         job_id: Option<&str>,
         mut progress: F,
-    ) -> WormResult<RemoteRamResult>
+    ) -> AmeleResult<RemoteRamResult>
     where
         F: FnMut(u64, u64),
     {
@@ -325,7 +325,7 @@ impl RemoteConnection {
         self.reader
             .get_ref()
             .set_read_timeout(None)
-            .map_err(|err| WormError::io(HataKodu::Baglanti, "Socket timeout kapatilamadi", err))?;
+            .map_err(|err| AmeleError::io(HataKodu::Baglanti, "Socket timeout kapatilamadi", err))?;
         self.send_json(&request)?;
 
         let mut actual_job_id = job_id.unwrap_or_default().to_string();
@@ -335,7 +335,7 @@ impl RemoteConnection {
         loop {
             let event = self.read_json_line()?;
             if is_error(&event) || event.get("tur").and_then(Value::as_str) == Some("hata") {
-                return Err(WormError::new(
+                return Err(AmeleError::new(
                     HataKodu::Protokol,
                     message_from(&event, "Uzak RAM edinim hatasi"),
                 ));
@@ -402,14 +402,14 @@ impl RemoteConnection {
         local_path: impl AsRef<Path>,
         job_id: Option<&str>,
         mut progress: F,
-    ) -> WormResult<RemoteTransferResult>
+    ) -> AmeleResult<RemoteTransferResult>
     where
         F: FnMut(u64, u64),
     {
         let local_path = local_path.as_ref();
         if let Some(parent) = local_path.parent() {
             fs::create_dir_all(parent).map_err(|err| {
-                WormError::io(HataKodu::DosyaYazma, "Hedef klasor olusturulamadi", err)
+                AmeleError::io(HataKodu::DosyaYazma, "Hedef klasor olusturulamadi", err)
             })?;
         }
 
@@ -424,7 +424,7 @@ impl RemoteConnection {
 
         let start = self.read_json_line()?;
         if !is_ok(&start) {
-            return Err(WormError::new(
+            return Err(AmeleError::new(
                 HataKodu::Protokol,
                 message_from(&start, "RAM dosyasi indirilemedi"),
             ));
@@ -442,7 +442,7 @@ impl RemoteConnection {
 
         let data_start = self.read_json_line()?;
         if data_start.get("tur").and_then(Value::as_str) != Some("veri_basliyor") {
-            return Err(WormError::new(
+            return Err(AmeleError::new(
                 HataKodu::Protokol,
                 message_from(&data_start, "Veri baslangici alinamadi"),
             ));
@@ -460,7 +460,7 @@ impl RemoteConnection {
             .unwrap_or(total);
 
         let mut output = File::create(local_path)
-            .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Yerel dosya acilamadi", err))?;
+            .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "Yerel dosya acilamadi", err))?;
         let mut transferred = 0_u64;
         let mut buffer = vec![0_u8; DEFAULT_CHUNK_SIZE];
         while transferred < total {
@@ -468,30 +468,30 @@ impl RemoteConnection {
             let read = self
                 .reader
                 .read(&mut buffer[..to_read])
-                .map_err(|err| WormError::io(HataKodu::AgAlma, "RAM dosyasi okunamadi", err))?;
+                .map_err(|err| AmeleError::io(HataKodu::AgAlma, "RAM dosyasi okunamadi", err))?;
             if read == 0 {
                 drop(output);
                 mark_partial(local_path)?;
-                return Err(WormError::new(
+                return Err(AmeleError::new(
                     HataKodu::BaglantiKesildi,
                     "Ajan baglantisi kesildi",
                 ));
             }
             output
                 .write_all(&buffer[..read])
-                .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Yerel yazma hatasi", err))?;
+                .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "Yerel yazma hatasi", err))?;
             transferred += read as u64;
             progress(transferred, total);
         }
         output
             .flush()
-            .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Yerel flush hatasi", err))?;
+            .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "Yerel flush hatasi", err))?;
         drop(output);
 
         let end = self.read_json_line()?;
         if end.get("tur").and_then(Value::as_str) != Some("bitti") {
             mark_partial(local_path)?;
-            return Err(WormError::new(
+            return Err(AmeleError::new(
                 HataKodu::Protokol,
                 message_from(&end, "RAM indirme bitis mesaji alinamadi"),
             ));
@@ -511,7 +511,7 @@ impl RemoteConnection {
     }
 
     /// Uzak agent üzerindeki iş için pause/resume/stop kontrol komutu gönderir.
-    pub fn control_job(&self, job_id: &str, action: &str) -> WormResult<String> {
+    pub fn control_job(&self, job_id: &str, action: &str) -> AmeleResult<String> {
         let mut control = Self::connect(self.host.clone(), self.port, self.token.clone())?;
         control.send_json(&json!({
             "komut": "edinim_kontrol",
@@ -523,15 +523,15 @@ impl RemoteConnection {
         if is_ok(&response) {
             Ok(message)
         } else {
-            Err(WormError::new(HataKodu::Protokol, message))
+            Err(AmeleError::new(HataKodu::Protokol, message))
         }
     }
 
     /// Bağlantı açılışında agent kimliği, sürümü ve özelliklerini doğrular.
-    fn hello(&mut self) -> WormResult<()> {
+    fn hello(&mut self) -> AmeleResult<()> {
         let mut request = json!({
             "komut": "merhaba",
-            "istemci": "worm",
+            "istemci": "amele",
             "surum": "0.1",
         });
 
@@ -545,7 +545,7 @@ impl RemoteConnection {
         if !is_ok(&response) {
             let message = message_from(&response, "Uzak uc beklenen ajan yaniti vermedi");
             self.last_error = message.clone();
-            return Err(WormError::new(HataKodu::Guvenlik, message));
+            return Err(AmeleError::new(HataKodu::Guvenlik, message));
         }
 
         self.server_name = response
@@ -574,31 +574,31 @@ impl RemoteConnection {
     }
 
     /// JSON komutunu satır sonuyla agent'a gönderir.
-    fn send_json(&mut self, value: &Value) -> WormResult<()> {
+    fn send_json(&mut self, value: &Value) -> AmeleResult<()> {
         serde_json::to_writer(&mut self.writer, value)?;
         self.writer
             .write_all(b"\n")
-            .map_err(|err| WormError::io(HataKodu::AgGonderme, "Komut gonderilemedi", err))?;
+            .map_err(|err| AmeleError::io(HataKodu::AgGonderme, "Komut gonderilemedi", err))?;
         self.writer
             .flush()
-            .map_err(|err| WormError::io(HataKodu::AgGonderme, "Komut flush edilemedi", err))
+            .map_err(|err| AmeleError::io(HataKodu::AgGonderme, "Komut flush edilemedi", err))
     }
 
     /// Agent'tan tek satır JSON cevap okur.
-    fn read_json_line(&mut self) -> WormResult<Value> {
+    fn read_json_line(&mut self) -> AmeleResult<Value> {
         let mut line = String::new();
         let read = self
             .reader
             .read_line(&mut line)
-            .map_err(|err| WormError::io(HataKodu::AgAlma, "Yanit alinamadi", err))?;
+            .map_err(|err| AmeleError::io(HataKodu::AgAlma, "Yanit alinamadi", err))?;
         if read == 0 {
-            return Err(WormError::new(
+            return Err(AmeleError::new(
                 HataKodu::BaglantiKesildi,
                 "Baglanti kapandi",
             ));
         }
         serde_json::from_str(line.trim_end()).map_err(|err| {
-            WormError::new(
+            AmeleError::new(
                 HataKodu::ProtokolJson,
                 format!("Gecersiz JSON yaniti: {err}"),
             )
@@ -611,9 +611,9 @@ fn parse_tool_status(
     response: &Value,
     present_key: &str,
     path_key: &str,
-) -> WormResult<RemoteToolStatus> {
+) -> AmeleResult<RemoteToolStatus> {
     if !is_ok(response) {
-        return Err(WormError::new(
+        return Err(AmeleError::new(
             HataKodu::Protokol,
             message_from(response, "Ajan kontrol hatasi"),
         ));
@@ -714,11 +714,11 @@ fn canonical_image_file_name(
 }
 
 /// Eksik aktarım dosyasını .partial adıyla korur.
-fn mark_partial(path: &Path) -> WormResult<PathBuf> {
+fn mark_partial(path: &Path) -> AmeleResult<PathBuf> {
     let partial = PathBuf::from(format!("{}.partial", path.display()));
     if path.exists() {
         fs::rename(path, &partial)
-            .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Partial dosya tasinamadi", err))?;
+            .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "Partial dosya tasinamadi", err))?;
     }
     Ok(partial)
 }

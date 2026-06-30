@@ -59,14 +59,14 @@ pub fn run_native() -> Result<(), String> {
     crate::native_window::prepare_environment()?;
     let url = start_background()?;
     let native_url = format!("{url}?native=1");
-    println!("Worm native UI: {native_url}");
+    println!("Amele native UI: {native_url}");
     crate::native_window::run(&native_url)
 }
 
 /// Yerel backend'i başlatır ve debug için sistem tarayıcısını açar.
 pub fn run_browser() -> Result<(), String> {
     let url = start_background()?;
-    println!("Worm UI backend: {url}");
+    println!("Amele UI backend: {url}");
     open_window(&url);
     loop {
         thread::park();
@@ -92,7 +92,7 @@ fn start_background() -> Result<String, String> {
         crate::logging::LogLevel::Info,
         "server:startup",
         format!(
-            "Worm {} baslatildi | OS: {} {} {} | PID: {} | EXE: {:?} | UI: {:?} | PORT: {}",
+            "Amele {} baslatildi | OS: {} {} {} | PID: {} | EXE: {:?} | UI: {:?} | PORT: {}",
             env!("CARGO_PKG_VERSION"),
             std::env::consts::OS,
             std::env::consts::FAMILY,
@@ -134,7 +134,7 @@ fn start_background() -> Result<String, String> {
     }
 
     thread::Builder::new()
-        .name("worm-ui-server".to_string())
+        .name("amele-ui-server".to_string())
         .spawn(move || serve(listener))
         .map_err(|err| {
             crate::diagnostics::startup_error(
@@ -363,7 +363,7 @@ fn write_response(mut stream: TcpStream, response: Response) -> Result<(), Strin
 
 /// UI dosyalarının paketlenmiş veya geliştirme ortamındaki kök klasörünü bulur.
 pub fn ui_root() -> PathBuf {
-    if let Some(path) = std::env::var_os("WORM_UI_ROOT") {
+    if let Some(path) = std::env::var_os("AMELE_UI_ROOT") {
         let path = PathBuf::from(path);
         if path.join("index.html").exists() {
             return path;
@@ -374,7 +374,7 @@ pub fn ui_root() -> PathBuf {
         && let Some(bin_dir) = exe.parent()
         && let Some(prefix) = bin_dir.parent()
     {
-        let packaged = prefix.join("share").join("worm").join("ui");
+        let packaged = prefix.join("share").join("amele").join("ui");
         if packaged.join("index.html").exists() {
             return packaged;
         }

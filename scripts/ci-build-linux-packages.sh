@@ -65,7 +65,7 @@ highest_glibc="$({
         | grep -oE 'GLIBC_[0-9.]+' \
         | sed 's/^GLIBC_//' || true
     fi
-  done < <(find "$ROOT_DIR/dist/WormForensicTool.AppDir" -type f -print0)
+  done < <(find "$ROOT_DIR/dist/AmeleForensicTool.AppDir" -type f -print0)
 } | sort -Vu | tail -n1)"
 if [[ -z "$highest_glibc" ]]; then
   echo "AppImage GLIBC requirement could not be detected" >&2

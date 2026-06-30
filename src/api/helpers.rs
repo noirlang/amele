@@ -260,7 +260,7 @@ fn spawn_linux_elevated_helper(args: &[String]) -> Result<ElevatedChild, String>
         });
     }
 
-    let forced = std::env::var("WORM_ELEVATION_METHOD")
+    let forced = std::env::var("AMELE_ELEVATION_METHOD")
         .ok()
         .map(|value| value.to_ascii_lowercase());
     let mut errors = Vec::new();
@@ -269,7 +269,7 @@ fn spawn_linux_elevated_helper(args: &[String]) -> Result<ElevatedChild, String>
     match forced.as_deref() {
         Some("sudo") | Some("sudo-askpass") => methods.push("sudo-askpass"),
         Some("pkexec") | Some("polkit") => methods.push("pkexec"),
-        Some(other) => errors.push(format!("Bilinmeyen WORM_ELEVATION_METHOD: {other}")),
+        Some(other) => errors.push(format!("Bilinmeyen AMELE_ELEVATION_METHOD: {other}")),
         None => {
             if command_in_path("sudo") && linux_gui_askpass_available() {
                 methods.push("sudo-askpass");
@@ -315,7 +315,7 @@ fn spawn_linux_sudo_askpass(exe: &Path, args: &[String]) -> Result<ElevatedChild
     let child = Command::new("sudo")
         .arg("-A")
         .arg("-p")
-        .arg("Worm Forensic Tool yetkisi gerekiyor: ")
+        .arg("Amele Forensic Tool yetkisi gerekiyor: ")
         .arg(exe)
         .args(args)
         .env("SUDO_ASKPASS", askpass)
@@ -379,11 +379,11 @@ fn ensure_sudo_askpass_script() -> Result<PathBuf, String> {
         return Ok(path);
     }
 
-    let script = std::env::temp_dir().join("worm-sudo-askpass.sh");
+    let script = std::env::temp_dir().join("amele-sudo-askpass.sh");
     let body = r#"#!/bin/sh
-prompt="${SUDO_ASKPASS_PROMPT:-Worm Forensic Tool yetkisi gerekiyor}"
+prompt="${SUDO_ASKPASS_PROMPT:-Amele Forensic Tool yetkisi gerekiyor}"
 if command -v zenity >/dev/null 2>&1; then
-  exec zenity --password --title="Worm Forensic Tool" --text="$prompt"
+  exec zenity --password --title="Amele Forensic Tool" --text="$prompt"
 fi
 if command -v kdialog >/dev/null 2>&1; then
   exec kdialog --password "$prompt"
@@ -444,7 +444,7 @@ fn spawn_windows_elevated_helper(args: &[String]) -> Result<ElevatedChild, Strin
         let code = unsafe { GetLastError() };
         if code == ERROR_CANCELLED {
             return Err(
-                "Windows UAC penceresi kullanıcı tarafından iptal edildi. İmaj/RAM işlemi için Evet seçilmeli veya Worm yönetici olarak başlatılmalı."
+                "Windows UAC penceresi kullanıcı tarafından iptal edildi. İmaj/RAM işlemi için Evet seçilmeli veya Amele yönetici olarak başlatılmalı."
                     .to_string(),
             );
         }
@@ -566,7 +566,7 @@ pub fn describe_elevation_failure(method: &str, code: Option<i32>, stderr: &str)
         message.push_str(&format!("\nAyrıntı: {raw}"));
     }
     message.push_str(
-        "\nÇözüm: Linux'ta sudo/pkexec parola penceresini onaylayın; pencere açılmıyorsa polkit agent veya zenity/kdialog/ssh-askpass kurun. Windows'ta UAC penceresini onaylayın veya Worm'u yönetici olarak başlatın.",
+        "\nÇözüm: Linux'ta sudo/pkexec parola penceresini onaylayın; pencere açılmıyorsa polkit agent veya zenity/kdialog/ssh-askpass kurun. Windows'ta UAC penceresini onaylayın veya Amele'u yönetici olarak başlatın.",
     );
     message
 }
@@ -729,7 +729,7 @@ pub fn helper_owner_gid() -> Option<u32> {
 /// Disk listesi için yetkili helper çağırır ve sonucu parse eder.
 pub fn elevated_disk_list() -> Result<Vec<crate::disk::DiskInfo>, String> {
     let output_path = std::env::temp_dir().join(format!(
-        "worm-disk-list-{}-{}.json",
+        "amele-disk-list-{}-{}.json",
         std::process::id(),
         Local::now().format("%Y%m%d%H%M%S%3f")
     ));

@@ -17,7 +17,7 @@ use crate::remote::RemoteConnection;
 use crate::server::{Response, json_error, json_ok};
 
 #[cfg(windows)]
-const WINPMEM_DOWNLOAD_URL: &str = "https://worm.noirlang.tr/go-winpmem_amd64_1.0-rc2_signed.exe";
+const WINPMEM_DOWNLOAD_URL: &str = "https://amele.noirlang.tr/go-winpmem_amd64_1.0-rc2_signed.exe";
 const VOLATILITY_LINUX_BANNERS_URL: &str = "https://raw.githubusercontent.com/Abyss-W4tcher/volatility3-symbols/master/banners/banners_plain.json";
 const VOLATILITY_LINUX_SYMBOL_RAW_BASE: &str =
     "https://github.com/Abyss-W4tcher/volatility3-symbols/raw/master/";
@@ -90,7 +90,7 @@ pub fn avml_install_endpoint() -> Response {
         };
         let url =
             format!("https://github.com/microsoft/avml/releases/latest/download/{asset_name}");
-        let download_dir = std::env::temp_dir().join("worm-avml-install");
+        let download_dir = std::env::temp_dir().join("amele-avml-install");
         if let Err(err) = fs::create_dir_all(&download_dir) {
             return json_error(500, err.to_string());
         }
@@ -118,7 +118,7 @@ pub fn avml_install_endpoint() -> Response {
                 return json_error(500, err);
             }
         };
-        let stem = helper_file_stem("worm-avml-install");
+        let stem = helper_file_stem("amele-avml-install");
         let result_path = download_dir.join(format!("{stem}-result.json"));
         let args = vec![
             "avml-install-helper".to_string(),
@@ -202,7 +202,7 @@ pub fn winpmem_install_endpoint() -> Response {
 fn run_winpmem_install_job(job_id: String) {
     update_acquisition_message(&job_id, "WinPMEM indiriliyor...");
 
-    let download_dir = std::env::temp_dir().join("worm-winpmem-install");
+    let download_dir = std::env::temp_dir().join("amele-winpmem-install");
     if let Err(err) = fs::create_dir_all(&download_dir) {
         fail_acquisition_job_with_message(&job_id, err.to_string(), "WinPMEM indirme başarısız");
         return;
@@ -260,7 +260,7 @@ fn run_winpmem_install_job(job_id: String) {
     };
 
     update_acquisition_message(&job_id, "WinPMEM kuruluşu yapılıyor (yetki gerekli)...");
-    let stem = helper_file_stem("worm-winpmem-install");
+    let stem = helper_file_stem("amele-winpmem-install");
     let result_path = download_dir.join(format!("{stem}-result.json"));
     let args = vec![
         "winpmem-install-helper".to_string(),
@@ -416,7 +416,7 @@ fn run_local_ram_job(
         "winpmem" => ram::acquire_with_winpmem(&output, candidate, &control, |done, total| {
             update_acquisition_progress_message(&job_id, done, total, "RAM edinimi sürüyor");
         }),
-        _ => Err(crate::error::WormError::new(
+        _ => Err(crate::error::AmeleError::new(
             crate::error::HataKodu::Genel,
             "Desteklenmeyen RAM araci",
         )),
@@ -718,7 +718,7 @@ fn run_elevated_local_ram_job(
         job_id,
         "Yetki bekleniyor: Linux'ta sudo/pkexec parola penceresini, Windows'ta UAC Evet/Hayır penceresini onaylayın.",
     );
-    let stem = helper_file_stem("worm-ram-helper");
+    let stem = helper_file_stem("amele-ram-helper");
     let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
     let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
     let progress_path = std::env::temp_dir().join(format!("{stem}-progress.json"));
@@ -1463,7 +1463,7 @@ fn writable_symbol_dir(value: Option<&str>) -> Result<PathBuf, String> {
         .filter(|value| !value.is_empty())
         .filter(|value| *value != ".symbols")
         .map(PathBuf::from)
-        .unwrap_or_else(default_worm_symbol_dir);
+        .unwrap_or_else(default_amele_symbol_dir);
     fs::create_dir_all(&path).map_err(|err| {
         format!(
             "Volatility symbol dizini oluşturulamadı: {} - {err}",
@@ -1479,17 +1479,17 @@ fn writable_symbol_dir(value: Option<&str>) -> Result<PathBuf, String> {
     Ok(path)
 }
 
-/// Worm varsayılan Volatility sembol klasörünü döndürür.
-fn default_worm_symbol_dir() -> PathBuf {
+/// Amele varsayılan Volatility sembol klasörünü döndürür.
+fn default_amele_symbol_dir() -> PathBuf {
     home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("Worm")
+        .join("Amele")
         .join(".symbols")
 }
 
 /// Linux kernel banner ve sembol URL eşlemesini indirir.
 fn download_linux_symbol_mapping() -> Result<BTreeMap<String, Vec<String>>, String> {
-    let temp_dir = std::env::temp_dir().join("worm-volatility-symbols");
+    let temp_dir = std::env::temp_dir().join("amele-volatility-symbols");
     fs::create_dir_all(&temp_dir).map_err(|err| err.to_string())?;
     let mapping_path = temp_dir.join("banners_plain.json");
     download_file_to_path(

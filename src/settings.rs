@@ -1,5 +1,5 @@
 //! Kullanıcı ayarları ve varsayılan uygulama tercihlerini tanımlar.
-use crate::error::{HataKodu, WormError, WormResult};
+use crate::error::{HataKodu, AmeleError, AmeleResult};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -26,16 +26,16 @@ pub struct AppSettings {
 }
 
 impl Default for AppSettings {
-    /// Worm ana klasörü altında güvenli varsayılan ayarları üretir.
+    /// Amele ana klasörü altında güvenli varsayılan ayarları üretir.
     fn default() -> Self {
         let home = home_dir();
-        let worm_dir = home.join("Worm");
+        let amele_dir = home.join("Amele");
         Self {
             varsayilan_port: DEFAULT_PORT,
             varsayilan_boyut_mb: DEFAULT_SIZE_MB,
             disk_algilama_araligi_ms: DEFAULT_DETECTION_INTERVAL_MS,
-            cikti_klasoru: worm_dir.join("Ciktilar"),
-            vaka_klasoru: worm_dir.join("Vakalar"),
+            cikti_klasoru: amele_dir.join("Ciktilar"),
+            vaka_klasoru: amele_dir.join("Vakalar"),
             otomatik_rapor: true,
             karanlik_tema: false,
             dil: "tr".to_string(),
@@ -47,16 +47,16 @@ impl Default for AppSettings {
 
 impl AppSettings {
     /// Ayar dosyasını okur; dosya yoksa varsayılan ayar döndürür.
-    pub fn load(path: impl AsRef<Path>) -> WormResult<Self> {
+    pub fn load(path: impl AsRef<Path>) -> AmeleResult<Self> {
         let path = path.as_ref();
         if !path.is_file() {
             return Ok(Self::default());
         }
 
         let content = fs::read_to_string(path)
-            .map_err(|err| WormError::io(HataKodu::DosyaOkuma, "Ayar dosyasi okunamadi", err))?;
+            .map_err(|err| AmeleError::io(HataKodu::DosyaOkuma, "Ayar dosyasi okunamadi", err))?;
         let mut settings: Self = serde_json::from_str(&content).map_err(|err| {
-            WormError::new(
+            AmeleError::new(
                 HataKodu::ProtokolJson,
                 format!("Ayar dosyasi parse edilemedi: {err}"),
             )
@@ -66,17 +66,17 @@ impl AppSettings {
     }
 
     /// Ayarları pretty JSON olarak diske yazar.
-    pub fn save(&self, path: impl AsRef<Path>) -> WormResult<()> {
+    pub fn save(&self, path: impl AsRef<Path>) -> AmeleResult<()> {
         let path = path.as_ref();
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|err| {
-                WormError::io(HataKodu::DosyaYazma, "Ayar klasoru olusturulamadi", err)
+                AmeleError::io(HataKodu::DosyaYazma, "Ayar klasoru olusturulamadi", err)
             })?;
         }
 
         let content = serde_json::to_string_pretty(self)?;
         fs::write(path, content)
-            .map_err(|err| WormError::io(HataKodu::DosyaYazma, "Ayar dosyasi yazilamadi", err))
+            .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "Ayar dosyasi yazilamadi", err))
     }
 
     /// Eksik veya sıfır gelen ayarları güvenli varsayılanlara tamamlar.

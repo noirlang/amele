@@ -1,12 +1,12 @@
 <div align="center">
 
-<img src="ui/assets/logo/logo.png" alt="Worm Logo" width="96" />
+<img src="ui/assets/logo/logo.png" alt="Amele Logo" width="96" />
 
 # Security
 
-*Responsible security reporting for Worm Forensic Tool.*
+*Responsible security reporting for Amele Forensic Tool.*
 
-[Repository](https://github.com/noirlang/worm) | [Website](https://worm.noirlang.tr) | [Contributing](CONTRIBUTING.md)
+[Repository](https://github.com/noirlang/amele) | [Website](https://amele.noirlang.tr) | [Contributing](CONTRIBUTING.md)
 
 </div>
 

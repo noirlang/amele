@@ -20,7 +20,7 @@ pub fn write_logical_analysis_outputs(
         records.push(Record::new(
             RecordType::Telemetry,
             vec![
-                Field::string(0x01, "worm.mft.status"),
+                Field::string(0x01, "amele.mft.status"),
                 Field::string(0x02, "no structured Android records were extracted"),
             ],
         ));
@@ -185,7 +185,7 @@ fn report_text(serial: &str, records: &[Record]) -> String {
     }
 
     let mut out = String::new();
-    out.push_str("WORM MOBILE FORENSIC REPORT\n");
+    out.push_str("AMELE MOBILE FORENSIC REPORT\n");
     out.push_str("===========================\n\n");
     out.push_str(&format!("Device Serial: {serial}\n"));
     out.push_str(&format!(

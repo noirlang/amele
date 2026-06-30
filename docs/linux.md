@@ -8,12 +8,12 @@
 
 Linux modülü iki farklı çalışma modunu destekler:
 
-1. **Yerel İmaj Alma** — Worm'un çalıştığı makinedeki disklerden doğrudan imaj alma
-2. **Uzak İmaj Alma** — Hedef Linux makineye yerleştirilen `worm-linux` ajanı üzerinden ağdan imaj ve RAM edinimi
+1. **Yerel İmaj Alma** — Amele'un çalıştığı makinedeki disklerden doğrudan imaj alma
+2. **Uzak İmaj Alma** — Hedef Linux makineye yerleştirilen `amele-linux` ajanı üzerinden ağdan imaj ve RAM edinimi
 
 ### Yerel İmaj Alma
 
-Root/sudo yetkisi gerektirir. Worm kendini `pkexec` ile yeniden başlatarak yetki yükseltir.
+Root/sudo yetkisi gerektirir. Amele kendini `pkexec` ile yeniden başlatarak yetki yükseltir.
 
 #### Disk İmajı
 
@@ -46,9 +46,9 @@ Root/sudo yetkisi gerektirir. Worm kendini `pkexec` ile yeniden başlatarak yetk
 | **Zaman Aşımı** | 2 saat |
 | **Kontrol** | `SIGSTOP`/`SIGCONT` ile pause/resume, `kill` ile cancel |
 
-### Uzak İmaj Alma (worm-linux Ajanı)
+### Uzak İmaj Alma (amele-linux Ajanı)
 
-Hedef Linux makineye `worm-linux` ajanı yerleştirilir ve TCP üzerinden JSON protokolü ile iletişim kurulur.
+Hedef Linux makineye `amele-linux` ajanı yerleştirilir ve TCP üzerinden JSON protokolü ile iletişim kurulur.
 
 #### Protokol
 
@@ -83,7 +83,7 @@ Hedef Linux makineye `worm-linux` ajanı yerleştirilir ve TCP üzerinden JSON p
 ### Çıktı Klasör Yapısı
 
 ```
-~/Worm/Vakalar/{vaka_adı}/
+~/Amele/Vakalar/{vaka_adı}/
 ├── {disk_ismi}_{tarih}.img          # Disk imajı
 ├── {disk_ismi}_{tarih}.img.sha256   # SHA-256 hash
 ├── ram_{tarih}.lime                  # RAM dökümü
@@ -106,12 +106,12 @@ Hedef Linux makineye `worm-linux` ajanı yerleştirilir ve TCP üzerinden JSON p
 
 The Linux module supports two operating modes:
 
-1. **Local Imaging** — Direct disk imaging from the machine running Worm
-2. **Remote Imaging** — Network-based disk and RAM acquisition via `worm-linux` agent deployed on the target
+1. **Local Imaging** — Direct disk imaging from the machine running Amele
+2. **Remote Imaging** — Network-based disk and RAM acquisition via `amele-linux` agent deployed on the target
 
 ### Local Imaging
 
-Requires root/sudo. Worm re-invokes itself via `pkexec` for privilege escalation.
+Requires root/sudo. Amele re-invokes itself via `pkexec` for privilege escalation.
 
 #### Disk Image
 
@@ -144,9 +144,9 @@ Requires root/sudo. Worm re-invokes itself via `pkexec` for privilege escalation
 | **Timeout** | 2 hours |
 | **Control** | Pause/resume via `SIGSTOP`/`SIGCONT`, cancel via `kill` |
 
-### Remote Imaging (worm-linux Agent)
+### Remote Imaging (amele-linux Agent)
 
-A `worm-linux` agent is deployed on the target Linux machine, communicating over TCP with a JSON protocol.
+A `amele-linux` agent is deployed on the target Linux machine, communicating over TCP with a JSON protocol.
 
 #### Protocol
 
@@ -181,7 +181,7 @@ A `worm-linux` agent is deployed on the target Linux machine, communicating over
 ### Output Folder Structure
 
 ```
-~/Worm/Vakalar/{case_name}/
+~/Amele/Vakalar/{case_name}/
 ├── {disk_name}_{date}.img          # Disk image
 ├── {disk_name}_{date}.img.sha256   # SHA-256 hash
 ├── ram_{date}.lime                  # RAM dump
