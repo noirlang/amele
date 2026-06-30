@@ -3,12 +3,10 @@ name: Build and release commit
 on:
   push:
     branches:
-      - main
-      - rewrite-rust
+      - dev
   pull_request:
     branches:
-      - main
-      - rewrite-rust
+      - dev
   workflow_dispatch:
 
 permissions:
