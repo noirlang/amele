@@ -7,6 +7,7 @@ function _reportToDevLog(level, scope, message) {
     fetch("/api/developer-log", {
       method: "POST",
       headers: { "content-type": "application/json" },
+// TODO: TODO(news): Fetch latest news and announcements automatically from website API with local cache and offline fallback
       body: JSON.stringify({ level, scope, message }),
     }).catch(() => {});
   } catch {
