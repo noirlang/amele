@@ -49,15 +49,15 @@ fn t_cli(tr: &str, en: &str) -> String {
     }
 }
 
-/// CLI argümanını okuyup ilgili alt komutu veya UI modunu çalıştırır.
 fn main() {
     install_error_reporting();
 
     let mut raw_args: Vec<String> = std::env::args().skip(1).collect();
-    let is_en = extract_global_en_flag(&mut raw_args);
-    if is_en {
-        set_cli_english(true);
+    let explicit_lang = extract_global_lang_flag(&mut raw_args);
+    if let Some(lang) = &explicit_lang {
+        set_cli_english(lang == "en");
     }
+
     let profile_arg = extract_global_profile(&mut raw_args);
     if let Some(username) = profile_arg {
         if let Err(err) = amele::profile::select_profile(&username, false) {
@@ -69,13 +69,36 @@ fn main() {
         let _ = amele::profile::bootstrap_profiles();
     }
 
+    if explicit_lang.is_none() {
+        if let Some(prof) = amele::profile::active_profile() {
+            if prof.language == "en" {
+                set_cli_english(true);
+            }
+        }
+    }
+
     let first_cmd = raw_args.first().map(|s| s.as_str());
     if !is_silent_or_helper_command(first_cmd, &raw_args) {
         println!("{AMELE_ASCII_LOGO}\n");
     }
 
+    // If only --lang <target> was supplied and raw_args is now empty
+    if let Some(lang) = explicit_lang {
+        if raw_args.is_empty() {
+            if let Err(err) = lang_set_command(lang) {
+                eprintln!("{err}");
+                std::process::exit(2);
+            }
+            return;
+        }
+    }
+
     let mut args = raw_args.into_iter();
     let result = match args.next().as_deref() {
+        Some("lang") | Some("--lang") => {
+            let target = args.next().unwrap_or_else(|| "tr".to_string());
+            lang_set_command(target)
+        }
         Some("linux") => linux_cli_command(args.collect()),
         Some("windows") => windows_cli_command(args.collect()),
         Some("android") => android_cli_command(args.collect()),
@@ -165,7 +188,7 @@ fn main() {
 
     if let Err(err) = result {
         report_fatal_error(&err);
-        eprintln!("{err}");
+        eprintln!("{err}\n");
         if should_print_help_on_error(&err) {
             print_help();
         }
@@ -176,9 +199,9 @@ fn main() {
 /// Sadece kullanıcı komutu yanlış yazdığında genel yardım basar.
 fn should_print_help_on_error(err: &str) -> bool {
     err.starts_with("Kullanim:")
-        || err.starts_with("Bilinmeyen komut:")
+        || err.starts_with("Bilinmeyen")
         || err.starts_with("Usage:")
-        || err.starts_with("Unknown command:")
+        || err.starts_with("Unknown")
 }
 
 #[cfg(target_os = "windows")]
@@ -876,6 +899,10 @@ USER INTERFACE:
   ui                      Launch native desktop application
   ui-browser              Launch developer browser UI for debugging
 
+LANGUAGE:
+  amele --lang en         Switch CLI language to English
+  amele --lang tr         Switch CLI language to Turkish
+
 Run 'amele <command> --help' for detailed sub-command usage."#
         );
     } else {
@@ -905,6 +932,10 @@ YONETIM VE DELIL ISLEMLERI:
 ARAYUZ:
   ui                      Masaustu yerel penceresini ac
   ui-browser              Tarayici gelistirici/debug modunda ac
+
+DIL / LANGUAGE:
+  amele --lang en         Switch CLI language to English (Ingilizceye gec)
+  amele --lang tr         CLI dilini Turkce yap
 
 Detayli kullanim icin: amele <komut> --help"#
         );
@@ -2328,14 +2359,66 @@ fn extract_global_profile(args: &mut Vec<String>) -> Option<String> {
     }
 }
 
-/// Global --en bayrağını komut listesinden ayıklar.
-fn extract_global_en_flag(args: &mut Vec<String>) -> bool {
+/// Global --lang / --en / --tr bayraklarını ayıklar.
+fn extract_global_lang_flag(args: &mut Vec<String>) -> Option<String> {
+    if let Some(pos) = args.iter().position(|a| a.starts_with("--lang=")) {
+        let val = args.remove(pos);
+        let lang = val.trim_start_matches("--lang=").to_lowercase();
+        return Some(lang);
+    }
+    if let Some(pos) = args.iter().position(|a| a == "--lang" || a == "-l") {
+        if pos + 1 < args.len() {
+            args.remove(pos);
+            let lang = args.remove(pos);
+            return Some(lang.to_lowercase());
+        }
+    }
     if let Some(pos) = args.iter().position(|a| a == "--en") {
         args.remove(pos);
-        true
-    } else {
-        false
+        return Some("en".to_string());
     }
+    if let Some(pos) = args.iter().position(|a| a == "--tr") {
+        args.remove(pos);
+        return Some("tr".to_string());
+    }
+    None
+}
+
+/// CLI ve profil dilini kalıcı olarak değiştirir.
+fn lang_set_command(target: String) -> Result<(), String> {
+    let normalized = match target.to_lowercase().as_str() {
+        "en" | "english" => "en",
+        "tr" | "turkish" | "turkce" | "türkçe" => "tr",
+        other => {
+            return Err(format!(
+                "{}: '{}' ({})",
+                t_cli("Geçersiz dil seçimi", "Invalid language choice"),
+                other,
+                t_cli("Geçerli: 'tr', 'en'", "Valid: 'tr', 'en'")
+            ))
+        }
+    };
+
+    set_cli_english(normalized == "en");
+
+    // Aktif profil varsa dil tercihini güncelle
+    if let Some(prof) = amele::profile::active_profile() {
+        let _ = amele::profile::update_active_preferences(normalized, &prof.theme);
+    }
+
+    // Uygulama ayarlarını güncelle
+    let mut settings = amele::settings::AppSettings::load(amele::settings::default_settings_path()).unwrap_or_default();
+    settings.dil = normalized.to_string();
+    let _ = settings.save(amele::settings::default_settings_path());
+
+    println!(
+        "{}",
+        t_cli(
+            "CLI dili Türkçe (tr) olarak ayarlandı.",
+            "CLI language set to English (en)."
+        )
+    );
+    Ok(())
 }
 
 /// Profil komutlarında otomatik açılış bayrağını ayıklar.
