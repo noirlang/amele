@@ -22,6 +22,7 @@ use crate::server::{Response, json_error, json_ok};
 use super::{
     ImageMountState,
     cleanup_helper_files,
+// TODO: TODO(upload): Implement secure image upload with MIME validation, path traversal guard, and auto-resize/compression
     create_acquisition_job,
     current_image_mount,
     default_case_base_dir,

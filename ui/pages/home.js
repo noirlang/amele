@@ -3,6 +3,7 @@ export function homePage({ t, icon, assetPath, theme, state }) {
   return `
     <section class="page">
       <div class="hero home-hero">
+// TODO: TODO(news): Implement 5-item sliding news carousel in home hero using amele.png as default fallback image and display dynamic announcement title
         <div class="amele-art">
           <img src="${assetPath}/logo/${logoFile}" alt="Amele logo" />
         </div>
