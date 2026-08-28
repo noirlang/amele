@@ -1794,7 +1794,8 @@ code {
 }
 
 .settings-grid {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1.6fr;
+  align-items: start;
 }
 
 .settings-layout {
@@ -1806,7 +1807,7 @@ code {
 .settings-update {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
 }
 
 .settings-update h3 {
@@ -1816,11 +1817,12 @@ code {
 .settings-update .settings-meta {
   margin: 0 !important;
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .settings-update .progress-bar {
-  margin: 8px 0 !important;
+  margin: 4px 0 !important;
   height: 24px !important;
   background: var(--bg-2) !important;
   border-radius: 8px !important;
@@ -1834,17 +1836,20 @@ code {
 
 .settings-update .button-row {
   display: flex;
-  gap: 12px;
-  margin: 4px 0 0 0 !important;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 !important;
 }
 
 .settings-update .status-badge {
-  margin: 4px 0 0 0 !important;
+  margin: 0 !important;
+  align-self: flex-start;
 }
 
 .settings-update .log-box {
-  margin-top: 8px !important;
+  margin-top: 4px !important;
   flex: 1;
+  min-height: 80px;
 }
 
 .settings-header {
@@ -1900,8 +1905,64 @@ code {
   line-height: 1.45;
 }
 
+/* settings-card içindeki button-row ve status-badge için düzgün aralık */
+.settings-card > .button-row {
+  margin-top: 18px;
+}
+
+.settings-card > .status-badge[data-settings-status] {
+  margin-top: 10px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
 .compact-select {
   width: 180px;
+}
+
+/* Platform badge — ayarlar sayfasında platform adı */
+.platform-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Kaydet butonu + durum satırı yan yana */
+.settings-actions-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+/* Durum satırı — "Hazır" gibi küçük bilgi metni */
+.settings-status-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.settings-update .settings-status-line {
+  margin-top: 4px;
 }
 
 .compact-log {

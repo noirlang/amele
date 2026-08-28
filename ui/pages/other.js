@@ -151,31 +151,29 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION }) {
         <article class="settings-card">
           <span class="settings-kicker">${t("settings.general")}</span>
           <h3>${t("settings.appearanceLanguage")}</h3>
+
           <div class="settings-row">
-            <span>
-              <strong>${t("settings.theme")}</strong>
-            </span>
+            <span><strong>${t("settings.theme")}</strong></span>
             <button class="secondary-button" data-action="theme-toggle">${isDark ? icon("sun") : icon("moon")} ${isDark ? t("settings.themeLight") : t("settings.themeDark")}</button>
           </div>
+
           <div class="settings-row">
-            <span>
-              <strong>${t("settings.language")}</strong>
-            </span>
+            <span><strong>${t("settings.language")}</strong></span>
             <select class="select compact-select" data-action="language-select" aria-label="${t("settings.language")}">
               <option value="tr" ${state.language === "tr" ? "selected" : ""}>Türkçe</option>
               <option value="en" ${state.language === "en" ? "selected" : ""}>English</option>
             </select>
           </div>
+
           <div class="settings-row">
-            <span>
-              <strong>${t("settings.detectedSystem")}</strong>
-            </span>
-            <span class="status-badge">${icon(state.platform === "windows" ? "windows" : state.platform === "linux" ? "linux" : "monitor")} ${platformLabel(state.platform)}</span>
+            <span><strong>${t("settings.detectedSystem")}</strong></span>
+            <span class="platform-badge">${icon(state.platform === "windows" ? "windows" : state.platform === "linux" ? "linux" : "monitor")} ${platformLabel(state.platform)}</span>
           </div>
-          <div class="button-row">
+
+          <div class="settings-actions-row">
             <button class="primary-button" data-action="save-settings">${t("settings.save")}</button>
+            <span class="settings-status-line" data-settings-status>${icon("info")} ${t("ready")}</span>
           </div>
-          <div class="status-badge" data-settings-status>${icon("info")} ${t("ready")}</div>
         </article>
 
         <article class="settings-card settings-update">
@@ -192,13 +190,14 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION }) {
             <button class="primary-button" data-action="check-update">${icon("refresh")} ${t("settings.checkUpdate")}</button>
             <button class="secondary-button" data-action="download-update">${icon("download")} ${t("settings.downloadInstall")}</button>
           </div>
-          <div class="status-badge" data-update-status>${icon("info")} ${t("ready")}</div>
+          <span class="settings-status-line" data-update-status>${icon("info")} ${t("ready")}</span>
           <div class="log-box compact-log" data-update-log>${t("settings.releaseNotes")}</div>
         </article>
       </div>
     </section>
   `;
 }
+
 
 export const KNOWN_CONTRIBUTORS = {
   melihemik: {
