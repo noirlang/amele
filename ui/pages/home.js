@@ -17,12 +17,17 @@ export function homePage({ t, icon, assetPath, theme, state }) {
     newsItems.length - 1
   );
 
+  const isEn = state?.language === "en";
   const slidesHtml = newsItems
     .map((item, idx) => {
       const isActive = idx === activeIndex;
       const imgUrl = item.imageUrl || item.image || defaultFallbackImage;
-      const title = item.title || "";
-      const summary = item.summary || (item.content ? item.content.slice(0, 160) + "..." : "");
+      const title = isEn
+        ? (item.titleEn || item.title || item.titleTr || "")
+        : (item.titleTr || item.title || item.titleEn || "");
+      const summary = isEn
+        ? (item.summaryEn || item.summary || item.summaryTr || (item.contentEn || item.content ? (item.contentEn || item.content).slice(0, 160) + "..." : ""))
+        : (item.summaryTr || item.summary || item.summaryEn || (item.contentTr || item.content ? (item.contentTr || item.content).slice(0, 160) + "..." : ""));
       const hasText = Boolean(title || summary);
 
       return `
