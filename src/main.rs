@@ -151,6 +151,7 @@ fn main() {
         Some("mount-cleanup") => mount_cleanup_command(args.collect()),
         Some("ui") => server::run_native(),
         Some("ui-browser") => server::run_browser(),
+        Some("tui") | Some("terminal") => amele::tui::run_tui(),
         Some("help") | Some("--help") | Some("-h") => {
             print_help();
             Ok(())
@@ -301,7 +302,9 @@ fn is_silent_or_helper_command(cmd: Option<&str>, raw_args: &[String]) -> bool {
         | Some("disk-size")
         | Some("remote-tool-check")
         | Some("ui")
-        | Some("ui-browser") => true,
+        | Some("ui-browser")
+        | Some("tui")
+        | Some("terminal") => true,
         Some("update-check") | Some("check-update") | Some("update") => {
             raw_args.iter().any(|a| a == "--json")
         }
@@ -875,6 +878,7 @@ MANAGEMENT & EVIDENCE:
 USER INTERFACE:
   ui                      Launch native desktop application
   ui-browser              Launch developer browser UI for debugging
+  tui                     Launch interactive Terminal User Interface (Dashboard)
 
 Run 'amele <command> --help' for detailed sub-command usage."#
         );
@@ -905,6 +909,7 @@ YONETIM VE DELIL ISLEMLERI:
 ARAYUZ:
   ui                      Masaustu yerel penceresini ac
   ui-browser              Tarayici gelistirici/debug modunda ac
+  tui                     Terminal kullanici arayuzunu ac (Terminal Dashboard)
 
 Detayli kullanim icin: amele <komut> --help"#
         );
