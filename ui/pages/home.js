@@ -2,15 +2,13 @@ export function homePage({ t, icon, assetPath, theme, state }) {
   const logoFile = "amele.png";
   const defaultFallbackImage = `${assetPath}/logo/${logoFile}`;
 
-  const newsItems = (Array.isArray(state?.news) && state.news.length > 0)
+  const hasNews = Array.isArray(state?.news) && state.news.length > 0;
+  const newsItems = hasNews
     ? state.news.slice(0, 5)
     : [
         {
-          id: "default-1",
-          title: "Amele Forensic Platform v0.0.18",
-          summary: "Adli bilişim, mobil edinim (Android & iOS) ve bellek analizi platformu hazır.",
+          id: "default",
           imageUrl: defaultFallbackImage,
-          link: "https://amele.noirlang.tr",
         },
       ];
 
@@ -23,18 +21,25 @@ export function homePage({ t, icon, assetPath, theme, state }) {
     .map((item, idx) => {
       const isActive = idx === activeIndex;
       const imgUrl = item.imageUrl || item.image || defaultFallbackImage;
-      const title = item.title || "Amele Forensic Platform";
+      const title = item.title || "";
       const summary = item.summary || (item.content ? item.content.slice(0, 160) + "..." : "");
+      const hasText = Boolean(title || summary);
+
       return `
         <div class="news-slide ${isActive ? "is-active" : ""}" data-index="${idx}">
           <div class="news-media">
-            <img src="${imgUrl}" onerror="this.src='${defaultFallbackImage}'" alt="${title}" />
+            <img src="${imgUrl}" onerror="this.src='${defaultFallbackImage}'" alt="${title || "Amele"}" />
           </div>
-          <div class="news-overlay">
-            <span class="news-badge">${newsItems.length > 1 ? `HABER ${idx + 1}/${newsItems.length}` : "DUYURU"}</span>
-            <h3 class="news-title">${title}</h3>
-            <p class="news-summary">${summary}</p>
-          </div>
+          ${
+            hasText
+              ? `
+            <div class="news-overlay">
+              ${title ? `<h3 class="news-title">${title}</h3>` : ""}
+              ${summary ? `<p class="news-summary">${summary}</p>` : ""}
+            </div>
+          `
+              : ""
+          }
         </div>
       `;
     })
@@ -60,14 +65,12 @@ export function homePage({ t, icon, assetPath, theme, state }) {
 
   return `
     <section class="page">
-      <div class="hero home-hero">
-        <div class="news-carousel-card" id="news-carousel" data-total-slides="${newsItems.length}">
-          <div class="news-slides-container">
-            ${slidesHtml}
-          </div>
-          ${navButtonsHtml}
-          ${dotsHtml}
+      <div class="hero home-hero news-hero-container" id="news-carousel" data-total-slides="${newsItems.length}">
+        <div class="news-slides-container">
+          ${slidesHtml}
         </div>
+        ${navButtonsHtml}
+        ${dotsHtml}
       </div>
 
       <div class="home-grid">

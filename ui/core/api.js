@@ -57,15 +57,7 @@ export async function fetchNewsAnnouncements(apiBaseUrl = "https://amele.noirlan
     }
   } catch {}
 
-  return [
-    {
-      id: "default-1",
-      title: "Amele Forensic Platform v0.0.18",
-      summary: "Adli bilişim, mobil edinim (Android & iOS) ve bellek analizi platformu hazır.",
-      imageUrl: "",
-      link: "https://amele.noirlang.tr"
-    }
-  ];
+  return [];
 }
 
 export function createApiRequest({ backendAvailable }) {
