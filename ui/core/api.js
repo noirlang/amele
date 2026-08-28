@@ -18,29 +18,31 @@ function _reportToDevLog(level, scope, message) {
  * Web sitesi API'sinden (https://amele.noirlang.tr/api/announcements) güncel duyuru ve haberleri çeker.
  * 5 dakikalık yerel önbellek (localStorage) ve çevrimdışı fallback içerir.
  */
-export async function fetchNewsAnnouncements(apiBaseUrl = "https://amele.noirlang.tr") {
+export async function fetchNewsAnnouncements(apiBaseUrl = "https://amele.noirlang.tr", forceRefresh = false) {
   const CACHE_KEY = "amele_news_cache";
-  const CACHE_TTL_MS = 5 * 60 * 1000;
+  const CACHE_TTL_MS = 60 * 1000; // 1 dakika yerel cache
 
-  try {
-    const cached = localStorage.getItem(CACHE_KEY);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (Date.now() - parsed.timestamp < CACHE_TTL_MS && Array.isArray(parsed.items) && parsed.items.length > 0) {
-        return parsed.items;
+  if (!forceRefresh) {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Date.now() - parsed.timestamp < CACHE_TTL_MS && Array.isArray(parsed.items) && parsed.items.length > 0) {
+          return parsed.items;
+        }
       }
-    }
-  } catch {}
+    } catch {}
+  }
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 4500);
     const res = await fetch(`${apiBaseUrl}/api/announcements`, { signal: controller.signal });
     clearTimeout(timeoutId);
     if (res.ok) {
       const data = await res.json();
       const items = Array.isArray(data) ? data : (data.items || data.announcements || []);
-      if (items.length > 0) {
+      if (Array.isArray(items)) {
         try {
           localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), items }));
         } catch {}

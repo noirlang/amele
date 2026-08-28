@@ -4019,12 +4019,21 @@ async function bootApp() {
   devLog("INFO", "ui:startup", `Amele ${APP_VERSION} başlatıldı — platform: ${state.platform}, dil: ${state.language}, tema: ${state.theme}, backend: ${backendAvailable}`, apiRequest, backendReady);
 }
 
-async function loadNewsAnnouncements() {
+async function loadNewsAnnouncements(forceRefresh = false) {
   try {
-    const items = await fetchNewsAnnouncements();
-    if (Array.isArray(items) && items.length > 0) {
+    const items = await fetchNewsAnnouncements("https://amele.noirlang.tr", forceRefresh);
+    if (Array.isArray(items)) {
+      const oldLen = state.news?.length || 0;
+      const oldFirstId = state.news?.[0]?.id || state.news?.[0]?._id;
+      const newFirstId = items[0]?.id || items[0]?._id;
+
       state.news = items;
-      if (state.route === "home") {
+      if (state.activeNewsIndex >= items.length) {
+        state.activeNewsIndex = 0;
+      }
+
+      // Değişiklik varsa veya ilk yükleme ise ana sayfayı güncelle
+      if (state.route === "home" && (oldLen !== items.length || oldFirstId !== newFirstId)) {
         render();
       }
     }
@@ -4034,6 +4043,7 @@ async function loadNewsAnnouncements() {
 }
 
 let newsTimer = null;
+let newsPollingTimer = null;
 function startNewsCarouselTimer() {
   if (newsTimer) clearInterval(newsTimer);
   newsTimer = setInterval(() => {
@@ -4042,6 +4052,20 @@ function startNewsCarouselTimer() {
       render();
     }
   }, 6000);
+
+  // Periyodik olarak 60 saniyede bir web sitesinden yeni duyuru/haber kontrolü yap
+  if (newsPollingTimer) clearInterval(newsPollingTimer);
+  newsPollingTimer = setInterval(() => {
+    loadNewsAnnouncements(true).catch(() => {});
+  }, 60000);
+
+  // Pencereye odaklanıldığında veya internet geldiğinde anında yenile
+  window.addEventListener("focus", () => {
+    loadNewsAnnouncements(true).catch(() => {});
+  });
+  window.addEventListener("online", () => {
+    loadNewsAnnouncements(true).catch(() => {});
+  });
 }
 
 bootApp().catch((error) => {
