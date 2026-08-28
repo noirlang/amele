@@ -4013,10 +4013,109 @@ async function bootApp() {
   loadNewsAnnouncements().catch(() => {});
   startNewsCarouselTimer();
 
+  // GitHub sürüm kontrolü — 3 saniye gecikmeyle başlat (UI açılsın önce)
+  setTimeout(() => checkForUpdates(), 3000);
+
   // Developer mode — 5 kez logoya tıklayınca aktifleşir
   initDeveloperMode({ apiRequest, backendReady });
   if (backendAvailable) initJobWidget();
   devLog("INFO", "ui:startup", `Amele ${APP_VERSION} başlatıldı — platform: ${state.platform}, dil: ${state.language}, tema: ${state.theme}, backend: ${backendAvailable}`, apiRequest, backendReady);
+}
+
+/**
+ * GitHub API'den en son sürümü çekip mevcut sürümle karşılaştırır.
+ * Eğer yeni sürüm mevcutsa sağ altta güncelleme bildirimi gösterir.
+ */
+async function checkForUpdates() {
+  const SKIP_KEY = "amele_update_skip";
+  const skippedVersion = localStorage.getItem(SKIP_KEY);
+  const lang = state.language || "en";
+  const isTr = lang === "tr";
+
+  try {
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(
+      "https://api.github.com/repos/amele-next/amele-next/releases/latest",
+      { signal: controller.signal, headers: { Accept: "application/vnd.github+json" } }
+    );
+    clearTimeout(tid);
+    if (!res.ok) return;
+    const data = await res.json();
+    const latestTag = (data.tag_name || "").trim();
+    const releaseUrl = data.html_url || "https://github.com/amele-next/amele-next/releases/latest";
+    if (!latestTag) return;
+
+    // Basit semver karşılaştırması: APP_VERSION < latestTag
+    const parseVer = (v) => v.replace(/^v/, "").split(".").map(Number);
+    const [cMaj, cMin, cPatch] = parseVer(APP_VERSION);
+    const [lMaj, lMin, lPatch] = parseVer(latestTag);
+    const hasUpdate =
+      lMaj > cMaj ||
+      (lMaj === cMaj && lMin > cMin) ||
+      (lMaj === cMaj && lMin === cMin && lPatch > cPatch);
+
+    if (!hasUpdate) return;
+    if (skippedVersion === latestTag) return;
+
+    showUpdateToast({ latestTag, releaseUrl, isTr });
+  } catch {
+    // Sessizce geç — internet yoksa veya rate-limit aşıldıysa rahatsız etme
+  }
+}
+
+function showUpdateToast({ latestTag, releaseUrl, isTr }) {
+  // Var olan toast varsa kaldır
+  const old = document.getElementById("amele-update-toast");
+  if (old) old.remove();
+
+  const toast = document.createElement("div");
+  toast.id = "amele-update-toast";
+  toast.className = "update-toast";
+
+  const title = isTr ? "🚀 Yeni Güncelleme Hazır!" : "🚀 New Update Available!";
+  const verLine = isTr
+    ? `Mevcut: <b>${APP_VERSION}</b> → Yeni: <b>${latestTag}</b>`
+    : `Current: <b>${APP_VERSION}</b> → Latest: <b>${latestTag}</b>`;
+  const downloadLabel = isTr ? "⬇ İndir" : "⬇ Download";
+  const dismissLabel = isTr ? "Şimdi değil" : "Not now";
+
+  toast.innerHTML = `
+    <div class="update-toast-header">
+      <span class="update-toast-badge">⬆ ${isTr ? "Güncelleme" : "Update"}</span>
+      <button class="update-toast-close" title="${isTr ? "Kapat" : "Close"}">✕</button>
+    </div>
+    <p class="update-toast-title">${title}</p>
+    <p class="update-toast-version">${verLine}</p>
+    <div class="update-toast-actions">
+      <a class="update-toast-btn primary" href="${releaseUrl}" target="_blank" rel="noopener noreferrer">${downloadLabel}</a>
+      <button class="update-toast-btn secondary dismiss-btn">${dismissLabel}</button>
+    </div>
+  `;
+
+  document.body.appendChild(toast);
+
+  // Kapatma aksiyonları
+  const hide = (skip = false) => {
+    toast.classList.remove("visible");
+    if (skip) {
+      try { localStorage.setItem("amele_update_skip", latestTag); } catch {}
+    }
+    setTimeout(() => toast.remove(), 400);
+  };
+
+  toast.querySelector(".update-toast-close").addEventListener("click", () => hide(false));
+  toast.querySelector(".dismiss-btn").addEventListener("click", () => hide(true));
+
+  // Göster
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => toast.classList.add("visible"));
+  });
+
+  // 60 saniye sonra otomatik kapat (skip etmeden)
+  setTimeout(() => {
+    if (document.body.contains(toast)) hide(false);
+  }, 60000);
 }
 
 async function loadNewsAnnouncements(forceRefresh = false) {
