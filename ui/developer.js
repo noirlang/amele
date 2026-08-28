@@ -12,7 +12,6 @@ let lastLogSeq       = 0;
 let allLogs          = [];
 let filterLevel      = "all";
 let filterText       = "";
-// TODO: TODO(admin): Add Markdown rich editor toolbar (Bold, Italic, Link) for creating and editing news/announcements
 let pinToBottom      = true;
 let frontendLogBuf   = [];
 let posX = 100;

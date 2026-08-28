@@ -5,7 +5,7 @@ import { windowsPage } from "./tools/windows/index.js";
 import { linuxPage } from "./tools/linux/index.js";
 import { agentPage } from "./tools/agent/index.js";
 import { remoteAcqPage } from "./tools/remote-acq/index.js";
-import { createApiRequest } from "./core/api.js";
+import { createApiRequest, fetchNewsAnnouncements } from "./core/api.js";
 import { errorBoxHtml } from "./core/errors.js";
 import { detectPlatform, platformLabel as platformName } from "./core/platform.js";
 import { showToast } from "./core/toast.js";
@@ -59,6 +59,8 @@ const state = {
   language: preferredLanguage,
   sidebarCollapsed: preferredSidebarCollapsed,
   platform: detectPlatform(),
+  news: [],
+  activeNewsIndex: 0,
   files: {},
   activeTab: "hash",
   approvedSecurityKey: "",
@@ -1369,6 +1371,31 @@ document.addEventListener("click", async (event) => {
   if (sidebarToggle) {
     event.preventDefault();
     setSidebarCollapsed(sidebarToggle.dataset.sidebarToggle === "collapse");
+    return;
+  }
+
+  const newsAction = event.target.closest("[data-news-action]");
+  if (newsAction) {
+    event.preventDefault();
+    const action = newsAction.dataset.newsAction;
+    const total = Math.min(state.news?.length || 1, 5);
+    if (action === "prev") {
+      state.activeNewsIndex = (state.activeNewsIndex - 1 + total) % total;
+    } else if (action === "next") {
+      state.activeNewsIndex = (state.activeNewsIndex + 1) % total;
+    }
+    render();
+    return;
+  }
+
+  const newsDot = event.target.closest("[data-news-dot]");
+  if (newsDot) {
+    event.preventDefault();
+    const idx = parseInt(newsDot.dataset.newsDot, 10);
+    if (!isNaN(idx)) {
+      state.activeNewsIndex = idx;
+      render();
+    }
     return;
   }
 
@@ -3982,10 +4009,39 @@ async function bootApp() {
   // Load latest GitHub contributors in background
   loadGitHubContributors().catch(() => {});
 
+  // Load latest news & announcements from website in background
+  loadNewsAnnouncements().catch(() => {});
+  startNewsCarouselTimer();
+
   // Developer mode — 5 kez logoya tıklayınca aktifleşir
   initDeveloperMode({ apiRequest, backendReady });
   if (backendAvailable) initJobWidget();
   devLog("INFO", "ui:startup", `Amele ${APP_VERSION} başlatıldı — platform: ${state.platform}, dil: ${state.language}, tema: ${state.theme}, backend: ${backendAvailable}`, apiRequest, backendReady);
+}
+
+async function loadNewsAnnouncements() {
+  try {
+    const items = await fetchNewsAnnouncements();
+    if (Array.isArray(items) && items.length > 0) {
+      state.news = items;
+      if (state.route === "home") {
+        render();
+      }
+    }
+  } catch (err) {
+    console.warn("News announcements fetch failed:", err);
+  }
+}
+
+let newsTimer = null;
+function startNewsCarouselTimer() {
+  if (newsTimer) clearInterval(newsTimer);
+  newsTimer = setInterval(() => {
+    if (state.route === "home" && Array.isArray(state.news) && state.news.length > 1) {
+      state.activeNewsIndex = (state.activeNewsIndex + 1) % Math.min(state.news.length, 5);
+      render();
+    }
+  }, 6000);
 }
 
 bootApp().catch((error) => {

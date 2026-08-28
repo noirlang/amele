@@ -869,60 +869,163 @@ button {
   grid-template-columns: 1fr;
   justify-items: center;
   min-height: 340px;
-  padding: 36px 46px;
+  padding: 24px;
 }
 
-.home-hero .amele-art {
+.news-carousel-card {
   position: relative;
-  width: min(750px, 100%);
-  min-height: 300px;
+  width: min(820px, 100%);
+  min-height: 320px;
+  border-radius: 28px;
+  overflow: hidden;
+  background: rgba(14, 18, 22, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(16px);
+}
+
+.news-slides-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+}
+
+.news-slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(0.97);
+  transition: opacity 400ms ease, transform 400ms ease, visibility 400ms;
+}
+
+.news-slide.is-active {
+  position: relative;
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1);
+}
+
+.news-media {
+  width: 100%;
+  height: 220px;
+  background: rgba(0, 0, 0, 0.3);
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  isolation: isolate;
 }
 
-.home-hero .amele-art::before {
-  content: "";
+.news-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.news-slide:hover .news-media img {
+  transform: scale(1.03);
+}
+
+.news-overlay {
+  padding: 18px 24px 20px;
+  background: linear-gradient(180deg, rgba(14, 18, 22, 0.85) 0%, rgba(10, 14, 18, 0.98) 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.news-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(101, 229, 138, 0.15);
+  color: var(--green, #65e58a);
+  border: 1px solid rgba(101, 229, 138, 0.3);
+  margin-bottom: 6px;
+}
+
+.news-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text, #fff);
+  margin: 0 0 6px 0;
+  line-height: 1.35;
+}
+
+.news-summary {
+  font-size: 0.88rem;
+  color: var(--text-muted, rgba(255, 255, 255, 0.65));
+  margin: 0;
+  line-height: 1.45;
+}
+
+.news-nav-btn {
   position: absolute;
-  inset: -3px;
-  z-index: -1;
-  border-radius: 32px;
-  padding: 3px;
-  background: conic-gradient(from var(--glow-angle, 0deg), transparent 0%, transparent 30%, var(--green) 38%, rgba(101, 229, 138, 0.3) 42%, transparent 50%, transparent 100%);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-  opacity: 0;
-  transition: opacity 400ms var(--ease);
-  animation: glow-spin 2.2s linear infinite;
-  will-change: --glow-angle;
-  pointer-events: none;
-}
-
-.home-hero .amele-art:hover::before {
-  opacity: 1;
-}
-
-.home-hero .amele-art img {
-  border-radius: 24px;
-  width: 100%;
-  height: auto;
-  object-fit: contain;
-  max-height: 600px;
-}
-
-.home-hero .amele-art img {
-  width: 100%;
-  height: auto;
-  object-fit: contain;
-  max-height: 600px;
-}
-
-.home-hero .hero-actions {
+  top: 100px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 1.3rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  margin-top: 24px;
+  cursor: pointer;
+  z-index: 5;
+  transition: all 180ms ease;
+  backdrop-filter: blur(8px);
+}
+
+.news-nav-btn:hover {
+  background: var(--green, #65e58a);
+  color: #000;
+  border-color: var(--green, #65e58a);
+  transform: scale(1.08);
+}
+
+.news-nav-btn.prev {
+  left: 12px;
+}
+
+.news-nav-btn.next {
+  right: 12px;
+}
+
+.news-dots {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 5;
+}
+
+.news-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: all 250ms ease;
+}
+
+.news-dot.is-active {
+  width: 22px;
+  border-radius: 6px;
+  background: var(--green, #65e58a);
+  box-shadow: 0 0 10px rgba(101, 229, 138, 0.6);
 }
 
 .hero::after {
