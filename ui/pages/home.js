@@ -21,7 +21,14 @@ export function homePage({ t, icon, assetPath, theme, state }) {
   const slidesHtml = newsItems
     .map((item, idx) => {
       const isActive = idx === activeIndex;
-      const imgUrl = item.imageUrl || item.image || defaultFallbackImage;
+      let rawImg = item.imageUrl || item.image;
+      if (rawImg && typeof rawImg === "string") {
+        rawImg = rawImg.trim();
+        if (rawImg.startsWith("/")) {
+          rawImg = `https://amele.noirlang.tr${rawImg}`;
+        }
+      }
+      const imgUrl = rawImg || defaultFallbackImage;
       const title = isEn
         ? (item.titleEn || item.title || item.titleTr || "")
         : (item.titleTr || item.title || item.titleEn || "");
