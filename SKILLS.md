@@ -252,10 +252,9 @@ amele mount cleanup vaka1                     # Bağlı imajları güvenle çöz
 
 ---
 
-### 8. Sistem, Arayüz & Güncelleme
+### 8. Sistem & Güncelleme
 
 ```bash
-amele tui                                     # Terminal kullanıcı arayüzünü (TUI Dashboard) aç
 amele ui                                      # Native masaüstü penceresini aç
 amele ui-browser                              # Web tarayıcısında debug modunda aç
 amele update                                  # Güncellemeleri kontrol et (AppImage, deb, rpm, arch, msi)

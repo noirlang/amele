@@ -29,6 +29,5 @@ pub mod ssh;
 pub mod storage_guard;
 pub mod volatility;
 pub mod wireguard;
-pub mod tui;
 
 pub use error::{AmeleError, AmeleResult, ErrorInfo, HataKodu};
