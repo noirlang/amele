@@ -82,6 +82,15 @@ fn main() {
         println!("{AMELE_ASCII_LOGO}\n");
     }
 
+    // Profil gerektiren komutlarda aktif profil yoksa seçim veya oluşturma iste
+    if !is_profile_exempt_command(first_cmd, &raw_args) {
+        if let Err(err) = prompt_and_ensure_active_profile() {
+            report_fatal_error(&err);
+            eprintln!("{err}\n");
+            std::process::exit(2);
+        }
+    }
+
     // If only --lang <target> was supplied and raw_args is now empty
     if let Some(lang) = explicit_lang {
         if raw_args.is_empty() {
@@ -330,6 +339,154 @@ fn is_silent_or_helper_command(cmd: Option<&str>, raw_args: &[String]) -> bool {
         }
         _ => false,
     }
+}
+
+/// Profil gerektirmeyen yardım, yapılandırma ve yönetim komutlarını belirler.
+fn is_profile_exempt_command(cmd: Option<&str>, raw_args: &[String]) -> bool {
+    if raw_args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+        return true;
+    }
+    match cmd {
+        None
+        | Some("help")
+        | Some("--help")
+        | Some("-h")
+        | Some("lang")
+        | Some("--lang")
+        | Some("profile")
+        | Some("profiles")
+        | Some("profile-list")
+        | Some("profile-create")
+        | Some("profile-use")
+        | Some("profile-select")
+        | Some("profile-logout")
+        | Some("profile-online-sync")
+        | Some("online-sync")
+        | Some("update")
+        | Some("update-check")
+        | Some("check-update")
+        | Some("ui")
+        | Some("ui-browser")
+        | Some("settings-default")
+        | Some("disk-list-helper")
+        | Some("image-helper")
+        | Some("ram-helper")
+        | Some("avml-install-helper")
+        | Some("winpmem-install-helper")
+        | Some("mount-helper")
+        | Some("disk-size")
+        | Some("remote-tool-check")
+        | Some("ssh-tool-check") => true,
+        _ => false,
+    }
+}
+
+/// Komut çalıştırılmadan önce aktif bir profilin seçilmesini veya oluşturulmasını sağlar.
+fn prompt_and_ensure_active_profile() -> Result<(), String> {
+    use std::io::{self, Write};
+
+    if amele::profile::active_profile().is_some() {
+        return Ok(());
+    }
+
+    let store = amele::profile::load_profile_store().unwrap_or_default();
+    if store.profiles.is_empty() {
+        // İlk çalıştırma: Kayıtlı profil yok
+        println!(
+            "{}",
+            t_cli(
+                "⚠️  Aktif bir analist profili bulunamadi!\nAdli islemlerin ve delillerin guvenle kayit altina alinabilmesi icin profil olusturmalisiniz.\n",
+                "⚠️  No active analyst profile found!\nYou must create an analyst profile for forensic integrity and auditing.\n"
+            )
+        );
+
+        print!("{}", t_cli("Adiniz Soyadiniz: ", "Full Name: "));
+        let _ = io::stdout().flush();
+        let mut name_buf = String::new();
+        if io::stdin().read_line(&mut name_buf).is_err() || name_buf.trim().is_empty() {
+            return Err(t_cli(
+                "Hata: Profil olusturulmadi. CLI komutlarini kullanmak icin profil zorunludur.\nProfil olusturmak icin: amele profile create \"Ad Soyad\" <kullanici_adi> [--direct]",
+                "Error: Profile not created. An active profile is required to use CLI commands.\nTo create: amele profile create \"Full Name\" <username> [--direct]"
+            ));
+        }
+        let full_name = name_buf.trim();
+
+        print!("{}", t_cli("Kullanici Adi (bosluksuz): ", "Username (no spaces): "));
+        let _ = io::stdout().flush();
+        let mut user_buf = String::new();
+        if io::stdin().read_line(&mut user_buf).is_err() || user_buf.trim().is_empty() {
+            return Err(t_cli(
+                "Hata: Gecersiz kullanici adi. Profil olusturulamadi.",
+                "Error: Invalid username. Profile could not be created."
+            ));
+        }
+        let username = user_buf.trim();
+
+        print!("{}", t_cli("Dil [tr/en] (varsayilan: tr): ", "Language [tr/en] (default: en): "));
+        let _ = io::stdout().flush();
+        let mut lang_buf = String::new();
+        let _ = io::stdin().read_line(&mut lang_buf);
+        let lang = lang_buf.trim();
+        let lang = if lang.eq_ignore_ascii_case("en") { "en" } else { "tr" };
+
+        let prof = amele::profile::create_profile(full_name, username, lang, "dark", true)
+            .map_err(|e| format!("{}: {}", t_cli("Profil olusturulamadi", "Could not create profile"), e))?;
+
+        println!(
+            "\n{} @{}\n",
+            t_cli("✓ Profil olusturuldu ve varsayilan olarak secildi:", "✓ Profile created and selected as default:"),
+            prof.username
+        );
+        return Ok(());
+    }
+
+    // Kayıtlı profil var fakat hiçbiri aktif değil
+    println!(
+        "{}",
+        t_cli(
+            "⚠️  Aktif bir analist profili secilmemis!\nLutfen devam etmek icin bir profil secin:\n",
+            "⚠️  No active analyst profile selected!\nPlease select an analyst profile to continue:\n"
+        )
+    );
+
+    for (idx, p) in store.profiles.iter().enumerate() {
+        println!("  [{}] {} (@{})", idx + 1, p.full_name, p.username);
+    }
+    println!();
+
+    print!("{}", t_cli("Profil No veya Kullanici Adi: ", "Profile Number or Username: "));
+    let _ = io::stdout().flush();
+    let mut choice_buf = String::new();
+    if io::stdin().read_line(&mut choice_buf).is_err() || choice_buf.trim().is_empty() {
+        return Err(t_cli(
+            "Hata: Profil secilmedi. Komut iptal edildi.\nProfil secmek icin: amele profile use <kullanici_adi> [--direct]",
+            "Error: Profile not selected. Command aborted.\nTo select: amele profile use <username> [--direct]"
+        ));
+    }
+    let choice = choice_buf.trim();
+
+    let selected_user = if let Ok(num) = choice.parse::<usize>() {
+        if num >= 1 && num <= store.profiles.len() {
+            store.profiles[num - 1].username.clone()
+        } else {
+            return Err(t_cli("Gecersiz profil numarasi.", "Invalid profile number."));
+        }
+    } else if let Some(p) = store.profiles.iter().find(|p| p.username.eq_ignore_ascii_case(choice)) {
+        p.username.clone()
+    } else {
+        return Err(format!("{}: '{}'", t_cli("Profil bulunamadi", "Profile not found"), choice));
+    };
+
+    let prof = amele::profile::select_profile(&selected_user, true)
+        .map_err(|e| format!("{}: {}", t_cli("Profil secilemedi", "Could not select profile"), e))?;
+
+    println!(
+        "\n{} @{}\n",
+        t_cli("✓ Aktif profil secildi:", "✓ Active profile selected:"),
+        prof.username
+    );
+
+    Ok(())
 }
 
 fn linux_cli_command(args: Vec<String>) -> Result<(), String> {
