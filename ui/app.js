@@ -19,7 +19,7 @@ import { workflowPage, pickerField, field, pageTitle, casePanel } from "./pages/
 import { initDeveloperMode, devLog } from "./developer.js";
 import { initJobWidget } from "./core/jobs.js";
 
-const APP_VERSION = "v0.0.17";
+const APP_VERSION = "v0.0.18";
 const assetPath = "./assets";
 const backendAvailable = location.protocol === "http:" || location.protocol === "https:";
 const urlParams = new URLSearchParams(window.location.search);
