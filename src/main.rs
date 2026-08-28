@@ -310,31 +310,49 @@ fn is_silent_or_helper_command(cmd: Option<&str>, raw_args: &[String]) -> bool {
 }
 
 fn linux_cli_command(args: Vec<String>) -> Result<(), String> {
-    if args.is_empty() {
-        return Err(t_cli(
-            "Kullanim: amele linux <disk|ram> [secenekler]\n\
-             Disk: amele linux disk <kaynak> <vaka> [disk_adi] [raw|aff4]\n\
-                   amele linux disk --list\n\
-                   amele linux disk --agent <ip> <port> <disk_id> <cikti_klasoru> [token] [raw|aff4]\n\
-                   amele linux disk --agent <ip> <port> --list [token]\n\
-                   amele linux disk --ssh <ip> <port> <disk_id> <vaka> [kullanici] [parola] [anahtar] [raw|aff4]\n\
-                   amele linux disk --ssh <ip> <port> --list [kullanici] [parola] [anahtar]\n\
-             RAM:  amele linux ram <vaka> [arac_yolu] [raw|aff4]\n\
-                   amele linux ram --status\n\
-                   amele linux ram --agent <ip> <port> <vaka> [token] [raw|aff4]\n\
-                   amele linux ram --ssh <ip> <port> <vaka> [kullanici] [parola] [anahtar] [raw|aff4]",
-            "Usage: amele linux <disk|ram> [options]\n\
-             Disk: amele linux disk <source> <case> [disk_name] [raw|aff4]\n\
-                   amele linux disk --list\n\
-                   amele linux disk --agent <ip> <port> <disk_id> <out_dir> [token] [raw|aff4]\n\
-                   amele linux disk --agent <ip> <port> --list [token]\n\
-                   amele linux disk --ssh <ip> <port> <disk_id> <case> [user] [pass] [key] [raw|aff4]\n\
-                   amele linux disk --ssh <ip> <port> --list [user] [pass] [key]\n\
-             RAM:  amele linux ram <case> [tool_path] [raw|aff4]\n\
-                   amele linux ram --status\n\
-                   amele linux ram --agent <ip> <port> <case> [token] [raw|aff4]\n\
-                   amele linux ram --ssh <ip> <port> <case> [user] [pass] [key] [raw|aff4]",
-        ));
+    if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+        println!(
+            "{}",
+            t_cli(
+                r#"Amele Linux Edinim Komutlari
+
+KULLANIM:
+  amele linux <disk|ram> [secenekler]
+
+DISK ISLEMLERI:
+  amele linux disk --list                                    Yerel diskleri listele
+  amele linux disk <kaynak> <vaka> [disk_adi] [raw|aff4]     Yerel disk imaji al
+  amele linux disk --agent <ip> <port> --list [token]        Uzak agent disklerini listele
+  amele linux disk --agent <ip> <port> <id> <cikti> [token]  Uzak agent uzerinden imaj al
+  amele linux disk --ssh <ip> <port> --list [user] [pass]    SSH ile diskleri listele
+  amele linux disk --ssh <ip> <port> <id> <vaka> [user]      SSH ile agent'siz imaj al
+
+RAM ISLEMLERI (AVML):
+  amele linux ram --status                                   AVML kurulum durumunu goster
+  amele linux ram <vaka> [arac_yolu] [raw|aff4]              Yerel canli RAM imaji al
+  amele linux ram --agent <ip> <port> <vaka> [token]         Uzak agent'tan RAM imaji al
+  amele linux ram --ssh <ip> <port> <vaka> [user] [pass]     SSH ile canli RAM dokumu al"#,
+                r#"Amele Linux Acquisition Commands
+
+USAGE:
+  amele linux <disk|ram> [options]
+
+DISK ACQUISITION:
+  amele linux disk --list                                    List local disks
+  amele linux disk <source> <case> [disk_name] [raw|aff4]    Acquire local disk image
+  amele linux disk --agent <ip> <port> --list [token]        List remote agent disks
+  amele linux disk --agent <ip> <port> <id> <out_dir> [token] Acquire remote image
+  amele linux disk --ssh <ip> <port> --list [user] [pass]    List disks via SSH
+  amele linux disk --ssh <ip> <port> <id> <case> [user]      Acquire image via SSH
+
+RAM ACQUISITION (AVML):
+  amele linux ram --status                                   Show AVML installation status
+  amele linux ram <case> [tool_path] [raw|aff4]              Acquire local live RAM
+  amele linux ram --agent <ip> <port> <case> [token]         Acquire RAM via remote agent
+  amele linux ram --ssh <ip> <port> <case> [user] [pass]     Acquire RAM via SSH"#
+            )
+        );
+        return Ok(());
     }
     match args[0].as_str() {
         "disk" => {
@@ -389,31 +407,49 @@ fn linux_cli_command(args: Vec<String>) -> Result<(), String> {
 }
 
 fn windows_cli_command(args: Vec<String>) -> Result<(), String> {
-    if args.is_empty() {
-        return Err(t_cli(
-            "Kullanim: amele windows <disk|ram> [secenekler]\n\
-             Disk: amele windows disk <kaynak> <vaka> [disk_adi] [raw|aff4]\n\
-                   amele windows disk --list\n\
-                   amele windows disk --agent <ip> <port> <disk_id> <cikti_klasoru> [token] [raw|aff4]\n\
-                   amele windows disk --agent <ip> <port> --list [token]\n\
-                   amele windows disk --ssh <ip> <port> <disk_id> <vaka> [kullanici] [parola] [anahtar] [raw|aff4]\n\
-                   amele windows disk --ssh <ip> <port> --list [kullanici] [parola] [anahtar]\n\
-             RAM:  amele windows ram <vaka> [arac_yolu] [raw|aff4]\n\
-                   amele windows ram --status\n\
-                   amele windows ram --agent <ip> <port> <vaka> [token] [raw|aff4]\n\
-                   amele windows ram --ssh <ip> <port> <vaka> [kullanici] [parola] [anahtar] [raw|aff4]",
-            "Usage: amele windows <disk|ram> [options]\n\
-             Disk: amele windows disk <source> <case> [disk_name] [raw|aff4]\n\
-                   amele windows disk --list\n\
-                   amele windows disk --agent <ip> <port> <disk_id> <out_dir> [token] [raw|aff4]\n\
-                   amele windows disk --agent <ip> <port> --list [token]\n\
-                   amele windows disk --ssh <ip> <port> <disk_id> <case> [user] [pass] [key] [raw|aff4]\n\
-                   amele windows disk --ssh <ip> <port> --list [user] [pass] [key]\n\
-             RAM:  amele windows ram <case> [tool_path] [raw|aff4]\n\
-                   amele windows ram --status\n\
-                   amele windows ram --agent <ip> <port> <case> [token] [raw|aff4]\n\
-                   amele windows ram --ssh <ip> <port> <case> [user] [pass] [key] [raw|aff4]",
-        ));
+    if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+        println!(
+            "{}",
+            t_cli(
+                r#"Amele Windows Edinim Komutlari
+
+KULLANIM:
+  amele windows <disk|ram> [secenekler]
+
+DISK ISLEMLERI:
+  amele windows disk --list                                    Yerel diskleri listele
+  amele windows disk <kaynak> <vaka> [disk_adi] [raw|aff4]     Yerel disk imaji al
+  amele windows disk --agent <ip> <port> --list [token]        Uzak agent disklerini listele
+  amele windows disk --agent <ip> <port> <id> <cikti> [token]  Uzak agent uzerinden imaj al
+  amele windows disk --ssh <ip> <port> --list [user] [pass]    SSH ile diskleri listele
+  amele windows disk --ssh <ip> <port> <id> <vaka> [user]      SSH ile agent'siz imaj al
+
+RAM ISLEMLERI (WinPMEM):
+  amele windows ram --status                                   WinPMEM kurulum durumunu goster
+  amele windows ram <vaka> [arac_yolu] [raw|aff4]              Yerel canli RAM imaji al
+  amele windows ram --agent <ip> <port> <vaka> [token]         Uzak agent'tan RAM imaji al
+  amele windows ram --ssh <ip> <port> <vaka> [user] [pass]     SSH ile canli RAM dokumu al"#,
+                r#"Amele Windows Acquisition Commands
+
+USAGE:
+  amele windows <disk|ram> [options]
+
+DISK ACQUISITION:
+  amele windows disk --list                                    List local disks
+  amele windows disk <source> <case> [disk_name] [raw|aff4]    Acquire local disk image
+  amele windows disk --agent <ip> <port> --list [token]        List remote agent disks
+  amele windows disk --agent <ip> <port> <id> <out_dir> [token] Acquire remote image
+  amele windows disk --ssh <ip> <port> --list [user] [pass]    List disks via SSH
+  amele windows disk --ssh <ip> <port> <id> <case> [user]      Acquire image via SSH
+
+RAM ACQUISITION (WinPMEM):
+  amele windows ram --status                                   Show WinPMEM installation status
+  amele windows ram <case> [tool_path] [raw|aff4]              Acquire local live RAM
+  amele windows ram --agent <ip> <port> <case> [token]         Acquire RAM via remote agent
+  amele windows ram --ssh <ip> <port> <case> [user] [pass]     Acquire RAM via SSH"#
+            )
+        );
+        return Ok(());
     }
     match args[0].as_str() {
         "disk" => {
@@ -468,11 +504,57 @@ fn windows_cli_command(args: Vec<String>) -> Result<(), String> {
 }
 
 fn android_cli_command(args: Vec<String>) -> Result<(), String> {
-    if args.is_empty() {
-        return Err(t_cli(
-            "Kullanim: amele android <devices|profile|logical|filesystem|ram|status|install|capabilities|lemon|connect|disconnect|analysis> [argumanlar]",
-            "Usage: amele android <devices|profile|logical|filesystem|ram|status|install|capabilities|lemon|connect|disconnect|analysis> [args]",
-        ));
+    if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+        println!(
+            "{}",
+            t_cli(
+                r#"Amele Android Adli Bilisim Komutlari
+
+KULLANIM:
+  amele android <alt-komut> [argumanlar]
+
+CIHAZ VE TESHIS:
+  devices                         Bagli Android cihazlari listele
+  status                          ADB durumunu denetle
+  install                         ADB'yi sistem paket yoneticisiyle kur
+  profile <seri_no>               Cihaz detay profilini yazdir
+  capabilities <seri_no>          Edinim uyumluluk raporu
+  lemon <seri_no>                 Lemon fiziksel RAM on kontrolu
+
+VERI EDINIMI:
+  logical <seri_no> <vaka> [mod]  Mantiksal edinim (quick|full|root|volatile)
+  filesystem <seri_no> <vaka>     Dosya sistemi /data imaji (--root)
+  ram <seri_no> <vaka> [mod]      RAM dokumu (volatile|root|physical)
+
+UZAK BAGLANTI:
+  connect <host> [port]           Uzak ADB baglantisi (tcp|mesh)
+  disconnect <seri_no>            Uzak ADB baglantisini kes
+  analysis <vaka>                 Vaka cikti analiz ozeti"#,
+                r#"Amele Android Mobile Forensics Commands
+
+USAGE:
+  amele android <subcommand> [args]
+
+DEVICE & DIAGNOSTICS:
+  devices                         List connected Android devices
+  status                          Check ADB daemon status
+  install                         Install ADB via package manager
+  profile <serial>                Print device details and encryption info
+  capabilities <serial>           Acquisition compatibility report
+  lemon <serial>                  Lemon physical RAM preflight
+
+ACQUISITION:
+  logical <serial> <case> [prof]  Logical acquisition (quick|full|root|volatile)
+  filesystem <serial> <case>      Filesystem /data image (--root)
+  ram <serial> <case> [mode]      Live RAM dump (volatile|root|physical)
+
+REMOTE CONNECTION:
+  connect <host> [port]           Connect remote ADB (tcp|mesh)
+  disconnect <serial>             Disconnect remote ADB
+  analysis <case>                 Case output analysis summary"#
+            )
+        );
+        return Ok(());
     }
     let sub = args[0].as_str();
     let sub_args = args[1..].to_vec();
@@ -498,11 +580,29 @@ fn android_cli_command(args: Vec<String>) -> Result<(), String> {
 }
 
 fn ios_cli_command(args: Vec<String>) -> Result<(), String> {
-    if args.is_empty() {
-        return Err(t_cli(
-            "Kullanim: amele ios <profile|normalize> [argumanlar]",
-            "Usage: amele ios <profile|normalize> [args]",
-        ));
+    if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+        println!(
+            "{}",
+            t_cli(
+                r#"Amele iOS Adli Bilisim Komutlari
+
+KULLANIM:
+  amele ios <profile|normalize> <backup_klasoru> [vaka]
+
+KOMUTLAR:
+  profile <backup_klasoru>            iOS backup metadata bilgilerini yazdir
+  normalize <backup_klasoru> <vaka>   iOS backup'i vaka klasorune normalize et"#,
+                r#"Amele iOS Forensics Commands
+
+USAGE:
+  amele ios <profile|normalize> <backup_dir> [case]
+
+COMMANDS:
+  profile <backup_dir>                Inspect iOS backup metadata
+  normalize <backup_dir> <case>       Normalize iOS backup into case folder"#
+            )
+        );
+        return Ok(());
     }
     let sub = args[0].as_str();
     let sub_args = args[1..].to_vec();
@@ -518,11 +618,39 @@ fn ios_cli_command(args: Vec<String>) -> Result<(), String> {
 }
 
 fn docker_cli_command(args: Vec<String>) -> Result<(), String> {
-    if args.is_empty() {
-        return Err(t_cli(
-            "Kullanim: amele docker <status|list|logs|acquire> [--agent <ip> <port>] [secenekler]",
-            "Usage: amele docker <status|list|logs|acquire> [--agent <ip> <port>] [options]",
-        ));
+    if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+        println!(
+            "{}",
+            t_cli(
+                r#"Amele Docker Adli Bilisim Komutlari
+
+KULLANIM:
+  amele docker <status|list|logs|acquire> [--agent <ip> <port>] [secenekler]
+
+KOMUTLAR:
+  status [kok_dizin]              Docker daemon durumunu ve riskleri denetle
+  list [kok_dizin]                Konteynerleri ve secret risklerini listele
+  logs <id> [tail] [kok_dizin]    Konteyner loglarini oku
+  acquire <id> <vaka> [kok_dizin] UpperDir drift, config ve loglari vakaya al
+
+UZAK AGENT SECENEGI:
+  --agent <ip> <port> <komut> [token]  Uzak agent uzerinden Docker incelemesi yap"#,
+                r#"Amele Docker Forensics Commands
+
+USAGE:
+  amele docker <status|list|logs|acquire> [--agent <ip> <port>] [options]
+
+COMMANDS:
+  status [root]                   Inspect Docker daemon status and risks
+  list [root]                     List containers and secret risks
+  logs <id> [tail] [root]         Inspect container logs
+  acquire <id> <case> [root]      Acquire UpperDir drift, configs and logs
+
+REMOTE AGENT OPTION:
+  --agent <ip> <port> <cmd> [token] Run Docker commands on remote agent"#
+            )
+        );
+        return Ok(());
     }
     let mut args = args;
     let agent_pos = args.iter().position(|a| a == "--agent" || a == "--remote");
@@ -593,8 +721,35 @@ fn docker_cli_command(args: Vec<String>) -> Result<(), String> {
 }
 
 fn profile_cli_command(args: Vec<String>) -> Result<(), String> {
-    if args.is_empty() {
-        return profile_list_command();
+    if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+        println!(
+            "{}",
+            t_cli(
+                r#"Amele Profil Yonetimi Komutlari
+
+KULLANIM:
+  amele profile <alt-komut> [secenekler]
+
+KOMUTLAR:
+  list                            Yerel ve aktif profilleri listele
+  create <isim> <kullanici> [tr|en] [dark|light] [--direct]  Yeni profil olustur
+  use <kullanici> [--direct]      Aktif profili sec
+  logout                          Otomatik profil oturumunu kapat
+  sync                            Online lisans ve rolleri senkronize et"#,
+                r#"Amele Profile Management Commands
+
+USAGE:
+  amele profile <subcommand> [options]
+
+COMMANDS:
+  list                            List local and active profiles
+  create <name> <user> [tr|en] [dark|light] [--direct] Create new profile
+  use <user> [--direct]           Select active profile
+  logout                          Disable automatic login
+  sync                            Synchronize online licenses and roles"#
+            )
+        );
+        return Ok(());
     }
     let sub = args[0].as_str();
     let sub_args = args[1..].to_vec();
@@ -613,11 +768,31 @@ fn profile_cli_command(args: Vec<String>) -> Result<(), String> {
 }
 
 fn case_cli_command(args: Vec<String>) -> Result<(), String> {
-    if args.is_empty() {
-        return Err(t_cli(
-            "Kullanim: amele case <export|import|verify> [argumanlar]",
-            "Usage: amele case <export|import|verify> [args]",
-        ));
+    if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+        println!(
+            "{}",
+            t_cli(
+                r#"Amele Vaka Yonetimi Komutlari
+
+KULLANIM:
+  amele case <alt-komut> [argumanlar]
+
+KOMUTLAR:
+  export <vaka> [dosya]           Vakayi .amelecase paketine aktar
+  import <dosya>                  .amelecase paketini iceri aktar
+  verify <dosya>                  .amelecase paket butunlugunu dogrula"#,
+                r#"Amele Case Management Commands
+
+USAGE:
+  amele case <subcommand> [args]
+
+COMMANDS:
+  export <case> [file]            Export case to .amelecase package
+  import <file>                   Import .amelecase package
+  verify <file>                   Verify .amelecase package integrity"#
+            )
+        );
+        return Ok(());
     }
     let sub = args[0].as_str();
     let sub_args = args[1..].to_vec();
@@ -634,8 +809,29 @@ fn case_cli_command(args: Vec<String>) -> Result<(), String> {
 }
 
 fn mount_cli_command(args: Vec<String>) -> Result<(), String> {
-    if args.is_empty() {
-        return mount_list_command();
+    if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+        println!(
+            "{}",
+            t_cli(
+                r#"Amele Imaj Baglama (Mount) Komutlari
+
+KULLANIM:
+  amele mount <alt-komut> [secenekler]
+
+KOMUTLAR:
+  list                            Aktif bagli adli imajlari listele
+  cleanup [vaka]                  Bagli imajlari guvenle coz (unmount)"#,
+                r#"Amele Image Mount Commands
+
+USAGE:
+  amele mount <subcommand> [options]
+
+COMMANDS:
+  list                            List active mounted images
+  cleanup [case]                  Safely unmount forensic images"#
+            )
+        );
+        return Ok(());
     }
     let sub = args[0].as_str();
     let sub_args = args[1..].to_vec();
@@ -654,113 +850,63 @@ fn mount_cli_command(args: Vec<String>) -> Result<(), String> {
 fn print_help() {
     if is_cli_english() {
         println!(
-            "Amele Forensic Tool CLI\n\n\
-             Usage: amele <command> [subcommand] [options]\n\n\
-             User commands:\n\
-               ui                                      Open native application window\n\
-               ui-browser                              Open in browser for debugging\n\n\
-               linux disk [src] [case] [options]       Linux disk acquisition (local, --agent, --ssh)\n\
-                          --list                       List local or remote disks\n\
-               linux ram <case> [options]              Linux RAM acquisition (local, --agent, --ssh)\n\
-                         --status                      Check local AVML status\n\n\
-               windows disk [src] [case] [options]     Windows disk acquisition (local, --agent, --ssh)\n\
-                            --list                     List local or remote disks\n\
-               windows ram <case> [options]            Windows RAM acquisition (local, --agent, --ssh)\n\
-                           --status                    Check local WinPMEM status\n\n\
-               android <subcommand> [args]             Android acquisition & diagnostics\n\
-                       devices                         List connected devices\n\
-                       logical <serial> <case> [prof]  Logical acquisition (quick|full|root|volatile)\n\
-                       filesystem <serial> <case>      Filesystem dump (--root)\n\
-                       ram <serial> <case> [mode]      RAM dump (volatile|root|physical)\n\
-                       profile <serial>                Device details\n\
-                       capabilities <serial>           Acquisition compatibility report\n\
-                       lemon <serial>                  Physical RAM preflight\n\
-                       connect <host> [port]           Connect remote ADB (tcp|mesh)\n\
-                       disconnect <serial>             Disconnect remote ADB\n\
-                       status / install                Check or install ADB package\n\
-                       analysis <case>                 Case output analysis summary\n\n\
-               ios <profile|normalize> [args]          iOS backup analysis\n\
-                   profile <backup_dir>                Inspect iOS backup metadata\n\
-                   normalize <backup_dir> <case>       Normalize backup into case\n\n\
-               docker <status|list|logs|acquire>       Docker container forensics (local or --agent)\n\
-                      status                           Docker daemon status\n\
-                      list                             List containers, risks, and secrets\n\
-                      logs <id> [tail]                 Inspect container logs\n\
-                      acquire <id> [case]              Acquire UpperDir drift + configs + logs\n\n\
-               profile <list|create|use|logout|sync>   Manage local and online profiles\n\
-               case <export|import|verify>             Case bundle package operations\n\
-               hash <file> [algorithm]                 Calculate file hash (md5/sha1/sha256/sha512)\n\
-               verify <image> <sha256>                 Verify SHA256 image checksum\n\
-               mount <list|cleanup>                    Mount forensic images / cleanup\n\
-               update [check] [--json]                 Check for updates\n\
-               wireguard <file>                        Generate WireGuard configuration\n\n\
-             Commands (Internal / Helper):\n\
-               settings-default                        Print default settings as JSON\n\
-               disk-list-helper <json>                 Authorized disk listing helper\n\
-               image-helper <req> <res> <prg> [ctrl]   Authorized image acquisition helper\n\
-               ram-helper <req> <res> <prg> <ctrl>     Authorized RAM acquisition helper\n\
-               avml-install-helper <src> <res>         Authorized AVML install helper\n\
-               winpmem-install-helper <src> <res>      Authorized WinPMEM install helper\n\
-               mount-helper <req> <res>                Authorized mount helper\n\
-               disk-size <device|file>                 Get disk or file size\n\
-               preflight <src> <type> [tgt]            Disk preflight check\n\n\
-             Note: Android/iOS CLI commands require a connected online profile.\n\
-             Note: Legacy flat commands (e.g. disk-list, local-image, adb-status) are retained as aliases."
+            r#"Amele Forensic Tool CLI (v0.0.18)
+Digital Forensics & Incident Response Platform
+
+USAGE:
+  amele <command> [subcommand] [options]
+
+ACQUISITION COMMANDS:
+  linux <disk|ram>        Linux forensic disk & live RAM acquisition (local, --agent, --ssh)
+  windows <disk|ram>      Windows forensic disk & live RAM acquisition (local, --agent, --ssh)
+  android <subcommand>    Android mobile forensics (logical, filesystem, RAM, diagnostics)
+  ios <subcommand>        iOS backup metadata analysis & case normalization
+  docker <subcommand>     Docker container forensics (drift, configs, logs)
+
+MANAGEMENT & EVIDENCE:
+  profile <subcommand>    Manage local analyst profiles & online synchronization
+  case <subcommand>       Case bundling (.amelecase), import & integrity verification
+  mount <subcommand>      Mount/unmount forensic disk images
+  hash <file> [algo]      Calculate cryptographic hash (md5, sha1, sha256, sha512)
+  verify <image> <sha256> Verify forensic image SHA-256 checksum
+  wireguard <file>        Generate secure WireGuard VPN configuration
+  update [--json]         Check for software updates
+
+USER INTERFACE:
+  ui                      Launch native desktop application
+  ui-browser              Launch developer browser UI for debugging
+
+Run 'amele <command> --help' for detailed sub-command usage."#
         );
     } else {
         println!(
-            "Amele Forensic Tool CLI\n\n\
-             Kullanim: amele <komut> [alt-komut] [secenekler]\n\n\
-             Kullanici Komutlari:\n\
-               ui                                      Native masaustu arayuzunu ac\n\
-               ui-browser                              Debug icin tarayicida ac\n\n\
-               linux disk [kaynak] [vaka] [secenekler] Linux disk edinimi (yerel, --agent veya --ssh)\n\
-                          --list                       Yerel veya uzak diskleri listele\n\
-               linux ram <vaka> [secenekler]           Linux AVML RAM edinimi (yerel, --agent veya --ssh)\n\
-                         --status                      AVML kurulum/calisma durumunu goster\n\n\
-               windows disk [kaynak] [vaka] [secenekler] Windows disk edinimi (yerel, --agent veya --ssh)\n\
-                            --list                     Yerel veya uzak diskleri listele\n\
-               windows ram <vaka> [secenekler]         Windows WinPMEM RAM edinimi (yerel, --agent veya --ssh)\n\
-                           --status                    WinPMEM kurulum/calisma durumunu goster\n\n\
-               android <alt-komut> [argumanlar]        Android edinim ve teshes islemleri\n\
-                       devices                         Bagli cihazlari listele\n\
-                       logical <serial> <vaka> [prof]  Mantiksal veri edinimi (quick|full|root|volatile)\n\
-                       filesystem <serial> <vaka>      Dosya sistemi /data imaji (--root)\n\
-                       ram <serial> <vaka> [mod]       RAM edinimi (volatile|root|physical)\n\
-                       profile <serial>                Cihaz detay profili\n\
-                       capabilities <serial>           Edinim uyumluluk raporu\n\
-                       lemon <serial>                  Lemon fiziksel RAM on kontrolu\n\
-                       connect <host> [port]           Uzak ADB baglantisi (tcp|mesh)\n\
-                       disconnect <serial>             Uzak ADB baglantisini kes\n\
-                       status / install                ADB durumunu kontrol et veya kur\n\
-                       analysis <vaka>                 Vaka cikti analiz ozeti\n\n\
-               ios <profile|normalize> [argumanlar]    iOS yedek analizi ve aktarimi\n\
-                   profile <backup_klasoru>            iOS backup metadata bilgisini yazdir\n\
-                   normalize <backup_klasoru> <vaka>   iOS backup'i vaka klasorune aktar\n\n\
-               docker <status|list|logs|acquire>       Docker konteyner adli bilisim (yerel veya --agent)\n\
-                      status                           Docker daemon durumunu denetle\n\
-                      list                             Konteynerleri, riskleri ve secret'lari listele\n\
-                      logs <id> [tail]                 Konteyner loglarini oku\n\
-                      acquire <id> [vaka]              UpperDir drift, config ve loglari vakaya al\n\n\
-               profile <list|create|use|logout|sync>   Yerel ve online profilleri yonet\n\
-               case <export|import|verify>             Vaka paketleme ve dogrulama islemleri\n\
-               hash <dosya> [algoritma]                md5/sha1/sha256/sha512 hash hesapla\n\
-               verify <imaj> <sha256>                  SHA256 imaj dogrulama yap\n\
-               mount <list|cleanup>                    Adli imaj baglama ve temizleme\n\
-               update [check] [--json]                 Guncelleme kontrolu yap\n\
-               wireguard <dosya>                       Varsayilan WireGuard yapilandirmasi uret\n\n\
-             Komutlar (Yetkili / Helper):\n\
-               settings-default                        Varsayilan ayarlari JSON olarak yazdir\n\
-               disk-list-helper <json>                 Yetkili disk listeleme yardimcisi\n\
-               image-helper <req> <res> <prg> [ctrl]   Yetkili imaj alma yardimcisi\n\
-               ram-helper <req> <res> <prg> <ctrl>     Yetkili RAM alma yardimcisi\n\
-               avml-install-helper <kaynak> <res>      Yetkili AVML kurulum yardimcisi\n\
-               winpmem-install-helper <kaynak> <res>   Yetkili WinPMEM kurulum yardimcisi\n\
-               mount-helper <req> <res>                Yetkili imaj baglama yardimcisi\n\
-               disk-size <cihaz|dosya>                 Disk veya dosya boyutu al\n\
-               preflight <src> <tip> [hedef]           Disk preflight kontrolu\n\n\
-             Not: Android/iOS CLI komutlari bagli online profil gerektirir.\n\
-             Not: Eski duz komutlar (orn: disk-list, local-image, adb-status) geriye uyumluluk icin alias olarak korunur."
+            r#"Amele Forensic Tool CLI (v0.0.18)
+Adli Bilisim ve Olay Mudahale Platformu
+
+KULLANIM:
+  amele <komut> [alt-komut] [secenekler]
+
+ADLI EDINIM KOMUTLARI:
+  linux <disk|ram>        Linux adli disk ve canli RAM edinimi (yerel, --agent, --ssh)
+  windows <disk|ram>      Windows adli disk ve canli RAM edinimi (yerel, --agent, --ssh)
+  android <alt-komut>     Android mobil edinim (mantiksal, dosya sistemi, RAM, teshis)
+  ios <alt-komut>         iOS yedek analizi ve vaka normalizasyonu
+  docker <alt-komut>      Docker konteyner adli bilisimi (drift, log, config)
+
+YONETIM VE DELIL ISLEMLERI:
+  profile <alt-komut>     Yerel ve online analist profillerini yonet
+  case <alt-komut>        Vaka paketleme (.amelecase), ice aktarma ve dogrulama
+  mount <alt-komut>       Adli disk imaji baglama (mount) ve temizleme
+  hash <dosya> [algo]     Dosya ozeti hesapla (md5, sha1, sha256, sha512)
+  verify <imaj> <sha256>  Imaj SHA-256 hash dogrulamasi yap
+  wireguard <dosya>       Guvenli WireGuard VPN yapilandirmasi uret
+  update [--json]         Yazilim guncelleme kontrolu
+
+ARAYUZ:
+  ui                      Masaustu yerel penceresini ac
+  ui-browser              Tarayici gelistirici/debug modunda ac
+
+Detayli kullanim icin: amele <komut> --help"#
         );
     }
 }
