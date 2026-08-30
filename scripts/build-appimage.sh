@@ -41,7 +41,6 @@ mkdir -p \
   "$APPDIR/usr/bin" \
   "$APPDIR/usr/share/amele/ui" \
   "$APPDIR/usr/share/amele/tools" \
-  "$APPDIR/usr/share/amele/vendor" \
   "$APPDIR/usr/share/applications" \
   "$APPDIR/usr/share/icons/hicolor/256x256/apps"
 
@@ -49,7 +48,6 @@ install -m 755 "$ROOT_DIR/target/release/amele" "$APPDIR/usr/bin/amele-forensic-
 ln -s amele-forensic-tool "$APPDIR/usr/bin/amele"
 cp -a "$ROOT_DIR/ui/." "$APPDIR/usr/share/amele/ui/"
 cp -a "$ROOT_DIR/tools/." "$APPDIR/usr/share/amele/tools/"
-cp -a "$ROOT_DIR/vendor/volatility3" "$APPDIR/usr/share/amele/vendor/"
 install -m 755 "$ROOT_DIR/packaging/appimage/AppRun" "$APPDIR/AppRun"
 install -m 644 "$ROOT_DIR/packaging/appimage/amele.desktop" "$APPDIR/amele.desktop"
 install -m 644 "$ROOT_DIR/packaging/appimage/amele.desktop" "$APPDIR/usr/share/applications/amele.desktop"

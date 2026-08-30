@@ -80,8 +80,6 @@ New-Item $WixDir -ItemType Directory -Force | Out-Null
 
 Copy-Item $BinaryPath (Join-Path $StageDir "bin\amele.exe")
 Copy-Item (Join-Path $RootDir "tools") (Join-Path $StageDir "share\amele\tools") -Recurse
-New-Item (Join-Path $StageDir "share\amele\vendor") -ItemType Directory -Force | Out-Null
-Copy-Item (Join-Path $RootDir "vendor\volatility3") (Join-Path $StageDir "share\amele\vendor\volatility3") -Recurse
 
 $UiStageDir = Join-Path $StageDir "share\amele\ui"
 if (Test-Path $UiStageDir) {

@@ -4,7 +4,6 @@ APPDIR="$(dirname "$(readlink -f "$0")")"
 export AMELE_UI_ROOT="${AMELE_UI_ROOT:-$APPDIR/usr/share/amele/ui}"
 export AMELE_APP_ICON="${AMELE_APP_ICON:-$APPDIR/usr/share/icons/hicolor/256x256/apps/amele.png}"
 export AMELE_VOLATILITY_WORKER_PATH="${AMELE_VOLATILITY_WORKER_PATH:-$APPDIR/usr/share/amele/tools/amele_volatility_worker.py}"
-export AMELE_VOLATILITY3_PATH="${AMELE_VOLATILITY3_PATH:-$APPDIR/usr/share/amele/vendor/volatility3}"
 
 WEBKIT_BUNDLE_DIR="$APPDIR/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1"
 if [ -d "$WEBKIT_BUNDLE_DIR" ]; then

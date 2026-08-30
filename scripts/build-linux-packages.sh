@@ -29,7 +29,6 @@ prepare_stage() {
     "$STAGE_DIR/usr/bin" \
     "$STAGE_DIR/usr/share/amele/ui" \
     "$STAGE_DIR/usr/share/amele/tools" \
-    "$STAGE_DIR/usr/share/amele/vendor" \
     "$STAGE_DIR/usr/share/applications" \
     "$STAGE_DIR/usr/share/icons/hicolor/256x256/apps"
 
@@ -37,7 +36,6 @@ prepare_stage() {
   ln -s amele-forensic-tool "$STAGE_DIR/usr/bin/amele"
   cp -a "$ROOT_DIR/ui/." "$STAGE_DIR/usr/share/amele/ui/"
   cp -a "$ROOT_DIR/tools/." "$STAGE_DIR/usr/share/amele/tools/"
-  cp -a "$ROOT_DIR/vendor/volatility3" "$STAGE_DIR/usr/share/amele/vendor/"
   install -m 644 "$ROOT_DIR/packaging/appimage/amele.desktop" \
     "$STAGE_DIR/usr/share/applications/amele.desktop"
   install -m 644 "$ROOT_DIR/ui/assets/logo/icon.png" \
