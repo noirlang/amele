@@ -4006,15 +4006,19 @@ async function bootApp() {
   render();
   if (state.profileGateVisible) renderProfileGate();
 
-  // Load latest GitHub contributors in background
-  loadGitHubContributors().catch(() => {});
+  // Background network tasks and timers (only in real browser / webview, not during Node unit tests)
+  const isNodeTest = typeof process !== "undefined" && Boolean(process.versions?.node);
+  if (!isNodeTest) {
+    // Load latest GitHub contributors in background
+    loadGitHubContributors().catch(() => {});
 
-  // Load latest news & announcements from website in background
-  loadNewsAnnouncements().catch(() => {});
-  startNewsCarouselTimer();
+    // Load latest news & announcements from website in background
+    loadNewsAnnouncements().catch(() => {});
+    startNewsCarouselTimer();
 
-  // GitHub sürüm kontrolü — 3 saniye gecikmeyle başlat (UI açılsın önce)
-  setTimeout(() => checkForUpdates(), 3000);
+    // GitHub sürüm kontrolü — 3 saniye gecikmeyle başlat (UI açılsın önce)
+    setTimeout(() => checkForUpdates(), 3000);
+  }
 
   // Developer mode — 5 kez logoya tıklayınca aktifleşir
   initDeveloperMode({ apiRequest, backendReady });
