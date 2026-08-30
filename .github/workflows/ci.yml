@@ -177,14 +177,20 @@ jobs:
           cp dist/amele-linux-x64.pkg.tar.zst \
             "release-assets/amele-x64-${ASSET_SUFFIX}.pkg.tar.zst"
 
-      - name: Upload Linux artifacts
+      - name: Upload Linux assets to release
         if: github.actor != 'nektos/act'
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-packages
-          path: release-assets
-          if-no-files-found: error
-          retention-days: 7
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in release-assets/*; do
+            if [[ -f "$file" ]]; then
+              echo "Uploading $file to release ${RELEASE_TAG}..."
+              gh release upload "$RELEASE_TAG" "$file" --repo "$GITHUB_REPOSITORY" --clobber
+            fi
+          done
 
   windows-msi:
     name: Windows GUI and MSI
@@ -267,14 +273,17 @@ jobs:
           Copy-Item dist\amele-windows-x64.msi `
             "release-assets\amele-x64-$env:ASSET_SUFFIX.msi"
 
-      - name: Upload Windows artifacts
+      - name: Upload Windows assets to release
         if: github.actor != 'nektos/act'
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-packages
-          path: release-assets
-          if-no-files-found: error
-          retention-days: 7
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+        shell: pwsh
+        run: |
+          Get-ChildItem release-assets\* | ForEach-Object {
+            Write-Host "Uploading $($_.FullName) to release $env:RELEASE_TAG..."
+            gh release upload $env:RELEASE_TAG $_.FullName --repo $env:GITHUB_REPOSITORY --clobber
+          }
 
   release:
     name: Finalize commit prerelease
@@ -288,13 +297,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download all release artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: downloaded-artifacts
-          merge-multiple: true
-
-      - name: Create checksums and upload packages
+      - name: Download all release assets and generate checksums
         env:
           GH_TOKEN: ${{ github.token }}
           ASSET_SUFFIX: ${{ needs.metadata.outputs.asset_suffix }}
@@ -304,42 +307,17 @@ jobs:
           set -euo pipefail
           
           mkdir -p release-assets
-          find downloaded-artifacts -type f -exec cp -f {} release-assets/ \;
-          
           cd release-assets
+          
+          echo "=== Downloading Release Assets from ${RELEASE_TAG} ==="
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir .
           rm -f *SHA256SUMS.txt
           
-          echo "=== Downloaded Artifacts ==="
-          ls -lh
-          
+          echo "=== Generating Checksums ==="
           sha256sum * > "amele-x64-${ASSET_SUFFIX}-SHA256SUMS.txt"
-          
-          echo "=== Checksums ==="
           cat "amele-x64-${ASSET_SUFFIX}-SHA256SUMS.txt"
           
-          echo "=== Uploading to Release ${RELEASE_TAG} ==="
-          upload_with_retry() {
-            local file="$1"
-            local max_attempts=5
-            local delay=5
-            for ((attempt=1; attempt<=max_attempts; attempt++)); do
-              echo "Uploading $file (attempt $attempt/$max_attempts)..."
-              if gh release upload "$RELEASE_TAG" "$file" --repo "$GITHUB_REPOSITORY" --clobber; then
-                echo "Successfully uploaded $file"
-                return 0
-              fi
-              echo "Upload attempt $attempt failed for $file. Retrying in ${delay}s..."
-              sleep "$delay"
-              delay=$((delay * 2))
-            done
-            echo "ERROR: Failed to upload $file after $max_attempts attempts." >&2
-            return 1
-          }
-
-          for file in *; do
-            if [[ -f "$file" ]]; then
-              upload_with_retry "$file"
-            fi
-          done
+          echo "=== Uploading Checksums to Release ${RELEASE_TAG} ==="
+          gh release upload "$RELEASE_TAG" "amele-x64-${ASSET_SUFFIX}-SHA256SUMS.txt" --repo "$GITHUB_REPOSITORY" --clobber
           
           echo "=== Release Complete ==="
