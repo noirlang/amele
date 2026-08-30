@@ -343,7 +343,10 @@ fn is_silent_or_helper_command(cmd: Option<&str>, raw_args: &[String]) -> bool {
 
 /// Profil gerektirmeyen yardım, yapılandırma ve yönetim komutlarını belirler.
 fn is_profile_exempt_command(cmd: Option<&str>, raw_args: &[String]) -> bool {
-    if raw_args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+    if raw_args
+        .iter()
+        .any(|a| a == "--help" || a == "-h" || a == "help")
+    {
         return true;
     }
     match cmd {
@@ -406,35 +409,57 @@ fn prompt_and_ensure_active_profile() -> Result<(), String> {
         if io::stdin().read_line(&mut name_buf).is_err() || name_buf.trim().is_empty() {
             return Err(t_cli(
                 "Hata: Profil olusturulmadi. CLI komutlarini kullanmak icin profil zorunludur.\nProfil olusturmak icin: amele profile create \"Ad Soyad\" <kullanici_adi> [--direct]",
-                "Error: Profile not created. An active profile is required to use CLI commands.\nTo create: amele profile create \"Full Name\" <username> [--direct]"
+                "Error: Profile not created. An active profile is required to use CLI commands.\nTo create: amele profile create \"Full Name\" <username> [--direct]",
             ));
         }
         let full_name = name_buf.trim();
 
-        print!("{}", t_cli("Kullanici Adi (bosluksuz): ", "Username (no spaces): "));
+        print!(
+            "{}",
+            t_cli("Kullanici Adi (bosluksuz): ", "Username (no spaces): ")
+        );
         let _ = io::stdout().flush();
         let mut user_buf = String::new();
         if io::stdin().read_line(&mut user_buf).is_err() || user_buf.trim().is_empty() {
             return Err(t_cli(
                 "Hata: Gecersiz kullanici adi. Profil olusturulamadi.",
-                "Error: Invalid username. Profile could not be created."
+                "Error: Invalid username. Profile could not be created.",
             ));
         }
         let username = user_buf.trim();
 
-        print!("{}", t_cli("Dil [tr/en] (varsayilan: tr): ", "Language [tr/en] (default: en): "));
+        print!(
+            "{}",
+            t_cli(
+                "Dil [tr/en] (varsayilan: tr): ",
+                "Language [tr/en] (default: en): "
+            )
+        );
         let _ = io::stdout().flush();
         let mut lang_buf = String::new();
         let _ = io::stdin().read_line(&mut lang_buf);
         let lang = lang_buf.trim();
-        let lang = if lang.eq_ignore_ascii_case("en") { "en" } else { "tr" };
+        let lang = if lang.eq_ignore_ascii_case("en") {
+            "en"
+        } else {
+            "tr"
+        };
 
         let prof = amele::profile::create_profile(full_name, username, lang, "dark", true)
-            .map_err(|e| format!("{}: {}", t_cli("Profil olusturulamadi", "Could not create profile"), e))?;
+            .map_err(|e| {
+                format!(
+                    "{}: {}",
+                    t_cli("Profil olusturulamadi", "Could not create profile"),
+                    e
+                )
+            })?;
 
         println!(
             "\n{} @{}\n",
-            t_cli("✓ Profil olusturuldu ve varsayilan olarak secildi:", "✓ Profile created and selected as default:"),
+            t_cli(
+                "✓ Profil olusturuldu ve varsayilan olarak secildi:",
+                "✓ Profile created and selected as default:"
+            ),
             prof.username
         );
         return Ok(());
@@ -454,13 +479,19 @@ fn prompt_and_ensure_active_profile() -> Result<(), String> {
     }
     println!();
 
-    print!("{}", t_cli("Profil No veya Kullanici Adi: ", "Profile Number or Username: "));
+    print!(
+        "{}",
+        t_cli(
+            "Profil No veya Kullanici Adi: ",
+            "Profile Number or Username: "
+        )
+    );
     let _ = io::stdout().flush();
     let mut choice_buf = String::new();
     if io::stdin().read_line(&mut choice_buf).is_err() || choice_buf.trim().is_empty() {
         return Err(t_cli(
             "Hata: Profil secilmedi. Komut iptal edildi.\nProfil secmek icin: amele profile use <kullanici_adi> [--direct]",
-            "Error: Profile not selected. Command aborted.\nTo select: amele profile use <username> [--direct]"
+            "Error: Profile not selected. Command aborted.\nTo select: amele profile use <username> [--direct]",
         ));
     }
     let choice = choice_buf.trim();
@@ -469,16 +500,32 @@ fn prompt_and_ensure_active_profile() -> Result<(), String> {
         if num >= 1 && num <= store.profiles.len() {
             store.profiles[num - 1].username.clone()
         } else {
-            return Err(t_cli("Gecersiz profil numarasi.", "Invalid profile number."));
+            return Err(t_cli(
+                "Gecersiz profil numarasi.",
+                "Invalid profile number.",
+            ));
         }
-    } else if let Some(p) = store.profiles.iter().find(|p| p.username.eq_ignore_ascii_case(choice)) {
+    } else if let Some(p) = store
+        .profiles
+        .iter()
+        .find(|p| p.username.eq_ignore_ascii_case(choice))
+    {
         p.username.clone()
     } else {
-        return Err(format!("{}: '{}'", t_cli("Profil bulunamadi", "Profile not found"), choice));
+        return Err(format!(
+            "{}: '{}'",
+            t_cli("Profil bulunamadi", "Profile not found"),
+            choice
+        ));
     };
 
-    let prof = amele::profile::select_profile(&selected_user, true)
-        .map_err(|e| format!("{}: {}", t_cli("Profil secilemedi", "Could not select profile"), e))?;
+    let prof = amele::profile::select_profile(&selected_user, true).map_err(|e| {
+        format!(
+            "{}: {}",
+            t_cli("Profil secilemedi", "Could not select profile"),
+            e
+        )
+    })?;
 
     println!(
         "\n{} @{}\n",
@@ -490,7 +537,11 @@ fn prompt_and_ensure_active_profile() -> Result<(), String> {
 }
 
 fn linux_cli_command(args: Vec<String>) -> Result<(), String> {
-    if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+    if args.is_empty()
+        || args
+            .iter()
+            .any(|a| a == "--help" || a == "-h" || a == "help")
+    {
         println!(
             "{}",
             t_cli(
@@ -540,10 +591,16 @@ RAM ACQUISITION (AVML):
             if sub_args.is_empty() {
                 return disk_list_command();
             }
-            if let Some(pos) = sub_args.iter().position(|a| a == "--agent" || a == "--remote") {
+            if let Some(pos) = sub_args
+                .iter()
+                .position(|a| a == "--agent" || a == "--remote")
+            {
                 sub_args.remove(pos);
                 if sub_args.iter().any(|a| a == "--list" || a == "list") {
-                    let rem: Vec<String> = sub_args.into_iter().filter(|a| a != "--list" && a != "list").collect();
+                    let rem: Vec<String> = sub_args
+                        .into_iter()
+                        .filter(|a| a != "--list" && a != "list")
+                        .collect();
                     return remote_disks_command(rem);
                 }
                 return remote_image_command(sub_args);
@@ -551,7 +608,10 @@ RAM ACQUISITION (AVML):
             if let Some(pos) = sub_args.iter().position(|a| a == "--ssh") {
                 sub_args.remove(pos);
                 if sub_args.iter().any(|a| a == "--list" || a == "list") {
-                    let rem: Vec<String> = sub_args.into_iter().filter(|a| a != "--list" && a != "list").collect();
+                    let rem: Vec<String> = sub_args
+                        .into_iter()
+                        .filter(|a| a != "--list" && a != "list")
+                        .collect();
                     return ssh_disks_command(rem);
                 }
                 return ssh_image_command(sub_args);
@@ -566,7 +626,10 @@ RAM ACQUISITION (AVML):
             if sub_args.iter().any(|a| a == "--status" || a == "status") {
                 return ram_status_command();
             }
-            if let Some(pos) = sub_args.iter().position(|a| a == "--agent" || a == "--remote") {
+            if let Some(pos) = sub_args
+                .iter()
+                .position(|a| a == "--agent" || a == "--remote")
+            {
                 sub_args.remove(pos);
                 return remote_ram_command(sub_args);
             }
@@ -587,7 +650,11 @@ RAM ACQUISITION (AVML):
 }
 
 fn windows_cli_command(args: Vec<String>) -> Result<(), String> {
-    if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+    if args.is_empty()
+        || args
+            .iter()
+            .any(|a| a == "--help" || a == "-h" || a == "help")
+    {
         println!(
             "{}",
             t_cli(
@@ -637,10 +704,16 @@ RAM ACQUISITION (WinPMEM):
             if sub_args.is_empty() {
                 return disk_list_command();
             }
-            if let Some(pos) = sub_args.iter().position(|a| a == "--agent" || a == "--remote") {
+            if let Some(pos) = sub_args
+                .iter()
+                .position(|a| a == "--agent" || a == "--remote")
+            {
                 sub_args.remove(pos);
                 if sub_args.iter().any(|a| a == "--list" || a == "list") {
-                    let rem: Vec<String> = sub_args.into_iter().filter(|a| a != "--list" && a != "list").collect();
+                    let rem: Vec<String> = sub_args
+                        .into_iter()
+                        .filter(|a| a != "--list" && a != "list")
+                        .collect();
                     return remote_disks_command(rem);
                 }
                 return remote_image_command(sub_args);
@@ -648,7 +721,10 @@ RAM ACQUISITION (WinPMEM):
             if let Some(pos) = sub_args.iter().position(|a| a == "--ssh") {
                 sub_args.remove(pos);
                 if sub_args.iter().any(|a| a == "--list" || a == "list") {
-                    let rem: Vec<String> = sub_args.into_iter().filter(|a| a != "--list" && a != "list").collect();
+                    let rem: Vec<String> = sub_args
+                        .into_iter()
+                        .filter(|a| a != "--list" && a != "list")
+                        .collect();
                     return ssh_disks_command(rem);
                 }
                 return ssh_image_command(sub_args);
@@ -663,7 +739,10 @@ RAM ACQUISITION (WinPMEM):
             if sub_args.iter().any(|a| a == "--status" || a == "status") {
                 return ram_status_command();
             }
-            if let Some(pos) = sub_args.iter().position(|a| a == "--agent" || a == "--remote") {
+            if let Some(pos) = sub_args
+                .iter()
+                .position(|a| a == "--agent" || a == "--remote")
+            {
                 sub_args.remove(pos);
                 return remote_ram_command(sub_args);
             }
@@ -684,7 +763,11 @@ RAM ACQUISITION (WinPMEM):
 }
 
 fn android_cli_command(args: Vec<String>) -> Result<(), String> {
-    if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+    if args.is_empty()
+        || args
+            .iter()
+            .any(|a| a == "--help" || a == "-h" || a == "help")
+    {
         println!(
             "{}",
             t_cli(
@@ -753,14 +836,21 @@ REMOTE CONNECTION:
         "analysis" | "case-analysis" => android_case_analysis_command(sub_args),
         other => Err(format!(
             "{} android {}",
-            t_cli("Bilinmeyen Android alt komutu:", "Unknown Android subcommand:"),
+            t_cli(
+                "Bilinmeyen Android alt komutu:",
+                "Unknown Android subcommand:"
+            ),
             other
         )),
     }
 }
 
 fn ios_cli_command(args: Vec<String>) -> Result<(), String> {
-    if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+    if args.is_empty()
+        || args
+            .iter()
+            .any(|a| a == "--help" || a == "-h" || a == "help")
+    {
         println!(
             "{}",
             t_cli(
@@ -798,7 +888,11 @@ COMMANDS:
 }
 
 fn docker_cli_command(args: Vec<String>) -> Result<(), String> {
-    if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+    if args.is_empty()
+        || args
+            .iter()
+            .any(|a| a == "--help" || a == "-h" || a == "help")
+    {
         println!(
             "{}",
             t_cli(
@@ -839,8 +933,16 @@ REMOTE AGENT OPTION:
             let ip = args.remove(pos + 1);
             let port = args.remove(pos + 1);
             args.remove(pos);
-            let sub = if args.is_empty() { "status" } else { args[0].as_str() };
-            let sub_args = if args.is_empty() { vec![] } else { args[1..].to_vec() };
+            let sub = if args.is_empty() {
+                "status"
+            } else {
+                args[0].as_str()
+            };
+            let sub_args = if args.is_empty() {
+                vec![]
+            } else {
+                args[1..].to_vec()
+            };
             return match sub {
                 "status" => {
                     let mut p = vec![ip, port];
@@ -878,7 +980,10 @@ REMOTE AGENT OPTION:
                 }
                 other => Err(format!(
                     "{} docker {}",
-                    t_cli("Bilinmeyen Docker alt komutu:", "Unknown Docker subcommand:"),
+                    t_cli(
+                        "Bilinmeyen Docker alt komutu:",
+                        "Unknown Docker subcommand:"
+                    ),
                     other
                 )),
             };
@@ -894,14 +999,21 @@ REMOTE AGENT OPTION:
         "acquire" => docker_acquire_command(sub_args),
         other => Err(format!(
             "{} docker {}",
-            t_cli("Bilinmeyen Docker alt komutu:", "Unknown Docker subcommand:"),
+            t_cli(
+                "Bilinmeyen Docker alt komutu:",
+                "Unknown Docker subcommand:"
+            ),
             other
         )),
     }
 }
 
 fn profile_cli_command(args: Vec<String>) -> Result<(), String> {
-    if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+    if args.is_empty()
+        || args
+            .iter()
+            .any(|a| a == "--help" || a == "-h" || a == "help")
+    {
         println!(
             "{}",
             t_cli(
@@ -941,14 +1053,21 @@ COMMANDS:
         "sync" | "online-sync" => profile_online_sync_command(),
         other => Err(format!(
             "{} profile {}",
-            t_cli("Bilinmeyen profil alt komutu:", "Unknown profile subcommand:"),
+            t_cli(
+                "Bilinmeyen profil alt komutu:",
+                "Unknown profile subcommand:"
+            ),
             other
         )),
     }
 }
 
 fn case_cli_command(args: Vec<String>) -> Result<(), String> {
-    if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+    if args.is_empty()
+        || args
+            .iter()
+            .any(|a| a == "--help" || a == "-h" || a == "help")
+    {
         println!(
             "{}",
             t_cli(
@@ -989,7 +1108,11 @@ COMMANDS:
 }
 
 fn mount_cli_command(args: Vec<String>) -> Result<(), String> {
-    if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h" || a == "help") {
+    if args.is_empty()
+        || args
+            .iter()
+            .any(|a| a == "--help" || a == "-h" || a == "help")
+    {
         println!(
             "{}",
             t_cli(
@@ -2552,7 +2675,7 @@ fn lang_set_command(target: String) -> Result<(), String> {
                 t_cli("Geçersiz dil seçimi", "Invalid language choice"),
                 other,
                 t_cli("Geçerli: 'tr', 'en'", "Valid: 'tr', 'en'")
-            ))
+            ));
         }
     };
 
@@ -2564,7 +2687,8 @@ fn lang_set_command(target: String) -> Result<(), String> {
     }
 
     // Uygulama ayarlarını güncelle
-    let mut settings = amele::settings::AppSettings::load(amele::settings::default_settings_path()).unwrap_or_default();
+    let mut settings = amele::settings::AppSettings::load(amele::settings::default_settings_path())
+        .unwrap_or_default();
     settings.dil = normalized.to_string();
     let _ = settings.save(amele::settings::default_settings_path());
 
