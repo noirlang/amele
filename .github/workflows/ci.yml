@@ -182,9 +182,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+          RELEASE_TITLE: ${{ needs.metadata.outputs.release_title }}
         shell: bash
         run: |
           set -euo pipefail
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG does not exist yet. Creating..."
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "$RELEASE_TITLE" \
+              --notes "Automated development prerelease for **${RELEASE_TITLE}**." \
+              --prerelease || true
+          fi
           for file in release-assets/*; do
             if [[ -f "$file" ]]; then
               echo "Uploading $file to release ${RELEASE_TAG}..."
@@ -278,8 +288,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+          RELEASE_TITLE: ${{ needs.metadata.outputs.release_title }}
         shell: pwsh
         run: |
+          try {
+            gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY | Out-Null
+          } catch {
+            Write-Host "Release $env:RELEASE_TAG does not exist yet. Creating..."
+            gh release create $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title $env:RELEASE_TITLE --notes "Automated development prerelease for **$env:RELEASE_TITLE**." --prerelease
+          }
           Get-ChildItem release-assets\* | ForEach-Object {
             Write-Host "Uploading $($_.FullName) to release $env:RELEASE_TAG..."
             gh release upload $env:RELEASE_TAG $_.FullName --repo $env:GITHUB_REPOSITORY --clobber
@@ -310,14 +327,16 @@ jobs:
           cd release-assets
           
           echo "=== Downloading Release Assets from ${RELEASE_TAG} ==="
-          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir .
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir . || true
           rm -f *SHA256SUMS.txt
           
-          echo "=== Generating Checksums ==="
-          sha256sum * > "amele-x64-${ASSET_SUFFIX}-SHA256SUMS.txt"
-          cat "amele-x64-${ASSET_SUFFIX}-SHA256SUMS.txt"
-          
-          echo "=== Uploading Checksums to Release ${RELEASE_TAG} ==="
-          gh release upload "$RELEASE_TAG" "amele-x64-${ASSET_SUFFIX}-SHA256SUMS.txt" --repo "$GITHUB_REPOSITORY" --clobber
+          if compgen -G "*" > /dev/null; then
+            echo "=== Generating Checksums ==="
+            sha256sum * > "amele-x64-${ASSET_SUFFIX}-SHA256SUMS.txt"
+            cat "amele-x64-${ASSET_SUFFIX}-SHA256SUMS.txt"
+            
+            echo "=== Uploading Checksums to Release ${RELEASE_TAG} ==="
+            gh release upload "$RELEASE_TAG" "amele-x64-${ASSET_SUFFIX}-SHA256SUMS.txt" --repo "$GITHUB_REPOSITORY" --clobber
+          fi
           
           echo "=== Release Complete ==="
