@@ -1154,7 +1154,6 @@ fn print_help() {
     if is_cli_english() {
         println!(
             r#"Amele Forensic Tool CLI (v0.0.18)
-Digital Forensics & Incident Response Platform
 
 USAGE:
   amele <command> [subcommand] [options]
@@ -1188,7 +1187,6 @@ Run 'amele <command> --help' for detailed sub-command usage."#
     } else {
         println!(
             r#"Amele Forensic Tool CLI (v0.0.18)
-Adli Bilisim ve Olay Mudahale Platformu
 
 KULLANIM:
   amele <komut> [alt-komut] [secenekler]
