@@ -356,6 +356,13 @@ impl SshConnection {
             AmeleError::new(HataKodu::AgGonderme, format!("SSH kanalı açılamadı: {err}"))
         })?;
 
+        if disk_path.contains(['"', '\'', ';', '&', '|', '`', '$', '\n', '\r']) {
+            return Err(AmeleError::new(
+                HataKodu::IcerikGecersiz,
+                "Geçersiz veya güvensiz disk yolu karakterleri tespit edildi",
+            ));
+        }
+
         // Windows PhysicalDrive kontrolü veya Linux /dev disk
         let dd_cmd = if disk_path.to_lowercase().contains("physicaldrive") {
             let win_target = if disk_path.starts_with(r"\\.\") {

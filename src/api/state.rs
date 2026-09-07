@@ -67,10 +67,13 @@ pub fn default_case_name() -> String {
 /// Kullanıcıdan gelen vaka adını güvenli dosya adına çevirir.
 pub fn sanitize_case_name(value: &str) -> String {
     let sanitized = sanitize_file_stem(value);
-    if sanitized.is_empty() {
+    let trimmed = sanitized
+        .trim_matches(|c| c == '.' || c == '_' || c == '-')
+        .to_string();
+    if trimmed.is_empty() || trimmed == "." || trimmed == ".." {
         String::new()
     } else {
-        sanitized
+        trimmed
     }
 }
 

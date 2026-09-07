@@ -5,8 +5,20 @@ use serde::{Deserialize, Serialize};
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
+
+static VERBOSE_MODE: AtomicBool = AtomicBool::new(false);
+
+/// Konsol için ayrıntılı (verbose / debug) günlük modunu açar veya kapatır.
+pub fn set_verbose(enabled: bool) {
+    VERBOSE_MODE.store(enabled, Ordering::SeqCst);
+}
+
+/// Ayrıntılı modun açık olup olmadığını döndürür.
+pub fn is_verbose() -> bool {
+    VERBOSE_MODE.load(Ordering::SeqCst)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 /// Günlük seviyelerini sıralı önem derecesiyle temsil eder.
@@ -108,7 +120,7 @@ pub fn runtime_log(level: LogLevel, scope: impl AsRef<str>, message: impl AsRef<
         entry.timestamp, entry.level, entry.thread, entry.scope, entry.message
     );
 
-    if level >= LogLevel::Warn {
+    if level >= LogLevel::Warn || is_verbose() {
         eprintln!(
             "[AMELE {}] {}: {}",
             level.as_str(),

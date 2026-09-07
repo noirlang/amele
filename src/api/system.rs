@@ -296,10 +296,10 @@ fn run_elevated_local_image_job(
         "Yetki bekleniyor: Linux'ta sudo/pkexec parola penceresini, Windows'ta UAC Evet/Hayır penceresini onaylayın.",
     );
     let stem = helper_file_stem("amele-image-helper");
-    let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
-    let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
-    let progress_path = std::env::temp_dir().join(format!("{stem}-progress.json"));
-    let control_path = std::env::temp_dir().join(format!("{stem}-control.json"));
+    let request_path = crate::settings::secure_runtime_dir().join(format!("{stem}-request.json"));
+    let result_path = crate::settings::secure_runtime_dir().join(format!("{stem}-result.json"));
+    let progress_path = crate::settings::secure_runtime_dir().join(format!("{stem}-progress.json"));
+    let control_path = crate::settings::secure_runtime_dir().join(format!("{stem}-control.json"));
 
     let request = json!({
         "source": task.source,
@@ -652,7 +652,7 @@ pub fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
     #[cfg(target_os = "linux")]
     {
         let _ = image_unmount_current();
-        let mount_dir = std::env::temp_dir().join(format!(
+        let mount_dir = crate::settings::secure_runtime_dir().join(format!(
             "amele-image-mount-{}",
             Local::now().format("%Y%m%d%H%M%S")
         ));
@@ -794,9 +794,9 @@ fn windows_mount_success_response(image_path: &Path, mount_dir: PathBuf) -> Resp
 /// Windows'ta Mount-DiskImage yetki isterse UAC helper üzerinden tekrar dener.
 fn elevated_windows_mount_image_readonly(image_path: &Path) -> Result<PathBuf, String> {
     let stem = helper_file_stem("amele-windows-mount-helper");
-    let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
-    let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
-    let mount_dir = std::env::temp_dir().join(format!("{stem}-mount-placeholder"));
+    let request_path = crate::settings::secure_runtime_dir().join(format!("{stem}-request.json"));
+    let result_path = crate::settings::secure_runtime_dir().join(format!("{stem}-result.json"));
+    let mount_dir = crate::settings::secure_runtime_dir().join(format!("{stem}-mount-placeholder"));
     write_json_file(
         &request_path,
         &json!({

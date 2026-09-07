@@ -39,7 +39,7 @@ pub fn avml_install_endpoint() -> Response {
         };
         let url =
             format!("https://github.com/microsoft/avml/releases/latest/download/{asset_name}");
-        let download_dir = std::env::temp_dir().join("amele-avml-install");
+        let download_dir = crate::settings::secure_runtime_dir().join("amele-avml-install");
         if let Err(err) = fs::create_dir_all(&download_dir) {
             return json_error(500, err.to_string());
         }
@@ -151,7 +151,7 @@ pub fn winpmem_install_endpoint() -> Response {
 fn run_winpmem_install_job(job_id: String) {
     update_acquisition_message(&job_id, "WinPMEM indiriliyor...");
 
-    let download_dir = std::env::temp_dir().join("amele-winpmem-install");
+    let download_dir = crate::settings::secure_runtime_dir().join("amele-winpmem-install");
     if let Err(err) = fs::create_dir_all(&download_dir) {
         fail_acquisition_job_with_message(&job_id, err.to_string(), "WinPMEM indirme başarısız");
         return;

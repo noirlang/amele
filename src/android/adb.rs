@@ -520,18 +520,23 @@ fn parse_adb_path(output: &str) -> Option<String> {
 
 /// Platforma göre komutun PATH içindeki gerçek yolunu bulur.
 fn command_path(command: &str) -> Option<String> {
-    let output = if cfg!(windows) {
-        Command::new("where").arg(command).output().ok()?
+    if cfg!(windows) {
+        let output = Command::new("where").arg(command).output().ok()?;
+        if output.status.success() {
+            return first_non_empty(&String::from_utf8_lossy(&output.stdout));
+        }
+        None
     } else {
-        Command::new("sh")
-            .args(["-c", &format!("command -v {command}")])
-            .output()
-            .ok()?
-    };
-    if !output.status.success() {
-        return None;
+        if let Some(paths) = std::env::var_os("PATH") {
+            for dir in std::env::split_paths(&paths) {
+                let full = dir.join(command);
+                if full.is_file() {
+                    return Some(full.to_string_lossy().into_owned());
+                }
+            }
+        }
+        None
     }
-    first_non_empty(&String::from_utf8_lossy(&output.stdout))
 }
 
 /// Çok satırlı çıktıdan ilk boş olmayan satırı döndürür.

@@ -392,10 +392,10 @@ fn run_elevated_local_ram_job(
         "Yetki bekleniyor: Linux'ta sudo/pkexec parola penceresini, Windows'ta UAC Evet/Hayır penceresini onaylayın.",
     );
     let stem = helper_file_stem("amele-ram-helper");
-    let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
-    let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
-    let progress_path = std::env::temp_dir().join(format!("{stem}-progress.json"));
-    let control_path = std::env::temp_dir().join(format!("{stem}-control.json"));
+    let request_path = crate::settings::secure_runtime_dir().join(format!("{stem}-request.json"));
+    let result_path = crate::settings::secure_runtime_dir().join(format!("{stem}-result.json"));
+    let progress_path = crate::settings::secure_runtime_dir().join(format!("{stem}-progress.json"));
+    let control_path = crate::settings::secure_runtime_dir().join(format!("{stem}-control.json"));
 
     let request_json = json!({
         "output_file": &request.output,
@@ -1171,7 +1171,7 @@ fn default_amele_symbol_dir() -> PathBuf {
 
 /// Linux kernel banner ve sembol URL eşlemesini indirir.
 fn download_linux_symbol_mapping() -> Result<BTreeMap<String, Vec<String>>, String> {
-    let temp_dir = std::env::temp_dir().join("amele-volatility-symbols");
+    let temp_dir = crate::settings::secure_runtime_dir().join("amele-volatility-symbols");
     fs::create_dir_all(&temp_dir).map_err(|err| err.to_string())?;
     let mapping_path = temp_dir.join("banners_plain.json");
     download_file_to_path(

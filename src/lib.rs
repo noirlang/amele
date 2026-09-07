@@ -4,6 +4,7 @@ pub mod android_analysis;
 pub mod android_mft;
 pub mod api;
 pub mod case_package;
+pub mod completion;
 pub mod diagnostics;
 pub mod disk;
 pub mod disk_analysis;

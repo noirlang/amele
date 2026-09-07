@@ -130,7 +130,21 @@ pub fn import_case(package_path: &Path, target_base_dir: &Path) -> AmeleResult<I
             continue;
         }
         let rel = path.strip_prefix(&header.case_name).unwrap_or(&path);
+        // Güvenlik: Path Traversal / Zip Slip önlemi
+        if rel.components().any(|c| {
+            matches!(
+                c,
+                std::path::Component::ParentDir
+                    | std::path::Component::RootDir
+                    | std::path::Component::Prefix(_)
+            )
+        }) {
+            continue;
+        }
         let dest = case_dir.join(rel);
+        if !dest.starts_with(&case_dir) {
+            continue;
+        }
         if let Some(parent) = dest.parent() {
             let _ = fs::create_dir_all(parent);
         }

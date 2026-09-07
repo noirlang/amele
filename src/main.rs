@@ -53,6 +53,21 @@ fn main() {
     install_error_reporting();
 
     let mut raw_args: Vec<String> = std::env::args().skip(1).collect();
+
+    // Standart --version / -V / version kontrolü (logo ve profil gerektirmez, çıkış kodu 0)
+    if raw_args.iter().any(|a| a == "--version" || a == "-V")
+        || raw_args.first().map(|s| s.as_str()) == Some("version")
+    {
+        println!("amele {}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
+
+    let quiet = extract_flag(&mut raw_args, &["--quiet", "-q", "--no-logo"]);
+    let verbose = extract_flag(&mut raw_args, &["--verbose", "-v"]);
+    if verbose {
+        amele::logging::set_verbose(true);
+    }
+
     let explicit_lang = extract_global_lang_flag(&mut raw_args);
     if let Some(lang) = &explicit_lang {
         set_cli_english(lang == "en");
@@ -63,7 +78,7 @@ fn main() {
         if let Err(err) = amele::profile::select_profile(&username, false) {
             report_fatal_error(&err.to_string());
             eprintln!("{err}");
-            std::process::exit(2);
+            std::process::exit(determine_exit_code(&err.to_string()));
         }
     } else {
         let _ = amele::profile::bootstrap_profiles();
@@ -78,7 +93,7 @@ fn main() {
     }
 
     let first_cmd = raw_args.first().map(|s| s.as_str());
-    if !is_silent_or_helper_command(first_cmd, &raw_args) {
+    if !quiet && !is_silent_or_helper_command(first_cmd, &raw_args) {
         println!("{AMELE_ASCII_LOGO}\n");
     }
 
@@ -87,7 +102,7 @@ fn main() {
         if let Err(err) = prompt_and_ensure_active_profile() {
             report_fatal_error(&err);
             eprintln!("{err}\n");
-            std::process::exit(2);
+            std::process::exit(determine_exit_code(&err));
         }
     }
 
@@ -211,6 +226,11 @@ fn main() {
         Some("preflight") => preflight_command(args.collect()),
         Some("mounts") | Some("mount-list") => mount_list_command(),
         Some("mount-cleanup") => mount_cleanup_command(args.collect()),
+        Some("completion") => completion_command(args.collect()),
+        Some("--version") | Some("-V") | Some("version") => {
+            println!("amele {}", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
         Some("ui") => server::run_native(),
         Some("ui-browser") => server::run_browser(),
         Some("help") | Some("--help") | Some("-h") => {
@@ -231,7 +251,36 @@ fn main() {
         if should_print_help_on_error(&err) {
             print_help();
         }
-        std::process::exit(2);
+        std::process::exit(determine_exit_code(&err));
+    }
+}
+
+/// Hata mesajına ve durumuna göre standart POSIX çıkış kodu üretir.
+fn determine_exit_code(err: &str) -> i32 {
+    let lower = err.to_lowercase();
+    if lower.starts_with("kullanim:")
+        || lower.starts_with("usage:")
+        || lower.contains("bilinmeyen")
+        || lower.contains("unknown")
+        || lower.contains("geçersiz")
+        || lower.contains("invalid")
+    {
+        2
+    } else if lower.contains("root")
+        || lower.contains("yetki")
+        || lower.contains("sudo")
+        || lower.contains("permission denied")
+        || lower.contains("access denied")
+    {
+        126
+    } else if lower.contains("bulunamadı")
+        || lower.contains("not found")
+        || lower.contains("yüklü değil")
+        || lower.contains("not installed")
+    {
+        127
+    } else {
+        1
     }
 }
 
@@ -352,11 +401,18 @@ const AMELE_ASCII_LOGO: &str = r#"          ⣠⣧⡀
 ⣰⣇⣀⣼⣁⣠⠞        ⠘⢦⣀⣹⣄⣀⣷⡀"#;
 
 fn is_silent_or_helper_command(cmd: Option<&str>, raw_args: &[String]) -> bool {
-    if raw_args.iter().any(|a| a == "--json") {
+    if raw_args
+        .iter()
+        .any(|a| a == "--json" || a == "--quiet" || a == "-q" || a == "--no-logo")
+    {
         return true;
     }
     match cmd {
-        Some("settings-default")
+        Some("--version")
+        | Some("-V")
+        | Some("version")
+        | Some("completion")
+        | Some("settings-default")
         | Some("disk-list-helper")
         | Some("image-helper")
         | Some("ram-helper")
@@ -376,10 +432,19 @@ fn is_silent_or_helper_command(cmd: Option<&str>, raw_args: &[String]) -> bool {
 
 /// Profil gerektirmeyen yardım, yapılandırma ve yönetim komutlarını belirler.
 fn is_profile_exempt_command(cmd: Option<&str>, raw_args: &[String]) -> bool {
-    if raw_args
-        .iter()
-        .any(|a| a == "--help" || a == "-h" || a == "help" || a == "--status" || a == "status" || a == "--list" || a == "list" || a == "install" || a == "download")
-    {
+    if raw_args.iter().any(|a| {
+        a == "--help"
+            || a == "-h"
+            || a == "help"
+            || a == "--version"
+            || a == "-V"
+            || a == "--status"
+            || a == "status"
+            || a == "--list"
+            || a == "list"
+            || a == "install"
+            || a == "download"
+    }) {
         return true;
     }
     match cmd {
@@ -387,6 +452,10 @@ fn is_profile_exempt_command(cmd: Option<&str>, raw_args: &[String]) -> bool {
         | Some("help")
         | Some("--help")
         | Some("-h")
+        | Some("--version")
+        | Some("-V")
+        | Some("version")
+        | Some("completion")
         | Some("lang")
         | Some("--lang")
         | Some("profile")
@@ -639,6 +708,9 @@ RAM OPERATIONS (AVML):
     match args[0].as_str() {
         "disk" => {
             let mut sub_args = args[1..].to_vec();
+            if sub_args.first().map(|s| s.as_str()) == Some("acquire") {
+                sub_args.remove(0);
+            }
             if sub_args.is_empty() || sub_args.iter().any(|a| a == "--list" || a == "list") {
                 return disk_list_command_with_args(sub_args);
             }
@@ -674,13 +746,20 @@ RAM OPERATIONS (AVML):
         }
         "ram" => {
             let mut sub_args = args[1..].to_vec();
+            if sub_args.first().map(|s| s.as_str()) == Some("acquire") {
+                sub_args.remove(0);
+            }
             if sub_args.is_empty() || sub_args.iter().any(|a| a == "--status" || a == "status") {
                 return linux_ram_status_command(sub_args);
             }
-            if sub_args.first().map(|s| s.as_str()) == Some("install") || sub_args.first().map(|s| s.as_str()) == Some("download") {
+            if sub_args.first().map(|s| s.as_str()) == Some("install")
+                || sub_args.first().map(|s| s.as_str()) == Some("download")
+            {
                 return linux_ram_install_command();
             }
-            if sub_args.first().map(|s| s.as_str()) == Some("analyze") || sub_args.first().map(|s| s.as_str()) == Some("summary") {
+            if sub_args.first().map(|s| s.as_str()) == Some("analyze")
+                || sub_args.first().map(|s| s.as_str()) == Some("summary")
+            {
                 let mut rem = sub_args[1..].to_vec();
                 if rem.len() == 1 {
                     rem.push("linux".to_string());
@@ -787,6 +866,9 @@ RAM OPERATIONS (WinPMEM):
     match args[0].as_str() {
         "disk" => {
             let mut sub_args = args[1..].to_vec();
+            if sub_args.first().map(|s| s.as_str()) == Some("acquire") {
+                sub_args.remove(0);
+            }
             if sub_args.is_empty() || sub_args.iter().any(|a| a == "--list" || a == "list") {
                 return disk_list_command_with_args(sub_args);
             }
@@ -822,13 +904,20 @@ RAM OPERATIONS (WinPMEM):
         }
         "ram" => {
             let mut sub_args = args[1..].to_vec();
+            if sub_args.first().map(|s| s.as_str()) == Some("acquire") {
+                sub_args.remove(0);
+            }
             if sub_args.is_empty() || sub_args.iter().any(|a| a == "--status" || a == "status") {
                 return windows_ram_status_command(sub_args);
             }
-            if sub_args.first().map(|s| s.as_str()) == Some("install") || sub_args.first().map(|s| s.as_str()) == Some("download") {
+            if sub_args.first().map(|s| s.as_str()) == Some("install")
+                || sub_args.first().map(|s| s.as_str()) == Some("download")
+            {
                 return windows_ram_install_command();
             }
-            if sub_args.first().map(|s| s.as_str()) == Some("analyze") || sub_args.first().map(|s| s.as_str()) == Some("summary") {
+            if sub_args.first().map(|s| s.as_str()) == Some("analyze")
+                || sub_args.first().map(|s| s.as_str()) == Some("summary")
+            {
                 let mut rem = sub_args[1..].to_vec();
                 if rem.len() == 1 {
                     rem.push("windows".to_string());
@@ -1188,6 +1277,7 @@ KULLANIM:
 KOMUTLAR:
   list                            Mevcut vakalari listele
   create <vaka>                   Yeni vaka deposu olustur
+  info <vaka>                     Vaka detaylarini ve delil istatistiklerini goster
   export <vaka> [dosya]           Vakayi .amelecase paketine aktar
   import <dosya>                  .amelecase paketini iceri aktar
   verify <dosya>                  .amelecase paket butunlugunu dogrula"#,
@@ -1199,6 +1289,7 @@ USAGE:
 COMMANDS:
   list                            List existing cases
   create <case>                   Create new case vault
+  info <case>                     Show case details and evidence statistics
   export <case> [file]            Export case to .amelecase package
   import <file>                   Import .amelecase package
   verify <file>                   Verify .amelecase package integrity"#
@@ -1211,6 +1302,7 @@ COMMANDS:
     match sub {
         "list" => case_list_command(sub_args),
         "create" | "new" => case_create_command(sub_args),
+        "info" | "show" => case_info_command(sub_args),
         "export" => case_export_command(sub_args),
         "import" => case_import_command(sub_args),
         "verify" => case_verify_command(sub_args),
@@ -1247,7 +1339,7 @@ USAGE:
 
 COMMANDS:
   list                            List active mounted images
-  cleanup [case]                  Safely unmount forensic images
+  cleanup [case]                  Safely unmount forensic images (alias: unmount)
   <image_file> [mount_point]      Mount forensic disk image read-only (requires sudo)"#
             )
         );
@@ -1257,7 +1349,7 @@ COMMANDS:
     let sub_args = args[1..].to_vec();
     match sub {
         "list" | "mounts" => mount_list_command(),
-        "cleanup" => mount_cleanup_command(sub_args),
+        "cleanup" | "unmount" | "umount" => mount_cleanup_command(sub_args),
         _ => mount_file_command(args),
     }
 }
@@ -1270,6 +1362,7 @@ fn print_help() {
 
 USAGE:
   amele <command> [subcommand] [options]
+  amele [options]
 
 ACQUISITION & ANALYSIS:
   linux <disk|ram>        Linux forensic disk & live RAM acquisition (local, --agent, --ssh)
@@ -1282,20 +1375,26 @@ ACQUISITION & ANALYSIS:
 
 MANAGEMENT & EVIDENCE:
   profile <subcommand>    Manage local analyst profiles & online synchronization
-  case <subcommand>       Case management (list, create, export, import, verify)
+  case <subcommand>       Case management (list, create, info, export, import, verify)
   mount <subcommand>      Mount/unmount forensic disk images (requires sudo)
   hash <file> [algo]      Calculate cryptographic hash (md5, sha1, sha256, sha512)
   verify <image> <sha256> Verify forensic image SHA-256 checksum
   wireguard <file>        Generate secure WireGuard VPN configuration
   update [--json]         Check for software updates
+  completion <shell>      Generate shell autocompletions (bash, zsh, fish)
 
 USER INTERFACE:
   ui                      Launch native desktop application
   ui-browser              Launch developer browser UI for debugging
 
-LANGUAGE:
-  amele --lang en         Switch CLI language to English
-  amele --lang tr         Switch CLI language to Turkish
+GLOBAL OPTIONS:
+  -h, --help              Show help information
+  -V, --version           Show version information
+  -q, --quiet, --no-logo  Suppress ASCII logo banner
+  -v, --verbose           Enable verbose / debug logs
+  --lang <tr|en>          Switch CLI language (Turkish or English)
+  --profile <username>    Run using specific analyst profile
+  --json                  Output structured results as JSON
 
 Run 'amele <command> --help' for detailed sub-command usage."#
         );
@@ -1305,6 +1404,7 @@ Run 'amele <command> --help' for detailed sub-command usage."#
 
 KULLANIM:
   amele <komut> [alt-komut] [secenekler]
+  amele [secenekler]
 
 ADLI EDINIM VE ANALIZ KOMUTLARI:
   linux <disk|ram>        Linux adli disk ve canli RAM edinimi (yerel, --agent, --ssh)
@@ -1317,20 +1417,26 @@ ADLI EDINIM VE ANALIZ KOMUTLARI:
 
 YONETIM VE DELIL ISLEMLERI:
   profile <alt-komut>     Yerel ve online analist profillerini yonet
-  case <alt-komut>        Vaka yonetimi (listeleme, olusturma, .amelecase paketleme)
+  case <alt-komut>        Vaka yonetimi (listeleme, olusturma, detay, .amelecase paketleme)
   mount <alt-komut>       Adli disk imaji baglama (mount) ve temizleme (sudo)
   hash <dosya> [algo]     Dosya ozeti hesapla (md5, sha1, sha256, sha512)
   verify <imaj> <sha256>  Imaj SHA-256 hash dogrulamasi yap
   wireguard <dosya>       Guvenli WireGuard VPN yapilandirmasi uret
   update [--json]         Yazilim guncelleme kontrolu
+  completion <kabuk>      Kabuk otomatik tamamlama uret (bash, zsh, fish)
 
 ARAYUZ:
   ui                      Masaustu yerel penceresini ac
   ui-browser              Tarayici gelistirici/debug modunda ac
 
-DIL / LANGUAGE:
-  amele --lang en         Switch CLI language to English (Ingilizceye gec)
-  amele --lang tr         CLI dilini Turkce yap
+GENEL SECENEKLER:
+  -h, --help              Yardim bilgisini goster
+  -V, --version           Surum bilgisini goster
+  -q, --quiet, --no-logo  ASCII logo basligini gizle
+  -v, --verbose           Ayrintili (debug) gunlukleri konsola yaz
+  --lang <tr|en>          CLI dilini sec (Turkce veya Ingilizce)
+  --profile <kullanici>   Belirtilen analist profili ile calis
+  --json                  Yapilandirilmis JSON ciktisi uret
 
 Detayli kullanim icin: amele <komut> --help"#
         );
@@ -1424,7 +1530,6 @@ fn hash_command(args: Vec<String>) -> Result<(), String> {
     Ok(())
 }
 
-
 /// Yerel disk veya dosya kaynağını vaka klasörüne imaj olarak yazar.
 fn local_image_command(args: Vec<String>) -> Result<(), String> {
     let mut args = args;
@@ -1441,7 +1546,10 @@ fn local_image_command(args: Vec<String>) -> Result<(), String> {
 
     let is_block_dev = source.starts_with("/dev/") || source.to_string_lossy().starts_with(r"\\.\");
     if is_block_dev {
-        ensure_root_or_elevate(&t_cli("Yerel Disk İmajı Edinimi", "Local Disk Image Acquisition"))?;
+        ensure_root_or_elevate(&t_cli(
+            "Yerel Disk İmajı Edinimi",
+            "Local Disk Image Acquisition",
+        ))?;
     }
 
     let vault = cli_case_vault(&args[1])?;
@@ -1481,13 +1589,39 @@ fn local_image_command(args: Vec<String>) -> Result<(), String> {
         }))
     } else {
         println!("============================================================");
-        println!("       {}", t_cli("Disk İmajı Edinimi Başarıyla Tamamlandı", "Disk Image Acquisition Completed Successfully"));
+        println!(
+            "       {}",
+            t_cli(
+                "Disk İmajı Edinimi Başarıyla Tamamlandı",
+                "Disk Image Acquisition Completed Successfully"
+            )
+        );
         println!("============================================================");
-        println!("  {:<20}: {}", t_cli("Vaka Adı", "Case Name"), vault.case_name);
-        println!("  {:<20}: {}", t_cli("Kaynak Aygıt", "Source Device"), source.display());
-        println!("  {:<20}: {}", t_cli("Hedef Dosya", "Target File"), finalized.target_path.display());
-        println!("  {:<20}: {}", t_cli("Kopyalanan Boyut", "Copied Size"), format_bytes(result.bytes_copied));
-        println!("  {:<20}: {}", t_cli("İmaj Formatı", "Image Format"), finalized.format.as_str().to_uppercase());
+        println!(
+            "  {:<20}: {}",
+            t_cli("Vaka Adı", "Case Name"),
+            vault.case_name
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("Kaynak Aygıt", "Source Device"),
+            source.display()
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("Hedef Dosya", "Target File"),
+            finalized.target_path.display()
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("Kopyalanan Boyut", "Copied Size"),
+            format_bytes(result.bytes_copied)
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("İmaj Formatı", "Image Format"),
+            finalized.format.as_str().to_uppercase()
+        );
         println!("  {:<20}: {}", "SHA-256", finalized.sha256);
         if let Some(raw_h) = &finalized.raw_sha256 {
             if finalized.format.as_str() != "raw" {
@@ -1495,7 +1629,13 @@ fn local_image_command(args: Vec<String>) -> Result<(), String> {
             }
         }
         println!("============================================================");
-        println!("[✓] {}", t_cli("Disk imajı vaka deposuna kaydedildi ve doğrulandı.", "Disk image saved to case vault and verified."));
+        println!(
+            "[✓] {}",
+            t_cli(
+                "Disk imajı vaka deposuna kaydedildi ve doğrulandı.",
+                "Disk image saved to case vault and verified."
+            )
+        );
         Ok(())
     }
 }
@@ -1542,7 +1682,12 @@ fn local_ram_command(args: Vec<String>) -> Result<(), String> {
                 print_progress("ram", done, total);
             })
         }
-        _ => return Err(t_cli("Araç 'avml' veya 'winpmem' olmalıdır.", "Tool must be avml or winpmem.")),
+        _ => {
+            return Err(t_cli(
+                "Araç 'avml' veya 'winpmem' olmalıdır.",
+                "Tool must be avml or winpmem.",
+            ));
+        }
     }
     .map_err(|err| crate_diagnostic(err.to_string()))?;
     let finalized = output_format::finalize_output(&plan, "ram", &tool, &vault.case_name, None)?;
@@ -1557,13 +1702,39 @@ fn local_ram_command(args: Vec<String>) -> Result<(), String> {
         }))
     } else {
         println!("============================================================");
-        println!("       {}", t_cli("Canlı RAM Edinimi Başarıyla Tamamlandı", "Live RAM Acquisition Completed Successfully"));
+        println!(
+            "       {}",
+            t_cli(
+                "Canlı RAM Edinimi Başarıyla Tamamlandı",
+                "Live RAM Acquisition Completed Successfully"
+            )
+        );
         println!("============================================================");
-        println!("  {:<20}: {}", t_cli("Vaka Adı", "Case Name"), vault.case_name);
-        println!("  {:<20}: {}", t_cli("Kullanılan Araç", "Tool Used"), tool.to_uppercase());
-        println!("  {:<20}: {}", t_cli("Hedef Dosya", "Target File"), finalized.target_path.display());
-        println!("  {:<20}: {}", t_cli("Yazılan Boyut", "Written Size"), format_bytes(result.bytes_written));
-        println!("  {:<20}: {}", t_cli("İmaj Formatı", "Image Format"), finalized.format.as_str().to_uppercase());
+        println!(
+            "  {:<20}: {}",
+            t_cli("Vaka Adı", "Case Name"),
+            vault.case_name
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("Kullanılan Araç", "Tool Used"),
+            tool.to_uppercase()
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("Hedef Dosya", "Target File"),
+            finalized.target_path.display()
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("Yazılan Boyut", "Written Size"),
+            format_bytes(result.bytes_written)
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("İmaj Formatı", "Image Format"),
+            finalized.format.as_str().to_uppercase()
+        );
         println!("  {:<20}: {}", "SHA-256", finalized.sha256);
         if let Some(raw_h) = &finalized.raw_sha256 {
             if finalized.format.as_str() != "raw" {
@@ -1571,7 +1742,13 @@ fn local_ram_command(args: Vec<String>) -> Result<(), String> {
             }
         }
         println!("============================================================");
-        println!("[✓] {}", t_cli("Canlı RAM imajı vaka deposuna kaydedildi ve doğrulandı.", "Live RAM image saved to case vault and verified."));
+        println!(
+            "[✓] {}",
+            t_cli(
+                "Canlı RAM imajı vaka deposuna kaydedildi ve doğrulandı.",
+                "Live RAM image saved to case vault and verified."
+            )
+        );
         Ok(())
     }
 }
@@ -1645,15 +1822,44 @@ fn remote_ram_command(args: Vec<String>) -> Result<(), String> {
         }))
     } else {
         println!("============================================================");
-        println!("       {}", t_cli("Uzak RAM Edinimi Tamamlandı", "Remote RAM Acquisition Completed"));
+        println!(
+            "       {}",
+            t_cli(
+                "Uzak RAM Edinimi Tamamlandı",
+                "Remote RAM Acquisition Completed"
+            )
+        );
         println!("============================================================");
-        println!("  {:<20}: {}", t_cli("Vaka Adı", "Case Name"), vault.case_name);
-        println!("  {:<20}: {}:{}", t_cli("Uzak Agent", "Remote Agent"), ip, port);
-        println!("  {:<20}: {}", t_cli("İndirilen Dosya", "Downloaded File"), finalized.target_path.display());
-        println!("  {:<20}: {}", t_cli("Aktarılan Boyut", "Transferred Size"), format_bytes(download.bytes_transferred));
+        println!(
+            "  {:<20}: {}",
+            t_cli("Vaka Adı", "Case Name"),
+            vault.case_name
+        );
+        println!(
+            "  {:<20}: {}:{}",
+            t_cli("Uzak Agent", "Remote Agent"),
+            ip,
+            port
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("İndirilen Dosya", "Downloaded File"),
+            finalized.target_path.display()
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("Aktarılan Boyut", "Transferred Size"),
+            format_bytes(download.bytes_transferred)
+        );
         println!("  {:<20}: {}", "SHA-256", finalized.sha256);
         println!("============================================================");
-        println!("[✓] {}", t_cli("Uzak RAM imajı başarıyla vaka deposuna aktarıldı.", "Remote RAM image transferred to case vault successfully."));
+        println!(
+            "[✓] {}",
+            t_cli(
+                "Uzak RAM imajı başarıyla vaka deposuna aktarıldı.",
+                "Remote RAM image transferred to case vault successfully."
+            )
+        );
         Ok(())
     }
 }
@@ -1679,16 +1885,63 @@ fn image_analyze_command(args: Vec<String>) -> Result<(), String> {
     } else {
         let is_en = is_cli_english();
         println!("============================================================");
-        println!("       {}", if is_en { "Forensic Disk Image Analysis Report" } else { "Adli Disk İmajı Analiz Raporu" });
+        println!(
+            "       {}",
+            if is_en {
+                "Forensic Disk Image Analysis Report"
+            } else {
+                "Adli Disk İmajı Analiz Raporu"
+            }
+        );
         println!("============================================================");
-        println!("  {:<20}: {}", if is_en { "Image File" } else { "İmaj Dosyası" }, report.image_path.display());
-        println!("  {:<20}: {}", if is_en { "File Size" } else { "Dosya Boyutu" }, format_bytes(report.size));
-        println!("  {:<20}: {} {}", if is_en { "Sector Size" } else { "Sektör Boyutu" }, report.sector_size, if is_en { "bytes" } else { "bayt" });
-        println!("  {:<20}: {}", if is_en { "Partition Scheme" } else { "Bölüntü Şeması" }, report.partition_scheme);
-        println!("  {:<20}: {}", if is_en { "Image Format" } else { "İmaj Formatı" }, report.image_type);
+        println!(
+            "  {:<20}: {}",
+            if is_en {
+                "Image File"
+            } else {
+                "İmaj Dosyası"
+            },
+            report.image_path.display()
+        );
+        println!(
+            "  {:<20}: {}",
+            if is_en { "File Size" } else { "Dosya Boyutu" },
+            format_bytes(report.size)
+        );
+        println!(
+            "  {:<20}: {} {}",
+            if is_en {
+                "Sector Size"
+            } else {
+                "Sektör Boyutu"
+            },
+            report.sector_size,
+            if is_en { "bytes" } else { "bayt" }
+        );
+        println!(
+            "  {:<20}: {}",
+            if is_en {
+                "Partition Scheme"
+            } else {
+                "Bölüntü Şeması"
+            },
+            report.partition_scheme
+        );
+        println!(
+            "  {:<20}: {}",
+            if is_en {
+                "Image Format"
+            } else {
+                "İmaj Formatı"
+            },
+            report.image_type
+        );
 
         if !report.partitions.is_empty() {
-            println!("\n  --- {} ---", if is_en { "Partitions" } else { "Bölüntüler" });
+            println!(
+                "\n  --- {} ---",
+                if is_en { "Partitions" } else { "Bölüntüler" }
+            );
             for p in &report.partitions {
                 println!(
                     "    [{}] {} ({}) - {} | LBA: {}",
@@ -1702,14 +1955,27 @@ fn image_analyze_command(args: Vec<String>) -> Result<(), String> {
         }
 
         if !report.filesystems.is_empty() {
-            println!("\n  --- {} ---", if is_en { "Detected Filesystems" } else { "Tespit Edilen Dosya Sistemleri" });
+            println!(
+                "\n  --- {} ---",
+                if is_en {
+                    "Detected Filesystems"
+                } else {
+                    "Tespit Edilen Dosya Sistemleri"
+                }
+            );
             for fs in &report.filesystems {
-                println!("    • {} @ offset {} ({}%)", fs.fs_type, fs.offset, fs.confidence);
+                println!(
+                    "    • {} @ offset {} ({}%)",
+                    fs.fs_type, fs.offset, fs.confidence
+                );
             }
         }
 
         if !report.warnings.is_empty() {
-            println!("\n  --- {} ---", if is_en { "Warnings" } else { "Uyarılar" });
+            println!(
+                "\n  --- {} ---",
+                if is_en { "Warnings" } else { "Uyarılar" }
+            );
             for w in &report.warnings {
                 println!("    [!] {}", w);
             }
@@ -1728,7 +1994,7 @@ fn ram_summary_command(args: Vec<String>) -> Result<(), String> {
     if args.is_empty() {
         return Err(t_cli(
             "Kullanim: ram-summary <ram> [windows|linux] [symbols]",
-            "Usage: ram-summary <ram> [windows|linux] [symbols]"
+            "Usage: ram-summary <ram> [windows|linux] [symbols]",
         ));
     }
     let path = PathBuf::from(&args[0]);
@@ -1747,24 +2013,77 @@ fn ram_summary_command(args: Vec<String>) -> Result<(), String> {
     } else {
         let is_en = is_cli_english();
         println!("============================================================");
-        println!("       {}", if is_en { "Live RAM Image Analysis Summary" } else { "Canlı RAM İmajı Analiz Özeti" });
+        println!(
+            "       {}",
+            if is_en {
+                "Live RAM Image Analysis Summary"
+            } else {
+                "Canlı RAM İmajı Analiz Özeti"
+            }
+        );
         println!("============================================================");
-        println!("  {:<22}: {}", if is_en { "File Name" } else { "Dosya Adı" }, summary.file_name);
-        println!("  {:<22}: {}", if is_en { "File Size" } else { "Dosya Boyutu" }, format_bytes(summary.size));
-        println!("  {:<22}: {}", if is_en { "Dump Type" } else { "İmaj Türü" }, summary.dump_type);
-        println!("  {:<22}: {:.2} / 8.00", if is_en { "Entropy Sample" } else { "Entropi Örneği" }, summary.entropy_sample);
-        println!("  {:<22}: {}", if is_en { "String Match Count" } else { "Dizgi Eşleşme Sayısı" }, summary.string_match_count);
-        println!("  {:<22}: {}", if is_en { "Processes Detected" } else { "Tespit Edilen Süreçler" }, summary.process_count);
+        println!(
+            "  {:<22}: {}",
+            if is_en { "File Name" } else { "Dosya Adı" },
+            summary.file_name
+        );
+        println!(
+            "  {:<22}: {}",
+            if is_en { "File Size" } else { "Dosya Boyutu" },
+            format_bytes(summary.size)
+        );
+        println!(
+            "  {:<22}: {}",
+            if is_en { "Dump Type" } else { "İmaj Türü" },
+            summary.dump_type
+        );
+        println!(
+            "  {:<22}: {:.2} / 8.00",
+            if is_en {
+                "Entropy Sample"
+            } else {
+                "Entropi Örneği"
+            },
+            summary.entropy_sample
+        );
+        println!(
+            "  {:<22}: {}",
+            if is_en {
+                "String Match Count"
+            } else {
+                "Dizgi Eşleşme Sayısı"
+            },
+            summary.string_match_count
+        );
+        println!(
+            "  {:<22}: {}",
+            if is_en {
+                "Processes Detected"
+            } else {
+                "Tespit Edilen Süreçler"
+            },
+            summary.process_count
+        );
 
         if !summary.category_counts.is_empty() {
-            println!("\n  --- {} ---", if is_en { "IOC / String Matches" } else { "IOC / Dizgi Kategorileri" });
+            println!(
+                "\n  --- {} ---",
+                if is_en {
+                    "IOC / String Matches"
+                } else {
+                    "IOC / Dizgi Kategorileri"
+                }
+            );
             for c in &summary.category_counts {
                 println!("    • {}: {}", c.category, c.count);
             }
         }
 
         if !summary.warnings.is_empty() {
-            println!("\n  --- {} ---", if is_en { "Warnings" } else { "Uyarılar" });
+            println!(
+                "\n  --- {} ---",
+                if is_en { "Warnings" } else { "Uyarılar" }
+            );
             for w in &summary.warnings {
                 println!("    [!] {}", w);
             }
@@ -1780,7 +2099,10 @@ fn ram_strings_command(args: Vec<String>) -> Result<(), String> {
     let json_output = args.iter().any(|a| a == "--json");
     args.retain(|a| a != "--json");
     if args.is_empty() {
-        return Err(t_cli("Kullanim: ram-strings <ram>", "Usage: ram-strings <ram>"));
+        return Err(t_cli(
+            "Kullanim: ram-strings <ram>",
+            "Usage: ram-strings <ram>",
+        ));
     }
     let matches = ram_analysis::analyze_ram_strings(Path::new(&args[0]))
         .map_err(|err| crate_diagnostic(err.to_string()))?;
@@ -1790,20 +2112,50 @@ fn ram_strings_command(args: Vec<String>) -> Result<(), String> {
     } else {
         let is_en = is_cli_english();
         println!("============================================================");
-        println!("       {}", if is_en { "RAM String & IOC Matches" } else { "RAM Dizgi ve IOC Eşleşmeleri" });
+        println!(
+            "       {}",
+            if is_en {
+                "RAM String & IOC Matches"
+            } else {
+                "RAM Dizgi ve IOC Eşleşmeleri"
+            }
+        );
         println!("============================================================");
         if matches.is_empty() {
-            println!("  {}", if is_en { "No matching indicators found." } else { "Eşleşen gösterge bulunamadı." });
+            println!(
+                "  {}",
+                if is_en {
+                    "No matching indicators found."
+                } else {
+                    "Eşleşen gösterge bulunamadı."
+                }
+            );
         } else {
             for m in matches.iter().take(50) {
                 println!("  [{}] 0x{:08X}: {}", m.category, m.offset, m.value);
             }
             if matches.len() > 50 {
-                println!("  ... ({} {})", matches.len() - 50, if is_en { "more matches truncated" } else { "fazla eşleşme gösterilmedi" });
+                println!(
+                    "  ... ({} {})",
+                    matches.len() - 50,
+                    if is_en {
+                        "more matches truncated"
+                    } else {
+                        "fazla eşleşme gösterilmedi"
+                    }
+                );
             }
         }
         println!("============================================================");
-        println!("  {} {}", if is_en { "Total matches:" } else { "Toplam eşleşme:" }, matches.len());
+        println!(
+            "  {} {}",
+            if is_en {
+                "Total matches:"
+            } else {
+                "Toplam eşleşme:"
+            },
+            matches.len()
+        );
         println!("============================================================");
         Ok(())
     }
@@ -1815,7 +2167,10 @@ fn ram_carve_command(args: Vec<String>) -> Result<(), String> {
     let json_output = args.iter().any(|a| a == "--json");
     args.retain(|a| a != "--json");
     if args.len() < 2 {
-        return Err(t_cli("Kullanim: ram-carve <ram> <cikti_klasoru>", "Usage: ram-carve <ram> <output_dir>"));
+        return Err(t_cli(
+            "Kullanim: ram-carve <ram> <cikti_klasoru>",
+            "Usage: ram-carve <ram> <output_dir>",
+        ));
     }
     let files = ram_analysis::carve_files(Path::new(&args[0]), Path::new(&args[1]))
         .map_err(|err| crate_diagnostic(err.to_string()))?;
@@ -1825,17 +2180,44 @@ fn ram_carve_command(args: Vec<String>) -> Result<(), String> {
     } else {
         let is_en = is_cli_english();
         println!("============================================================");
-        println!("       {}", if is_en { "RAM File Carving Results" } else { "RAM Dosya Çıkarma (Carving) Sonuçları" });
+        println!(
+            "       {}",
+            if is_en {
+                "RAM File Carving Results"
+            } else {
+                "RAM Dosya Çıkarma (Carving) Sonuçları"
+            }
+        );
         println!("============================================================");
         if files.is_empty() {
-            println!("  {}", if is_en { "No recoverable files found." } else { "Kurtarılabilir dosya bulunamadı." });
+            println!(
+                "  {}",
+                if is_en {
+                    "No recoverable files found."
+                } else {
+                    "Kurtarılabilir dosya bulunamadı."
+                }
+            );
         } else {
             for f in &files {
-                println!("  • [{}] {} ({})", f.mime_type, f.file_path, format_bytes(f.size));
+                println!(
+                    "  • [{}] {} ({})",
+                    f.mime_type,
+                    f.file_path,
+                    format_bytes(f.size)
+                );
             }
         }
         println!("============================================================");
-        println!("  {} {}", if is_en { "Total carved files:" } else { "Toplam çıkarılan dosya:" }, files.len());
+        println!(
+            "  {} {}",
+            if is_en {
+                "Total carved files:"
+            } else {
+                "Toplam çıkarılan dosya:"
+            },
+            files.len()
+        );
         println!("============================================================");
         Ok(())
     }
@@ -1847,7 +2229,10 @@ fn ram_processes_command(args: Vec<String>) -> Result<(), String> {
     let json_output = args.iter().any(|a| a == "--json");
     args.retain(|a| a != "--json");
     if args.is_empty() {
-        return Err(t_cli("Kullanim: ram-processes <ram> [windows|linux] [symbols]", "Usage: ram-processes <ram> [windows|linux] [symbols]"));
+        return Err(t_cli(
+            "Kullanim: ram-processes <ram> [windows|linux] [symbols]",
+            "Usage: ram-processes <ram> [windows|linux] [symbols]",
+        ));
     }
     let os_type = args.get(1).map(String::as_str).unwrap_or("linux");
     let symbols = args.get(2).map(PathBuf::from);
@@ -1864,11 +2249,21 @@ fn ram_processes_command(args: Vec<String>) -> Result<(), String> {
     } else {
         let is_en = is_cli_english();
         println!("============================================================");
-        println!("       {}", if is_en { "RAM Extracted Processes" } else { "RAM Çıkarılan Süreçler" });
+        println!(
+            "       {}",
+            if is_en {
+                "RAM Extracted Processes"
+            } else {
+                "RAM Çıkarılan Süreçler"
+            }
+        );
         println!("============================================================");
         println!(
             "  {:<8} {:<8} {:<28} {:<10}",
-            "PID", "PPID", if is_en { "Image Name" } else { "Süreç Adı" }, "Offset"
+            "PID",
+            "PPID",
+            if is_en { "Image Name" } else { "Süreç Adı" },
+            "Offset"
         );
         println!("------------------------------------------------------------");
         for p in &processes {
@@ -1878,7 +2273,15 @@ fn ram_processes_command(args: Vec<String>) -> Result<(), String> {
             );
         }
         println!("============================================================");
-        println!("  {} {}", if is_en { "Total processes:" } else { "Toplam süreç:" }, processes.len());
+        println!(
+            "  {} {}",
+            if is_en {
+                "Total processes:"
+            } else {
+                "Toplam süreç:"
+            },
+            processes.len()
+        );
         println!("============================================================");
         Ok(())
     }
@@ -2972,6 +3375,16 @@ fn extract_output_format(args: &mut Vec<String>) -> Result<AcquisitionOutputForm
     AcquisitionOutputFormat::parse(selected.as_deref())
 }
 
+/// Global bayrakları (örn: --quiet, -q, --verbose, -v) komut listesinden ayıklar.
+fn extract_flag(args: &mut Vec<String>, flags: &[&str]) -> bool {
+    if let Some(pos) = args.iter().position(|a| flags.iter().any(|f| a == f)) {
+        args.remove(pos);
+        true
+    } else {
+        false
+    }
+}
+
 /// Global --profile argümanını komut listesinden ayırır.
 fn extract_global_profile(args: &mut Vec<String>) -> Option<String> {
     if let Some(pos) = args
@@ -3137,22 +3550,49 @@ fn remote_disks_command(args: Vec<String>) -> Result<(), String> {
     }
 
     let is_en = is_cli_english();
-    println!("==========================================================================================");
-    println!("       {} ({}:{})", if is_en { "Remote Agent Disks" } else { "Uzak Agent Diskleri" }, &args[0], port);
-    println!("==========================================================================================");
+    println!(
+        "=========================================================================================="
+    );
+    println!(
+        "       {} ({}:{})",
+        if is_en {
+            "Remote Agent Disks"
+        } else {
+            "Uzak Agent Diskleri"
+        },
+        &args[0],
+        port
+    );
+    println!(
+        "=========================================================================================="
+    );
     println!(
         "  {:<16} {:<32} {:<20}",
         if is_en { "Disk ID" } else { "Disk Kimliği" },
         if is_en { "Name / Path" } else { "Adı / Yolu" },
         if is_en { "Size" } else { "Boyut" }
     );
-    println!("------------------------------------------------------------------------------------------");
+    println!(
+        "------------------------------------------------------------------------------------------"
+    );
     for d in &disks {
         println!("  {:<16} {:<32} {:<20}", d.id, d.ad, format_bytes(d.boyut));
     }
-    println!("==========================================================================================");
-    println!("  {} {}", if is_en { "Total disks:" } else { "Toplam disk:" }, disks.len());
-    println!("==========================================================================================");
+    println!(
+        "=========================================================================================="
+    );
+    println!(
+        "  {} {}",
+        if is_en {
+            "Total disks:"
+        } else {
+            "Toplam disk:"
+        },
+        disks.len()
+    );
+    println!(
+        "=========================================================================================="
+    );
     Ok(())
 }
 
@@ -3206,16 +3646,45 @@ fn remote_image_command(args: Vec<String>) -> Result<(), String> {
         }))
     } else {
         println!("============================================================");
-        println!("       {}", t_cli("Uzak Disk İmajı Edinimi Tamamlandı", "Remote Disk Image Acquisition Completed"));
+        println!(
+            "       {}",
+            t_cli(
+                "Uzak Disk İmajı Edinimi Tamamlandı",
+                "Remote Disk Image Acquisition Completed"
+            )
+        );
         println!("============================================================");
-        println!("  {:<20}: {}:{}", t_cli("Uzak Agent", "Remote Agent"), &args[0], port);
+        println!(
+            "  {:<20}: {}:{}",
+            t_cli("Uzak Agent", "Remote Agent"),
+            &args[0],
+            port
+        );
         println!("  {:<20}: {}", t_cli("Disk Kimliği", "Disk ID"), &args[2]);
-        println!("  {:<20}: {}", t_cli("Hedef Dosya", "Target File"), finalized.target_path.display());
-        println!("  {:<20}: {}", t_cli("Aktarılan Boyut", "Transferred Size"), format_bytes(result.bytes_transferred));
-        println!("  {:<20}: {}", t_cli("İmaj Formatı", "Image Format"), finalized.format.as_str().to_uppercase());
+        println!(
+            "  {:<20}: {}",
+            t_cli("Hedef Dosya", "Target File"),
+            finalized.target_path.display()
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("Aktarılan Boyut", "Transferred Size"),
+            format_bytes(result.bytes_transferred)
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("İmaj Formatı", "Image Format"),
+            finalized.format.as_str().to_uppercase()
+        );
         println!("  {:<20}: {}", "SHA-256", finalized.sha256);
         println!("============================================================");
-        println!("[✓] {}", t_cli("Uzak disk imajı başarıyla indirildi.", "Remote disk image downloaded successfully."));
+        println!(
+            "[✓] {}",
+            t_cli(
+                "Uzak disk imajı başarıyla indirildi.",
+                "Remote disk image downloaded successfully."
+            )
+        );
         Ok(())
     }
 }
@@ -3275,22 +3744,46 @@ fn ssh_disks_command(args: Vec<String>) -> Result<(), String> {
     }
 
     let is_en = is_cli_english();
-    println!("==========================================================================================");
-    println!("       {} (ssh://{}@{}:{})", if is_en { "SSH Disks" } else { "SSH Diskleri" }, user, ip, port);
-    println!("==========================================================================================");
+    println!(
+        "=========================================================================================="
+    );
+    println!(
+        "       {} (ssh://{}@{}:{})",
+        if is_en { "SSH Disks" } else { "SSH Diskleri" },
+        user,
+        ip,
+        port
+    );
+    println!(
+        "=========================================================================================="
+    );
     println!(
         "  {:<16} {:<32} {:<20}",
         if is_en { "Disk ID" } else { "Disk Kimliği" },
         if is_en { "Name / Path" } else { "Adı / Yolu" },
         if is_en { "Size" } else { "Boyut" }
     );
-    println!("------------------------------------------------------------------------------------------");
+    println!(
+        "------------------------------------------------------------------------------------------"
+    );
     for d in &disks {
         println!("  {:<16} {:<32} {:<20}", d.id, d.ad, format_bytes(d.boyut));
     }
-    println!("==========================================================================================");
-    println!("  {} {}", if is_en { "Total disks:" } else { "Toplam disk:" }, disks.len());
-    println!("==========================================================================================");
+    println!(
+        "=========================================================================================="
+    );
+    println!(
+        "  {} {}",
+        if is_en {
+            "Total disks:"
+        } else {
+            "Toplam disk:"
+        },
+        disks.len()
+    );
+    println!(
+        "=========================================================================================="
+    );
     Ok(())
 }
 
@@ -3379,17 +3872,47 @@ fn ssh_image_command(args: Vec<String>) -> Result<(), String> {
         }))
     } else {
         println!("============================================================");
-        println!("       {}", t_cli("SSH Disk İmajı Edinimi Tamamlandı", "SSH Disk Image Acquisition Completed"));
+        println!(
+            "       {}",
+            t_cli(
+                "SSH Disk İmajı Edinimi Tamamlandı",
+                "SSH Disk Image Acquisition Completed"
+            )
+        );
         println!("============================================================");
-        println!("  {:<20}: ssh://{}@{}:{}", t_cli("Hedef Sunucu", "Target Server"), user, ip, port);
-        println!("  {:<20}: {}", t_cli("Kaynak Disk", "Source Disk"), disk_path);
-        println!("  {:<20}: {}", t_cli("Hedef Dosya", "Target File"), result.target_path.display());
-        println!("  {:<20}: {}", t_cli("Aktarılan Boyut", "Transferred Size"), format_bytes(result.bytes_transferred));
+        println!(
+            "  {:<20}: ssh://{}@{}:{}",
+            t_cli("Hedef Sunucu", "Target Server"),
+            user,
+            ip,
+            port
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("Kaynak Disk", "Source Disk"),
+            disk_path
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("Hedef Dosya", "Target File"),
+            result.target_path.display()
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("Aktarılan Boyut", "Transferred Size"),
+            format_bytes(result.bytes_transferred)
+        );
         if let Some(h) = &result.sha256 {
             println!("  {:<20}: {}", "SHA-256", h);
         }
         println!("============================================================");
-        println!("[✓] {}", t_cli("SSH ile disk imajı başarıyla alındı.", "Disk image acquired via SSH successfully."));
+        println!(
+            "[✓] {}",
+            t_cli(
+                "SSH ile disk imajı başarıyla alındı.",
+                "Disk image acquired via SSH successfully."
+            )
+        );
         Ok(())
     }
 }
@@ -3445,16 +3968,42 @@ fn ssh_ram_command(args: Vec<String>) -> Result<(), String> {
         }))
     } else {
         println!("============================================================");
-        println!("       {}", t_cli("SSH Canlı RAM Edinimi Tamamlandı", "SSH Live RAM Acquisition Completed"));
+        println!(
+            "       {}",
+            t_cli(
+                "SSH Canlı RAM Edinimi Tamamlandı",
+                "SSH Live RAM Acquisition Completed"
+            )
+        );
         println!("============================================================");
-        println!("  {:<20}: ssh://{}@{}:{}", t_cli("Hedef Sunucu", "Target Server"), user, ip, port);
-        println!("  {:<20}: {}", t_cli("Hedef Dosya", "Target File"), result.target_path.display());
-        println!("  {:<20}: {}", t_cli("Aktarılan Boyut", "Transferred Size"), format_bytes(result.bytes_transferred));
+        println!(
+            "  {:<20}: ssh://{}@{}:{}",
+            t_cli("Hedef Sunucu", "Target Server"),
+            user,
+            ip,
+            port
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("Hedef Dosya", "Target File"),
+            result.target_path.display()
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("Aktarılan Boyut", "Transferred Size"),
+            format_bytes(result.bytes_transferred)
+        );
         if let Some(h) = &result.sha256 {
             println!("  {:<20}: {}", "SHA-256", h);
         }
         println!("============================================================");
-        println!("[✓] {}", t_cli("SSH ile canlı RAM dökümü başarıyla alındı.", "Live RAM dump acquired via SSH successfully."));
+        println!(
+            "[✓] {}",
+            t_cli(
+                "SSH ile canlı RAM dökümü başarıyla alındı.",
+                "Live RAM dump acquired via SSH successfully."
+            )
+        );
         Ok(())
     }
 }
@@ -3496,16 +4045,24 @@ fn ensure_root_or_elevate(op_name: &str) -> Result<(), String> {
 
         if !sudo_exists {
             return Err(t_cli(
-                &format!("'{op_name}' işlemi root yetkisi gerektirir ve sistemde 'sudo' bulunamadı. Lütfen root olarak çalıştırın."),
-                &format!("'{op_name}' operation requires root privileges and 'sudo' was not found. Please run as root.")
+                &format!(
+                    "'{op_name}' işlemi root yetkisi gerektirir ve sistemde 'sudo' bulunamadı. Lütfen root olarak çalıştırın."
+                ),
+                &format!(
+                    "'{op_name}' operation requires root privileges and 'sudo' was not found. Please run as root."
+                ),
             ));
         }
 
         eprintln!(
             "{}",
             t_cli(
-                &format!("[*] '{op_name}' için root (yönetici) yetkisi gerekiyor. Sudo parolası isteniyor..."),
-                &format!("[*] Root privileges required for '{op_name}'. Requesting sudo password...")
+                &format!(
+                    "[*] '{op_name}' için root (yönetici) yetkisi gerekiyor. Sudo parolası isteniyor..."
+                ),
+                &format!(
+                    "[*] Root privileges required for '{op_name}'. Requesting sudo password..."
+                )
             )
         );
 
@@ -3520,7 +4077,12 @@ fn ensure_root_or_elevate(op_name: &str) -> Result<(), String> {
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit());
 
-        let status = cmd.status().map_err(|err| format!("{}: {err}", t_cli("sudo çalıştırılamadı", "Failed to run sudo")))?;
+        let status = cmd.status().map_err(|err| {
+            format!(
+                "{}: {err}",
+                t_cli("sudo çalıştırılamadı", "Failed to run sudo")
+            )
+        })?;
         if status.success() {
             std::process::exit(0);
         } else {
@@ -3535,8 +4097,12 @@ fn ensure_root_or_elevate(op_name: &str) -> Result<(), String> {
             return Ok(());
         }
         return Err(t_cli(
-            &format!("'{op_name}' işlemi için Yönetici (Administrator) yetkileri gereklidir. Lütfen terminali Yönetici olarak çalıştırın."),
-            &format!("Administrator privileges are required for '{op_name}'. Please run terminal as Administrator.")
+            &format!(
+                "'{op_name}' işlemi için Yönetici (Administrator) yetkileri gereklidir. Lütfen terminali Yönetici olarak çalıştırın."
+            ),
+            &format!(
+                "Administrator privileges are required for '{op_name}'. Please run terminal as Administrator."
+            ),
         ));
     }
 
@@ -3557,7 +4123,10 @@ fn linux_ram_status_command(args: Vec<String>) -> Result<(), String> {
             "kcore_accessible": Path::new("/proc/kcore").exists(),
             "root_privilege": ram::is_root_or_admin(),
         });
-        println!("{}", serde_json::to_string_pretty(&status).map_err(|e| e.to_string())?);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&status).map_err(|e| e.to_string())?
+        );
         return Ok(());
     }
 
@@ -3567,47 +4136,72 @@ fn linux_ram_status_command(args: Vec<String>) -> Result<(), String> {
     let ram_display = format_bytes(status.ram_size);
 
     println!("============================================================");
-    println!("       {}", t_cli("Linux Canlı RAM Edinim Durumu (AVML)", "Linux Live RAM Acquisition Status (AVML)"));
+    println!(
+        "       {}",
+        t_cli(
+            "Linux Canlı RAM Edinim Durumu (AVML)",
+            "Linux Live RAM Acquisition Status (AVML)"
+        )
+    );
     println!("============================================================");
     if let Some(path) = &status.tool_path {
-        println!("  {:<22}: [✓] {} ({})", 
+        println!(
+            "  {:<22}: [✓] {} ({})",
             t_cli("AVML Durumu", "AVML Status"),
             t_cli("Kurulu ve Hazır", "Installed & Ready"),
             path.display()
         );
     } else {
-        println!("  {:<22}: {}", 
+        println!(
+            "  {:<22}: {}",
             t_cli("AVML Durumu", "AVML Status"),
-            t_cli("[✗] Kurulu Değil (Kurmak için: 'amele linux ram install')", "[✗] Not Installed (To install: 'amele linux ram install')")
+            t_cli(
+                "[✗] Kurulu Değil (Kurmak için: 'amele linux ram install')",
+                "[✗] Not Installed (To install: 'amele linux ram install')"
+            )
         );
     }
 
     if is_root {
-        println!("  {:<22}: [✓] {}", 
+        println!(
+            "  {:<22}: [✓] {}",
             t_cli("Yetki Durumu", "Privilege Status"),
-            t_cli("Root (Yönetici) Yetkisi Mevcut", "Root Privileges Available")
+            t_cli(
+                "Root (Yönetici) Yetkisi Mevcut",
+                "Root Privileges Available"
+            )
         );
     } else {
-        println!("  {:<22}: [!] {}", 
+        println!(
+            "  {:<22}: [!] {}",
             t_cli("Yetki Durumu", "Privilege Status"),
-            t_cli("Root Gerekli (Komut otomatik sudo isteyecektir)", "Root Required (Command will prompt for sudo)")
+            t_cli(
+                "Root Gerekli (Komut otomatik sudo isteyecektir)",
+                "Root Required (Command will prompt for sudo)"
+            )
         );
     }
 
-    println!("  {:<22}: {}", 
+    println!(
+        "  {:<22}: {}",
         "/proc/kcore",
         if kcore_exists {
-            t_cli("[✓] Erişilebilir (Yedek kaynak)", "[✓] Accessible (Fallback source)")
+            t_cli(
+                "[✓] Erişilebilir (Yedek kaynak)",
+                "[✓] Accessible (Fallback source)",
+            )
         } else {
             t_cli("[✗] Erişilemez", "[✗] Not Accessible")
         }
     );
 
-    println!("  {:<22}: {}", 
+    println!(
+        "  {:<22}: {}",
         t_cli("Fiziksel RAM Boyutu", "Physical RAM Size"),
         ram_display
     );
-    println!("  {:<22}: RAW, LiME, AFF4", 
+    println!(
+        "  {:<22}: RAW, LiME, AFF4",
         t_cli("Desteklenen Formatlar", "Supported Formats")
     );
     println!("============================================================");
@@ -3624,7 +4218,10 @@ fn windows_ram_status_command(args: Vec<String>) -> Result<(), String> {
             "winpmem": ram::winpmem_status(None),
             "admin_privilege": ram::is_root_or_admin(),
         });
-        println!("{}", serde_json::to_string_pretty(&status).map_err(|e| e.to_string())?);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&status).map_err(|e| e.to_string())?
+        );
         return Ok(());
     }
 
@@ -3633,38 +4230,59 @@ fn windows_ram_status_command(args: Vec<String>) -> Result<(), String> {
     let ram_display = format_bytes(status.ram_size);
 
     println!("============================================================");
-    println!("       {}", t_cli("Windows Canlı RAM Edinim Durumu (WinPMEM)", "Windows Live RAM Acquisition Status (WinPMEM)"));
+    println!(
+        "       {}",
+        t_cli(
+            "Windows Canlı RAM Edinim Durumu (WinPMEM)",
+            "Windows Live RAM Acquisition Status (WinPMEM)"
+        )
+    );
     println!("============================================================");
     if let Some(path) = &status.tool_path {
-        println!("  {:<22}: [✓] {} ({})", 
+        println!(
+            "  {:<22}: [✓] {} ({})",
             t_cli("WinPMEM Durumu", "WinPMEM Status"),
             t_cli("Kurulu ve Hazır", "Installed & Ready"),
             path.display()
         );
     } else {
-        println!("  {:<22}: {}", 
+        println!(
+            "  {:<22}: {}",
             t_cli("WinPMEM Durumu", "WinPMEM Status"),
-            t_cli("[✗] Kurulu Değil (WinPMEM sürücüsü gerekli)", "[✗] Not Installed (WinPMEM driver required)")
+            t_cli(
+                "[✗] Kurulu Değil (WinPMEM sürücüsü gerekli)",
+                "[✗] Not Installed (WinPMEM driver required)"
+            )
         );
     }
 
     if is_admin {
-        println!("  {:<22}: [✓] {}", 
+        println!(
+            "  {:<22}: [✓] {}",
             t_cli("Yetki Durumu", "Privilege Status"),
-            t_cli("Yönetici (Administrator) Yetkisi Mevcut", "Administrator Privileges Available")
+            t_cli(
+                "Yönetici (Administrator) Yetkisi Mevcut",
+                "Administrator Privileges Available"
+            )
         );
     } else {
-        println!("  {:<22}: [!] {}", 
+        println!(
+            "  {:<22}: [!] {}",
             t_cli("Yetki Durumu", "Privilege Status"),
-            t_cli("Yönetici Yetkisi Gerekli", "Administrator Privileges Required")
+            t_cli(
+                "Yönetici Yetkisi Gerekli",
+                "Administrator Privileges Required"
+            )
         );
     }
 
-    println!("  {:<22}: {}", 
+    println!(
+        "  {:<22}: {}",
         t_cli("Fiziksel RAM Boyutu", "Physical RAM Size"),
         ram_display
     );
-    println!("  {:<22}: RAW, AFF4", 
+    println!(
+        "  {:<22}: RAW, AFF4",
         t_cli("Desteklenen Formatlar", "Supported Formats")
     );
     println!("============================================================");
@@ -3679,11 +4297,17 @@ fn linux_ram_install_command() -> Result<(), String> {
     let asset_name = match std::env::consts::ARCH {
         "x86_64" => "avml",
         "aarch64" => "avml-aarch64",
-        other => return Err(format!("{}: {other}", t_cli("Desteklenmeyen mimari", "Unsupported architecture"))),
+        other => {
+            return Err(format!(
+                "{}: {other}",
+                t_cli("Desteklenmeyen mimari", "Unsupported architecture")
+            ));
+        }
     };
 
     let url = format!("https://github.com/microsoft/avml/releases/latest/download/{asset_name}");
-    let temp_download = std::env::temp_dir().join(format!("avml-{}.tmp", std::process::id()));
+    let temp_download =
+        amele::settings::secure_runtime_dir().join(format!("avml-{}.tmp", std::process::id()));
 
     println!(
         "{}",
@@ -3715,7 +4339,10 @@ fn linux_ram_install_command() -> Result<(), String> {
         }
         Err(e) => {
             let _ = fs::remove_file(&temp_download);
-            return Err(format!("{}: {e}", t_cli("curl çalıştırılamadı", "Failed to run curl")));
+            return Err(format!(
+                "{}: {e}",
+                t_cli("curl çalıştırılamadı", "Failed to run curl")
+            ));
         }
     }
 
@@ -3732,7 +4359,13 @@ fn linux_ram_install_command() -> Result<(), String> {
     let target = Path::new("/usr/bin/avml");
     if let Err(err) = fs::copy(&temp_download, target) {
         let _ = fs::remove_file(&temp_download);
-        return Err(format!("{}: {err}", t_cli("AVML /usr/bin/avml konumuna kopyalanamadı", "Failed to copy AVML to /usr/bin/avml")));
+        return Err(format!(
+            "{}: {err}",
+            t_cli(
+                "AVML /usr/bin/avml konumuna kopyalanamadı",
+                "Failed to copy AVML to /usr/bin/avml"
+            )
+        ));
     }
     let _ = fs::remove_file(&temp_download);
 
@@ -3757,8 +4390,14 @@ fn linux_ram_install_command() -> Result<(), String> {
     println!(
         "{}",
         t_cli(
-            &format!("[✓] AVML başarıyla kuruldu: /usr/bin/avml ({})", version_output.trim()),
-            &format!("[✓] AVML successfully installed: /usr/bin/avml ({})", version_output.trim())
+            &format!(
+                "[✓] AVML başarıyla kuruldu: /usr/bin/avml ({})",
+                version_output.trim()
+            ),
+            &format!(
+                "[✓] AVML successfully installed: /usr/bin/avml ({})",
+                version_output.trim()
+            )
         )
     );
 
@@ -3771,7 +4410,7 @@ fn windows_ram_install_command() -> Result<(), String> {
     {
         return Err(t_cli(
             "WinPMEM sadece Windows üzerinde kurulabilir.",
-            "WinPMEM can only be installed on Windows."
+            "WinPMEM can only be installed on Windows.",
         ));
     }
 
@@ -3784,7 +4423,7 @@ fn windows_ram_install_command() -> Result<(), String> {
                 "[*] WinPMEM download URL: https://amele.noirlang.tr/go-winpmem_amd64_1.0-rc2_signed.exe"
             )
         );
-        let target = std::env::temp_dir().join("winpmem.exe");
+        let target = amele::settings::secure_runtime_dir().join("winpmem.exe");
         crate::api::download_file_to_path(
             "https://amele.noirlang.tr/go-winpmem_amd64_1.0-rc2_signed.exe",
             &target,
@@ -3809,7 +4448,13 @@ fn disk_list_command_with_args(args: Vec<String>) -> Result<(), String> {
     }
 
     if disks.is_empty() {
-        println!("{}", t_cli("Hiçbir yerel disk sürücüsü tespit edilemedi.", "No local disk drives detected."));
+        println!(
+            "{}",
+            t_cli(
+                "Hiçbir yerel disk sürücüsü tespit edilemedi.",
+                "No local disk drives detected."
+            )
+        );
         return Ok(());
     }
 
@@ -3820,18 +4465,32 @@ fn disk_list_command_with_args(args: Vec<String>) -> Result<(), String> {
         "Yerel Disk Sürücüleri ve Bölüntüler"
     };
 
-    println!("==========================================================================================");
+    println!(
+        "=========================================================================================="
+    );
     println!("       {title}");
-    println!("==========================================================================================");
+    println!(
+        "=========================================================================================="
+    );
     println!(
         "  {:<28} {:<16} {:<16} {:<14} {:<10}",
-        if is_en { "Device / Path" } else { "Aygıt / Yol" },
+        if is_en {
+            "Device / Path"
+        } else {
+            "Aygıt / Yol"
+        },
         if is_en { "Total Size" } else { "Toplam Boyut" },
-        if is_en { "Used Size" } else { "Kullanılan Boyut" },
+        if is_en {
+            "Used Size"
+        } else {
+            "Kullanılan Boyut"
+        },
         if is_en { "Access" } else { "Erişim" },
         if is_en { "Status" } else { "Durum" }
     );
-    println!("------------------------------------------------------------------------------------------");
+    println!(
+        "------------------------------------------------------------------------------------------"
+    );
 
     for d in &disks {
         let dev_str = d.device.display().to_string();
@@ -3842,9 +4501,17 @@ fn disk_list_command_with_args(args: Vec<String>) -> Result<(), String> {
             "-".to_string()
         };
         let access_str = if d.accessible {
-            if is_en { "[✓] Accessible" } else { "[✓] Okunabilir" }
+            if is_en {
+                "[✓] Accessible"
+            } else {
+                "[✓] Okunabilir"
+            }
         } else {
-            if is_en { "[!] Root req." } else { "[!] Root Gerekli" }
+            if is_en {
+                "[!] Root req."
+            } else {
+                "[!] Root Gerekli"
+            }
         };
         let status_str = if d.accessible {
             if is_en { "Ready" } else { "Hazır" }
@@ -3858,13 +4525,21 @@ fn disk_list_command_with_args(args: Vec<String>) -> Result<(), String> {
         );
     }
 
-    println!("==========================================================================================");
+    println!(
+        "=========================================================================================="
+    );
     println!(
         "  {} {}",
-        if is_en { "Total devices found:" } else { "Toplam bulunan aygıt:" },
+        if is_en {
+            "Total devices found:"
+        } else {
+            "Toplam bulunan aygıt:"
+        },
         disks.len()
     );
-    println!("==========================================================================================");
+    println!(
+        "=========================================================================================="
+    );
 
     Ok(())
 }
@@ -3873,7 +4548,13 @@ fn disk_list_command_with_args(args: Vec<String>) -> Result<(), String> {
 fn case_list_command(args: Vec<String>) -> Result<(), String> {
     let base_dir = amele::api::default_case_base_dir();
     if !base_dir.is_dir() {
-        println!("{}", t_cli("Henüz oluşturulmuş vaka bulunmuyor.", "No cases created yet."));
+        println!(
+            "{}",
+            t_cli(
+                "Henüz oluşturulmuş vaka bulunmuyor.",
+                "No cases created yet."
+            )
+        );
         return Ok(());
     }
     let mut cases = Vec::new();
@@ -3890,22 +4571,46 @@ fn case_list_command(args: Vec<String>) -> Result<(), String> {
         }
     }
     if args.iter().any(|a| a == "--json") {
-        let json_list: Vec<_> = cases.iter().map(|(n, p)| json!({ "name": n, "path": p })).collect();
+        let json_list: Vec<_> = cases
+            .iter()
+            .map(|(n, p)| json!({ "name": n, "path": p }))
+            .collect();
         return print_json(&json_list);
     }
     if cases.is_empty() {
-        println!("{}", t_cli("Henüz oluşturulmuş vaka bulunmuyor.", "No cases created yet."));
+        println!(
+            "{}",
+            t_cli(
+                "Henüz oluşturulmuş vaka bulunmuyor.",
+                "No cases created yet."
+            )
+        );
         return Ok(());
     }
     let is_en = is_cli_english();
     println!("============================================================");
-    println!("       {}", if is_en { "Forensic Cases" } else { "Adli Vakalar" });
+    println!(
+        "       {}",
+        if is_en {
+            "Forensic Cases"
+        } else {
+            "Adli Vakalar"
+        }
+    );
     println!("============================================================");
     for (name, path) in &cases {
         println!("  • {:<20} ({})", name, path.display());
     }
     println!("============================================================");
-    println!("  {} {}", if is_en { "Total cases:" } else { "Toplam vaka:" }, cases.len());
+    println!(
+        "  {} {}",
+        if is_en {
+            "Total cases:"
+        } else {
+            "Toplam vaka:"
+        },
+        cases.len()
+    );
     println!("============================================================");
     Ok(())
 }
@@ -3913,22 +4618,189 @@ fn case_list_command(args: Vec<String>) -> Result<(), String> {
 /// Yeni bir vaka deposu oluşturur.
 fn case_create_command(args: Vec<String>) -> Result<(), String> {
     if args.is_empty() {
-        return Err(t_cli("Kullanim: case create <vaka_adi>", "Usage: case create <case_name>"));
+        return Err(t_cli(
+            "Kullanim: case create <vaka_adi>",
+            "Usage: case create <case_name>",
+        ));
     }
     let case_name = amele::api::sanitize_case_name(&args[0]);
     if case_name.is_empty() {
         return Err(t_cli("Geçersiz vaka adı", "Invalid case name"));
     }
     let base_dir = amele::api::default_case_base_dir();
-    let vault = amele::evidence::EvidenceVault::create(&base_dir, &case_name).map_err(|e| e.to_string())?;
+    let vault =
+        amele::evidence::EvidenceVault::create(&base_dir, &case_name).map_err(|e| e.to_string())?;
     println!(
         "{}",
         t_cli(
-            &format!("[✓] Vaka başarıyla oluşturuldu: {} ({})", vault.case_name, vault.case_dir.display()),
-            &format!("[✓] Case created successfully: {} ({})", vault.case_name, vault.case_dir.display())
+            &format!(
+                "[✓] Vaka başarıyla oluşturuldu: {} ({})",
+                vault.case_name,
+                vault.case_dir.display()
+            ),
+            &format!(
+                "[✓] Case created successfully: {} ({})",
+                vault.case_name,
+                vault.case_dir.display()
+            )
         )
     );
     Ok(())
+}
+
+/// Vaka deposu detaylarını ve delil istatistiklerini gösterir.
+fn case_info_command(args: Vec<String>) -> Result<(), String> {
+    if args.is_empty() {
+        return Err(t_cli(
+            "Kullanim: case info <vaka_adi>",
+            "Usage: case info <case_name>",
+        ));
+    }
+    let case_name = amele::api::sanitize_case_name(&args[0]);
+    if case_name.is_empty() {
+        return Err(t_cli("Geçersiz vaka adı", "Invalid case name"));
+    }
+    let base_dir = amele::api::default_case_base_dir();
+    let case_dir = base_dir.join(&case_name);
+    if !case_dir.is_dir() {
+        return Err(format!(
+            "{} '{}'",
+            t_cli("Vaka klasörü bulunamadı:", "Case directory not found:"),
+            case_dir.display()
+        ));
+    }
+
+    let is_en = is_cli_english();
+    println!("============================================================");
+    println!(
+        "       {} : {}",
+        if is_en {
+            "Case Details"
+        } else {
+            "Vaka Detayları"
+        },
+        case_name
+    );
+    println!("============================================================");
+    println!(
+        "  {:<20}: {}",
+        if is_en { "Directory" } else { "Klasör" },
+        case_dir.display()
+    );
+
+    let evidence_dir = case_dir.join("deliller");
+    if evidence_dir.is_dir() {
+        if let Ok(entries) = fs::read_dir(&evidence_dir) {
+            let files: Vec<_> = entries.flatten().filter(|e| e.path().is_file()).collect();
+            println!(
+                "  {:<20}: {}",
+                if is_en {
+                    "Evidence Files"
+                } else {
+                    "Delil Dosyaları"
+                },
+                files.len()
+            );
+            for f in files.iter().take(10) {
+                let size = f.metadata().map(|m| m.len()).unwrap_or(0);
+                println!(
+                    "    • {} ({})",
+                    f.file_name().to_string_lossy(),
+                    format_bytes(size)
+                );
+            }
+            if files.len() > 10 {
+                println!(
+                    "    ... (+{} {})",
+                    files.len() - 10,
+                    if is_en { "more" } else { "daha" }
+                );
+            }
+        }
+    }
+
+    let logs_dir = case_dir.join("gunlukler");
+    if logs_dir.is_dir() {
+        if let Ok(entries) = fs::read_dir(&logs_dir) {
+            let count = entries.flatten().count();
+            println!(
+                "  {:<20}: {} {}",
+                if is_en { "Logs" } else { "Günlükler" },
+                count,
+                if is_en { "files" } else { "dosya" }
+            );
+        }
+    }
+    println!("============================================================");
+    Ok(())
+}
+
+/// Kabuk otomatik tamamlama (shell autocompletion) scripti üretir.
+fn completion_command(args: Vec<String>) -> Result<(), String> {
+    if args.is_empty()
+        || args
+            .iter()
+            .any(|a| a == "--help" || a == "-h" || a == "help")
+    {
+        println!(
+            "{}",
+            t_cli(
+                r#"Amele Kabuk Otomatik Tamamlama Üreticisi
+
+KULLANIM:
+  amele completion <bash|zsh|fish>
+
+ÖRNEKLER:
+  # Bash:
+  source <(amele completion bash)
+
+  # Zsh:
+  source <(amele completion zsh)
+
+  # Fish:
+  amele completion fish > ~/.config/fish/completions/amele.fish"#,
+                r#"Amele Shell Autocompletion Generator
+
+USAGE:
+  amele completion <bash|zsh|fish>
+
+EXAMPLES:
+  # Bash:
+  source <(amele completion bash)
+
+  # Zsh:
+  source <(amele completion zsh)
+
+  # Fish:
+  amele completion fish > ~/.config/fish/completions/amele.fish"#
+            )
+        );
+        return Ok(());
+    }
+
+    match args[0].to_lowercase().as_str() {
+        "bash" => {
+            print!("{}", amele::completion::generate_bash_completion());
+            Ok(())
+        }
+        "zsh" => {
+            print!("{}", amele::completion::generate_zsh_completion());
+            Ok(())
+        }
+        "fish" => {
+            print!("{}", amele::completion::generate_fish_completion());
+            Ok(())
+        }
+        other => Err(format!(
+            "{} '{}'. {}",
+            t_cli("Desteklenmeyen kabuk:", "Unsupported shell:"),
+            other,
+            t_cli(
+                "Desteklenenler: bash, zsh, fish",
+                "Supported shells: bash, zsh, fish"
+            )
+        )),
+    }
 }
 
 /// Disk imajını salt-okunur bağlar (mount).
@@ -3936,14 +4808,14 @@ fn mount_file_command(args: Vec<String>) -> Result<(), String> {
     if args.is_empty() {
         return Err(t_cli(
             "Kullanim: mount <imaj_dosyasi> [baglama_noktasi]",
-            "Usage: mount <image_file> [mount_point]"
+            "Usage: mount <image_file> [mount_point]",
         ));
     }
     let image_path = PathBuf::from(&args[0]);
     if !image_path.is_file() {
         return Err(t_cli(
             &format!("İmaj dosyası bulunamadı: {}", image_path.display()),
-            &format!("Image file not found: {}", image_path.display())
+            &format!("Image file not found: {}", image_path.display()),
         ));
     }
 
@@ -3953,22 +4825,44 @@ fn mount_file_command(args: Vec<String>) -> Result<(), String> {
         PathBuf::from(p)
     } else {
         let ts = cli_timestamp();
-        let stem = cli_safe_stem(image_path.file_name().and_then(|s| s.to_str()).unwrap_or("mount"));
-        std::env::temp_dir().join(format!("amele-mount-{stem}-{ts}"))
+        let stem = cli_safe_stem(
+            image_path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("mount"),
+        );
+        amele::settings::secure_runtime_dir().join(format!("amele-mount-{stem}-{ts}"))
     };
 
     fs::create_dir_all(&mount_dir).map_err(|e| e.to_string())?;
 
     #[cfg(target_os = "linux")]
     {
-        println!("{}", t_cli("[*] Disk imajı salt-okunur bağlanıyor...", "[*] Mounting disk image read-only..."));
-        let loop_dev = amele::api::linux_mount_partitioned_image(&image_path, &mount_dir)?;
-        let loop_str = loop_dev.as_ref().map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|| "-".to_string());
         println!(
             "{}",
             t_cli(
-                &format!("[✓] İmaj başarıyla bağlandı!\n  Bağlama Noktası: {}\n  Loop Aygıtı: {}", mount_dir.display(), loop_str),
-                &format!("[✓] Image mounted successfully!\n  Mount Point: {}\n  Loop Device: {}", mount_dir.display(), loop_str)
+                "[*] Disk imajı salt-okunur bağlanıyor...",
+                "[*] Mounting disk image read-only..."
+            )
+        );
+        let loop_dev = amele::api::linux_mount_partitioned_image(&image_path, &mount_dir)?;
+        let loop_str = loop_dev
+            .as_ref()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "-".to_string());
+        println!(
+            "{}",
+            t_cli(
+                &format!(
+                    "[✓] İmaj başarıyla bağlandı!\n  Bağlama Noktası: {}\n  Loop Aygıtı: {}",
+                    mount_dir.display(),
+                    loop_str
+                ),
+                &format!(
+                    "[✓] Image mounted successfully!\n  Mount Point: {}\n  Loop Device: {}",
+                    mount_dir.display(),
+                    loop_str
+                )
             )
         );
         Ok(())
@@ -3978,7 +4872,7 @@ fn mount_file_command(args: Vec<String>) -> Result<(), String> {
     {
         Err(t_cli(
             "Bu işletim sisteminde doğrudan CLI mount desteklenmiyor. Lütfen GUI üzerinden bağlayın.",
-            "Direct CLI mount is not supported on this operating system. Please mount via GUI."
+            "Direct CLI mount is not supported on this operating system. Please mount via GUI.",
         ))
     }
 }
@@ -4007,10 +4901,18 @@ fn wireguard_config_command(args: Vec<String>) -> Result<(), String> {
 fn parse_port(value: &str) -> Result<u16, String> {
     value
         .parse::<u16>()
-        .map_err(|_| t_cli("Port 1 ile 65535 arasında olmalıdır.", "Port must be between 1 and 65535."))
+        .map_err(|_| {
+            t_cli(
+                "Port 1 ile 65535 arasında olmalıdır.",
+                "Port must be between 1 and 65535.",
+            )
+        })
         .and_then(|port| {
             if port == 0 {
-                Err(t_cli("Port 1 ile 65535 arasında olmalıdır.", "Port must be between 1 and 65535."))
+                Err(t_cli(
+                    "Port 1 ile 65535 arasında olmalıdır.",
+                    "Port must be between 1 and 65535.",
+                ))
             } else {
                 Ok(port)
             }
@@ -4022,10 +4924,17 @@ fn update_check_command(args: Vec<String>) -> Result<(), String> {
     let response = api::update::update_check_endpoint();
     if response.status != 200 {
         let err_msg = String::from_utf8_lossy(&response.body);
-        return Err(format!("{}: {err_msg}", t_cli("Güncelleme kontrolü başarısız oldu", "Update check failed")));
+        return Err(format!(
+            "{}: {err_msg}",
+            t_cli("Güncelleme kontrolü başarısız oldu", "Update check failed")
+        ));
     }
-    let data: serde_json::Value =
-        serde_json::from_slice(&response.body).map_err(|e| format!("{}: {e}", t_cli("Yanıt çözümlenemedi", "Failed to parse response")))?;
+    let data: serde_json::Value = serde_json::from_slice(&response.body).map_err(|e| {
+        format!(
+            "{}: {e}",
+            t_cli("Yanıt çözümlenemedi", "Failed to parse response")
+        )
+    })?;
 
     if json_output {
         println!("{}", serde_json::to_string_pretty(&data).unwrap());
@@ -4080,23 +4989,68 @@ fn update_check_command(args: Vec<String>) -> Result<(), String> {
     let has_update = clean_latest != clean_current && !clean_latest.is_empty();
 
     println!("============================================================");
-    println!("       {}", if is_en { "Amele Forensic Tool Update Check" } else { "Amele Forensic Tool Güncelleme Kontrolü" });
+    println!(
+        "       {}",
+        if is_en {
+            "Amele Forensic Tool Update Check"
+        } else {
+            "Amele Forensic Tool Güncelleme Kontrolü"
+        }
+    );
     println!("============================================================");
-    println!("  {:<20}: v{}", if is_en { "Current Version" } else { "Mevcut Sürüm" }, clean_current);
+    println!(
+        "  {:<20}: v{}",
+        if is_en {
+            "Current Version"
+        } else {
+            "Mevcut Sürüm"
+        },
+        clean_current
+    );
     println!(
         "  {:<20}: {}",
-        if is_en { "Latest Version" } else { "Son Sürüm" },
+        if is_en {
+            "Latest Version"
+        } else {
+            "Son Sürüm"
+        },
         if latest_tag.starts_with('v') {
             latest_tag.to_string()
         } else {
             format!("v{}", latest_tag)
         }
     );
-    println!("  {:<20}: {} ({}: {})", if is_en { "Package Type" } else { "Paket Türü" }, pkg_label, if is_en { "Detected by" } else { "Algılama" }, detected_by);
+    println!(
+        "  {:<20}: {} ({}: {})",
+        if is_en {
+            "Package Type"
+        } else {
+            "Paket Türü"
+        },
+        pkg_label,
+        if is_en { "Detected by" } else { "Algılama" },
+        detected_by
+    );
 
     if has_update {
-        println!("\n  [!] {} ({})", if is_en { "NEW VERSION AVAILABLE!" } else { "YENİ SÜRÜM MEVCUT!" }, release_name);
-        println!("  {:<20}: {}", if is_en { "Download File" } else { "İndirilecek Dosya" }, asset_name);
+        println!(
+            "\n  [!] {} ({})",
+            if is_en {
+                "NEW VERSION AVAILABLE!"
+            } else {
+                "YENİ SÜRÜM MEVCUT!"
+            },
+            release_name
+        );
+        println!(
+            "  {:<20}: {}",
+            if is_en {
+                "Download File"
+            } else {
+                "İndirilecek Dosya"
+            },
+            asset_name
+        );
         if asset_size > 0 {
             println!(
                 "  {:<20}: {:.2} MB",
@@ -4105,16 +5059,47 @@ fn update_check_command(args: Vec<String>) -> Result<(), String> {
             );
         }
         if !asset_url.is_empty() {
-            println!("  {:<20}: {}", if is_en { "Download Link" } else { "İndirme Bağlantısı" }, asset_url);
+            println!(
+                "  {:<20}: {}",
+                if is_en {
+                    "Download Link"
+                } else {
+                    "İndirme Bağlantısı"
+                },
+                asset_url
+            );
         }
         if !html_url.is_empty() {
-            println!("  {:<20}: {}", if is_en { "Release Notes" } else { "Sürüm Notları" }, html_url);
+            println!(
+                "  {:<20}: {}",
+                if is_en {
+                    "Release Notes"
+                } else {
+                    "Sürüm Notları"
+                },
+                html_url
+            );
         }
         if !install_cmd.is_empty() {
-            println!("\n  {}:\n    {}", if is_en { "Recommended Install Command" } else { "Önerilen Kurulum Komutu" }, install_cmd);
+            println!(
+                "\n  {}:\n    {}",
+                if is_en {
+                    "Recommended Install Command"
+                } else {
+                    "Önerilen Kurulum Komutu"
+                },
+                install_cmd
+            );
         }
     } else {
-        println!("\n  [✓] {}", if is_en { "Your system is up to date. You are using the latest version." } else { "Sisteminiz güncel. En son sürümü kullanıyorsunuz." });
+        println!(
+            "\n  [✓] {}",
+            if is_en {
+                "Your system is up to date. You are using the latest version."
+            } else {
+                "Sisteminiz güncel. En son sürümü kullanıyorsunuz."
+            }
+        );
     }
     println!("============================================================");
 
@@ -4125,7 +5110,7 @@ fn preflight_command(args: Vec<String>) -> Result<(), String> {
     if args.is_empty() {
         return Err(t_cli(
             "Kullanım: amele preflight <kaynak_yol> <kaynak_tipi> [hedef_yol]\nKaynak tipleri: disk, ram, android, ios",
-            "Usage: amele preflight <source_path> <source_type> [target_path]\nSource types: disk, ram, android, ios"
+            "Usage: amele preflight <source_path> <source_type> [target_path]\nSource types: disk, ram, android, ios",
         ));
     }
     let is_en = is_cli_english();
@@ -4138,24 +5123,61 @@ fn preflight_command(args: Vec<String>) -> Result<(), String> {
 
     let result = amele::storage_guard::preflight_check(source_path, source_type, &target_path);
     println!("============================================================");
-    println!("       {}", if is_en { "Storage Preflight Space Check" } else { "Disk Alanı Ön Kontrolü" });
+    println!(
+        "       {}",
+        if is_en {
+            "Storage Preflight Space Check"
+        } else {
+            "Disk Alanı Ön Kontrolü"
+        }
+    );
     println!("============================================================");
-    println!("  {:<16}: {}", if is_en { "Source" } else { "Kaynak" }, source_path);
-    println!("  {:<16}: {}", if is_en { "Source Type" } else { "Kaynak Tipi" }, source_type);
+    println!(
+        "  {:<16}: {}",
+        if is_en { "Source" } else { "Kaynak" },
+        source_path
+    );
+    println!(
+        "  {:<16}: {}",
+        if is_en { "Source Type" } else { "Kaynak Tipi" },
+        source_type
+    );
     println!(
         "  {:<16}: {:.2} GB",
-        if is_en { "Source Size" } else { "Kaynak Boyutu" },
+        if is_en {
+            "Source Size"
+        } else {
+            "Kaynak Boyutu"
+        },
         result.source_bytes as f64 / 1_073_741_824.0
     );
     println!(
         "  {:<16}: {:.2} GB",
-        if is_en { "Available Space" } else { "Boş Alan" },
+        if is_en {
+            "Available Space"
+        } else {
+            "Boş Alan"
+        },
         result.available_bytes as f64 / 1_073_741_824.0
     );
     if result.is_sufficient {
-        println!("\n  [✓] {}", if is_en { "Sufficient storage space available." } else { "Yeterli disk alanı mevcut." });
+        println!(
+            "\n  [✓] {}",
+            if is_en {
+                "Sufficient storage space available."
+            } else {
+                "Yeterli disk alanı mevcut."
+            }
+        );
     } else {
-        println!("\n  [!] {}", if is_en { "INSUFFICIENT DISK SPACE!" } else { "YETERSİZ DİSK ALANI!" });
+        println!(
+            "\n  [!] {}",
+            if is_en {
+                "INSUFFICIENT DISK SPACE!"
+            } else {
+                "YETERSİZ DİSK ALANI!"
+            }
+        );
         println!(
             "  {:<16}: {:.2} GB",
             if is_en { "Shortage" } else { "Eksik" },
@@ -4172,23 +5194,56 @@ fn preflight_command(args: Vec<String>) -> Result<(), String> {
 fn mount_list_command() -> Result<(), String> {
     let mounts = amele::mount_tracker::list_active_mounts();
     if mounts.is_empty() {
-        println!("{}", t_cli("Aktif bağlı imaj bulunmuyor.", "No active mounted images found."));
+        println!(
+            "{}",
+            t_cli(
+                "Aktif bağlı imaj bulunmuyor.",
+                "No active mounted images found."
+            )
+        );
         return Ok(());
     }
     let is_en = is_cli_english();
     println!("============================================================");
-    println!("       {}", if is_en { "Active Mounted Images" } else { "Aktif Bağlı İmajlar" });
+    println!(
+        "       {}",
+        if is_en {
+            "Active Mounted Images"
+        } else {
+            "Aktif Bağlı İmajlar"
+        }
+    );
     println!("============================================================");
     for m in &mounts {
         println!("  ID          : {}", m.mount_id);
-        println!("  {:<12}: {}", if is_en { "Case" } else { "Vaka" }, m.case_name);
-        println!("  {:<12}: {}", if is_en { "Image" } else { "İmaj" }, m.image_path.display());
-        println!("  {:<12}: {}", if is_en { "Mount Point" } else { "Bağlama" }, m.mount_point.display());
-        println!("  {:<12}: {}", if is_en { "Date" } else { "Tarih" }, m.mounted_at);
+        println!(
+            "  {:<12}: {}",
+            if is_en { "Case" } else { "Vaka" },
+            m.case_name
+        );
+        println!(
+            "  {:<12}: {}",
+            if is_en { "Image" } else { "İmaj" },
+            m.image_path.display()
+        );
+        println!(
+            "  {:<12}: {}",
+            if is_en { "Mount Point" } else { "Bağlama" },
+            m.mount_point.display()
+        );
+        println!(
+            "  {:<12}: {}",
+            if is_en { "Date" } else { "Tarih" },
+            m.mounted_at
+        );
         println!("  ---");
     }
     println!("============================================================");
-    println!("  {} {}", if is_en { "Total mounts:" } else { "Toplam:" }, mounts.len());
+    println!(
+        "  {} {}",
+        if is_en { "Total mounts:" } else { "Toplam:" },
+        mounts.len()
+    );
     println!("============================================================");
     Ok(())
 }
@@ -4197,19 +5252,47 @@ fn mount_cleanup_command(args: Vec<String>) -> Result<(), String> {
     let is_en = is_cli_english();
     let case_filter = args.first().map(|s| s.as_str());
     let cleaned = if let Some(case) = case_filter {
-        println!("{}", t_cli(&format!("Vaka '{case}' için mount temizliği yapılıyor..."), &format!("Cleaning up mounts for case '{case}'...")));
+        println!(
+            "{}",
+            t_cli(
+                &format!("Vaka '{case}' için mount temizliği yapılıyor..."),
+                &format!("Cleaning up mounts for case '{case}'...")
+            )
+        );
         amele::mount_tracker::cleanup_case_mounts(case)
     } else {
-        println!("{}", t_cli("Tüm aktif mount'lar temizleniyor...", "Cleaning up all active mounts..."));
+        println!(
+            "{}",
+            t_cli(
+                "Tüm aktif mount'lar temizleniyor...",
+                "Cleaning up all active mounts..."
+            )
+        );
         amele::mount_tracker::cleanup_all_mounts()
     };
     if cleaned.is_empty() {
-        println!("{}", t_cli("Temizlenecek mount bulunamadı.", "No mounts found to clean up."));
+        println!(
+            "{}",
+            t_cli(
+                "Temizlenecek mount bulunamadı.",
+                "No mounts found to clean up."
+            )
+        );
     } else {
         for id in &cleaned {
-            println!("  [✓] {}: {}", if is_en { "Cleaned" } else { "Temizlendi" }, id);
+            println!(
+                "  [✓] {}: {}",
+                if is_en { "Cleaned" } else { "Temizlendi" },
+                id
+            );
         }
-        println!("{}", t_cli(&format!("Toplam {} mount temizlendi.", cleaned.len()), &format!("Total {} mounts cleaned up.", cleaned.len())));
+        println!(
+            "{}",
+            t_cli(
+                &format!("Toplam {} mount temizlendi.", cleaned.len()),
+                &format!("Total {} mounts cleaned up.", cleaned.len())
+            )
+        );
     }
     Ok(())
 }
@@ -4218,7 +5301,7 @@ fn case_export_command(args: Vec<String>) -> Result<(), String> {
     if args.is_empty() {
         return Err(t_cli(
             "Kullanım: amele case-export <vaka_adi> [hedef_dosya]",
-            "Usage: amele case-export <case_name> [target_file]"
+            "Usage: amele case-export <case_name> [target_file]",
         ));
     }
     let is_en = is_cli_english();
@@ -4233,10 +5316,24 @@ fn case_export_command(args: Vec<String>) -> Result<(), String> {
         base_dir.clone()
     };
 
-    println!("{}", t_cli(&format!("Vaka dışa aktarılıyor: {case_name}"), &format!("Exporting case: {case_name}")));
+    println!(
+        "{}",
+        t_cli(
+            &format!("Vaka dışa aktarılıyor: {case_name}"),
+            &format!("Exporting case: {case_name}")
+        )
+    );
     let package_path =
         amele::case_package::export_case(&vault, &output_path).map_err(|e| e.to_string())?;
-    println!("[✓] {}: {}", if is_en { "Package created" } else { "Paket oluşturuldu" }, package_path.display());
+    println!(
+        "[✓] {}: {}",
+        if is_en {
+            "Package created"
+        } else {
+            "Paket oluşturuldu"
+        },
+        package_path.display()
+    );
 
     let hash_path = package_path.with_extension(format!(
         "{}sha256",
@@ -4247,7 +5344,15 @@ fn case_export_command(args: Vec<String>) -> Result<(), String> {
             .unwrap_or_default()
     ));
     if hash_path.is_file() {
-        println!("[✓] {}: {}", if is_en { "Checksum file" } else { "Hash dosyası" }, hash_path.display());
+        println!(
+            "[✓] {}: {}",
+            if is_en {
+                "Checksum file"
+            } else {
+                "Hash dosyası"
+            },
+            hash_path.display()
+        );
     }
     Ok(())
 }
@@ -4256,30 +5361,64 @@ fn case_import_command(args: Vec<String>) -> Result<(), String> {
     if args.is_empty() {
         return Err(t_cli(
             "Kullanım: amele case-import <amelecase_dosyasi>",
-            "Usage: amele case-import <amelecase_file>"
+            "Usage: amele case-import <amelecase_file>",
         ));
     }
     let package_path = std::path::Path::new(&args[0]);
     if !package_path.is_file() {
         return Err(t_cli(
             &format!("Dosya bulunamadı: {}", package_path.display()),
-            &format!("File not found: {}", package_path.display())
+            &format!("File not found: {}", package_path.display()),
         ));
     }
 
     let is_en = is_cli_english();
     let base_dir = amele::api::default_case_base_dir();
-    println!("{}", t_cli(&format!("Vaka içe aktarılıyor: {}", package_path.display()), &format!("Importing case: {}", package_path.display())));
+    println!(
+        "{}",
+        t_cli(
+            &format!("Vaka içe aktarılıyor: {}", package_path.display()),
+            &format!("Importing case: {}", package_path.display())
+        )
+    );
 
     let result =
         amele::case_package::import_case(package_path, &base_dir).map_err(|e| e.to_string())?;
 
-    println!("[✓] {:<20}: {}", if is_en { "Case imported" } else { "Vaka aktarıldı" }, result.case_name);
-    println!("  {:<20}: {}", if is_en { "Target directory" } else { "Hedef klasör" }, result.case_dir.display());
-    println!("  {:<20}: {}", if is_en { "Extracted files" } else { "Dosya sayısı" }, result.files_extracted);
+    println!(
+        "[✓] {:<20}: {}",
+        if is_en {
+            "Case imported"
+        } else {
+            "Vaka aktarıldı"
+        },
+        result.case_name
+    );
     println!(
         "  {:<20}: {}",
-        if is_en { "Integrity verified" } else { "Bütünlük doğrulandı" },
+        if is_en {
+            "Target directory"
+        } else {
+            "Hedef klasör"
+        },
+        result.case_dir.display()
+    );
+    println!(
+        "  {:<20}: {}",
+        if is_en {
+            "Extracted files"
+        } else {
+            "Dosya sayısı"
+        },
+        result.files_extracted
+    );
+    println!(
+        "  {:<20}: {}",
+        if is_en {
+            "Integrity verified"
+        } else {
+            "Bütünlük doğrulandı"
+        },
         if result.integrity_verified {
             if is_en { "Yes [✓]" } else { "Evet [✓]" }
         } else {
@@ -4296,24 +5435,42 @@ fn case_verify_command(args: Vec<String>) -> Result<(), String> {
     if args.is_empty() {
         return Err(t_cli(
             "Kullanım: amele case-verify <amelecase_dosyasi>",
-            "Usage: amele case-verify <amelecase_file>"
+            "Usage: amele case-verify <amelecase_file>",
         ));
     }
     let package_path = std::path::Path::new(&args[0]);
     if !package_path.is_file() {
         return Err(t_cli(
             &format!("Dosya bulunamadı: {}", package_path.display()),
-            &format!("File not found: {}", package_path.display())
+            &format!("File not found: {}", package_path.display()),
         ));
     }
 
-    println!("{}", t_cli(&format!("Paket bütünlüğü doğrulanıyor: {}", package_path.display()), &format!("Verifying package integrity: {}", package_path.display())));
+    println!(
+        "{}",
+        t_cli(
+            &format!("Paket bütünlüğü doğrulanıyor: {}", package_path.display()),
+            &format!("Verifying package integrity: {}", package_path.display())
+        )
+    );
     let verified = amele::case_package::verify_package(package_path).map_err(|e| e.to_string())?;
 
     if verified {
-        println!("[✓] {}", t_cli("Paket bütünlüğü doğrulandı. SHA-256 hash eşleşiyor.", "Package integrity verified. SHA-256 checksum matches."));
+        println!(
+            "[✓] {}",
+            t_cli(
+                "Paket bütünlüğü doğrulandı. SHA-256 hash eşleşiyor.",
+                "Package integrity verified. SHA-256 checksum matches."
+            )
+        );
     } else {
-        println!("[✗] {}", t_cli("UYARI: Paket bütünlüğü doğrulanamadı! SHA-256 hash eşleşmiyor.", "WARNING: Package integrity check failed! SHA-256 checksum does not match."));
+        println!(
+            "[✗] {}",
+            t_cli(
+                "UYARI: Paket bütünlüğü doğrulanamadı! SHA-256 hash eşleşmiyor.",
+                "WARNING: Package integrity check failed! SHA-256 checksum does not match."
+            )
+        );
     }
     Ok(())
 }

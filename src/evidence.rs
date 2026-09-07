@@ -45,7 +45,19 @@ pub struct EvidenceVault {
 impl EvidenceVault {
     /// Vaka klasör ağacını oluşturur ve günlük kaydını başlatır.
     pub fn create(base_dir: impl AsRef<Path>, case_name: impl AsRef<str>) -> AmeleResult<Self> {
-        let case_name = case_name.as_ref().to_string();
+        let case_name = case_name.as_ref().trim().to_string();
+        if case_name.is_empty()
+            || case_name == "."
+            || case_name == ".."
+            || case_name.contains('/')
+            || case_name.contains('\\')
+            || case_name.starts_with('.')
+        {
+            return Err(AmeleError::new(
+                HataKodu::IcerikGecersiz,
+                format!("Geçersiz veya güvensiz vaka adı: '{}'", case_name),
+            ));
+        }
         runtime_log(
             LogLevel::Info,
             "evidence",

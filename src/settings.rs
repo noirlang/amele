@@ -131,7 +131,10 @@ pub fn home_dir() -> PathBuf {
 
     #[cfg(not(windows))]
     {
-        if let Some(sudo_user) = std::env::var("SUDO_USER").ok().filter(|u| !u.is_empty() && u != "root") {
+        if let Some(sudo_user) = std::env::var("SUDO_USER")
+            .ok()
+            .filter(|u| !u.is_empty() && u != "root")
+        {
             let user_home = PathBuf::from(format!("/home/{sudo_user}"));
             if user_home.is_dir() {
                 return user_home;
@@ -140,6 +143,49 @@ pub fn home_dir() -> PathBuf {
         std::env::var_os("HOME")
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("."))
+    }
+}
+
+/// Kullanıcıya özel, güvenli çalışma (runtime) dizinini döndürür.
+/// Linux'ta XDG_RUNTIME_DIR (/run/user/<uid>) veya ~/.amele/run (0700) kullanır.
+/// Paylaşımlı /tmp dizini yerine sembolik bağ (symlink) saldırılarını engeller.
+pub fn secure_runtime_dir() -> PathBuf {
+    #[cfg(unix)]
+    {
+        if let Some(runtime_dir) = std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from) {
+            if runtime_dir.is_dir() {
+                let amele_run = runtime_dir.join("amele");
+                let _ = std::fs::create_dir_all(&amele_run);
+                return amele_run;
+            }
+        }
+        let fallback = home_dir().join(".amele").join("run");
+        let _ = std::fs::create_dir_all(&fallback);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(meta) = std::fs::metadata(&fallback) {
+                let mut perms = meta.permissions();
+                perms.set_mode(0o700);
+                let _ = std::fs::set_permissions(&fallback, perms);
+            }
+        }
+        fallback
+    }
+
+    #[cfg(windows)]
+    {
+        let local_app_data = std::env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| std::env::temp_dir());
+        let dir = local_app_data.join("Amele").join("Run");
+        let _ = std::fs::create_dir_all(&dir);
+        dir
+    }
+
+    #[cfg(not(any(unix, windows)))]
+    {
+        std::env::temp_dir()
     }
 }
 

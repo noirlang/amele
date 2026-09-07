@@ -97,8 +97,8 @@ pub fn elevated_linux_mount_image_readonly(
     initial_error: &str,
 ) -> Result<Option<PathBuf>, String> {
     let stem = helper_file_stem("amele-mount-helper");
-    let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
-    let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
+    let request_path = crate::settings::secure_runtime_dir().join(format!("{stem}-request.json"));
+    let result_path = crate::settings::secure_runtime_dir().join(format!("{stem}-result.json"));
     write_json_file(
         &request_path,
         &json!({
@@ -146,8 +146,8 @@ pub fn elevated_linux_unmount_image(
     loop_device: Option<&Path>,
 ) -> Result<(), String> {
     let stem = helper_file_stem("amele-unmount-helper");
-    let request_path = std::env::temp_dir().join(format!("{stem}-request.json"));
-    let result_path = std::env::temp_dir().join(format!("{stem}-result.json"));
+    let request_path = crate::settings::secure_runtime_dir().join(format!("{stem}-request.json"));
+    let result_path = crate::settings::secure_runtime_dir().join(format!("{stem}-result.json"));
     write_json_file(
         &request_path,
         &json!({

@@ -378,7 +378,7 @@ fn ensure_sudo_askpass_script() -> Result<PathBuf, String> {
         return Ok(path);
     }
 
-    let script = std::env::temp_dir().join("amele-sudo-askpass.sh");
+    let script = crate::settings::secure_runtime_dir().join("amele-sudo-askpass.sh");
     let body = r#"#!/bin/sh
 prompt="${SUDO_ASKPASS_PROMPT:-Amele Forensic Tool yetkisi gerekiyor}"
 if command -v zenity >/dev/null 2>&1; then
@@ -728,7 +728,7 @@ pub fn helper_owner_gid() -> Option<u32> {
 
 /// Disk listesi için yetkili helper çağırır ve sonucu parse eder.
 pub fn elevated_disk_list() -> Result<Vec<crate::disk::DiskInfo>, String> {
-    let output_path = std::env::temp_dir().join(format!(
+    let output_path = crate::settings::secure_runtime_dir().join(format!(
         "amele-disk-list-{}-{}.json",
         std::process::id(),
         Local::now().format("%Y%m%d%H%M%S%3f")
