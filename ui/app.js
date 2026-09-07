@@ -14,7 +14,7 @@ import { localText, toolCards, workflows } from "./core/workflows.js";
 import { icon, hydrateIcons, fontIcons } from "./icons.js";
 import { translate } from "./i18n.js";
 import { homePage, metric } from "./pages/home.js";
-import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel, KNOWN_CONTRIBUTORS, CORE_DEVELOPERS } from "./pages/other.js";
+import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel, KNOWN_CONTRIBUTORS } from "./pages/other.js";
 import { workflowPage, pickerField, field, pageTitle, casePanel } from "./pages/workflow.js";
 import { initDeveloperMode, devLog } from "./developer.js";
 import { initJobWidget } from "./core/jobs.js";
@@ -69,7 +69,7 @@ const state = {
   activeCase: null,
   pendingCaseName: "",
   cases: [],
-  contributors: CORE_DEVELOPERS,
+  contributors: safeJsonParse(localStorage.getItem("amele_contributors")),
   acquisitionHistory: [],
   caseBaseDir: "",
   profiles: [],
@@ -3888,10 +3888,9 @@ async function previewCarvedFile(filePath) {
 
 async function loadGitHubContributors() {
   try {
-    // Core developers always form the foundation and are always displayed
-    const result = [...CORE_DEVELOPERS];
-    const seenNames = new Set(result.map(c => (c.name || "").toLowerCase()));
-    const seenKeys = new Set(["melihemik", "yetece1", "kafkaskrtl", "abdulhalimaltuntas", "favilances", "yusuftuncel", "muhammedaliguner"]);
+    const seenKeys = new Set();
+    const seenNames = new Set();
+    const result = [];
 
     const response = await fetch("https://api.github.com/repos/noirlang/amele/commits?per_page=30", {
       headers: { Accept: "application/vnd.github.v3+json" }
