@@ -671,10 +671,6 @@ RAM ISLEMLERI (AVML):
   amele linux ram --status                                   AVML ve bellek durumunu goster
   amele linux ram install                                    AVML aracini otomatik indir ve kur (sudo)
   amele linux ram <vaka> [arac_yolu] [raw|aff4]              Yerel canli RAM imaji al (sudo gerektirir)
-  amele linux ram analyze <ram> [windows|linux] [symbols]    RAM imaji ozet analizi yap
-  amele linux ram strings <ram>                              RAM imajinda IOC / dizgi aramasi yap
-  amele linux ram carve <ram> <cikti_klasoru>                RAM imajindan dosya cikar (carving)
-  amele linux ram processes <ram> [windows|linux] [symbols]  RAM icinden calisan surecleri listele
   amele linux ram --agent <ip> <port> <vaka> [token]         Uzak agent'tan RAM imaji al
   amele linux ram --ssh <ip> <port> <vaka> [user] [pass]     SSH ile canli RAM dokumu al"#,
                 r#"Amele Linux Acquisition & Analysis Commands
@@ -695,10 +691,6 @@ RAM OPERATIONS (AVML):
   amele linux ram --status                                   Show AVML and memory status
   amele linux ram install                                    Auto-download and install AVML (sudo)
   amele linux ram <case> [tool_path] [raw|aff4]              Acquire local live RAM (requires sudo)
-  amele linux ram analyze <ram> [windows|linux] [symbols]    RAM image summary analysis
-  amele linux ram strings <ram>                              Search IOCs / strings in RAM image
-  amele linux ram carve <ram> <output_dir>                   Carve files from RAM image
-  amele linux ram processes <ram> [windows|linux] [symbols]  List processes from RAM dump
   amele linux ram --agent <ip> <port> <case> [token]         Acquire RAM via remote agent
   amele linux ram --ssh <ip> <port> <case> [user] [pass]     Acquire RAM via SSH"#
             )
@@ -829,10 +821,6 @@ RAM ISLEMLERI (WinPMEM):
   amele windows ram --status                                   WinPMEM durumunu goster
   amele windows ram install                                    WinPMEM aracini indir
   amele windows ram <vaka> [arac_yolu] [raw|aff4]              Yerel canli RAM imaji al
-  amele windows ram analyze <ram> [windows|linux] [symbols]    RAM imaji ozet analizi yap
-  amele windows ram strings <ram>                              RAM imajinda IOC / dizgi aramasi yap
-  amele windows ram carve <ram> <cikti_klasoru>                RAM imajindan dosya cikar (carving)
-  amele windows ram processes <ram> [windows|linux] [symbols]  RAM icinden calisan surecleri listele
   amele windows ram --agent <ip> <port> <vaka> [token]         Uzak agent'tan RAM imaji al
   amele windows ram --ssh <ip> <port> <vaka> [user] [pass]     SSH ile canli RAM dokumu al"#,
                 r#"Amele Windows Acquisition & Analysis Commands
@@ -853,10 +841,6 @@ RAM OPERATIONS (WinPMEM):
   amele windows ram --status                                   Show WinPMEM status
   amele windows ram install                                    Download WinPMEM tool
   amele windows ram <case> [tool_path] [raw|aff4]              Acquire local live RAM
-  amele windows ram analyze <ram> [windows|linux] [symbols]    RAM image summary analysis
-  amele windows ram strings <ram>                              Search IOCs / strings in RAM image
-  amele windows ram carve <ram> <output_dir>                   Carve files from RAM image
-  amele windows ram processes <ram> [windows|linux] [symbols]  List processes from RAM dump
   amele windows ram --agent <ip> <port> <case> [token]         Acquire RAM via remote agent
   amele windows ram --ssh <ip> <port> <case> [user] [pass]     Acquire RAM via SSH"#
             )
@@ -1367,7 +1351,7 @@ USAGE:
 ACQUISITION & ANALYSIS:
   linux <disk|ram>        Linux forensic disk & live RAM acquisition (local, --agent, --ssh)
   windows <disk|ram>      Windows forensic disk & live RAM acquisition (local, --agent, --ssh)
-  ram [subcommand]        Live RAM status, installer, acquisition & analysis
+  ram [subcommand]        Live RAM status, installer & acquisition
   disk [subcommand]       Disk drives listing, acquisition & image analysis
   android <subcommand>    Android mobile forensics (logical, filesystem, RAM, diagnostics)
   ios <subcommand>        iOS backup metadata analysis & case normalization
@@ -1409,7 +1393,7 @@ KULLANIM:
 ADLI EDINIM VE ANALIZ KOMUTLARI:
   linux <disk|ram>        Linux adli disk ve canli RAM edinimi (yerel, --agent, --ssh)
   windows <disk|ram>      Windows adli disk ve canli RAM edinimi (yerel, --agent, --ssh)
-  ram [alt-komut]         Canli RAM durumu, yukleyici, edinim ve analiz komutlari
+  ram [alt-komut]         Canli RAM durumu, yukleyici ve edinim komutlari
   disk [alt-komut]        Disk surucu listeleme, imaj alma ve analiz komutlari
   android <alt-komut>     Android mobil edinim (mantiksal, dosya sistemi, RAM, teshis)
   ios <alt-komut>         iOS yedek analizi ve vaka normalizasyonu

@@ -28,9 +28,7 @@ _amele_completion() {
                 fi
             elif [[ "${words[2]}" == "ram" ]]; then
                 if [[ $cword -eq 3 ]]; then
-                    COMPREPLY=( $(compgen -W "--status install analyze strings carve processes --agent --ssh --help -h" -- "$cur") )
-                elif [[ "${words[3]}" =~ ^(analyze|strings|carve|processes)$ ]]; then
-                    COMPREPLY=( $(compgen -f -- "$cur") )
+                    COMPREPLY=( $(compgen -W "--status install --agent --ssh --help -h" -- "$cur") )
                 fi
             fi
             ;;
@@ -45,9 +43,7 @@ _amele_completion() {
                 fi
             elif [[ "${words[2]}" == "ram" ]]; then
                 if [[ $cword -eq 3 ]]; then
-                    COMPREPLY=( $(compgen -W "--status install analyze strings carve processes --agent --ssh --help -h" -- "$cur") )
-                elif [[ "${words[3]}" =~ ^(analyze|strings|carve|processes)$ ]]; then
-                    COMPREPLY=( $(compgen -f -- "$cur") )
+                    COMPREPLY=( $(compgen -W "--status install --agent --ssh --help -h" -- "$cur") )
                 fi
             fi
             ;;
@@ -60,9 +56,7 @@ _amele_completion() {
             ;;
         ram)
             if [[ $cword -eq 2 ]]; then
-                COMPREPLY=( $(compgen -W "--status install analyze strings carve processes --agent --ssh --help -h" -- "$cur") )
-            elif [[ "${words[2]}" =~ ^(analyze|strings|carve|processes)$ ]]; then
-                COMPREPLY=( $(compgen -f -- "$cur") )
+                COMPREPLY=( $(compgen -W "--status install --agent --ssh --help -h" -- "$cur") )
             fi
             ;;
         android)
@@ -127,7 +121,7 @@ _amele() {
     commands=(
         'linux:Linux disk and RAM acquisition/analysis'
         'windows:Windows disk and RAM acquisition/analysis'
-        'ram:Live RAM acquisition and Volatility analysis'
+        'ram:Live RAM acquisition'
         'disk:Disk listing and raw/AFF4 image acquisition'
         'android:Android physical/logical forensics and ADB'
         'ios:iOS forensic backup and structure analysis'
@@ -166,7 +160,7 @@ _amele() {
                     local -a os_cmds
                     os_cmds=(
                         'disk:Disk acquisition and analysis'
-                        'ram:Live memory dump and analysis'
+                        'ram:Live RAM acquisition'
                     )
                     _describe -t os_cmds 'subcommand' os_cmds
                     ;;
@@ -234,7 +228,7 @@ complete -c amele -l profile -x -d "Analyst profile"
 # Subcommands
 complete -c amele -n "__fish_use_subcommand" -a linux -d "Linux disk and RAM acquisition/analysis"
 complete -c amele -n "__fish_use_subcommand" -a windows -d "Windows disk and RAM acquisition/analysis"
-complete -c amele -n "__fish_use_subcommand" -a ram -d "Live RAM acquisition and Volatility analysis"
+complete -c amele -n "__fish_use_subcommand" -a ram -d "Live RAM acquisition"
 complete -c amele -n "__fish_use_subcommand" -a disk -d "Disk listing and raw/AFF4 image acquisition"
 complete -c amele -n "__fish_use_subcommand" -a android -d "Android physical/logical forensics and ADB"
 complete -c amele -n "__fish_use_subcommand" -a ios -d "iOS forensic backup and structure analysis"

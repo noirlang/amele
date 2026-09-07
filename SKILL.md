@@ -151,7 +151,7 @@ amele completion fish > ~/.config/fish/completions/amele.fish
 
 ---
 
-#### 🧠 RAM Edinimi & Analizi (`amele linux ram` / `amele windows ram` / `amele ram`)
+#### 🧠 RAM Edinimi (`amele linux ram` / `amele windows ram` / `amele ram`)
 
 * **Yerel Araç Durumu (AVML / WinPMEM):**
   ```bash
@@ -174,21 +174,6 @@ amele completion fish > ~/.config/fish/completions/amele.fish
   amele linux ram vaka_2026_01
   amele linux ram acquire vaka_2026_01
   amele windows ram vaka_2026_01 C:\tools\winpmem.exe raw
-  ```
-
-* **RAM İmajı Volatility & Adli Analiz Komutları:**
-  ```bash
-  # 1. RAM İmajı Özet ve Profil Analizi (Kernel, mimari, zaman)
-  amele linux ram analyze /delil/ram.raw [linux|windows]
-
-  # 2. IOC ve Metin Dizgisi Araması (Regex, IP, domain, URL)
-  amele linux ram strings /delil/ram.raw
-
-  # 3. Dosya Çıkarma (Forensic Carving - PDF, ELF, PE, JPEG vb.)
-  amele linux ram carve /delil/ram.raw /cikti/klasoru
-
-  # 4. Bellek İçi Çalışan Süreçleri (Processes) Dökümleme
-  amele linux ram processes /delil/ram.raw [linux|windows]
   ```
 
 * **Uzak Agent Üzerinden RAM İmajı Alma:**
