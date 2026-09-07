@@ -10,27 +10,30 @@ description: >-
 
 **Amele Forensic Tool (`amele`)**, olay müdahale (Incident Response) ve adli bilişim (Digital Forensics) uzmanları için geliştirilmiş; disk, RAM, Android, iOS ve Docker konteynerlerinden canlı/ölü adli delil toplama platformudur.
 
-Bu kılavuz; CLI komutlarının kullanımını, uzak sunucuya Linux/Windows agent kurulumunu, SSH ile agentsız veri edinimini ve otomatik adli bilişim iş akışlarını kapsar.
+Bu kılavuz; CLI komutlarının kullanımını, uzak sunucuya Linux/Windows agent kurulumunu, SSH ile agentsız veri edinimini, güvenlik izolasyonlarını ve otomatik adli bilişim iş akışlarını kapsar.
 
 ---
 
 ## 📑 İçindekiler
 1. [Mimari ve Çalışma Modelleri](#-mimari-ve-çalışma-modelleri)
-2. [CLI Komut Referansı](#-cli-komut-referansı)
+2. [Genel Seçenekler & Kabuk Tamamlama](#-genel-seçenekler--kabuk-tamamlama)
+3. [CLI Komut Referansı](#-cli-komut-referansı)
    - [1. Linux & Windows Adli Edinimi (`linux`, `windows`)](#1-linux--windows-adli-edinimi)
    - [2. Android Mobil Adli Bilişim (`android`)](#2-android-mobil-adli-bilişim)
    - [3. iOS Mobil Adli Bilişim (`ios`)](#3-ios-mobil-adli-bilişim)
    - [4. Docker Konteyner Adli Bilişimi (`docker`)](#4-docker-konteyner-adli-bilişimi)
    - [5. Profil Yönetimi (`profile`)](#5-profil-yönetimi)
-   - [6. Vaka Paketleme & Doğrulama (`case`)](#6-vaka-paketleme--doğrulama)
+   - [6. Vaka Paketleme, Bilgi & Doğrulama (`case`)](#6-vaka-paketleme-bilgi--doğrulama)
    - [7. Bütünlük & İmaj Bağlama (`hash`, `verify`, `mount`)](#7-bütünlük--imaj-bağlama)
    - [8. Sistem & Güncelleme (`update`, `wireguard`, `ui`)](#8-sistem--güncelleme)
-3. [Uzak Sunuculara Agent Kurulum Kılavuzu](#-uzak-sunuculara-agent-kurulum-kılavuzu)
+4. [Standart POSIX Çıkış Kodları](#-standart-posix-çıkış-kodları)
+5. [Uzak Sunuculara Agent Kurulum Kılavuzu](#-uzak-sunuculara-agent-kurulum-kılavuzu)
    - [Linux Sunucuya Agent Kurulumu (`amele-linux`)](#linux-sunucuya-agent-kurulumu)
    - [Windows Sunucuya Agent Kurulumu (`amele-win`)](#windows-sunucuya-agent-kurulumu)
    - [SSH ile Agent'sız Doğrudan Edinim](#ssh-ile-agentsız-doğrudan-edinim)
-4. [Örnek Olay Müdahale & Edinim Senaryoları](#-örnek-olay-müdahale--edinim-senaryoları)
-5. [Sorun Giderme & Güvenlik İlkeleri](#-sorun-giderme--güvenlik-ilkeleri)
+6. [Örnek Olay Müdahale & Edinim Senaryoları](#-örnek-olay-müdahale--edinim-senaryoları)
+7. [Güvenlik Mimarisi & Sertleştirme](#-güvenlik-mimarisi--sertleştirme)
+8. [Sorun Giderme İlkeleri](#-sorun-giderme-ilkeleri)
 
 ---
 
@@ -55,31 +58,73 @@ Amele, hedef sisteme göre 3 farklı edinim yöntemini destekler:
 
 ---
 
-## 💻 CLI Komut Referansı
+## ⚙️ Genel Seçenekler & Kabuk Tamamlama
 
-Tüm komutlar `amele <kategori> <alt-komut> [seçenekler]` sözdizimiyle çalışır:
+Tüm CLI komutları için geçerli küresel bayraklar:
 
 ```bash
-amele <komut> [alt-komut] [seçenekler]
+amele [seçenekler] <komut> [alt-komut] [argümanlar]
 ```
+
+| Bayrak | Kısa | Açıklama |
+| :--- | :--- | :--- |
+| `--version` | `-V` | Sürüm bilgisini (`amele 0.0.19`) basar, logo ve profil gerektirmez, çıkış kodu `0`dır. |
+| `--quiet` | `-q` | ASCII logo başlığını gizler (script, boru hattı ve otomasyon dostu temiz çıktı). |
+| `--no-logo` | | ASCII logo başlığını bastırır (`--quiet` eşdeğeri). |
+| `--verbose` | `-v` | Hata ayıklama modunu açar; tüm arka plan loglarını konsola (`stderr`) yazdırır. |
+| `--lang <tr\|en>` | | CLI çalışma dilini geçici olarak Türkçe veya İngilizce seçer. |
+| `--profile <ad>` | | Komutu geçici olarak belirtilen analist profili ile çalıştırır. |
+| `--json` | | Sonuçları JSON formatında yapılandırılmış veri olarak döndürür. |
+| `--help` | `-h` | Komut veya alt komut kullanım kılavuzunu ekrana basar. |
+
+### Kabuk Otomatik Tamamlama (Shell Autocompletion)
+
+Bash, Zsh ve Fish kabukları için tam tamamlama desteği dahildir:
+
+```bash
+# Bash: Anlık oturumda etkinleştirme
+source <(amele completion bash)
+# Bash: Kalıcı sistem kurulumu
+sudo amele completion bash > /etc/bash_completion.d/amele
+
+# Zsh: Anlık oturumda etkinleştirme
+source <(amele completion zsh)
+# Zsh: Kalıcı kurulum (fpath dizinine ekleme)
+amele completion zsh > ~/.zsh/completion/_amele
+
+# Fish: Kalıcı kurulum
+amele completion fish > ~/.config/fish/completions/amele.fish
+```
+
+---
+
+## 💻 CLI Komut Referansı
 
 ---
 
 ### 1. Linux & Windows Adli Edinimi
 
-#### 📀 Disk Edinimi (`amele linux disk` / `amele windows disk`)
+#### 📀 Disk Edinimi (`amele linux disk` / `amele windows disk` / `amele disk`)
 
 * **Yerel Diskleri Listeleme:**
   ```bash
   amele linux disk --list
   amele windows disk --list
+  amele disk --list
   ```
 
 * **Yerel Disk İmajı Alma:**
   ```bash
-  # amele linux disk <kaynak> <vaka_adi> [disk_adi] [raw|aff4]
+  # amele linux disk [acquire] <kaynak> <vaka_adi> [disk_adi] [raw|aff4]
   amele linux disk /dev/nvme0n1 vaka_2026_01 disk1 raw
+  amele linux disk acquire /dev/sda vaka_2026_01 disk1 raw
   amele windows disk \\.\PhysicalDrive0 vaka_2026_01 os_disk aff4
+  ```
+
+* **Disk İmajı Yapısal Analizi:**
+  ```bash
+  # amele linux disk analyze <imaj_dosyasi> [mount_klasoru]
+  amele linux disk analyze /delil/disk1.raw
   ```
 
 * **Uzak Agent Üzerinden Disk Listeleme:**
@@ -106,19 +151,44 @@ amele <komut> [alt-komut] [seçenekler]
 
 ---
 
-#### 🧠 RAM Edinimi (`amele linux ram` / `amele windows ram`)
+#### 🧠 RAM Edinimi & Analizi (`amele linux ram` / `amele windows ram` / `amele ram`)
 
-* **Yerel Araç Durumunu Kontrol Etme (AVML / WinPMEM):**
+* **Yerel Araç Durumu (AVML / WinPMEM):**
   ```bash
   amele linux ram --status
   amele windows ram --status
   ```
 
+* **AVML / WinPMEM Otomatik İndirme ve Kurulumu:**
+  ```bash
+  # Linux: Microsoft AVML aracını GitHub release üzerinden otomatik kurar (sudo)
+  amele linux ram install
+
+  # Windows: WinPMEM signed sürücüsünü otomatik indirir
+  amele windows ram install
+  ```
+
 * **Yerel Canlı RAM İmajı Alma:**
   ```bash
-  # amele linux ram <vaka_adi> [arac_yolu] [raw|aff4]
+  # amele linux ram [acquire] <vaka_adi> [arac_yolu] [raw|aff4]
   amele linux ram vaka_2026_01
+  amele linux ram acquire vaka_2026_01
   amele windows ram vaka_2026_01 C:\tools\winpmem.exe raw
+  ```
+
+* **RAM İmajı Volatility & Adli Analiz Komutları:**
+  ```bash
+  # 1. RAM İmajı Özet ve Profil Analizi (Kernel, mimari, zaman)
+  amele linux ram analyze /delil/ram.raw [linux|windows]
+
+  # 2. IOC ve Metin Dizgisi Araması (Regex, IP, domain, URL)
+  amele linux ram strings /delil/ram.raw
+
+  # 3. Dosya Çıkarma (Forensic Carving - PDF, ELF, PE, JPEG vb.)
+  amele linux ram carve /delil/ram.raw /cikti/klasoru
+
+  # 4. Bellek İçi Çalışan Süreçleri (Processes) Dökümleme
+  amele linux ram processes /delil/ram.raw [linux|windows]
   ```
 
 * **Uzak Agent Üzerinden RAM İmajı Alma:**
@@ -219,19 +289,28 @@ amele profile sync                            # Online lisans ve yetkileri senkr
 
 ---
 
-### 6. Vaka Paketleme & Doğrulama
+### 6. Vaka Paketleme, Bilgi & Doğrulama
 
-Oluşturulan vakaların bütünlük imzasıyla `.amelecase` adli arşiv paketine dönüştürülmesi:
+Oluşturulan vakaların incelenmesi ve taşınabilir `.amelecase` adli arşiv paketine dönüştürülmesi:
 
 ```bash
-# Vakayı taşınabilir imzalı .amelecase dosyasına aktar
-amele case export vaka1 /tmp/vaka1.amelecase
+# Vakaları listele
+amele case list
 
-# Başka bir bilgisayardan alınan .amelecase paketini içeri aktar
-amele case import /tmp/vaka1.amelecase
+# Yeni vaka deposu aç
+amele case create vaka1
+
+# Vaka detaylarını, delil dosyalarını ve günlük istatistiklerini görüntüle
+amele case info vaka1
+
+# Vakayı taşınabilir imzalı .amelecase dosyasına aktar
+amele case export vaka1 /delil/vaka1.amelecase
+
+# Başka bir bilgisayardan alınan .amelecase paketini içeri aktar (Zip Slip korumalı)
+amele case import /delil/vaka1.amelecase
 
 # .amelecase paketinin SHA-256 ve delil bütünlüğünü doğrula
-amele case verify /tmp/vaka1.amelecase
+amele case verify /delil/vaka1.amelecase
 ```
 
 ---
@@ -242,12 +321,14 @@ amele case verify /tmp/vaka1.amelecase
 # Dosya Hash Hesaplama
 amele hash /path/to/evidence.raw sha256       # md5, sha1, sha256, sha512
 
-# İmaj Doğrulama
+# İmaj Bütünlük Doğrulama
 amele verify /path/to/evidence.raw 7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069
 
 # Adli İmaj Bağlama (Mount)
+amele mount /path/to/evidence.raw             # Salt-okunur loop/partition mount (sudo)
 amele mount list                              # Aktif bağlı imajları listele
-amele mount cleanup vaka1                     # Bağlı imajları güvenle çöz (unmount)
+amele mount cleanup [vaka]                    # Bağlı imajları güvenle çöz (unmount)
+amele mount unmount [vaka]                    # cleanup aliası
 ```
 
 ---
@@ -263,6 +344,20 @@ amele update                                  # Güncellemeleri kontrol et (AppI
 amele update --json                           # Güncelleme bilgisini JSON olarak ver
 amele wireguard /tmp/wg0.conf                 # Varsayılan güvenli WireGuard VPN yapılandırması üret
 ```
+
+---
+
+## 🚦 Standart POSIX Çıkış Kodları
+
+CLI komutları otomatik script entegrasyonları için standart POSIX çıkış kodlarını kullanır:
+
+| Kod | Durum | Açıklama |
+| :---: | :--- | :--- |
+| **`0`** | `SUCCESS` | Komut hatasız tamamlandı (`--version`, `--help`, `completion`, adli edinim vb.). |
+| **`1`** | `RUNTIME_ERROR` | Genel çalışma hatası (dosya sistemi, ağ veya donanım okuma hatası). |
+| **`2`** | `USAGE_SYNTAX_ERROR` | Komut sözdizimi, eksik veya geçersiz argüman hatası. |
+| **`126`** | `PERMISSION_DENIED` | Root veya yönetici yetkisi reddedildi (sudo başarısız / erişim engellendi). |
+| **`127`** | `COMMAND_NOT_FOUND` | İkili dosya veya harici bağımlılık bulunamadı (`avml`, `winpmem`, `adb`). |
 
 ---
 
@@ -386,20 +481,38 @@ amele linux ram --ssh 192.168.1.100 22 vaka_sunucu root parola123
    ```bash
    amele linux disk --agent 10.0.0.50 9000 0 /home/ra/Amele/vaka_incident_01/outputs token123 aff4
    ```
-5. **Vakayı İmzalı Pakete Dönüştürün:**
+5. **Vakayı İnceleyin ve İmzalı Pakete Dönüştürün:**
    ```bash
+   amele case info vaka_incident_01
    amele case export vaka_incident_01 /delil/vaka_incident_01.amelecase
    amele case verify /delil/vaka_incident_01.amelecase
    ```
 
 ---
 
-## 🔒 Sorun Giderme & Güvenlik İlkeleri
+## 🛡️ Güvenlik Mimarisi & Sertleştirme
 
-1. **`No authentication agent found` / Yetki Hatası:**
-   - Linux'ta `sudo` veya `pkexec` yetkisi için terminalde `sudo -v` çalıştırın veya polkit agent kurun.
-2. **`ADB bulunamadı` Uyarısı:**
-   - `amele android install` komutu sistemin paket yöneticisini (apt, pacman, dnf, winget) kullanarak ADB'yi otomatik kurar.
+Amele codebase'i, adli bilişim standartlarına uygun sıkı güvenlik filtreleri barındırır:
+
+1. **Zip Slip & Arşiv Koruması:**
+   - `.amelecase` paketleri içe aktarılırken dosya yolları taranır. `ParentDir` (`..`), kök dizin kaçışları ve hedef vaka sınırları dışına dosya yazımı engellenir.
+2. **Dizin Atlatma (Path Traversal) Engelleme:**
+   - Vaka adları ve dosya kökleri (`sanitize_case_name`, `EvidenceVault::create`) sıkı beyaz liste denetiminden geçer; `.` veya `/` barındıran güvensiz vaka adları reddedilir.
+3. **SSH Komut Enjeksiyonu Koruması:**
+   - Uzak disk yolları (`disk_path`) kabuk kaçış karakterlerine (`"`, `'`, `;`, `&`, `|`, `` ` ``, `$`) karşı doğrulanır.
+4. **Güvenli Çalışma Dizini (`secure_runtime_dir`):**
+   - Paylaşımlı ve dünyaca yazılabilir `/tmp` dizini yerine `$XDG_RUNTIME_DIR/amele` (/run/user/<uid>) veya `0700` izinli `~/.amele/run` dizini kullanılır. Bu sayede yerel sembolik bağ (symlink) saldırıları ve yarış koşulları (race conditions) engellenir.
+5. **Alt Kabuk İzolasyonu:**
+   - Harici ikili arama fonksiyonları `sh -c` çağırmak yerine doğrudan Rust tabanlı `split_paths` kullanarak ortam değişkeni zehirlenmesini önler.
+
+---
+
+## 🔍 Sorun Giderme İlkeleri
+
+1. **`No authentication agent found` / Yetki Hatası (Çıkış Kodu: 126):**
+   - Linux'ta `sudo` veya `pkexec` yetkisi için terminalde `sudo -v` çalıştırın veya GUI polkit agent kurun.
+2. **`ADB / AVML bulunamadı` Uyarısı (Çıkış Kodu: 127):**
+   - `amele android install` ve `amele linux ram install` komutları gerekli araçları otomatik kurar.
 3. **Uzak Agent Bağlantı Sorunları:**
    - IP, Port (9000) ve Token değerlerini kontrol edin.
    - Hedef makinede güvenlik duvarının (UFW/Firewalld/Windows Defender Firewall) 9000 portuna izin verdiğinden emin olun.
