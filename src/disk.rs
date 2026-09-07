@@ -439,15 +439,30 @@ fn disk_size_impl(path: &Path) -> AmeleResult<u64> {
         format!("Disk boyutu sorgulaniyor (Unix): {}", path.display()),
     );
 
-    let file = File::open(path).map_err(|err| {
-        let w_err = AmeleError::io(HataKodu::DiskErisim, "Disk/dosya acilamadi", err);
-        runtime_log(
-            LogLevel::Error,
-            "disk",
-            format!("Disk acilamadi: {:?}", w_err),
-        );
-        w_err
-    })?;
+    // İlk olarak Linux sysfs (/sys/class/block/<name>/size) üzerinden root yetkisi olmadan da kontrol et
+    if let Some(dev_name) = path.file_name().and_then(|n| n.to_str()) {
+        let sys_path = format!("/sys/class/block/{dev_name}/size");
+        if let Ok(content) = std::fs::read_to_string(&sys_path) {
+            if let Ok(sectors) = content.trim().parse::<u64>() {
+                if sectors > 0 {
+                    return Ok(sectors * 512);
+                }
+            }
+        }
+    }
+
+    let file = match File::open(path) {
+        Ok(f) => f,
+        Err(err) => {
+            let w_err = AmeleError::io(HataKodu::DiskErisim, "Disk/dosya acilamadi", err);
+            runtime_log(
+                LogLevel::Debug,
+                "disk",
+                format!("Disk acilamadi: {:?}", w_err),
+            );
+            return Err(w_err);
+        }
+    };
     let metadata = file.metadata().map_err(|err| {
         let w_err = AmeleError::io(HataKodu::DiskBoyut, "Disk metadata okunamadi", err);
         runtime_log(
@@ -585,18 +600,41 @@ fn list_disks_impl() -> AmeleResult<Vec<DiskInfo>> {
     );
     let mut candidates = Vec::new();
 
+    // /sys/block uzerinden sistemdeki gercek blok cihazlarini kesfet
+    if let Ok(entries) = std::fs::read_dir("/sys/block") {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with("loop") || name.starts_with("zram") || name.starts_with("ram") {
+                continue;
+            }
+            candidates.push(PathBuf::from(format!("/dev/{name}")));
+        }
+    }
+
     for letter in b'a'..=b'p' {
-        candidates.push(PathBuf::from(format!("/dev/sd{}", letter as char)));
+        let p = PathBuf::from(format!("/dev/sd{}", letter as char));
+        if !candidates.contains(&p) {
+            candidates.push(p);
+        }
     }
     for index in 0..8 {
-        candidates.push(PathBuf::from(format!("/dev/nvme{index}n1")));
+        let p = PathBuf::from(format!("/dev/nvme{index}n1"));
+        if !candidates.contains(&p) {
+            candidates.push(p);
+        }
     }
     for letter in b'a'..=b'h' {
-        candidates.push(PathBuf::from(format!("/dev/vd{}", letter as char)));
+        let p = PathBuf::from(format!("/dev/vd{}", letter as char));
+        if !candidates.contains(&p) {
+            candidates.push(p);
+        }
     }
 
     let mut disks = Vec::new();
     for candidate in candidates {
+        if !candidate.exists() {
+            continue;
+        }
         if let Ok(size) = disk_size(&candidate)
             && size > 0
         {

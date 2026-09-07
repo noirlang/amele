@@ -131,6 +131,12 @@ pub fn home_dir() -> PathBuf {
 
     #[cfg(not(windows))]
     {
+        if let Some(sudo_user) = std::env::var("SUDO_USER").ok().filter(|u| !u.is_empty() && u != "root") {
+            let user_home = PathBuf::from(format!("/home/{sudo_user}"));
+            if user_home.is_dir() {
+                return user_home;
+            }
+        }
         std::env::var_os("HOME")
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("."))
