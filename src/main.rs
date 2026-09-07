@@ -1491,7 +1491,7 @@ fn local_image_command(args: Vec<String>) -> Result<(), String> {
         println!("  {:<20}: {}", "SHA-256", finalized.sha256);
         if let Some(raw_h) = &finalized.raw_sha256 {
             if finalized.format.as_str() != "raw" {
-                println!("  {:<20}: {}", "Ham SHA-256", raw_h);
+                println!("  {:<20}: {}", t_cli("Ham SHA-256", "Raw SHA-256"), raw_h);
             }
         }
         println!("============================================================");
@@ -1542,7 +1542,7 @@ fn local_ram_command(args: Vec<String>) -> Result<(), String> {
                 print_progress("ram", done, total);
             })
         }
-        _ => return Err("tool must be avml or winpmem".to_string()),
+        _ => return Err(t_cli("Araç 'avml' veya 'winpmem' olmalıdır.", "Tool must be avml or winpmem.")),
     }
     .map_err(|err| crate_diagnostic(err.to_string()))?;
     let finalized = output_format::finalize_output(&plan, "ram", &tool, &vault.case_name, None)?;
@@ -1567,7 +1567,7 @@ fn local_ram_command(args: Vec<String>) -> Result<(), String> {
         println!("  {:<20}: {}", "SHA-256", finalized.sha256);
         if let Some(raw_h) = &finalized.raw_sha256 {
             if finalized.format.as_str() != "raw" {
-                println!("  {:<20}: {}", "Ham SHA-256", raw_h);
+                println!("  {:<20}: {}", t_cli("Ham SHA-256", "Raw SHA-256"), raw_h);
             }
         }
         println!("============================================================");
@@ -1683,7 +1683,7 @@ fn image_analyze_command(args: Vec<String>) -> Result<(), String> {
         println!("============================================================");
         println!("  {:<20}: {}", if is_en { "Image File" } else { "İmaj Dosyası" }, report.image_path.display());
         println!("  {:<20}: {}", if is_en { "File Size" } else { "Dosya Boyutu" }, format_bytes(report.size));
-        println!("  {:<20}: {} bytes", if is_en { "Sector Size" } else { "Sektör Boyutu" }, report.sector_size);
+        println!("  {:<20}: {} {}", if is_en { "Sector Size" } else { "Sektör Boyutu" }, report.sector_size, if is_en { "bytes" } else { "bayt" });
         println!("  {:<20}: {}", if is_en { "Partition Scheme" } else { "Bölüntü Şeması" }, report.partition_scheme);
         println!("  {:<20}: {}", if is_en { "Image Format" } else { "İmaj Formatı" }, report.image_type);
 
@@ -3520,7 +3520,7 @@ fn ensure_root_or_elevate(op_name: &str) -> Result<(), String> {
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit());
 
-        let status = cmd.status().map_err(|err| format!("sudo çalıştırılamadı: {err}"))?;
+        let status = cmd.status().map_err(|err| format!("{}: {err}", t_cli("sudo çalıştırılamadı", "Failed to run sudo")))?;
         if status.success() {
             std::process::exit(0);
         } else {
@@ -3576,9 +3576,9 @@ fn linux_ram_status_command(args: Vec<String>) -> Result<(), String> {
             path.display()
         );
     } else {
-        println!("  {:<22}: [✗] {} (Kurmak için: 'amele linux ram install')", 
+        println!("  {:<22}: {}", 
             t_cli("AVML Durumu", "AVML Status"),
-            t_cli("Kurulu Değil", "Not Installed")
+            t_cli("[✗] Kurulu Değil (Kurmak için: 'amele linux ram install')", "[✗] Not Installed (To install: 'amele linux ram install')")
         );
     }
 
@@ -3642,9 +3642,9 @@ fn windows_ram_status_command(args: Vec<String>) -> Result<(), String> {
             path.display()
         );
     } else {
-        println!("  {:<22}: [✗] {}", 
+        println!("  {:<22}: {}", 
             t_cli("WinPMEM Durumu", "WinPMEM Status"),
-            t_cli("Kurulu Değil (WinPMEM sürücüsü gerekli)", "Not Installed (WinPMEM driver required)")
+            t_cli("[✗] Kurulu Değil (WinPMEM sürücüsü gerekli)", "[✗] Not Installed (WinPMEM driver required)")
         );
     }
 
@@ -3679,7 +3679,7 @@ fn linux_ram_install_command() -> Result<(), String> {
     let asset_name = match std::env::consts::ARCH {
         "x86_64" => "avml",
         "aarch64" => "avml-aarch64",
-        other => return Err(format!("Desteklenmeyen mimari: {other}")),
+        other => return Err(format!("{}: {other}", t_cli("Desteklenmeyen mimari", "Unsupported architecture"))),
     };
 
     let url = format!("https://github.com/microsoft/avml/releases/latest/download/{asset_name}");
@@ -3715,7 +3715,7 @@ fn linux_ram_install_command() -> Result<(), String> {
         }
         Err(e) => {
             let _ = fs::remove_file(&temp_download);
-            return Err(format!("curl çalıştırılamadı: {e}"));
+            return Err(format!("{}: {e}", t_cli("curl çalıştırılamadı", "Failed to run curl")));
         }
     }
 
@@ -3827,7 +3827,7 @@ fn disk_list_command_with_args(args: Vec<String>) -> Result<(), String> {
         "  {:<28} {:<16} {:<16} {:<14} {:<10}",
         if is_en { "Device / Path" } else { "Aygıt / Yol" },
         if is_en { "Total Size" } else { "Toplam Boyut" },
-        if is_en { "Used Size" } else { "Kullanılan" },
+        if is_en { "Used Size" } else { "Kullanılan Boyut" },
         if is_en { "Access" } else { "Erişim" },
         if is_en { "Status" } else { "Durum" }
     );
@@ -3842,9 +3842,9 @@ fn disk_list_command_with_args(args: Vec<String>) -> Result<(), String> {
             "-".to_string()
         };
         let access_str = if d.accessible {
-            if is_en { "[✓] Read" } else { "[✓] Açık" }
+            if is_en { "[✓] Accessible" } else { "[✓] Okunabilir" }
         } else {
-            if is_en { "[!] Root req." } else { "[!] Root gerektirir" }
+            if is_en { "[!] Root req." } else { "[!] Root Gerekli" }
         };
         let status_str = if d.accessible {
             if is_en { "Ready" } else { "Hazır" }
@@ -4007,10 +4007,10 @@ fn wireguard_config_command(args: Vec<String>) -> Result<(), String> {
 fn parse_port(value: &str) -> Result<u16, String> {
     value
         .parse::<u16>()
-        .map_err(|_| "Port 1 ile 65535 arasinda olmali".to_string())
+        .map_err(|_| t_cli("Port 1 ile 65535 arasında olmalıdır.", "Port must be between 1 and 65535."))
         .and_then(|port| {
             if port == 0 {
-                Err("Port 1 ile 65535 arasinda olmali".to_string())
+                Err(t_cli("Port 1 ile 65535 arasında olmalıdır.", "Port must be between 1 and 65535."))
             } else {
                 Ok(port)
             }
@@ -4022,16 +4022,17 @@ fn update_check_command(args: Vec<String>) -> Result<(), String> {
     let response = api::update::update_check_endpoint();
     if response.status != 200 {
         let err_msg = String::from_utf8_lossy(&response.body);
-        return Err(format!("Güncelleme kontrolü başarısız oldu: {err_msg}"));
+        return Err(format!("{}: {err_msg}", t_cli("Güncelleme kontrolü başarısız oldu", "Update check failed")));
     }
     let data: serde_json::Value =
-        serde_json::from_slice(&response.body).map_err(|e| format!("Yanıt çözümlenemedi: {e}"))?;
+        serde_json::from_slice(&response.body).map_err(|e| format!("{}: {e}", t_cli("Yanıt çözümlenemedi", "Failed to parse response")))?;
 
     if json_output {
         println!("{}", serde_json::to_string_pretty(&data).unwrap());
         return Ok(());
     }
 
+    let is_en = is_cli_english();
     let current = data
         .get("current_version")
         .and_then(|v| v.as_str())
@@ -4039,7 +4040,7 @@ fn update_check_command(args: Vec<String>) -> Result<(), String> {
     let latest_tag = data
         .get("tag_name")
         .and_then(|v| v.as_str())
-        .unwrap_or("bilinmiyor");
+        .unwrap_or(if is_en { "unknown" } else { "bilinmiyor" });
     let release_name = data
         .get("name")
         .and_then(|v| v.as_str())
@@ -4050,11 +4051,11 @@ fn update_check_command(args: Vec<String>) -> Result<(), String> {
     let pkg_label = target
         .and_then(|t| t.get("package_label"))
         .and_then(|v| v.as_str())
-        .unwrap_or("Bilinmeyen");
+        .unwrap_or(if is_en { "Unknown" } else { "Bilinmeyen" });
     let detected_by = target
         .and_then(|t| t.get("detected_by"))
         .and_then(|v| v.as_str())
-        .unwrap_or("sistem");
+        .unwrap_or(if is_en { "system" } else { "sistem" });
     let install_cmd = target
         .and_then(|t| t.get("install_command"))
         .and_then(|v| v.as_str())
@@ -4064,7 +4065,7 @@ fn update_check_command(args: Vec<String>) -> Result<(), String> {
     let asset_name = asset
         .and_then(|a| a.get("name"))
         .and_then(|v| v.as_str())
-        .unwrap_or("bulunamadı");
+        .unwrap_or(if is_en { "not found" } else { "bulunamadı" });
     let asset_url = asset
         .and_then(|a| a.get("download_url"))
         .and_then(|v| v.as_str())
@@ -4078,47 +4079,56 @@ fn update_check_command(args: Vec<String>) -> Result<(), String> {
     let clean_latest = latest_tag.trim_start_matches('v');
     let has_update = clean_latest != clean_current && !clean_latest.is_empty();
 
-    println!("=== Amele Forensic Tool Güncelleme Kontrolü ===");
-    println!("Mevcut Sürüm   : v{}", clean_current);
+    println!("============================================================");
+    println!("       {}", if is_en { "Amele Forensic Tool Update Check" } else { "Amele Forensic Tool Güncelleme Kontrolü" });
+    println!("============================================================");
+    println!("  {:<20}: v{}", if is_en { "Current Version" } else { "Mevcut Sürüm" }, clean_current);
     println!(
-        "Son Sürüm      : {}",
+        "  {:<20}: {}",
+        if is_en { "Latest Version" } else { "Son Sürüm" },
         if latest_tag.starts_with('v') {
             latest_tag.to_string()
         } else {
             format!("v{}", latest_tag)
         }
     );
-    println!("Paket Türü     : {} (Algılama: {})", pkg_label, detected_by);
+    println!("  {:<20}: {} ({}: {})", if is_en { "Package Type" } else { "Paket Türü" }, pkg_label, if is_en { "Detected by" } else { "Algılama" }, detected_by);
 
     if has_update {
-        println!("\n[!] YENİ SÜRÜM MEVCUT! ({})", release_name);
-        println!("İndirilecek Dosya : {}", asset_name);
+        println!("\n  [!] {} ({})", if is_en { "NEW VERSION AVAILABLE!" } else { "YENİ SÜRÜM MEVCUT!" }, release_name);
+        println!("  {:<20}: {}", if is_en { "Download File" } else { "İndirilecek Dosya" }, asset_name);
         if asset_size > 0 {
             println!(
-                "Dosya Boyutu      : {:.2} MB",
+                "  {:<20}: {:.2} MB",
+                if is_en { "File Size" } else { "Dosya Boyutu" },
                 asset_size as f64 / 1_048_576.0
             );
         }
         if !asset_url.is_empty() {
-            println!("İndirme Bağlantısı : {}", asset_url);
+            println!("  {:<20}: {}", if is_en { "Download Link" } else { "İndirme Bağlantısı" }, asset_url);
         }
         if !html_url.is_empty() {
-            println!("Sürüm Notları     : {}", html_url);
+            println!("  {:<20}: {}", if is_en { "Release Notes" } else { "Sürüm Notları" }, html_url);
         }
         if !install_cmd.is_empty() {
-            println!("\nÖnerilen Kurulum Komutu:\n  {}", install_cmd);
+            println!("\n  {}:\n    {}", if is_en { "Recommended Install Command" } else { "Önerilen Kurulum Komutu" }, install_cmd);
         }
     } else {
-        println!("\n[✓] Sisteminiz güncel. En son sürümü kullanıyorsunuz.");
+        println!("\n  [✓] {}", if is_en { "Your system is up to date. You are using the latest version." } else { "Sisteminiz güncel. En son sürümü kullanıyorsunuz." });
     }
+    println!("============================================================");
 
     Ok(())
 }
 
 fn preflight_command(args: Vec<String>) -> Result<(), String> {
     if args.is_empty() {
-        return Err("Kullanım: amele preflight <kaynak_yol> <kaynak_tipi> [hedef_yol]\nKaynak tipleri: disk, ram, android, ios".to_string());
+        return Err(t_cli(
+            "Kullanım: amele preflight <kaynak_yol> <kaynak_tipi> [hedef_yol]\nKaynak tipleri: disk, ram, android, ios",
+            "Usage: amele preflight <source_path> <source_type> [target_path]\nSource types: disk, ram, android, ios"
+        ));
     }
+    let is_en = is_cli_english();
     let source_path = &args[0];
     let source_type = args.get(1).map(|s| s.as_str()).unwrap_or("disk");
     let target_path = args
@@ -4127,75 +4137,91 @@ fn preflight_command(args: Vec<String>) -> Result<(), String> {
         .unwrap_or_else(|| amele::api::default_case_base_dir());
 
     let result = amele::storage_guard::preflight_check(source_path, source_type, &target_path);
-    println!("=== Disk Alanı Ön Kontrolü ===");
-    println!("Kaynak       : {}", source_path);
-    println!("Kaynak Tipi  : {}", source_type);
+    println!("============================================================");
+    println!("       {}", if is_en { "Storage Preflight Space Check" } else { "Disk Alanı Ön Kontrolü" });
+    println!("============================================================");
+    println!("  {:<16}: {}", if is_en { "Source" } else { "Kaynak" }, source_path);
+    println!("  {:<16}: {}", if is_en { "Source Type" } else { "Kaynak Tipi" }, source_type);
     println!(
-        "Kaynak Boyutu: {:.2} GB",
+        "  {:<16}: {:.2} GB",
+        if is_en { "Source Size" } else { "Kaynak Boyutu" },
         result.source_bytes as f64 / 1_073_741_824.0
     );
     println!(
-        "Boş Alan     : {:.2} GB",
+        "  {:<16}: {:.2} GB",
+        if is_en { "Available Space" } else { "Boş Alan" },
         result.available_bytes as f64 / 1_073_741_824.0
     );
     if result.is_sufficient {
-        println!("\n✓ Yeterli disk alanı mevcut.");
+        println!("\n  [✓] {}", if is_en { "Sufficient storage space available." } else { "Yeterli disk alanı mevcut." });
     } else {
-        println!("\n✗ YETERSİZ ALAN!");
+        println!("\n  [!] {}", if is_en { "INSUFFICIENT DISK SPACE!" } else { "YETERSİZ DİSK ALANI!" });
         println!(
-            "Eksik        : {:.2} GB",
+            "  {:<16}: {:.2} GB",
+            if is_en { "Shortage" } else { "Eksik" },
             result.shortage_bytes as f64 / 1_073_741_824.0
         );
         if let Some(msg) = &result.warning_message {
-            println!("Uyarı        : {}", msg);
+            println!("  {:<16}: {}", if is_en { "Warning" } else { "Uyarı" }, msg);
         }
     }
+    println!("============================================================");
     Ok(())
 }
 
 fn mount_list_command() -> Result<(), String> {
     let mounts = amele::mount_tracker::list_active_mounts();
     if mounts.is_empty() {
-        println!("Aktif bağlı imaj bulunmuyor.");
+        println!("{}", t_cli("Aktif bağlı imaj bulunmuyor.", "No active mounted images found."));
         return Ok(());
     }
-    println!("=== Aktif Bağlı İmajlar ===");
+    let is_en = is_cli_english();
+    println!("============================================================");
+    println!("       {}", if is_en { "Active Mounted Images" } else { "Aktif Bağlı İmajlar" });
+    println!("============================================================");
     for m in &mounts {
         println!("  ID          : {}", m.mount_id);
-        println!("  Vaka        : {}", m.case_name);
-        println!("  İmaj        : {}", m.image_path.display());
-        println!("  Bağlama     : {}", m.mount_point.display());
-        println!("  Tarih       : {}", m.mounted_at);
+        println!("  {:<12}: {}", if is_en { "Case" } else { "Vaka" }, m.case_name);
+        println!("  {:<12}: {}", if is_en { "Image" } else { "İmaj" }, m.image_path.display());
+        println!("  {:<12}: {}", if is_en { "Mount Point" } else { "Bağlama" }, m.mount_point.display());
+        println!("  {:<12}: {}", if is_en { "Date" } else { "Tarih" }, m.mounted_at);
         println!("  ---");
     }
-    println!("Toplam: {} adet", mounts.len());
+    println!("============================================================");
+    println!("  {} {}", if is_en { "Total mounts:" } else { "Toplam:" }, mounts.len());
+    println!("============================================================");
     Ok(())
 }
 
 fn mount_cleanup_command(args: Vec<String>) -> Result<(), String> {
+    let is_en = is_cli_english();
     let case_filter = args.first().map(|s| s.as_str());
     let cleaned = if let Some(case) = case_filter {
-        println!("Vaka '{}' için mount temizliği yapılıyor...", case);
+        println!("{}", t_cli(&format!("Vaka '{case}' için mount temizliği yapılıyor..."), &format!("Cleaning up mounts for case '{case}'...")));
         amele::mount_tracker::cleanup_case_mounts(case)
     } else {
-        println!("Tüm aktif mount'lar temizleniyor...");
+        println!("{}", t_cli("Tüm aktif mount'lar temizleniyor...", "Cleaning up all active mounts..."));
         amele::mount_tracker::cleanup_all_mounts()
     };
     if cleaned.is_empty() {
-        println!("Temizlenecek mount bulunamadı.");
+        println!("{}", t_cli("Temizlenecek mount bulunamadı.", "No mounts found to clean up."));
     } else {
         for id in &cleaned {
-            println!("  ✓ Temizlendi: {}", id);
+            println!("  [✓] {}: {}", if is_en { "Cleaned" } else { "Temizlendi" }, id);
         }
-        println!("Toplam {} mount temizlendi.", cleaned.len());
+        println!("{}", t_cli(&format!("Toplam {} mount temizlendi.", cleaned.len()), &format!("Total {} mounts cleaned up.", cleaned.len())));
     }
     Ok(())
 }
 
 fn case_export_command(args: Vec<String>) -> Result<(), String> {
     if args.is_empty() {
-        return Err("Kullanım: amele case-export <vaka_adi> [hedef_dosya]".to_string());
+        return Err(t_cli(
+            "Kullanım: amele case-export <vaka_adi> [hedef_dosya]",
+            "Usage: amele case-export <case_name> [target_file]"
+        ));
     }
+    let is_en = is_cli_english();
     let case_name = &args[0];
     let base_dir = amele::api::default_case_base_dir();
     let vault =
@@ -4207,10 +4233,10 @@ fn case_export_command(args: Vec<String>) -> Result<(), String> {
         base_dir.clone()
     };
 
-    println!("Vaka dışa aktarılıyor: {}", case_name);
+    println!("{}", t_cli(&format!("Vaka dışa aktarılıyor: {case_name}"), &format!("Exporting case: {case_name}")));
     let package_path =
         amele::case_package::export_case(&vault, &output_path).map_err(|e| e.to_string())?;
-    println!("✓ Paket oluşturuldu: {}", package_path.display());
+    println!("[✓] {}: {}", if is_en { "Package created" } else { "Paket oluşturuldu" }, package_path.display());
 
     let hash_path = package_path.with_extension(format!(
         "{}sha256",
@@ -4221,59 +4247,73 @@ fn case_export_command(args: Vec<String>) -> Result<(), String> {
             .unwrap_or_default()
     ));
     if hash_path.is_file() {
-        println!("✓ Hash dosyası : {}", hash_path.display());
+        println!("[✓] {}: {}", if is_en { "Checksum file" } else { "Hash dosyası" }, hash_path.display());
     }
     Ok(())
 }
 
 fn case_import_command(args: Vec<String>) -> Result<(), String> {
     if args.is_empty() {
-        return Err("Kullanım: amele case-import <amelecase_dosyasi>".to_string());
+        return Err(t_cli(
+            "Kullanım: amele case-import <amelecase_dosyasi>",
+            "Usage: amele case-import <amelecase_file>"
+        ));
     }
     let package_path = std::path::Path::new(&args[0]);
     if !package_path.is_file() {
-        return Err(format!("Dosya bulunamadı: {}", package_path.display()));
+        return Err(t_cli(
+            &format!("Dosya bulunamadı: {}", package_path.display()),
+            &format!("File not found: {}", package_path.display())
+        ));
     }
 
+    let is_en = is_cli_english();
     let base_dir = amele::api::default_case_base_dir();
-    println!("Vaka içe aktarılıyor: {}", package_path.display());
+    println!("{}", t_cli(&format!("Vaka içe aktarılıyor: {}", package_path.display()), &format!("Importing case: {}", package_path.display())));
 
     let result =
         amele::case_package::import_case(package_path, &base_dir).map_err(|e| e.to_string())?;
 
-    println!("✓ Vaka aktarıldı    : {}", result.case_name);
-    println!("  Hedef klasör      : {}", result.case_dir.display());
-    println!("  Dosya sayısı      : {}", result.files_extracted);
+    println!("[✓] {:<20}: {}", if is_en { "Case imported" } else { "Vaka aktarıldı" }, result.case_name);
+    println!("  {:<20}: {}", if is_en { "Target directory" } else { "Hedef klasör" }, result.case_dir.display());
+    println!("  {:<20}: {}", if is_en { "Extracted files" } else { "Dosya sayısı" }, result.files_extracted);
     println!(
-        "  Bütünlük doğrulandı: {}",
+        "  {:<20}: {}",
+        if is_en { "Integrity verified" } else { "Bütünlük doğrulandı" },
         if result.integrity_verified {
-            "Evet ✓"
+            if is_en { "Yes [✓]" } else { "Evet [✓]" }
         } else {
-            "Hayır ✗"
+            if is_en { "No [✗]" } else { "Hayır [✗]" }
         }
     );
     for warn in &result.warnings {
-        println!("  ⚠ {}", warn);
+        println!("  [!] {}", warn);
     }
     Ok(())
 }
 
 fn case_verify_command(args: Vec<String>) -> Result<(), String> {
     if args.is_empty() {
-        return Err("Kullanım: amele case-verify <amelecase_dosyasi>".to_string());
+        return Err(t_cli(
+            "Kullanım: amele case-verify <amelecase_dosyasi>",
+            "Usage: amele case-verify <amelecase_file>"
+        ));
     }
     let package_path = std::path::Path::new(&args[0]);
     if !package_path.is_file() {
-        return Err(format!("Dosya bulunamadı: {}", package_path.display()));
+        return Err(t_cli(
+            &format!("Dosya bulunamadı: {}", package_path.display()),
+            &format!("File not found: {}", package_path.display())
+        ));
     }
 
-    println!("Paket bütünlüğü doğrulanıyor: {}", package_path.display());
+    println!("{}", t_cli(&format!("Paket bütünlüğü doğrulanıyor: {}", package_path.display()), &format!("Verifying package integrity: {}", package_path.display())));
     let verified = amele::case_package::verify_package(package_path).map_err(|e| e.to_string())?;
 
     if verified {
-        println!("✓ Paket bütünlüğü doğrulandı. SHA-256 hash eşleşiyor.");
+        println!("[✓] {}", t_cli("Paket bütünlüğü doğrulandı. SHA-256 hash eşleşiyor.", "Package integrity verified. SHA-256 checksum matches."));
     } else {
-        println!("✗ UYARI: Paket bütünlüğü doğrulanamadı! SHA-256 hash eşleşmiyor.");
+        println!("[✗] {}", t_cli("UYARI: Paket bütünlüğü doğrulanamadı! SHA-256 hash eşleşmiyor.", "WARNING: Package integrity check failed! SHA-256 checksum does not match."));
     }
     Ok(())
 }
