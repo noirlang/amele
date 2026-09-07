@@ -248,13 +248,24 @@ export const KNOWN_CONTRIBUTORS = {
   }
 };
 
+export const CORE_DEVELOPERS = [
+  KNOWN_CONTRIBUTORS.melihemik,
+  KNOWN_CONTRIBUTORS.yetece1,
+  KNOWN_CONTRIBUTORS.kafkaskrtl,
+  KNOWN_CONTRIBUTORS.abdulhalimaltuntas
+];
+
 export function renderContributors(contributors, t, icon, assetPath) {
-  const list = (contributors && contributors.length > 0) ? contributors : [
+  const coreList = [
     KNOWN_CONTRIBUTORS.melihemik,
     KNOWN_CONTRIBUTORS.yetece1,
     KNOWN_CONTRIBUTORS.kafkaskrtl,
     KNOWN_CONTRIBUTORS.abdulhalimaltuntas
   ];
+
+  const coreKeys = new Set(coreList.map(c => (c.name || "").toLowerCase()));
+  const extra = (contributors || []).filter(c => c && !coreKeys.has((c.name || "").toLowerCase()));
+  const list = [...coreList, ...extra];
 
   return list.map(c => {
     const roleText = c.roleKey ? t(c.roleKey) : (c.role || "Developer");

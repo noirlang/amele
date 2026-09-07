@@ -14,12 +14,12 @@ import { localText, toolCards, workflows } from "./core/workflows.js";
 import { icon, hydrateIcons, fontIcons } from "./icons.js";
 import { translate } from "./i18n.js";
 import { homePage, metric } from "./pages/home.js";
-import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel, KNOWN_CONTRIBUTORS } from "./pages/other.js";
+import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel, KNOWN_CONTRIBUTORS, CORE_DEVELOPERS } from "./pages/other.js";
 import { workflowPage, pickerField, field, pageTitle, casePanel } from "./pages/workflow.js";
 import { initDeveloperMode, devLog } from "./developer.js";
 import { initJobWidget } from "./core/jobs.js";
 
-const APP_VERSION = "v0.0.19";
+const APP_VERSION = "v0.0.18";
 const assetPath = "./assets";
 const backendAvailable = location.protocol === "http:" || location.protocol === "https:";
 const urlParams = new URLSearchParams(window.location.search);
@@ -69,7 +69,7 @@ const state = {
   activeCase: null,
   pendingCaseName: "",
   cases: [],
-  contributors: safeJsonParse(localStorage.getItem("amele_contributors")),
+  contributors: CORE_DEVELOPERS,
   acquisitionHistory: [],
   caseBaseDir: "",
   profiles: [],
@@ -3888,16 +3888,17 @@ async function previewCarvedFile(filePath) {
 
 async function loadGitHubContributors() {
   try {
+    // Core developers always form the foundation and are always displayed
+    const result = [...CORE_DEVELOPERS];
+    const seenNames = new Set(result.map(c => (c.name || "").toLowerCase()));
+    const seenKeys = new Set(["melihemik", "yetece1", "kafkaskrtl", "abdulhalimaltuntas", "favilances", "yusuftuncel", "muhammedaliguner"]);
+
     const response = await fetch("https://api.github.com/repos/noirlang/amele/commits?per_page=30", {
       headers: { Accept: "application/vnd.github.v3+json" }
     });
     if (!response.ok) return;
     const commits = await response.json();
     if (!Array.isArray(commits) || commits.length === 0) return;
-
-    const seenKeys = new Set();
-    const seenNames = new Set();
-    const result = [];
 
     const findKnown = (login, name, email) => {
       const l = (login || "").toLowerCase().trim();
@@ -3923,8 +3924,9 @@ async function loadGitHubContributors() {
       const cleanLogin = (login || "").toLowerCase().trim();
       const cleanName = (name || "").trim();
       const rawKey = `${cleanLogin}|${cleanName}|${(email || "").toLowerCase()}`;
-      if (seenKeys.has(rawKey)) return;
+      if (seenKeys.has(rawKey) || (cleanLogin && seenKeys.has(cleanLogin))) return;
       seenKeys.add(rawKey);
+      if (cleanLogin) seenKeys.add(cleanLogin);
 
       const known = findKnown(cleanLogin, cleanName, email);
       if (known) {

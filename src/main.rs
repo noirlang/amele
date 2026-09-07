@@ -1153,7 +1153,7 @@ COMMANDS:
 fn print_help() {
     if is_cli_english() {
         println!(
-            r#"Amele Forensic Tool CLI (v0.0.19)
+            r#"Amele Forensic Tool CLI (v0.0.18)
 
 USAGE:
   amele <command> [subcommand] [options]
@@ -1186,7 +1186,7 @@ Run 'amele <command> --help' for detailed sub-command usage."#
         );
     } else {
         println!(
-            r#"Amele Forensic Tool CLI (v0.0.19)
+            r#"Amele Forensic Tool CLI (v0.0.18)
 
 KULLANIM:
   amele <komut> [alt-komut] [secenekler]
