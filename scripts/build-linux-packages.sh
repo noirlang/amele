@@ -34,6 +34,7 @@ prepare_stage() {
 
   install -m 755 "$ROOT_DIR/target/release/amele" "$STAGE_DIR/usr/bin/amele-forensic-tool"
   ln -s amele-forensic-tool "$STAGE_DIR/usr/bin/amele"
+  install -m 755 "$ROOT_DIR/target/release/amele" "$DIST_DIR/amele"
   cp -a "$ROOT_DIR/ui/." "$STAGE_DIR/usr/share/amele/ui/"
   cp -a "$ROOT_DIR/tools/." "$STAGE_DIR/usr/share/amele/tools/"
   install -m 644 "$ROOT_DIR/packaging/appimage/amele.desktop" \
@@ -162,6 +163,7 @@ write_hashes() {
   (
     cd "$DIST_DIR"
     sha256sum \
+      amele \
       amele-linux-x64.AppImage \
       amele-linux-x64.deb \
       amele-linux-x64.rpm \
