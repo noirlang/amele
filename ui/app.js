@@ -4041,14 +4041,14 @@ async function checkForUpdates() {
     const controller = new AbortController();
     const tid = setTimeout(() => controller.abort(), 6000);
     const res = await fetch(
-      "https://api.github.com/repos/amele-next/amele-next/releases/latest",
+      "https://api.github.com/repos/noirlang/amele/releases/latest",
       { signal: controller.signal, headers: { Accept: "application/vnd.github+json" } }
     );
     clearTimeout(tid);
     if (!res.ok) return;
     const data = await res.json();
     const latestTag = (data.tag_name || "").trim();
-    const releaseUrl = data.html_url || "https://github.com/amele-next/amele-next/releases/latest";
+    const releaseUrl = data.html_url || "https://github.com/noirlang/amele/releases/latest";
     if (!latestTag) return;
 
     // Basit semver karşılaştırması: APP_VERSION < latestTag
