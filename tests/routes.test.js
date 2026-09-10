@@ -100,7 +100,7 @@ test("Frontend Routing and Module Health", async (t) => {
       "linux", 
       "android", 
       "ios",
-      "agent", 
+      "help", 
       "analysis", 
       "other", 
       "settings", 

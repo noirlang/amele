@@ -3,7 +3,7 @@ import { iosPage, handleIosAction, syncIosBackupPathInput } from "./tools/ios/in
 import { dockerPage, handleDockerAction } from "./tools/docker/index.js";
 import { windowsPage } from "./tools/windows/index.js";
 import { linuxPage } from "./tools/linux/index.js";
-import { agentPage } from "./tools/agent/index.js";
+import { helpPage } from "./pages/help.js";
 import { remoteAcqPage } from "./tools/remote-acq/index.js";
 import { createApiRequest, fetchNewsAnnouncements } from "./core/api.js";
 import { errorBoxHtml } from "./core/errors.js";
@@ -944,7 +944,7 @@ const routes = {
   android: () => androidPage({ t, icon, pageTitle, state, escapeHtml, backendReady }),
   ios: () => "",
   docker: dockerPage,
-  agent: agentPage,
+  help: helpPage,
   "remote-acq": remoteAcqPage,
   profile: profilePage,
   other: otherPage,
@@ -1549,6 +1549,38 @@ document.addEventListener("click", async (event) => {
       render();
       return;
     }
+  }
+
+  const helpDocBtn = event.target.closest("[data-action='help-select-doc'][data-doc]");
+  if (helpDocBtn) {
+    event.preventDefault();
+    state.activeHelpDoc = helpDocBtn.dataset.doc;
+    render();
+    return;
+  }
+
+  const helpLangBtn = event.target.closest("[data-action='help-set-lang'][data-lang]");
+  if (helpLangBtn) {
+    event.preventDefault();
+    state.helpLang = helpLangBtn.dataset.lang;
+    render();
+    return;
+  }
+
+  const helpCopyBtn = event.target.closest("[data-action='copy-help-code']");
+  if (helpCopyBtn) {
+    event.preventDefault();
+    const pre = helpCopyBtn.closest(".help-code-block")?.querySelector("pre code");
+    if (pre) {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(pre.textContent || "");
+      }
+      const label = helpCopyBtn.querySelector("span") || helpCopyBtn;
+      const orig = label.textContent;
+      label.textContent = state.language === "en" ? "Copied!" : "Kopyalandı!";
+      setTimeout(() => { label.textContent = orig; }, 1800);
+    }
+    return;
   }
 
   const routeButton = event.target.closest("[data-route]");
