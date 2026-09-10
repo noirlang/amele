@@ -952,76 +952,36 @@ const routes = {
   about: aboutPage
 };
 
+function formatDisplayDate(dateStr) {
+  if (!dateStr) return "";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return String(dateStr).split("T")[0] || String(dateStr);
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  } catch {
+    return String(dateStr);
+  }
+}
+
 function profilePage({ t, icon, state, pageTitle, escapeHtml }) {
   const profile = state.activeProfile;
   const online = profile?.online || null;
-  const accountCard = online
-    ? onlineAccountCard(profile, online, state, t, icon, escapeHtml)
-    : localAccountCard(profile, state, t, icon, escapeHtml);
-  const onlineConnectCard = online ? "" : onlineDisconnectedCard(t, icon);
-  const caseCards = state.cases.length
-    ? state.cases.map((item) => `
-        <article class="case-profile-card">
-          <strong>${escapeHtml(item.case_name || "-")}</strong>
-          <small>${escapeHtml(item.case_dir || "")}</small>
-          <span>${t("profile.caseCounts", {
-            images: String(item.output_count || 0),
-            ram: String(item.ram_count || 0),
-            android: String(item.android_count || 0),
-            ios: String(item.ios_count || 0),
-            docker: String(item.docker_count || 0)
-          })}</span>
-        </article>
-      `).join("")
-    : `<div class="log-box">${t("profile.noCases")}</div>`;
-
-  return `
-    <section class="page">
-      ${pageTitle(t("profile.title"), t("profile.desc"), "user", icon)}
-      <div class="settings-layout">
-        ${accountCard}
-        ${onlineConnectCard}
-        <article class="settings-card">
-          <span class="settings-kicker">${t("profile.cases")}</span>
-          <h3>${t("profile.caseTitle")}</h3>
-          <div class="profile-case-list">${caseCards}</div>
-        </article>
-      </div>
-    </section>
-  `;
-}
-
-function localAccountCard(profile, state, t, icon, escapeHtml) {
-  return `
-    <article class="settings-card settings-primary">
-      <span class="settings-kicker">${t("profile.account")}</span>
-      <div class="profile-summary">
-        ${renderProfileAvatar(profile, "large")}
-        <div>
-          <h3>${escapeHtml(profile?.full_name || t("profile.noActive"))}</h3>
-          <p>@${escapeHtml(profile?.username || "-")}</p>
-        </div>
-      </div>
-      ${profilePreferenceRows(profile, state, t, escapeHtml)}
-      <div class="button-row">
-        <button class="secondary-button" data-action="profile-new">${icon("user")} ${t("profile.newProfile")}</button>
-        <button class="danger-button" data-action="profile-logout">${icon("stop")} ${t("profile.logout")}</button>
-      </div>
-      ${profileActivityHtml(profile, t, icon, escapeHtml)}
-    </article>
-  `;
-}
-
-function onlineAccountCard(profile, online, state, t, icon, escapeHtml) {
   const mobileAllowed = onlineMobileToolsAllowed();
   const onlineName = onlineDisplayName(online);
+  const fullName = onlineName || profile?.full_name || profile?.display_name || t("profile.noActive");
+  const username = online?.username || profile?.username || "-";
+  const email = online?.email || null;
+  const rawDate = profile?.created_at || online?.linked_at || online?.created_at || null;
+  const registeredDate = formatDisplayDate(rawDate);
   const isBrowserOffline = typeof navigator !== "undefined" && !navigator.onLine;
-  const status = isBrowserOffline ? "offline" : (online?.status || "offline");
+  const status = isBrowserOffline ? "offline" : (online?.status || (online ? "offline" : "local"));
   const isOnline = status === "online";
   const isExpired = status === "session_expired";
 
   let statusBadge = "";
-  if (isOnline) {
+  if (!online) {
+    statusBadge = `<span class="status-pill warn">${icon("user")} ${t("profile.localAccount") || "Yerel Profil"}</span>`;
+  } else if (isOnline) {
     statusBadge = `<span class="status-pill ok">${icon("check")} ${t("profile.onlineConnectedShort") || "Online"}</span>`;
   } else if (isExpired) {
     statusBadge = `<span class="status-pill danger" title="${t("profile.sessionExpiredHint") || "Online oturum süresi doldu"}">${icon("alert-circle")} Offline (${t("profile.sessionExpiredShort") || "Oturum Doldu"})</span>`;
@@ -1029,83 +989,103 @@ function onlineAccountCard(profile, online, state, t, icon, escapeHtml) {
     statusBadge = `<span class="status-pill warn">${icon("shield")} Offline</span>`;
   }
 
+  const rolesHtml = online
+    ? onlineRoleBadges(online, t, escapeHtml)
+    : `<span class="status-pill warn">${escapeHtml(t("profile.localUser") || "Yerel Kullanıcı")}</span>`;
+
+  const licenseHtml = online ? onlineLicenseText(online, t, escapeHtml) : "";
+
+  // Cases grid
+  const caseCards = state.cases.length
+    ? state.cases.map((item) => {
+        const isActive = state.activeCase?.case_name === item.case_name;
+        return `
+          <article class="case-profile-card ${isActive ? "is-active-case" : ""}" data-case-name="${escapeHtml(item.case_name || "")}" role="button" tabindex="0">
+            <div class="case-profile-top">
+              <strong title="${escapeHtml(item.case_name || "")}">${escapeHtml(item.case_name || "-")}</strong>
+              ${isActive ? `<span class="status-pill ok case-active-pill">${icon("check")} ${t("case.active") || "Aktif"}</span>` : ""}
+            </div>
+            <small title="${escapeHtml(item.case_dir || "")}">${escapeHtml(item.case_dir || "")}</small>
+            <div class="case-profile-counts">
+              <span class="case-count-pill" title="${t("profile.caseImages") || "İmaj"}">${icon("disk")} ${item.output_count || 0}</span>
+              <span class="case-count-pill" title="RAM">${icon("ram")} ${item.ram_count || 0}</span>
+              <span class="case-count-pill" title="Android">${icon("android")} ${item.android_count || 0}</span>
+              <span class="case-count-pill" title="iOS">${icon("ios")} ${item.ios_count || 0}</span>
+              <span class="case-count-pill" title="Docker">${icon("docker")} ${item.docker_count || 0}</span>
+            </div>
+          </article>
+        `;
+      }).join("")
+    : `<div class="log-box">${t("profile.noCases")}</div>`;
+
   return `
-    <article class="settings-card settings-primary">
-      <span class="settings-kicker">${t("profile.onlineAccount")}</span>
-      <div class="profile-summary">
-        ${renderProfileAvatar(profile || { full_name: onlineName, username: online.username, online }, "large")}
-        <div>
-          <h3>${escapeHtml(onlineName || t("profile.noActive"))}</h3>
-          <p>@${escapeHtml(online.username || profile?.username || "-")}</p>
+    <section class="page profile-page">
+      ${pageTitle(t("profile.title"), "", "user", icon)}
+
+      <!-- 1. Büyük Yatay Profil Kartı -->
+      <div class="profile-hero-card">
+        <div class="profile-hero-avatar-wrap">
+          ${renderProfileAvatar(profile || { full_name: fullName, username, online }, "hero")}
+        </div>
+        <div class="profile-hero-content">
+          <div class="profile-hero-header">
+            <div class="profile-hero-identity">
+              <h2 class="profile-hero-fullname">${escapeHtml(fullName)}</h2>
+              <span class="profile-hero-username">@${escapeHtml(username)}</span>
+            </div>
+            <div class="profile-hero-status">
+              ${statusBadge}
+            </div>
+          </div>
+
+          <div class="profile-hero-meta">
+            ${email ? `<div class="profile-meta-item">${icon("mail")} <span>${escapeHtml(email)}</span></div>` : ""}
+            ${registeredDate ? `<div class="profile-meta-item">${icon("calendar")} <span>${t("profile.registeredAt") || "Kayıt Tarihi"}: ${escapeHtml(registeredDate)}</span></div>` : ""}
+            ${online?.last_sync_at ? `<div class="profile-meta-item">${icon("refresh")} <span>${t("profile.lastSync") || "Son Eşitleme"}: ${escapeHtml(online.last_sync_at)}</span></div>` : ""}
+          </div>
+
+          <div class="profile-hero-roles">
+            <div class="profile-roles-group">
+              <span class="profile-section-label">${t("profile.roles") || "Roller"}:</span>
+              <div class="profile-role-list">${rolesHtml}</div>
+            </div>
+            ${online ? `
+              <div class="profile-roles-group">
+                <span class="profile-section-label">${t("profile.license") || "Lisans"}:</span>
+                <span class="status-pill ${online.has_license ? "ok" : "warn"}">${licenseHtml}</span>
+              </div>
+              <div class="profile-roles-group">
+                <span class="profile-section-label">${t("profile.mobileAccess") || "Mobil Araçlar"}:</span>
+                <span class="status-pill ${mobileAllowed ? "ok" : "danger"}">${mobileAllowed ? (t("profile.mobileUnlocked") || "Açık") : (t("profile.mobileLocked") || "Kilitli")}</span>
+              </div>
+            ` : ""}
+          </div>
         </div>
       </div>
-      ${profilePreferenceRows(profile, state, t, escapeHtml)}
-      <div class="settings-row">
-        <strong>${t("profile.onlineStatus")}</strong>
-        ${statusBadge}
-      </div>
-      <div class="settings-row">
-        <strong>${t("profile.roles")}</strong>
-        <span class="role-list">${onlineRoleBadges(online, t, escapeHtml)}</span>
-      </div>
-      <div class="settings-row">
-        <strong>${t("profile.license")}</strong>
-        <span>${onlineLicenseText(online, t, escapeHtml)}</span>
-      </div>
-      <div class="settings-row">
-        <strong>${t("profile.mobileAccess")}</strong>
-        <span class="status-pill ${mobileAllowed ? "ok" : "danger"}">${mobileAllowed ? t("profile.mobileUnlocked") : t("profile.mobileLocked")}</span>
-      </div>
-      <div class="settings-row">
-        <strong>${t("profile.workedTypes")}</strong>
-        <span>${workedCaseTypesText(online, t, escapeHtml)}</span>
-      </div>
-      <div class="settings-row">
-        <strong>${t("profile.lastSync")}</strong>
-        <small>${escapeHtml(online.last_sync_at || "-")}</small>
-      </div>
-      <div class="button-row">
-        <button class="secondary-button" data-action="profile-new">${icon("user")} ${t("profile.newProfile")}</button>
-        <button class="secondary-button" data-action="profile-online-sync">${icon("refresh")} ${t("profile.onlineSync")}</button>
-        ${isExpired ? `<button class="primary-button" data-action="profile-online-start">${icon("globe")} ${t("profile.onlineLogin") || "Giriş Yap"}</button>` : ""}
-        <button class="danger-button" data-action="profile-online-logout">${icon("stop")} ${t("profile.onlineDisconnect")}</button>
-        <button class="danger-button" data-action="profile-logout">${icon("stop")} ${t("profile.logout")}</button>
-      </div>
-      ${profileActivityHtml(profile, t, icon, escapeHtml)}
-    </article>
-  `;
-}
 
-function onlineDisconnectedCard(t, icon) {
-  return `
-    <article class="settings-card">
-      <span class="settings-kicker">${t("profile.onlineAccount")}</span>
-      <h3>${t("profile.onlineDisconnected")}</h3>
-      <div class="settings-row">
-        <strong>${t("profile.onlineStatus")}</strong>
-        <span class="status-pill warn">${t("profile.onlineDisconnectedShort")}</span>
+      <!-- 2. Alttaki Yatay Aksiyon Barı -->
+      <div class="profile-action-bar">
+        <button class="secondary-button" data-action="profile-new">${icon("user-plus")} <span>${t("profile.newProfile")}</span></button>
+        ${online ? `<button class="secondary-button" data-action="profile-online-sync">${icon("refresh")} <span>${t("profile.onlineSync")}</span></button>` : ""}
+        ${isExpired ? `<button class="primary-button" data-action="profile-online-start">${icon("globe")} <span>${t("profile.onlineLogin") || "Giriş Yap"}</span></button>` : ""}
+        ${online ? `<button class="secondary-button btn-disconnect" data-action="profile-online-logout">${icon("unlink")} <span>${t("profile.onlineDisconnect")}</span></button>` : `<button class="primary-button" data-action="profile-online-start">${icon("globe")} <span>${t("profile.onlineConnect")}</span></button>`}
+        <button class="danger-button btn-logout" data-action="profile-logout">${icon("stop")} <span>${t("profile.logout")}</span></button>
       </div>
-      <div class="button-row">
-        <button class="primary-button" data-action="profile-online-start">${icon("globe")} ${t("profile.onlineConnect")}</button>
-      </div>
-    </article>
-  `;
-}
 
-function profilePreferenceRows(profile, state, t, escapeHtml) {
-  return `
-    <div class="settings-row">
-      <strong>${t("settings.language")}</strong>
-      <span>${profile?.language === "en" ? "English" : "Türkçe"}</span>
-    </div>
-    <div class="settings-row">
-      <strong>${t("profile.theme")}</strong>
-      <span>${profile?.theme === "light" ? t("profile.themeLight") : t("profile.themeDark")}</span>
-    </div>
-    <div class="settings-row">
-      <strong>${t("case.location")}</strong>
-      <small>${escapeHtml(state.caseBaseDir || "~/Amele/Kullanicilar/.../Vakalar")}</small>
-    </div>
+      <!-- 3. Vakalar (Cases) Ayrı Div Olarak Yan Yana Sütunlar -->
+      <div class="profile-cases-section">
+        <div class="profile-cases-header">
+          <div class="profile-cases-title-wrap">
+            <span class="settings-kicker">${t("profile.cases") || "VAKALAR"}</span>
+            <h3>${t("profile.caseTitle") || "Vaka Kütüphanesi"}</h3>
+          </div>
+          <span class="status-pill ok">${state.cases.length} ${t("profile.caseCountSuffix") || "Vaka"}</span>
+        </div>
+        <div class="profile-cases-grid">
+          ${caseCards}
+        </div>
+      </div>
+    </section>
   `;
 }
 
@@ -1548,6 +1528,17 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const caseProfileCard = event.target.closest(".case-profile-card[data-case-name]");
+  if (caseProfileCard) {
+    const caseName = caseProfileCard.dataset.caseName;
+    const matched = state.cases.find((c) => c.case_name === caseName);
+    if (matched && state.activeCase?.case_name !== caseName) {
+      state.activeCase = matched;
+      render();
+      return;
+    }
+  }
+
   const routeButton = event.target.closest("[data-route]");
   if (routeButton) {
     if (routeButton.dataset.tab) {
@@ -1824,6 +1815,8 @@ async function handleAction(button) {
   if (action === "profile-logout") {
     try {
       await apiRequest("/api/profiles/logout", { method: "POST" });
+      const profilesResp = await apiRequest("/api/profiles").catch(() => null);
+      state.profiles = Array.isArray(profilesResp?.profiles) ? profilesResp.profiles : [];
       state.activeProfile = null;
       state.activeCase = null;
       state.cases = [];

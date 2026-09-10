@@ -371,9 +371,14 @@ pub fn select_profile(username: &str, open_directly: bool) -> AmeleResult<LocalP
     Ok(profile)
 }
 
-/// Aktif oturumu kapatır ve sonraki açılışta profil seçimini zorlar.
+/// Aktif oturumu kapatır, profili profil deposundan tamamen kaldırır ve seçme ekranından siler.
 pub fn logout_profile() -> AmeleResult<()> {
     let mut store = load_profile_store()?;
+    if let Some(username) = store.active_username.clone() {
+        store.profiles.retain(|p| p.username != username);
+        let _ = remove_online_token(&username);
+        let _ = remove_online_api_base(&username);
+    }
     store.active_username = None;
     for profile in &mut store.profiles {
         profile.open_directly = false;

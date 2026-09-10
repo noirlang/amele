@@ -117,14 +117,11 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
 }
 
 
-export function pageTitle(title, desc, iconName, icon = defaultIcon) {
+export function pageTitle(title, _desc, iconName, icon = defaultIcon) {
   return `
     <div class="page-title">
-      <span class="card-icon">${icon(iconName)}</span>
-      <span>
-        <h1>${title}</h1>
-        <p>${desc}</p>
-      </span>
+      <span class="page-title-icon">${icon(iconName)}</span>
+      <h1 class="page-title-text">${title}</h1>
     </div>
   `;
 }
