@@ -279,7 +279,7 @@ export function renderContributors(contributors, t, icon, assetPath) {
     const avatarSrc = c.photo ? (c.photo.startsWith("http") ? c.photo : `${assetPath}/contributors/${c.photo}`) : `${assetPath}/contributors/melih-emik.jpg`;
     return `
       <article class="contributor-card">
-        <img class="avatar" src="${avatarSrc}" alt="${c.name}" onerror="this.src='${assetPath}/contributors/melih-emik.jpg'" />
+        <img class="avatar" src="${avatarSrc}" alt="${c.name}" draggable="false" onerror="this.src='${assetPath}/contributors/melih-emik.jpg'" />
         <h3>${c.name}</h3>
         <p>${roleText}</p>
         <div class="social-row" aria-label="${c.name} bağlantıları">
@@ -307,7 +307,7 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath, theme, state }) {
         </div>
 
         <div class="about-hero-center">
-          <img class="about-hero-logo" src="${assetPath}/logo/${logoFile}" alt="Amele logo" />
+          <img class="about-hero-logo" src="${assetPath}/logo/${logoFile}" alt="Amele logo" draggable="false" />
         </div>
 
         <div class="about-hero-right">
@@ -366,7 +366,7 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath, theme, state }) {
       </div>
 
       <div class="company-logo-card">
-        <img src="${assetPath}/logo/sirket.png" alt="Şirket logosu" />
+        <img class="company-logo-img" src="${assetPath}/logo/sirket.png" alt="Şirket logosu" draggable="false" />
       </div>
     </section>
   `;

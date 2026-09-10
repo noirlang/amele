@@ -49,6 +49,7 @@ function _installBrandClickCounter(apiRequest, backendReady) {
   document.addEventListener("click", (e) => {
     const logo = e.target.closest("#brand-logo");
     if (!logo) return;
+    try { window.getSelection()?.removeAllRanges(); } catch (_) {}
 
     clickCount++;
     if (clickTimer) clearTimeout(clickTimer);

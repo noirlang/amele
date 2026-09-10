@@ -233,7 +233,6 @@ code {
 
 .action-tile,
 .forensic-card,
-.brand-mark,
 .workflow-panel,
 .side-panel,
 .status-strip,
@@ -272,7 +271,6 @@ code {
 
 .action-tile::before,
 .forensic-card::before,
-.brand-mark::before,
 .sidebar-toggle::before,
 .workflow-panel::before,
 .side-panel::before,
@@ -386,7 +384,6 @@ code {
 
 .action-tile > *,
 .forensic-card > *,
-.brand-mark > *,
 .sidebar-toggle > *,
 .workflow-panel > *,
 .side-panel > *,
@@ -407,13 +404,17 @@ code {
   z-index: 3;
 }
 
+.brand-mark::before,
+.brand-mark::after {
+  display: none !important;
+  content: none !important;
+}
+
 /* ── HOVER: cream LED glow (panels) ────────────────────────────── */
 
 .action-tile:hover::before,
 .forensic-card:hover::before,
-.brand-mark:hover::before,
 .sidebar-toggle:hover::before,
-.brand-mark:focus-visible::before,
 .sidebar-toggle:focus-visible::before,
 .workflow-panel:hover::before,
 .side-panel:hover::before,
@@ -449,9 +450,7 @@ code {
 
 .action-tile:hover,
 .forensic-card:hover,
-.brand-mark:hover,
 .sidebar-toggle:hover,
-.brand-mark:focus-visible,
 .sidebar-toggle:focus-visible,
 .workflow-panel:hover,
 .side-panel:hover,

@@ -1370,6 +1370,30 @@ function requireActiveConnection(workflow, payload) {
   return true;
 }
 
+// Prevent image drag and accidental selection highlight artifacts across chrome/sidebar/brand
+document.addEventListener("dragstart", (event) => {
+  if (event.target.tagName === "IMG" || event.target.closest(".sidebar, .brand-row, .about-hero")) {
+    event.preventDefault();
+  }
+});
+
+document.addEventListener("selectstart", (event) => {
+  if (event.target.closest(".brand-mark, .sidebar-head, .brand-row, .sidebar-toggle, .about-hero-center")) {
+    event.preventDefault();
+  }
+});
+
+document.addEventListener("mouseover", (event) => {
+  if (event.target.closest(".brand-mark, .sidebar-toggle")) {
+    try {
+      const sel = window.getSelection();
+      if (sel && sel.toString() === "" && sel.rangeCount > 0) {
+        sel.removeAllRanges();
+      }
+    } catch (_) {}
+  }
+});
+
 document.addEventListener("click", async (event) => {
   const externalLink = event.target.closest("a[href]");
   if (externalLink && isExternalUrl(externalLink.href)) {
