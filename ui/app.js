@@ -196,6 +196,10 @@ function setSidebarCollapsed(collapsed) {
   try {
     localStorage.setItem("amele-sidebar-collapsed", state.sidebarCollapsed ? "1" : "0");
   } catch (_) {}
+  if (state.activeProfile) {
+    state.activeProfile.sidebarCollapsed = state.sidebarCollapsed;
+    upsertProfile(state.activeProfile);
+  }
   syncSidebarState();
 }
 
@@ -282,6 +286,9 @@ async function loadProfiles() {
     if (state.activeProfile) {
       if (!urlParams.get("lang")) setLanguage(state.activeProfile.language === "en" ? "en" : "tr");
       if (!urlParams.get("theme")) setTheme(state.activeProfile.theme === "light" ? "light" : "dark");
+      if (typeof state.activeProfile.sidebarCollapsed === "boolean") {
+        setSidebarCollapsed(state.activeProfile.sidebarCollapsed);
+      }
       state.mobileToolsAccess = cachedMobileToolsAccess(state.activeProfile);
       hideProfileGate();
     } else {
@@ -688,6 +695,7 @@ function mobileToolsLockedPage({ t, icon, pageTitle }) {
 
 function render() {
   if (state.isDevConsole) return;
+  syncSidebarState();
   const activeGroup = routeGroup(state.route);
   const mobileAllowed = onlineMobileToolsAllowed();
 

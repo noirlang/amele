@@ -89,16 +89,22 @@ pub fn run_browser() -> Result<(), String> {
 /// Rastgele boş localhost portunda UI backend thread'ini başlatır.
 fn start_background() -> Result<String, String> {
     validate_ui_assets()?;
-    let bind_addr = match std::env::var("AMELE_PORT") {
-        Ok(port_str) => match port_str.trim().parse::<u16>() {
+    let listener = if let Ok(port_str) = std::env::var("AMELE_PORT") {
+        let addr = match port_str.trim().parse::<u16>() {
             Ok(port) => format!("127.0.0.1:{port}"),
             Err(_) => "127.0.0.1:0".to_string(),
-        },
-        Err(_) => "127.0.0.1:0".to_string(),
+        };
+        TcpListener::bind(&addr).map_err(|err| {
+            crate::diagnostics::startup_error("Yerel UI backend portu acilamadi.", &err.to_string())
+        })?
+    } else {
+        let default_addr = format!("127.0.0.1:{}", crate::settings::DEFAULT_PORT);
+        TcpListener::bind(&default_addr)
+            .or_else(|_| TcpListener::bind("127.0.0.1:0"))
+            .map_err(|err| {
+                crate::diagnostics::startup_error("Yerel UI backend portu acilamadi.", &err.to_string())
+            })?
     };
-    let listener = TcpListener::bind(&bind_addr).map_err(|err| {
-        crate::diagnostics::startup_error("Yerel UI backend portu acilamadi.", &err.to_string())
-    })?;
     let addr = listener.local_addr().map_err(|err| {
         crate::diagnostics::startup_error("Yerel UI backend adresi okunamadi.", &err.to_string())
     })?;
