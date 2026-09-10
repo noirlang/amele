@@ -337,7 +337,7 @@ function renderProfileGate(errorMessage = "") {
       </span>
       <strong>${escapeHtml(profile.full_name || profile.username)}</strong>
       <small>@${escapeHtml(profile.username)}</small>
-      ${profile.online ? `<small class="profile-card-status">${icon("globe")} ${t("profile.onlineAccount")} @${escapeHtml(profile.online.username || "-")}</small>` : ""}
+      ${profile.online ? `<small class="profile-card-status">${icon("globe")} ${profile.online.status === "offline" ? "Offline" : (profile.online.status === "session_expired" ? "Offline (Oturum Doldu)" : t("profile.onlineAccount"))} @${escapeHtml(profile.online.username || "-")}</small>` : ""}
     </button>
   `).join("");
   profileGate.innerHTML = `
@@ -499,7 +499,12 @@ function renderProfileAvatar(profile, extraClass = "") {
 
 function syncProfileButton() {
   const label = document.querySelector("[data-profile-label]");
-  if (label) label.textContent = state.activeProfile?.display_name || t("profile.button");
+  if (label) {
+    const name = state.activeProfile?.display_name || t("profile.button");
+    const online = state.activeProfile?.online;
+    const isOffline = online && (online.status === "offline" || online.status === "session_expired" || (typeof navigator !== "undefined" && !navigator.onLine));
+    label.textContent = isOffline ? `${name} (Offline)` : name;
+  }
   const button = document.querySelector(".profile-action");
   if (button && state.activeProfile) {
     const avatarEl = button.querySelector(".profile-avatar, [data-icon='user']");
@@ -610,20 +615,73 @@ async function connectOnlineProfileFromGate() {
   showToast(t("profile.onlineConnected"), "success");
 }
 
-async function syncOnlineProfile(button) {
-  button.disabled = true;
+async function syncOnlineProfile(button, silent = false) {
+  if (button) button.disabled = true;
   try {
+    const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+    if (isOffline) {
+      if (state.activeProfile?.online) {
+        state.activeProfile.online.status = "offline";
+        syncProfileButton();
+        render();
+      }
+      if (!silent) {
+        showToast(
+          state.language === "tr"
+            ? "İnternet bağlantısı yok. Hesap çevrimdışı (offline) modda kullanılıyor."
+            : "No internet connection. Account is running in offline mode.",
+          "info"
+        );
+      }
+      return;
+    }
+
     const result = await apiRequest("/api/profiles/online-sync", { method: "POST" });
-    state.activeProfile = result.profile;
-    upsertProfile(result.profile);
-    state.mobileToolsAccess = result.access || { allowed: false, reason: "" };
+    if (result.profile) {
+      state.activeProfile = result.profile;
+      upsertProfile(result.profile);
+    }
+    state.mobileToolsAccess = result.access || cachedMobileToolsAccess(state.activeProfile);
     syncProfileButton();
     render();
-    showToast(t("profile.onlineSynced"), "success");
+
+    if (result.status === "online" || result.ok) {
+      if (!silent) showToast(t("profile.onlineSynced"), "success");
+    } else if (result.session_expired || result.status === "session_expired") {
+      if (!silent) {
+        showToast(
+          state.language === "tr"
+            ? "Online oturum süresi dolmuş. Hesap çevrimdışı (offline) modda çalışıyor. Yeniden giriş yapabilirsiniz."
+            : "Online session has expired. Account is running in offline mode. You can log in again.",
+          "warn"
+        );
+      }
+    } else {
+      if (!silent) {
+        showToast(
+          state.language === "tr"
+            ? "Sunucuya ulaşılamadı. Hesap çevrimdışı (offline) modda kullanılıyor."
+            : "Server unreachable. Account is running in offline mode.",
+          "info"
+        );
+      }
+    }
   } catch (error) {
-    showToast(t("profile.onlineSyncFailed", { message: error.message }), "error");
+    if (state.activeProfile?.online) {
+      state.activeProfile.online.status = "offline";
+      syncProfileButton();
+      render();
+    }
+    if (!silent) {
+      showToast(
+        state.language === "tr"
+          ? "Sunucuya ulaşılamadı. Hesap çevrimdışı (offline) modda kullanılıyor."
+          : "Server unreachable. Account is running in offline mode.",
+        "warn"
+      );
+    }
   } finally {
-    button.disabled = false;
+    if (button) button.disabled = false;
   }
 }
 
@@ -957,6 +1015,20 @@ function localAccountCard(profile, state, t, icon, escapeHtml) {
 function onlineAccountCard(profile, online, state, t, icon, escapeHtml) {
   const mobileAllowed = onlineMobileToolsAllowed();
   const onlineName = onlineDisplayName(online);
+  const isBrowserOffline = typeof navigator !== "undefined" && !navigator.onLine;
+  const status = isBrowserOffline ? "offline" : (online?.status || "offline");
+  const isOnline = status === "online";
+  const isExpired = status === "session_expired";
+
+  let statusBadge = "";
+  if (isOnline) {
+    statusBadge = `<span class="status-pill ok">${icon("check")} ${t("profile.onlineConnectedShort") || "Online"}</span>`;
+  } else if (isExpired) {
+    statusBadge = `<span class="status-pill danger" title="${t("profile.sessionExpiredHint") || "Online oturum süresi doldu"}">${icon("alert-circle")} Offline (${t("profile.sessionExpiredShort") || "Oturum Doldu"})</span>`;
+  } else {
+    statusBadge = `<span class="status-pill warn">${icon("shield")} Offline</span>`;
+  }
+
   return `
     <article class="settings-card settings-primary">
       <span class="settings-kicker">${t("profile.onlineAccount")}</span>
@@ -970,7 +1042,7 @@ function onlineAccountCard(profile, online, state, t, icon, escapeHtml) {
       ${profilePreferenceRows(profile, state, t, escapeHtml)}
       <div class="settings-row">
         <strong>${t("profile.onlineStatus")}</strong>
-        <span class="status-pill ok">${t("profile.onlineConnectedShort")}</span>
+        ${statusBadge}
       </div>
       <div class="settings-row">
         <strong>${t("profile.roles")}</strong>
@@ -995,6 +1067,7 @@ function onlineAccountCard(profile, online, state, t, icon, escapeHtml) {
       <div class="button-row">
         <button class="secondary-button" data-action="profile-new">${icon("user")} ${t("profile.newProfile")}</button>
         <button class="secondary-button" data-action="profile-online-sync">${icon("refresh")} ${t("profile.onlineSync")}</button>
+        ${isExpired ? `<button class="primary-button" data-action="profile-online-start">${icon("globe")} ${t("profile.onlineLogin") || "Giriş Yap"}</button>` : ""}
         <button class="danger-button" data-action="profile-online-logout">${icon("stop")} ${t("profile.onlineDisconnect")}</button>
         <button class="danger-button" data-action="profile-logout">${icon("stop")} ${t("profile.logout")}</button>
       </div>
@@ -4267,6 +4340,18 @@ async function bootApp() {
   // Background network tasks and timers (only in real browser / webview, not during Node unit tests)
   const isNodeTest = typeof process !== "undefined" && Boolean(process.versions?.node);
   if (!isNodeTest) {
+    // Online profil kontrolü & otomatik senkronizasyon:
+    // İnternet bağlıysa token geçerliliğini test edip senkronize et,
+    // internet yoksa hesabı offline modda tut.
+    if (state.activeProfile?.online) {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        state.activeProfile.online.status = "offline";
+        syncProfileButton();
+      } else {
+        syncOnlineProfile(null, true).catch(() => {});
+      }
+    }
+
     // Load latest GitHub contributors in background
     loadGitHubContributors().catch(() => {});
 
@@ -4426,6 +4511,16 @@ function startNewsCarouselTimer() {
   });
   window.addEventListener("online", () => {
     loadNewsAnnouncements(true).catch(() => {});
+    if (state.activeProfile?.online) {
+      syncOnlineProfile(null, true).catch(() => {});
+    }
+  });
+  window.addEventListener("offline", () => {
+    if (state.activeProfile?.online) {
+      state.activeProfile.online.status = "offline";
+      syncProfileButton();
+      render();
+    }
   });
 }
 

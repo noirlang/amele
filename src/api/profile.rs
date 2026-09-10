@@ -121,10 +121,23 @@ pub fn profile_online_login_endpoint(body: &[u8]) -> Response {
 /// Aktif online profil bilgilerini site API'sinden yeniler.
 pub fn profile_online_sync_endpoint() -> Response {
     match crate::profile::sync_active_online_profile() {
-        Ok(profile) => json_ok(json!({
-            "profile": profile,
-            "access": crate::profile::mobile_tools_access(),
-        })),
+        Ok(profile) => {
+            let status = profile
+                .online
+                .as_ref()
+                .and_then(|o| o.status.clone())
+                .unwrap_or_else(|| "offline".to_string());
+            let is_offline = status == "offline";
+            let is_expired = status == "session_expired";
+            json_ok(json!({
+                "ok": status == "online",
+                "status": status,
+                "offline": is_offline || is_expired,
+                "session_expired": is_expired,
+                "profile": profile,
+                "access": crate::profile::mobile_tools_access(),
+            }))
+        }
         Err(err) => json_error(400, err.to_string()),
     }
 }
