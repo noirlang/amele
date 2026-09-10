@@ -102,7 +102,10 @@ fn start_background() -> Result<String, String> {
         TcpListener::bind(&default_addr)
             .or_else(|_| TcpListener::bind("127.0.0.1:0"))
             .map_err(|err| {
-                crate::diagnostics::startup_error("Yerel UI backend portu acilamadi.", &err.to_string())
+                crate::diagnostics::startup_error(
+                    "Yerel UI backend portu acilamadi.",
+                    &err.to_string(),
+                )
             })?
     };
     let addr = listener.local_addr().map_err(|err| {
