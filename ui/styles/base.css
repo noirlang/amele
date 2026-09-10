@@ -2219,12 +2219,23 @@ code {
   text-align: center;
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.about-hero-version-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
 .about-hero-version {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  margin-top: 14px;
   font-family: var(--mono);
   font-size: 13px;
   font-weight: 600;
@@ -2234,6 +2245,46 @@ code {
   padding: 3px 12px;
   border-radius: 999px;
   letter-spacing: 0.03em;
+}
+
+.about-version-check-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  padding: 0;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.about-version-check-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #fff;
+  transform: scale(1.08);
+}
+
+.about-version-check-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+}
+
+.about-version-check-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.about-version-check-btn.is-checking .about-version-check-icon svg {
+  animation: spin 0.8s linear infinite;
 }
 
 .about-hero-center {
@@ -2340,6 +2391,18 @@ code {
   color: rgba(38, 33, 24, 0.7);
   background: rgba(38, 33, 24, 0.04);
   border-color: rgba(38, 33, 24, 0.14);
+}
+
+.theme-light .about-version-check-btn {
+  color: rgba(38, 33, 24, 0.7);
+  background: rgba(38, 33, 24, 0.04);
+  border-color: rgba(38, 33, 24, 0.14);
+}
+
+.theme-light .about-version-check-btn:hover {
+  background: rgba(38, 33, 24, 0.09);
+  border-color: rgba(38, 33, 24, 0.32);
+  color: #1a1610;
 }
 
 .theme-light .about-hero-logo {
@@ -2832,8 +2895,9 @@ svg.svg-fill path {
     grid-template-columns: 1fr;
   }
 
-  .shell.sidebar-collapsed {
-    grid-template-columns: 1fr;
+  .shell.sidebar-collapsed,
+  html.sidebar-collapsed .shell {
+    grid-template-columns: 80px 1fr !important;
   }
 
   .sidebar {
@@ -2847,22 +2911,32 @@ svg.svg-fill path {
   }
 
   .sidebar-collapsed .sidebar {
-    align-items: stretch;
-    padding: 12px;
+    position: static !important;
+    min-height: 100vh !important;
+    width: 80px !important;
+    min-width: 80px !important;
+    max-width: 80px !important;
+    padding: 20px 8px !important;
+    align-items: center !important;
+    border-right: 1px solid var(--line) !important;
+    border-bottom: 0 !important;
   }
 
   .sidebar-collapsed .brand-row {
-    flex-direction: row;
-    justify-content: space-between;
-    width: auto;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 10px !important;
+    width: 100% !important;
+    padding: 0 !important;
   }
 
   .sidebar-collapsed .sidebar-collapse-toggle {
-    display: inline-grid;
+    display: none !important;
   }
 
   .sidebar-collapsed .sidebar-expand-toggle {
-    display: none;
+    display: inline-grid !important;
   }
 
   .side-nav {
@@ -2871,8 +2945,12 @@ svg.svg-fill path {
   }
 
   .sidebar-collapsed .side-nav {
-    grid-template-columns: repeat(3, 1fr);
-    margin-top: 12px;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 10px !important;
+    margin-top: 36px !important;
+    width: 100% !important;
   }
 
   .nav-item {
@@ -2884,18 +2962,33 @@ svg.svg-fill path {
   }
 
   .sidebar-collapsed .nav-item {
-    width: auto;
-    height: auto;
-    min-height: 48px;
-    padding: 10px;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    place-items: center !important;
+    width: 48px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    max-width: 48px !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    margin: 0 auto !important;
+    border-radius: 14px !important;
+  }
+
+  .sidebar-collapsed .nav-item span[data-icon] {
+    grid-area: 1 / 1 !important;
+    width: 22px !important;
+    height: 22px !important;
+    min-width: 22px !important;
+    margin: 0 !important;
   }
 
   .sidebar-collapsed .nav-item span[data-i18n] {
-    display: inline;
-    max-width: none;
-    opacity: 1;
-    pointer-events: auto;
-    transform: none;
+    display: none !important;
+    max-width: 0 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: none !important;
   }
 
   .sidebar-footer {

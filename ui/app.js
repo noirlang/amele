@@ -2440,6 +2440,70 @@ async function handleAction(button) {
     return;
   }
 
+  if (action === "about-check-update") {
+    button.classList.add("is-checking");
+    const lang = state.language || "en";
+    const isTr = lang === "tr";
+    try {
+      let result = null;
+      if (backendReady()) {
+        try {
+          result = await apiRequest("/api/update-check");
+        } catch (_) {}
+      }
+      if (!result || (!result.tag_name && !result.name)) {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 7000);
+        const res = await fetch(
+          "https://api.github.com/repos/noirlang/amele/releases/latest",
+          { signal: controller.signal, headers: { Accept: "application/vnd.github+json" } }
+        );
+        clearTimeout(tid);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        result = await res.json();
+      }
+
+      state.latestUpdate = result;
+      const latestTag = (result.tag_name || result.name || "").trim();
+      const releaseUrl = result.html_url || "https://github.com/noirlang/amele/releases/latest";
+
+      const parseVer = (v) => v.replace(/^v/i, "").split("-")[0].split(".").map(Number);
+      const [cMaj, cMin, cPatch] = parseVer(APP_VERSION);
+      const [lMaj, lMin, lPatch] = parseVer(latestTag);
+      const hasUpdate =
+        lMaj > cMaj ||
+        (lMaj === cMaj && lMin > cMin) ||
+        (lMaj === cMaj && lMin === cMin && lPatch > cPatch);
+
+      if (hasUpdate) {
+        showToast(
+          isTr
+            ? `🚀 Yeni sürüm mevcut: ${latestTag}! (Mevcut: ${APP_VERSION})`
+            : `🚀 New update available: ${latestTag}! (Current: ${APP_VERSION})`,
+          "success"
+        );
+        showUpdateToast({ latestTag, releaseUrl, isTr });
+      } else {
+        showToast(
+          isTr
+            ? `✓ Amele güncel! En son sürümü kullanıyorsunuz (${APP_VERSION}).`
+            : `✓ Amele is up to date! You are on the latest release (${APP_VERSION}).`,
+          "info"
+        );
+      }
+    } catch (error) {
+      showToast(
+        isTr
+          ? `Güncelleme kontrolü başarısız: ${error.message}`
+          : `Update check failed: ${error.message}`,
+        "error"
+      );
+    } finally {
+      setTimeout(() => button.classList.remove("is-checking"), 600);
+    }
+    return;
+  }
+
   if (action === "check-update") {
     try {
       setStatus("[data-update-status]", `${icon("refresh")} ${t("settings.updateChecked")}`);

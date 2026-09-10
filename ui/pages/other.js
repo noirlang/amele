@@ -302,7 +302,12 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath, theme, state }) {
               <span>Forensic</span>
               <span>Tool</span>
             </h1>
-            <span class="about-hero-version">${APP_VERSION.startsWith("v") ? APP_VERSION : `v${APP_VERSION}`}</span>
+            <div class="about-hero-version-row">
+              <span class="about-hero-version">${APP_VERSION.startsWith("v") ? APP_VERSION : `v${APP_VERSION}`}</span>
+              <button class="about-version-check-btn" data-action="about-check-update" aria-label="${t("settings.checkUpdate") || "Güncellemeleri kontrol et"}" title="${t("settings.checkUpdate") || "Güncellemeleri kontrol et"}">
+                <span class="about-version-check-icon">${icon("refresh")}</span>
+              </button>
+            </div>
           </div>
         </div>
 
