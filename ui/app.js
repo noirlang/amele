@@ -980,13 +980,25 @@ function profilePage({ t, icon, state, pageTitle, escapeHtml }) {
 
   let statusBadge = "";
   if (!online) {
-    statusBadge = `<span class="status-pill warn">${icon("user")} ${t("profile.localAccount") || "Yerel Profil"}</span>`;
+    statusBadge = `
+      <span class="status-pill ok case-active-pill">${icon("check")} ${t("profile.active") || "Aktif"}</span>
+      <span class="status-pill warn">${icon("user")} ${t("profile.localAccount") || "Yerel Profil"}</span>
+    `;
   } else if (isOnline) {
-    statusBadge = `<span class="status-pill ok">${icon("check")} ${t("profile.onlineConnectedShort") || "Online"}</span>`;
+    statusBadge = `
+      <span class="status-pill ok case-active-pill">${icon("check")} ${t("profile.active") || "Aktif"}</span>
+      <span class="status-pill ok">${icon("globe")} ${t("profile.onlineConnectedShort") || "Online"}</span>
+    `;
   } else if (isExpired) {
-    statusBadge = `<span class="status-pill danger" title="${t("profile.sessionExpiredHint") || "Online oturum süresi doldu"}">${icon("alert-circle")} Offline (${t("profile.sessionExpiredShort") || "Oturum Doldu"})</span>`;
+    statusBadge = `
+      <span class="status-pill ok case-active-pill">${icon("check")} ${t("profile.active") || "Aktif"}</span>
+      <span class="status-pill danger" title="${t("profile.sessionExpiredHint") || "Online oturum süresi doldu"}">${icon("alert-circle")} Offline (${t("profile.sessionExpiredShort") || "Oturum Doldu"})</span>
+    `;
   } else {
-    statusBadge = `<span class="status-pill warn">${icon("shield")} Offline</span>`;
+    statusBadge = `
+      <span class="status-pill ok case-active-pill">${icon("check")} ${t("profile.active") || "Aktif"}</span>
+      <span class="status-pill warn">${icon("shield")} Offline</span>
+    `;
   }
 
   const rolesHtml = online
@@ -1032,11 +1044,13 @@ function profilePage({ t, icon, state, pageTitle, escapeHtml }) {
         <div class="profile-hero-content">
           <div class="profile-hero-header">
             <div class="profile-hero-identity">
-              <h2 class="profile-hero-fullname">${escapeHtml(fullName)}</h2>
+              <div class="profile-hero-title-row">
+                <h2 class="profile-hero-fullname">${escapeHtml(fullName)}</h2>
+                <div class="profile-hero-status">
+                  ${statusBadge}
+                </div>
+              </div>
               <span class="profile-hero-username">@${escapeHtml(username)}</span>
-            </div>
-            <div class="profile-hero-status">
-              ${statusBadge}
             </div>
           </div>
 

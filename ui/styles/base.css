@@ -365,7 +365,7 @@
 
 .profile-hero-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
@@ -374,6 +374,21 @@
 .profile-hero-identity {
   display: flex;
   flex-direction: column;
+  gap: 4px;
+}
+
+.profile-hero-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.profile-hero-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .profile-hero-fullname {
@@ -558,6 +573,61 @@
   white-space: nowrap;
 }
 
+.case-active-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4.5px !important;
+  padding: 2.5px 8.5px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  border-radius: 999px !important;
+  background: rgba(46, 204, 113, 0.12) !important;
+  border: 1px solid rgba(46, 204, 113, 0.45) !important;
+  color: #2ecc71 !important;
+  flex-shrink: 0 !important;
+  vertical-align: middle !important;
+}
+
+.case-active-pill svg {
+  width: 11px !important;
+  height: 11px !important;
+  min-width: 11px !important;
+  min-height: 11px !important;
+  stroke: #2ecc71 !important;
+  stroke-width: 2.6 !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+  flex-shrink: 0 !important;
+}
+
+.status-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  width: fit-content;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 9px !important;
+  font-size: 11.5px !important;
+  font-weight: 700;
+  line-height: 1 !important;
+  vertical-align: middle;
+}
+
+.status-pill svg {
+  width: 12px !important;
+  height: 12px !important;
+  min-width: 12px !important;
+  min-height: 12px !important;
+  stroke-width: 2.2 !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+  flex-shrink: 0 !important;
+}
+
 .case-profile-card small {
   color: var(--muted);
   font-size: 12px;
@@ -646,6 +716,16 @@
   border-color: rgba(38, 33, 24, 0.5);
   background: #fdfaf4;
   box-shadow: 0 4px 16px rgba(38, 33, 24, 0.08);
+}
+
+.theme-light .case-active-pill {
+  background: rgba(39, 174, 96, 0.1) !important;
+  border-color: rgba(39, 174, 96, 0.35) !important;
+  color: #27ae60 !important;
+}
+
+.theme-light .case-active-pill svg {
+  stroke: #27ae60 !important;
 }
 
 .theme-light .case-count-pill {
