@@ -177,9 +177,16 @@ function setLanguage(language) {
 }
 
 function syncBrandLogo() {
+  const isLight = state.theme === "light";
+  const logoPath = isLight ? "./assets/logo/logo-siyah.png" : "./assets/logo/logo.png";
   const brandImg = document.querySelector("#brand-logo-img");
-  if (!brandImg) return;
-  brandImg.src = state.theme === "light" ? "./assets/logo/logo-siyah.png" : "./assets/logo/logo.png";
+  if (brandImg) {
+    brandImg.src = logoPath;
+  }
+  const aboutLogo = document.querySelector(".about-hero-logo");
+  if (aboutLogo) {
+    aboutLogo.src = logoPath;
+  }
 }
 
 function syncSidebarState() {
@@ -1767,6 +1774,7 @@ async function handleAction(button) {
 
   if (action === "theme-toggle") {
     setTheme(state.theme === "dark" ? "light" : "dark");
+    render();
     try {
       await persistSettingsFromControls();
     } catch (error) {

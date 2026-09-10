@@ -571,6 +571,11 @@ html.sidebar-collapsed .shell {
   box-shadow: 0 12px 26px rgba(38, 33, 24, 0.12);
 }
 
+.theme-light .brand-mark:hover {
+  border-color: rgba(38, 33, 24, 0.38);
+  box-shadow: 0 4px 18px rgba(38, 33, 24, 0.16), 0 12px 26px rgba(38, 33, 24, 0.14);
+}
+
 .sidebar-toggle {
   display: inline-grid;
   place-items: center;
@@ -2322,6 +2327,47 @@ code {
   height: 100%;
 }
 
+.theme-light .about-hero {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(38, 33, 24, 0.02), transparent 60%),
+    linear-gradient(145deg, rgba(38, 33, 24, 0.03), rgba(38, 33, 24, 0.01)),
+    #fcfbf7;
+  border-color: rgba(38, 33, 24, 0.16);
+  box-shadow: 0 12px 32px rgba(38, 33, 24, 0.08);
+}
+
+.theme-light .about-hero-version {
+  color: rgba(38, 33, 24, 0.7);
+  background: rgba(38, 33, 24, 0.04);
+  border-color: rgba(38, 33, 24, 0.14);
+}
+
+.theme-light .about-hero-logo {
+  filter: drop-shadow(0 4px 14px rgba(38, 33, 24, 0.14)) drop-shadow(0 1px 3px rgba(38, 33, 24, 0.08));
+}
+
+.theme-light .about-hero-logo:hover {
+  transform: scale(1.08);
+  filter: drop-shadow(0 10px 28px rgba(38, 33, 24, 0.26)) drop-shadow(0 2px 8px rgba(38, 33, 24, 0.16));
+}
+
+.theme-light .about-feature-chip {
+  background: rgba(38, 33, 24, 0.04);
+  border-color: rgba(38, 33, 24, 0.14);
+  color: var(--text);
+}
+
+.theme-light .about-feature-chip:hover {
+  background: rgba(38, 33, 24, 0.08);
+  border-color: rgba(38, 33, 24, 0.35);
+  color: #1a1610;
+  box-shadow: 0 4px 14px rgba(38, 33, 24, 0.12);
+}
+
+.theme-light .about-feature-chip .about-feature-icon {
+  color: rgba(38, 33, 24, 0.75);
+}
+
 .capability-grid,
 .contributor-grid {
   display: grid;
@@ -2462,6 +2508,53 @@ code {
 .company-logo-img:hover {
   transform: scale(1.08);
   filter: drop-shadow(0 0 35px rgba(255, 255, 255, 0.85)) drop-shadow(0 0 14px rgba(255, 255, 255, 0.55));
+}
+
+.theme-light .contributor-card {
+  background:
+    linear-gradient(145deg, rgba(38, 33, 24, 0.02), rgba(38, 33, 24, 0.005)),
+    #fdfbf7;
+  border-color: rgba(38, 33, 24, 0.12);
+}
+
+.theme-light .contributor-card:hover {
+  border-color: rgba(38, 33, 24, 0.28);
+  box-shadow: 0 8px 24px rgba(38, 33, 24, 0.12);
+}
+
+.theme-light .social-button {
+  background: rgba(38, 33, 24, 0.04);
+  border-color: rgba(38, 33, 24, 0.12);
+  color: var(--text);
+}
+
+.theme-light .social-button:hover,
+.theme-light .social-button:focus-visible {
+  border-color: rgba(38, 33, 24, 0.28);
+  background: rgba(38, 33, 24, 0.08);
+  color: #1a1610;
+}
+
+.theme-light .company-logo-card {
+  background: rgba(38, 33, 24, 0.03);
+  border-color: rgba(38, 33, 24, 0.14);
+}
+
+.theme-light .company-logo-card:hover {
+  background: rgba(38, 33, 24, 0.06);
+  border-color: rgba(38, 33, 24, 0.25);
+}
+
+.theme-light .company-logo-card img,
+.theme-light .company-logo-img {
+  filter: invert(0.9) drop-shadow(0 4px 14px rgba(38, 33, 24, 0.14));
+}
+
+.theme-light .company-logo-card:hover img,
+.theme-light .company-logo-card img:hover,
+.theme-light .company-logo-img:hover {
+  transform: scale(1.08);
+  filter: invert(0.9) drop-shadow(0 10px 28px rgba(38, 33, 24, 0.26)) drop-shadow(0 2px 8px rgba(38, 33, 24, 0.16));
 }
 
 .toast {
