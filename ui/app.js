@@ -33,7 +33,7 @@ if (isNativeLinux) document.documentElement.classList.add("native-linux");
 const app = document.querySelector("#app");
 const view = document.querySelector("#view");
 const profileGate = document.querySelector("#profile-gate");
-const preferredLanguage = localStorage.getItem("amele-language") || "en";
+const preferredLanguage = ["tr", "en"].includes(urlParams.get("lang") || "") ? urlParams.get("lang") : localStorage.getItem("amele-language") || "en";
 const requestedTheme = urlParams.get("theme");
 const preferredTheme = ["dark", "light"].includes(requestedTheme || "") ? requestedTheme : localStorage.getItem("amele-theme") || "dark";
 const preferredSidebarCollapsed = localStorage.getItem("amele-sidebar-collapsed") === "1";
@@ -62,7 +62,7 @@ const state = {
   news: safeJsonParse(localStorage.getItem("amele_news_cache"))?.items || [],
   activeNewsIndex: 0,
   files: {},
-  activeTab: "hash",
+  activeTab: urlParams.get("tab") || "hash",
   approvedSecurityKey: "",
   remoteConnections: {},
   activeAcquisition: null,
@@ -201,8 +201,8 @@ function setSidebarCollapsed(collapsed) {
 
 function applyPersistedSettings(settings) {
   if (!settings || typeof settings !== "object") return;
-  setLanguage(settings.dil === "en" ? "en" : "tr");
-  setTheme(settings.karanlik_tema ? "dark" : "light");
+  if (!urlParams.get("lang")) setLanguage(settings.dil === "en" ? "en" : "tr");
+  if (!urlParams.get("theme")) setTheme(settings.karanlik_tema ? "dark" : "light");
 }
 
 async function loadPersistedSettings() {
@@ -280,8 +280,8 @@ async function loadProfiles() {
     state.profiles = Array.isArray(result.profiles) ? result.profiles : [];
     state.activeProfile = result.active_profile || null;
     if (state.activeProfile) {
-      setLanguage(state.activeProfile.language === "en" ? "en" : "tr");
-      setTheme(state.activeProfile.theme === "light" ? "light" : "dark");
+      if (!urlParams.get("lang")) setLanguage(state.activeProfile.language === "en" ? "en" : "tr");
+      if (!urlParams.get("theme")) setTheme(state.activeProfile.theme === "light" ? "light" : "dark");
       state.mobileToolsAccess = cachedMobileToolsAccess(state.activeProfile);
       hideProfileGate();
     } else {
@@ -1404,6 +1404,9 @@ document.addEventListener("click", async (event) => {
 
   const routeButton = event.target.closest("[data-route]");
   if (routeButton) {
+    if (routeButton.dataset.tab) {
+      state.activeTab = routeButton.dataset.tab;
+    }
     setRoute(routeButton.dataset.route);
     return;
   }

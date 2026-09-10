@@ -271,7 +271,7 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
             );
             acquisition_control::acquisition_control_endpoint(body)
         }
-        ("POST", "/api/acquisition-status") => {
+        ("POST", "/api/acquisition-status") | ("GET", "/api/acquisition-status") => {
             acquisition_control::acquisition_status_endpoint(body)
         }
         ("POST", "/api/connect") => {
