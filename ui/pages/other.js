@@ -307,56 +307,54 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath, theme, state }) {
         </div>
 
         <div class="about-hero-center">
-          <div class="about-hero-logo-box">
-            <img src="${assetPath}/logo/${logoFile}" alt="Amele logo" />
-          </div>
+          <img class="about-hero-logo" src="${assetPath}/logo/${logoFile}" alt="Amele logo" />
         </div>
 
         <div class="about-hero-right">
           <div class="about-hero-features">
-            <div class="about-feature-chip" data-route="windows">
-              <span class="about-feature-icon">${icon("windows")}</span>
-              <span>${t("nav.windows")}</span>
+            <div class="about-feature-row">
+              <div class="about-feature-chip" data-route="windows">
+                <span class="about-feature-icon">${icon("windows")}</span>
+                <span>${t("nav.windows")}</span>
+              </div>
+              <div class="about-feature-chip" data-route="linux">
+                <span class="about-feature-icon">${icon("linux")}</span>
+                <span>${t("nav.linux")}</span>
+              </div>
             </div>
-            <div class="about-feature-chip" data-route="linux">
-              <span class="about-feature-icon">${icon("linux")}</span>
-              <span>${t("nav.linux")}</span>
+            <div class="about-feature-row">
+              <div class="about-feature-chip" data-route="docker">
+                <span class="about-feature-icon">${icon("docker")}</span>
+                <span>${t("nav.docker")}</span>
+              </div>
+              <div class="about-feature-chip" data-route="android">
+                <span class="about-feature-icon">${icon("android")}</span>
+                <span>${t("nav.android")}</span>
+              </div>
+              <div class="about-feature-chip" data-route="ios">
+                <span class="about-feature-icon">${icon("ios")}</span>
+                <span>${t("nav.ios")}</span>
+              </div>
             </div>
-            <div class="about-feature-chip" data-route="docker">
-              <span class="about-feature-icon">${icon("docker")}</span>
-              <span>${t("nav.docker")}</span>
+            <div class="about-feature-row">
+              <div class="about-feature-chip" data-route="other" data-tab="evidence">
+                <span class="about-feature-icon">${icon("scale")}</span>
+                <span>${t("case.management")}</span>
+              </div>
+              <div class="about-feature-chip" data-route="other" data-tab="hash">
+                <span class="about-feature-icon">${icon("shield")}</span>
+                <span>${t("other.hash.title")}</span>
+              </div>
             </div>
-            <div class="about-feature-chip" data-route="android">
-              <span class="about-feature-icon">${icon("android")}</span>
-              <span>${t("nav.android")}</span>
-            </div>
-            <div class="about-feature-chip" data-route="ios">
-              <span class="about-feature-icon">${icon("ios")}</span>
-              <span>${t("nav.ios")}</span>
-            </div>
-            <div class="about-feature-chip" data-route="agent">
-              <span class="about-feature-icon">${icon("network")}</span>
-              <span>${t("nav.agent")}</span>
-            </div>
-            <div class="about-feature-chip" data-route="other" data-tab="evidence">
-              <span class="about-feature-icon">${icon("scale")}</span>
-              <span>${t("case.management")}</span>
-            </div>
-            <div class="about-feature-chip" data-route="other" data-tab="hash">
-              <span class="about-feature-icon">${icon("shield")}</span>
-              <span>${t("other.hash.title")}</span>
-            </div>
-            <div class="about-feature-chip" data-route="other" data-tab="reports">
-              <span class="about-feature-icon">${icon("report")}</span>
-              <span>${t("other.reports.title")}</span>
-            </div>
-            <div class="about-feature-chip" data-route="other" data-tab="history">
-              <span class="about-feature-icon">${icon("clock")}</span>
-              <span>${t("other.history.title")}</span>
-            </div>
-            <div class="about-feature-chip" data-route="other" data-tab="logs">
-              <span class="about-feature-icon">${icon("terminal")}</span>
-              <span>${t("other.logs.title")}</span>
+            <div class="about-feature-row">
+              <div class="about-feature-chip" data-route="other" data-tab="reports">
+                <span class="about-feature-icon">${icon("report")}</span>
+                <span>${t("other.reports.title")}</span>
+              </div>
+              <div class="about-feature-chip" data-route="other" data-tab="history">
+                <span class="about-feature-icon">${icon("clock")}</span>
+                <span>${t("other.history.title")}</span>
+              </div>
             </div>
           </div>
         </div>
