@@ -10,6 +10,24 @@ use super::{AcquisitionJob, acquisition_jobs};
 
 /// Edinim işinin canlı durumunu UI'ye döndürür.
 pub fn acquisition_status_endpoint(body: &[u8]) -> Response {
+    if body.is_empty() {
+        let jobs = acquisition_jobs().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut map = serde_json::Map::new();
+        for (id, job) in jobs.iter() {
+            map.insert(id.clone(), json!({
+                "job_id": id,
+                "status": job.status,
+                "done": job.done,
+                "total": job.total,
+                "message": job.message,
+                "logs": job.logs,
+                "result": job.result,
+                "error": job.error,
+            }));
+        }
+        return json_ok(json!({ "jobs": map }));
+    }
+
     #[derive(Deserialize)]
     struct StatusRequest {
         job_id: String,

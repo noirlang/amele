@@ -5,14 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Amele Forensic Tool</title>
     <link rel="stylesheet" href="./styles.css" />
+    <script>
+      try {
+        if (localStorage.getItem("amele-sidebar-collapsed") === "1") {
+          document.documentElement.classList.add("sidebar-collapsed");
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="app" class="shell theme-dark">
+      <script>
+        try {
+          if (localStorage.getItem("amele-sidebar-collapsed") === "1") {
+            document.getElementById("app")?.classList.add("sidebar-collapsed");
+          }
+        } catch (e) {}
+      </script>
       <aside class="sidebar">
-        <div class="brand-row">
-          <button class="brand-mark" id="brand-logo" data-route="home" aria-label="Amele ana sayfa">
-            <img id="brand-logo-img" src="./assets/logo/logo.png" alt="" />
-          </button>
+        <div class="brand-row" onselectstart="return false;" ondragstart="return false;">
+          <div class="brand-mark" id="brand-logo" data-route="home" role="button" aria-label="Amele ana sayfa" tabindex="-1" onselectstart="return false;" ondragstart="return false;" draggable="false"><img id="brand-logo-img" src="./assets/logo/logo.png" alt="" draggable="false" style="pointer-events:none;-webkit-user-drag:none;user-select:none;" /></div>
           <button class="sidebar-toggle sidebar-collapse-toggle" data-sidebar-toggle="collapse" aria-label="Menüyü daralt" aria-expanded="true">
             <span data-icon="panel-left-close"></span>
           </button>
@@ -46,10 +58,6 @@
             <span data-icon="ios"></span>
             <span data-i18n="nav.ios">iOS Araçları</span>
           </button>
-          <button class="nav-item" data-route="agent">
-            <span data-icon="network"></span>
-            <span data-i18n="nav.agent">Agent</span>
-          </button>
           <button class="nav-item" data-route="other">
             <span data-icon="tiles"></span>
             <span data-i18n="nav.other">Diğer</span>
@@ -68,6 +76,9 @@
             <button class="top-action profile-action" data-route="profile" aria-label="Profil">
               <span data-icon="user"></span>
               <small data-profile-label>Profil</small>
+            </button>
+            <button class="top-action" data-route="help" aria-label="Yardım" title="Yardım">
+              <span data-icon="help"></span>
             </button>
             <button class="top-action" data-route="about" aria-label="Hakkında">
               <span data-icon="info"></span>

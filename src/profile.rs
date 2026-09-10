@@ -68,6 +68,8 @@ pub struct OnlineProfile {
     pub worked_case_types: Vec<String>,
     #[serde(default)]
     pub mobile_tools_enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -290,6 +292,9 @@ pub fn select_profile(username: &str, open_directly: bool) -> AmeleResult<LocalP
                                 "profile:online",
                                 format!("Online profil eşleşmedi: {err}"),
                             );
+                            if let Some(o) = &mut profile.online {
+                                o.status = Some("session_expired".to_string());
+                            }
                         } else {
                             let licenses = match online_fetch_licenses(Some(&api_base), &token) {
                                 Ok(licenses) => licenses,
@@ -306,29 +311,42 @@ pub fn select_profile(username: &str, open_directly: bool) -> AmeleResult<LocalP
                             };
                             let worked_case_types =
                                 worked_case_types_from_log(&profile.activity_log);
-                            profile.online = Some(online_profile_from_user(
+                            let mut updated_online = online_profile_from_user(
                                 Some(api_base.clone()),
                                 session_user,
                                 licenses,
                                 current_online.linked_at,
                                 now.clone(),
                                 worked_case_types,
-                            ));
+                            );
+                            updated_online.status = Some("online".to_string());
+                            profile.online = Some(updated_online);
                             let _ = save_online_api_base(&profile.username, &api_base);
                         }
                     }
                     Err(err) => {
+                        let st = if err.code == HataKodu::YetkisizErisim {
+                            "session_expired"
+                        } else {
+                            "offline"
+                        };
+                        if let Some(o) = &mut profile.online {
+                            o.status = Some(st.to_string());
+                        }
                         crate::logging::runtime_log(
                             crate::logging::LogLevel::Warn,
                             "profile:online",
                             format!(
-                                "Profil seçilirken online oturum senkronlanamadı ({username}): {err}"
+                                "Profil seçilirken online oturum senkronlanamadı ({username}), {st} moduna geçildi: {err}"
                             ),
                         );
                     }
                 }
             }
             Err(err) => {
+                if let Some(o) = &mut profile.online {
+                    o.status = Some("offline".to_string());
+                }
                 crate::logging::runtime_log(
                     crate::logging::LogLevel::Debug,
                     "profile:online",
@@ -353,9 +371,14 @@ pub fn select_profile(username: &str, open_directly: bool) -> AmeleResult<LocalP
     Ok(profile)
 }
 
-/// Aktif oturumu kapatır ve sonraki açılışta profil seçimini zorlar.
+/// Aktif oturumu kapatır, profili profil deposundan tamamen kaldırır ve seçme ekranından siler.
 pub fn logout_profile() -> AmeleResult<()> {
     let mut store = load_profile_store()?;
+    if let Some(username) = store.active_username.clone() {
+        store.profiles.retain(|p| p.username != username);
+        let _ = remove_online_token(&username);
+        let _ = remove_online_api_base(&username);
+    }
     store.active_username = None;
     for profile in &mut store.profiles {
         profile.open_directly = false;
@@ -494,6 +517,36 @@ pub fn link_online_profile(
     Ok(profile)
 }
 
+/// Aktif yerel profilin online durumunu ("online", "offline", "session_expired") günceller.
+pub fn mark_active_online_profile_status(status: &str) -> AmeleResult<LocalProfile> {
+    let Some(current) = active_profile() else {
+        return Err(AmeleError::new(
+            HataKodu::IcerikGecersiz,
+            "Aktif profil yok",
+        ));
+    };
+    let mut store = load_profile_store()?;
+    let mut updated = None;
+    for profile in &mut store.profiles {
+        if profile.username == current.username {
+            if let Some(online) = &mut profile.online {
+                online.status = Some(status.to_string());
+            }
+            updated = Some(profile.clone());
+            break;
+        }
+    }
+    let Some(profile) = updated else {
+        return Err(AmeleError::new(
+            HataKodu::IcerikGecersiz,
+            "Aktif profil depoda bulunamadı",
+        ));
+    };
+    let _ = save_profile_store(&store);
+    set_active_profile(Some(profile.clone()));
+    Ok(profile)
+}
+
 /// Aktif yerel profilin online bilgilerini site API'sinden yeniler.
 pub fn sync_active_online_profile() -> AmeleResult<LocalProfile> {
     let Some(current) = active_profile() else {
@@ -502,59 +555,99 @@ pub fn sync_active_online_profile() -> AmeleResult<LocalProfile> {
             "Aktif profil yok",
         ));
     };
-    let Some(current_online) = current.online else {
+    let Some(current_online) = current.online.clone() else {
         return Err(AmeleError::new(
             HataKodu::IcerikGecersiz,
             mobile_tools_required_message(),
         ));
     };
-    let token = load_online_token(&current.username)?;
-    let api_base = load_online_api_base(&current.username);
-    let (api_base, session_user) = online_fetch_session(api_base.as_deref(), &token)?;
-    ensure_session_matches_profile(&session_user, &current_online)?;
-    let licenses = match online_fetch_licenses(Some(&api_base), &token) {
-        Ok(licenses) => licenses,
-        Err(err) => {
+
+    let token = match load_online_token(&current.username) {
+        Ok(t) if !t.trim().is_empty() => t,
+        _ => {
             crate::logging::runtime_log(
-                crate::logging::LogLevel::Debug,
+                crate::logging::LogLevel::Warn,
                 "profile:online",
-                format!("Online lisanslar senkronlanamadı: {err}"),
+                format!("Online oturum tokeni bulunamadı: {}", current.username),
             );
-            Vec::new()
+            return mark_active_online_profile_status("session_expired");
         }
     };
 
-    let mut store = load_profile_store()?;
-    let mut updated = None;
-    let now = now_string();
-    for profile in &mut store.profiles {
-        if profile.username == current.username {
-            let worked_case_types = worked_case_types_from_log(&profile.activity_log);
-            let online = online_profile_from_user(
-                Some(api_base.clone()),
-                session_user.clone(),
-                licenses,
-                current_online.linked_at,
-                now,
-                worked_case_types,
+    let api_base = load_online_api_base(&current.username);
+    match online_fetch_session(api_base.as_deref(), &token) {
+        Ok((resolved_api_base, session_user)) => {
+            if let Err(err) = ensure_session_matches_profile(&session_user, &current_online) {
+                crate::logging::runtime_log(
+                    crate::logging::LogLevel::Warn,
+                    "profile:online",
+                    format!("Online profil eşleşmedi: {err}"),
+                );
+                return mark_active_online_profile_status("session_expired");
+            }
+
+            let licenses = match online_fetch_licenses(Some(&resolved_api_base), &token) {
+                Ok(licenses) => licenses,
+                Err(err) => {
+                    crate::logging::runtime_log(
+                        crate::logging::LogLevel::Debug,
+                        "profile:online",
+                        format!("Online lisanslar senkronlanamadı: {err}"),
+                    );
+                    Vec::new()
+                }
+            };
+
+            let mut store = load_profile_store()?;
+            let mut updated = None;
+            let now = now_string();
+            for profile in &mut store.profiles {
+                if profile.username == current.username {
+                    let worked_case_types = worked_case_types_from_log(&profile.activity_log);
+                    let mut online = online_profile_from_user(
+                        Some(resolved_api_base.clone()),
+                        session_user.clone(),
+                        licenses,
+                        current_online.linked_at,
+                        now,
+                        worked_case_types,
+                    );
+                    online.status = Some("online".to_string());
+                    profile.avatar_url = online.avatar_url.clone();
+                    profile.online = Some(online);
+                    updated = Some(profile.clone());
+                    break;
+                }
+            }
+
+            let Some(profile) = updated else {
+                return Err(AmeleError::new(
+                    HataKodu::IcerikGecersiz,
+                    "Aktif profil depoda bulunamadı",
+                ));
+            };
+            save_online_api_base(&profile.username, &resolved_api_base)?;
+            save_profile_store(&store)?;
+            set_active_profile(Some(profile.clone()));
+            Ok(profile)
+        }
+        Err(err) => {
+            let status = if err.code == HataKodu::YetkisizErisim {
+                "session_expired"
+            } else {
+                "offline"
+            };
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Warn,
+                "profile:online",
+                format!(
+                    "Online profil senkronlanamadı ({}), {} moduna geçildi: {}",
+                    current.username, status, err
+                ),
             );
-            profile.avatar_url = online.avatar_url.clone();
-            profile.online = Some(online);
-            updated = Some(profile.clone());
-            break;
+            mark_active_online_profile_status(status)
         }
     }
-
-    let Some(profile) = updated else {
-        return Err(AmeleError::new(
-            HataKodu::IcerikGecersiz,
-            "Aktif profil depoda bulunamadı",
-        ));
-    };
-    save_online_api_base(&profile.username, &api_base)?;
-    save_profile_store(&store)?;
-    set_active_profile(Some(profile.clone()));
-    Ok(profile)
 }
 
 /// Aktif yerel profilden online hesap bağlantısını kaldırır.
@@ -755,6 +848,9 @@ pub fn load_profile_store() -> AmeleResult<ProfileStore> {
             }
             if profile.avatar_url.is_none() {
                 profile.avatar_url = online.avatar_url.clone();
+            }
+            if online.status.is_none() {
+                online.status = Some("offline".to_string());
             }
         }
     }
@@ -1360,6 +1456,7 @@ fn online_profile_from_user(
         last_sync_at,
         worked_case_types,
         mobile_tools_enabled,
+        status: Some("online".to_string()),
     }
 }
 
@@ -1563,6 +1660,7 @@ mod tests {
             last_sync_at: "2026-01-01 00:00:00".to_string(),
             worked_case_types: Vec::new(),
             mobile_tools_enabled: false,
+            status: None,
         };
 
         assert!(!online_profile_unlocks_mobile_tools(&online));
@@ -1591,6 +1689,7 @@ mod tests {
             last_sync_at: "2026-01-01 00:00:00".to_string(),
             worked_case_types: Vec::new(),
             mobile_tools_enabled: false,
+            status: None,
         };
 
         assert!(online_profile_unlocks_mobile_tools(&online));

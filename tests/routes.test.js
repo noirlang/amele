@@ -22,7 +22,9 @@ globalThis.window = {
   location: {
     search: "?native=0&route=home"
   },
-  addEventListener: () => {}
+  addEventListener: () => {},
+  clearTimeout: (...args) => globalThis.clearTimeout(...args),
+  setTimeout: (...args) => globalThis.setTimeout(...args)
 };
 globalThis.location = globalThis.window.location;
 if (typeof globalThis.navigator === "undefined") {
@@ -35,7 +37,11 @@ if (typeof globalThis.navigator === "undefined") {
 }
 globalThis.document = {
   documentElement: {
-    classList: { add: () => {} },
+    classList: {
+      add: () => {},
+      toggle: () => {},
+      remove: () => {}
+    },
     lang: "tr",
     set lang(v) {}
   },
@@ -94,7 +100,7 @@ test("Frontend Routing and Module Health", async (t) => {
       "linux", 
       "android", 
       "ios",
-      "agent", 
+      "help", 
       "analysis", 
       "other", 
       "settings", 

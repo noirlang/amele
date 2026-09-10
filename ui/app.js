@@ -3,7 +3,7 @@ import { iosPage, handleIosAction, syncIosBackupPathInput } from "./tools/ios/in
 import { dockerPage, handleDockerAction } from "./tools/docker/index.js";
 import { windowsPage } from "./tools/windows/index.js";
 import { linuxPage } from "./tools/linux/index.js";
-import { agentPage } from "./tools/agent/index.js";
+import { helpPage } from "./pages/help.js";
 import { remoteAcqPage } from "./tools/remote-acq/index.js";
 import { createApiRequest, fetchNewsAnnouncements } from "./core/api.js";
 import { errorBoxHtml } from "./core/errors.js";
@@ -33,7 +33,7 @@ if (isNativeLinux) document.documentElement.classList.add("native-linux");
 const app = document.querySelector("#app");
 const view = document.querySelector("#view");
 const profileGate = document.querySelector("#profile-gate");
-const preferredLanguage = localStorage.getItem("amele-language") || "en";
+const preferredLanguage = ["tr", "en"].includes(urlParams.get("lang") || "") ? urlParams.get("lang") : localStorage.getItem("amele-language") || "en";
 const requestedTheme = urlParams.get("theme");
 const preferredTheme = ["dark", "light"].includes(requestedTheme || "") ? requestedTheme : localStorage.getItem("amele-theme") || "dark";
 const preferredSidebarCollapsed = localStorage.getItem("amele-sidebar-collapsed") === "1";
@@ -59,10 +59,10 @@ const state = {
   language: preferredLanguage,
   sidebarCollapsed: preferredSidebarCollapsed,
   platform: detectPlatform(),
-  news: [],
+  news: safeJsonParse(localStorage.getItem("amele_news_cache"))?.items || [],
   activeNewsIndex: 0,
   files: {},
-  activeTab: "hash",
+  activeTab: urlParams.get("tab") || "hash",
   approvedSecurityKey: "",
   remoteConnections: {},
   activeAcquisition: null,
@@ -177,29 +177,43 @@ function setLanguage(language) {
 }
 
 function syncBrandLogo() {
+  const isLight = state.theme === "light";
+  const logoPath = isLight ? "./assets/logo/logo-siyah.png" : "./assets/logo/logo.png";
   const brandImg = document.querySelector("#brand-logo-img");
-  if (!brandImg) return;
-  brandImg.src = state.theme === "light" ? "./assets/logo/logo-siyah.png" : "./assets/logo/logo.png";
+  if (brandImg) {
+    brandImg.src = logoPath;
+  }
+  const aboutLogo = document.querySelector(".about-hero-logo");
+  if (aboutLogo) {
+    aboutLogo.src = logoPath;
+  }
 }
 
 function syncSidebarState() {
   app.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
+  document.documentElement?.classList?.toggle?.("sidebar-collapsed", state.sidebarCollapsed);
   document.querySelectorAll("[data-sidebar-toggle]").forEach((button) => {
     button.setAttribute("aria-expanded", String(!state.sidebarCollapsed));
-    button.setAttribute("aria-label", state.sidebarCollapsed ? "Menüyü genişlet" : "Menüyü daralt");
+    button.setAttribute("aria-label", state.sidebarCollapsed ? t("sidebar.expand") : t("sidebar.collapse"));
   });
 }
 
 function setSidebarCollapsed(collapsed) {
   state.sidebarCollapsed = Boolean(collapsed);
-  localStorage.setItem("amele-sidebar-collapsed", state.sidebarCollapsed ? "1" : "0");
+  try {
+    localStorage.setItem("amele-sidebar-collapsed", state.sidebarCollapsed ? "1" : "0");
+  } catch (_) {}
+  if (state.activeProfile) {
+    state.activeProfile.sidebarCollapsed = state.sidebarCollapsed;
+    upsertProfile(state.activeProfile);
+  }
   syncSidebarState();
 }
 
 function applyPersistedSettings(settings) {
   if (!settings || typeof settings !== "object") return;
-  setLanguage(settings.dil === "en" ? "en" : "tr");
-  setTheme(settings.karanlik_tema ? "dark" : "light");
+  if (!urlParams.get("lang")) setLanguage(settings.dil === "en" ? "en" : "tr");
+  if (!urlParams.get("theme")) setTheme(settings.karanlik_tema ? "dark" : "light");
 }
 
 async function loadPersistedSettings() {
@@ -277,8 +291,11 @@ async function loadProfiles() {
     state.profiles = Array.isArray(result.profiles) ? result.profiles : [];
     state.activeProfile = result.active_profile || null;
     if (state.activeProfile) {
-      setLanguage(state.activeProfile.language === "en" ? "en" : "tr");
-      setTheme(state.activeProfile.theme === "light" ? "light" : "dark");
+      if (!urlParams.get("lang")) setLanguage(state.activeProfile.language === "en" ? "en" : "tr");
+      if (!urlParams.get("theme")) setTheme(state.activeProfile.theme === "light" ? "light" : "dark");
+      if (typeof state.activeProfile.sidebarCollapsed === "boolean") {
+        setSidebarCollapsed(state.activeProfile.sidebarCollapsed);
+      }
       state.mobileToolsAccess = cachedMobileToolsAccess(state.activeProfile);
       hideProfileGate();
     } else {
@@ -320,7 +337,7 @@ function renderProfileGate(errorMessage = "") {
       </span>
       <strong>${escapeHtml(profile.full_name || profile.username)}</strong>
       <small>@${escapeHtml(profile.username)}</small>
-      ${profile.online ? `<small class="profile-card-status">${icon("globe")} ${t("profile.onlineAccount")} @${escapeHtml(profile.online.username || "-")}</small>` : ""}
+      ${profile.online ? `<small class="profile-card-status">${icon("globe")} ${profile.online.status === "offline" ? "Offline" : (profile.online.status === "session_expired" ? "Offline (Oturum Doldu)" : t("profile.onlineAccount"))} @${escapeHtml(profile.online.username || "-")}</small>` : ""}
     </button>
   `).join("");
   profileGate.innerHTML = `
@@ -448,7 +465,7 @@ function profileInitials(profile) {
 
 function getAvatarUrl(profile) {
   if (!profile) return "";
-  let rawUrl = profile.avatar_url || profile.avatarUrl || profile.online?.avatar_url || profile.online?.avatarUrl || "";
+  let rawUrl = profile.avatar_url || profile.avatarUrl || profile.online?.avatar_url || profile.online?.avatarUrl || profile.avatar || profile.online?.avatar || "";
   if (!rawUrl) return "";
   rawUrl = rawUrl.replace("://www.amele.noirlang.tr", "://amele.noirlang.tr");
   if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://") || rawUrl.startsWith("data:")) {
@@ -467,7 +484,7 @@ function renderProfileAvatar(profile, extraClass = "") {
   const initials = profileInitials(profile || {});
   const sizeClass = extraClass ? ` ${extraClass}` : "";
   if (avatarUrl) {
-    let rawPath = (profile.avatar_url || profile.avatarUrl || profile.online?.avatar_url || profile.online?.avatarUrl || "");
+    let rawPath = (profile.avatar_url || profile.avatarUrl || profile.online?.avatar_url || profile.online?.avatarUrl || profile.avatar || profile.online?.avatar || "");
     rawPath = rawPath.replace("://www.amele.noirlang.tr", "://amele.noirlang.tr");
     let altBase = "";
     if (rawPath.startsWith("/")) {
@@ -477,12 +494,17 @@ function renderProfileAvatar(profile, extraClass = "") {
     }
     return `<span class="profile-avatar${sizeClass}"><img src="${escapeHtml(avatarUrl)}" alt="Avatar" class="avatar-img" data-alt-src="${escapeHtml(altBase)}" onerror="if(this.dataset.altSrc && this.src !== this.dataset.altSrc){ this.src = this.dataset.altSrc; this.dataset.altSrc = ''; } else { this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-grid'; }" /><span class="avatar-fallback" style="display:none;">${initials}</span></span>`;
   }
-  return `<span class="profile-avatar${sizeClass}">${initials}</span>`;
+  return `<span class="profile-avatar${sizeClass}"><span class="avatar-fallback">${initials}</span></span>`;
 }
 
 function syncProfileButton() {
   const label = document.querySelector("[data-profile-label]");
-  if (label) label.textContent = state.activeProfile?.display_name || t("profile.button");
+  if (label) {
+    const name = state.activeProfile?.display_name || t("profile.button");
+    const online = state.activeProfile?.online;
+    const isOffline = online && (online.status === "offline" || online.status === "session_expired" || (typeof navigator !== "undefined" && !navigator.onLine));
+    label.textContent = isOffline ? `${name} (Offline)` : name;
+  }
   const button = document.querySelector(".profile-action");
   if (button && state.activeProfile) {
     const avatarEl = button.querySelector(".profile-avatar, [data-icon='user']");
@@ -593,20 +615,73 @@ async function connectOnlineProfileFromGate() {
   showToast(t("profile.onlineConnected"), "success");
 }
 
-async function syncOnlineProfile(button) {
-  button.disabled = true;
+async function syncOnlineProfile(button, silent = false) {
+  if (button) button.disabled = true;
   try {
+    const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+    if (isOffline) {
+      if (state.activeProfile?.online) {
+        state.activeProfile.online.status = "offline";
+        syncProfileButton();
+        render();
+      }
+      if (!silent) {
+        showToast(
+          state.language === "tr"
+            ? "İnternet bağlantısı yok. Hesap çevrimdışı (offline) modda kullanılıyor."
+            : "No internet connection. Account is running in offline mode.",
+          "info"
+        );
+      }
+      return;
+    }
+
     const result = await apiRequest("/api/profiles/online-sync", { method: "POST" });
-    state.activeProfile = result.profile;
-    upsertProfile(result.profile);
-    state.mobileToolsAccess = result.access || { allowed: false, reason: "" };
+    if (result.profile) {
+      state.activeProfile = result.profile;
+      upsertProfile(result.profile);
+    }
+    state.mobileToolsAccess = result.access || cachedMobileToolsAccess(state.activeProfile);
     syncProfileButton();
     render();
-    showToast(t("profile.onlineSynced"), "success");
+
+    if (result.status === "online" || result.ok) {
+      if (!silent) showToast(t("profile.onlineSynced"), "success");
+    } else if (result.session_expired || result.status === "session_expired") {
+      if (!silent) {
+        showToast(
+          state.language === "tr"
+            ? "Online oturum süresi dolmuş. Hesap çevrimdışı (offline) modda çalışıyor. Yeniden giriş yapabilirsiniz."
+            : "Online session has expired. Account is running in offline mode. You can log in again.",
+          "warn"
+        );
+      }
+    } else {
+      if (!silent) {
+        showToast(
+          state.language === "tr"
+            ? "Sunucuya ulaşılamadı. Hesap çevrimdışı (offline) modda kullanılıyor."
+            : "Server unreachable. Account is running in offline mode.",
+          "info"
+        );
+      }
+    }
   } catch (error) {
-    showToast(t("profile.onlineSyncFailed", { message: error.message }), "error");
+    if (state.activeProfile?.online) {
+      state.activeProfile.online.status = "offline";
+      syncProfileButton();
+      render();
+    }
+    if (!silent) {
+      showToast(
+        state.language === "tr"
+          ? "Sunucuya ulaşılamadı. Hesap çevrimdışı (offline) modda kullanılıyor."
+          : "Server unreachable. Account is running in offline mode.",
+        "warn"
+      );
+    }
   } finally {
-    button.disabled = false;
+    if (button) button.disabled = false;
   }
 }
 
@@ -685,6 +760,7 @@ function mobileToolsLockedPage({ t, icon, pageTitle }) {
 
 function render() {
   if (state.isDevConsole) return;
+  syncSidebarState();
   const activeGroup = routeGroup(state.route);
   const mobileAllowed = onlineMobileToolsAllowed();
 
@@ -868,7 +944,7 @@ const routes = {
   android: () => androidPage({ t, icon, pageTitle, state, escapeHtml, backendReady }),
   ios: () => "",
   docker: dockerPage,
-  agent: agentPage,
+  help: helpPage,
   "remote-acq": remoteAcqPage,
   profile: profilePage,
   other: otherPage,
@@ -876,145 +952,152 @@ const routes = {
   about: aboutPage
 };
 
+function formatDisplayDate(dateStr) {
+  if (!dateStr) return "";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return String(dateStr).split("T")[0] || String(dateStr);
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  } catch {
+    return String(dateStr);
+  }
+}
+
 function profilePage({ t, icon, state, pageTitle, escapeHtml }) {
   const profile = state.activeProfile;
   const online = profile?.online || null;
-  const accountCard = online
-    ? onlineAccountCard(profile, online, state, t, icon, escapeHtml)
-    : localAccountCard(profile, state, t, icon, escapeHtml);
-  const onlineConnectCard = online ? "" : onlineDisconnectedCard(t, icon);
+  const mobileAllowed = onlineMobileToolsAllowed();
+  const onlineName = onlineDisplayName(online);
+  const fullName = onlineName || profile?.full_name || profile?.display_name || t("profile.noActive");
+  const username = online?.username || profile?.username || "-";
+  const email = online?.email || null;
+  const rawDate = profile?.created_at || online?.linked_at || online?.created_at || null;
+  const registeredDate = formatDisplayDate(rawDate);
+  const isBrowserOffline = typeof navigator !== "undefined" && !navigator.onLine;
+  const status = isBrowserOffline ? "offline" : (online?.status || (online ? "offline" : "local"));
+  const isOnline = status === "online";
+  const isExpired = status === "session_expired";
+
+  let statusBadge = "";
+  if (!online) {
+    statusBadge = `
+      <span class="status-pill ok case-active-pill">${icon("check")} ${t("profile.active") || "Aktif"}</span>
+      <span class="status-pill warn">${icon("user")} ${t("profile.localAccount") || "Yerel Profil"}</span>
+    `;
+  } else if (isOnline) {
+    statusBadge = `
+      <span class="status-pill ok case-active-pill">${icon("check")} ${t("profile.active") || "Aktif"}</span>
+      <span class="status-pill ok">${icon("globe")} ${t("profile.onlineConnectedShort") || "Online"}</span>
+    `;
+  } else if (isExpired) {
+    statusBadge = `
+      <span class="status-pill ok case-active-pill">${icon("check")} ${t("profile.active") || "Aktif"}</span>
+      <span class="status-pill danger" title="${t("profile.sessionExpiredHint") || "Online oturum süresi doldu"}">${icon("alert-circle")} Offline (${t("profile.sessionExpiredShort") || "Oturum Doldu"})</span>
+    `;
+  } else {
+    statusBadge = `
+      <span class="status-pill ok case-active-pill">${icon("check")} ${t("profile.active") || "Aktif"}</span>
+      <span class="status-pill warn">${icon("shield")} Offline</span>
+    `;
+  }
+
+  const rolesHtml = online
+    ? onlineRoleBadges(online, t, escapeHtml)
+    : `<span class="status-pill warn">${escapeHtml(t("profile.localUser") || "Yerel Kullanıcı")}</span>`;
+
+  const licenseHtml = online ? onlineLicenseText(online, t, escapeHtml) : "";
+
+  const activeText = t("case.active") === "case.active" ? (state.language === "en" ? "Active" : "Aktif") : t("case.active");
+
+  // Cases grid
   const caseCards = state.cases.length
-    ? state.cases.map((item) => `
-        <article class="case-profile-card">
-          <strong>${escapeHtml(item.case_name || "-")}</strong>
-          <small>${escapeHtml(item.case_dir || "")}</small>
-          <span>${t("profile.caseCounts", {
-            images: String(item.output_count || 0),
-            ram: String(item.ram_count || 0),
-            android: String(item.android_count || 0),
-            ios: String(item.ios_count || 0),
-            docker: String(item.docker_count || 0)
-          })}</span>
-        </article>
-      `).join("")
+    ? state.cases.map((item) => {
+        const isActive = state.activeCase?.case_name === item.case_name;
+        return `
+          <article class="case-profile-card ${isActive ? "is-active-case" : ""}" data-case-name="${escapeHtml(item.case_name || "")}" role="button" tabindex="0">
+            <div class="case-profile-top">
+              <strong title="${escapeHtml(item.case_name || "")}">${escapeHtml(item.case_name || "-")}</strong>
+              ${isActive ? `<span class="status-pill ok case-active-pill">${icon("check")} ${escapeHtml(activeText)}</span>` : ""}
+            </div>
+            <small title="${escapeHtml(item.case_dir || "")}">${escapeHtml(item.case_dir || "")}</small>
+            <div class="case-profile-counts">
+              <span class="case-count-pill" title="${t("profile.caseImages") || "İmaj"}">${icon("disk")} ${item.output_count || 0}</span>
+              <span class="case-count-pill" title="RAM">${icon("ram")} ${item.ram_count || 0}</span>
+              <span class="case-count-pill" title="Android">${icon("android")} ${item.android_count || 0}</span>
+              <span class="case-count-pill" title="iOS">${icon("ios")} ${item.ios_count || 0}</span>
+              <span class="case-count-pill" title="Docker">${icon("docker")} ${item.docker_count || 0}</span>
+            </div>
+          </article>
+        `;
+      }).join("")
     : `<div class="log-box">${t("profile.noCases")}</div>`;
 
   return `
-    <section class="page">
-      ${pageTitle(t("profile.title"), t("profile.desc"), "user", icon)}
-      <div class="settings-layout">
-        ${accountCard}
-        ${onlineConnectCard}
-        <article class="settings-card">
-          <span class="settings-kicker">${t("profile.cases")}</span>
-          <h3>${t("profile.caseTitle")}</h3>
-          <div class="profile-case-list">${caseCards}</div>
-        </article>
+    <section class="page profile-page">
+      ${pageTitle(t("profile.title"), "", "user", icon)}
+
+      <!-- 1. Büyük Yatay Profil Kartı -->
+      <div class="profile-hero-card">
+        <div class="profile-hero-avatar-box">
+          ${renderProfileAvatar(profile || { full_name: fullName, username, online }, "profile-card-avatar")}
+        </div>
+        <div class="profile-hero-content">
+          <div class="profile-hero-header">
+            <div class="profile-hero-identity">
+              <div class="profile-hero-title-row">
+                <h2 class="profile-hero-fullname">${escapeHtml(fullName)}</h2>
+                <div class="profile-hero-status">
+                  ${statusBadge}
+                </div>
+              </div>
+              <span class="profile-hero-username">@${escapeHtml(username)}</span>
+            </div>
+          </div>
+
+          <div class="profile-hero-meta">
+            ${email ? `<div class="profile-meta-item">${icon("mail")} <span>${escapeHtml(email)}</span></div>` : ""}
+            ${registeredDate ? `<div class="profile-meta-item">${icon("calendar")} <span>${t("profile.registeredAt") || "Kayıt Tarihi"}: ${escapeHtml(registeredDate)}</span></div>` : ""}
+            ${online?.last_sync_at ? `<div class="profile-meta-item">${icon("refresh")} <span>${t("profile.lastSync") || "Son Eşitleme"}: ${escapeHtml(online.last_sync_at)}</span></div>` : ""}
+          </div>
+
+          <div class="profile-hero-roles">
+            <div class="profile-roles-group">
+              <span class="profile-section-label">${t("profile.roles") || "Roller"}:</span>
+              <div class="profile-role-list">${rolesHtml}</div>
+            </div>
+            ${online ? `
+              <div class="profile-roles-group">
+                <span class="profile-section-label">${t("profile.license") || "Lisans"}:</span>
+                <span class="status-pill ${online.has_license ? "ok" : "warn"}">${licenseHtml}</span>
+              </div>
+            ` : ""}
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Alttaki Yatay Aksiyon Barı -->
+      <div class="profile-action-bar">
+        <button class="secondary-button" data-action="profile-new">${icon("user-plus")} <span>${t("profile.newProfile")}</span></button>
+        ${online ? `<button class="secondary-button" data-action="profile-online-sync">${icon("refresh")} <span>${t("profile.onlineSync")}</span></button>` : ""}
+        ${isExpired ? `<button class="primary-button" data-action="profile-online-start">${icon("globe")} <span>${t("profile.onlineLogin") || "Giriş Yap"}</span></button>` : ""}
+        ${online ? `<button class="secondary-button btn-disconnect" data-action="profile-online-logout">${icon("unlink")} <span>${t("profile.onlineDisconnect")}</span></button>` : `<button class="primary-button" data-action="profile-online-start">${icon("globe")} <span>${t("profile.onlineConnect")}</span></button>`}
+        <button class="danger-button btn-logout" data-action="profile-logout">${icon("stop")} <span>${t("profile.logout")}</span></button>
+      </div>
+
+      <!-- 3. Vakalar (Cases) Ayrı Div Olarak Yan Yana Sütunlar -->
+      <div class="profile-cases-section">
+        <div class="profile-cases-header">
+          <div class="profile-cases-title-wrap">
+            <span class="settings-kicker">${t("profile.cases") || "VAKALAR"}</span>
+            <h3>${t("profile.caseTitle") || "Vaka Kütüphanesi"}</h3>
+          </div>
+          <span class="status-pill ok">${state.cases.length} ${t("profile.caseCountSuffix") || "Vaka"}</span>
+        </div>
+        <div class="profile-cases-grid">
+          ${caseCards}
+        </div>
       </div>
     </section>
-  `;
-}
-
-function localAccountCard(profile, state, t, icon, escapeHtml) {
-  return `
-    <article class="settings-card settings-primary">
-      <span class="settings-kicker">${t("profile.account")}</span>
-      <div class="profile-summary">
-        ${renderProfileAvatar(profile, "large")}
-        <div>
-          <h3>${escapeHtml(profile?.full_name || t("profile.noActive"))}</h3>
-          <p>@${escapeHtml(profile?.username || "-")}</p>
-        </div>
-      </div>
-      ${profilePreferenceRows(profile, state, t, escapeHtml)}
-      <div class="button-row">
-        <button class="secondary-button" data-action="profile-new">${icon("user")} ${t("profile.newProfile")}</button>
-        <button class="danger-button" data-action="profile-logout">${icon("stop")} ${t("profile.logout")}</button>
-      </div>
-      ${profileActivityHtml(profile, t, icon, escapeHtml)}
-    </article>
-  `;
-}
-
-function onlineAccountCard(profile, online, state, t, icon, escapeHtml) {
-  const mobileAllowed = onlineMobileToolsAllowed();
-  const onlineName = onlineDisplayName(online);
-  return `
-    <article class="settings-card settings-primary">
-      <span class="settings-kicker">${t("profile.onlineAccount")}</span>
-      <div class="profile-summary">
-        ${renderProfileAvatar(profile || { full_name: onlineName, username: online.username, online }, "large")}
-        <div>
-          <h3>${escapeHtml(onlineName || t("profile.noActive"))}</h3>
-          <p>@${escapeHtml(online.username || profile?.username || "-")}</p>
-        </div>
-      </div>
-      ${profilePreferenceRows(profile, state, t, escapeHtml)}
-      <div class="settings-row">
-        <strong>${t("profile.onlineStatus")}</strong>
-        <span class="status-pill ok">${t("profile.onlineConnectedShort")}</span>
-      </div>
-      <div class="settings-row">
-        <strong>${t("profile.roles")}</strong>
-        <span class="role-list">${onlineRoleBadges(online, t, escapeHtml)}</span>
-      </div>
-      <div class="settings-row">
-        <strong>${t("profile.license")}</strong>
-        <span>${onlineLicenseText(online, t, escapeHtml)}</span>
-      </div>
-      <div class="settings-row">
-        <strong>${t("profile.mobileAccess")}</strong>
-        <span class="status-pill ${mobileAllowed ? "ok" : "danger"}">${mobileAllowed ? t("profile.mobileUnlocked") : t("profile.mobileLocked")}</span>
-      </div>
-      <div class="settings-row">
-        <strong>${t("profile.workedTypes")}</strong>
-        <span>${workedCaseTypesText(online, t, escapeHtml)}</span>
-      </div>
-      <div class="settings-row">
-        <strong>${t("profile.lastSync")}</strong>
-        <small>${escapeHtml(online.last_sync_at || "-")}</small>
-      </div>
-      <div class="button-row">
-        <button class="secondary-button" data-action="profile-new">${icon("user")} ${t("profile.newProfile")}</button>
-        <button class="secondary-button" data-action="profile-online-sync">${icon("refresh")} ${t("profile.onlineSync")}</button>
-        <button class="danger-button" data-action="profile-online-logout">${icon("stop")} ${t("profile.onlineDisconnect")}</button>
-        <button class="danger-button" data-action="profile-logout">${icon("stop")} ${t("profile.logout")}</button>
-      </div>
-      ${profileActivityHtml(profile, t, icon, escapeHtml)}
-    </article>
-  `;
-}
-
-function onlineDisconnectedCard(t, icon) {
-  return `
-    <article class="settings-card">
-      <span class="settings-kicker">${t("profile.onlineAccount")}</span>
-      <h3>${t("profile.onlineDisconnected")}</h3>
-      <div class="settings-row">
-        <strong>${t("profile.onlineStatus")}</strong>
-        <span class="status-pill warn">${t("profile.onlineDisconnectedShort")}</span>
-      </div>
-      <div class="button-row">
-        <button class="primary-button" data-action="profile-online-start">${icon("globe")} ${t("profile.onlineConnect")}</button>
-      </div>
-    </article>
-  `;
-}
-
-function profilePreferenceRows(profile, state, t, escapeHtml) {
-  return `
-    <div class="settings-row">
-      <strong>${t("settings.language")}</strong>
-      <span>${profile?.language === "en" ? "English" : "Türkçe"}</span>
-    </div>
-    <div class="settings-row">
-      <strong>${t("profile.theme")}</strong>
-      <span>${profile?.theme === "light" ? t("profile.themeLight") : t("profile.themeDark")}</span>
-    </div>
-    <div class="settings-row">
-      <strong>${t("case.location")}</strong>
-      <small>${escapeHtml(state.caseBaseDir || "~/Amele/Kullanicilar/.../Vakalar")}</small>
-    </div>
   `;
 }
 
@@ -1084,7 +1167,13 @@ function profileActivityHtml(profile, t, icon, escapeHtml) {
 
 function isExternalUrl(url) {
   try {
+    if (typeof url === "string" && (url.startsWith("#") || url.startsWith("/api/"))) {
+      return false;
+    }
     const parsed = new URL(url, window.location.href);
+    if (parsed.origin === window.location.origin) {
+      return false;
+    }
     return ["http:", "https:", "mailto:"].includes(parsed.protocol);
   } catch {
     return false;
@@ -1359,7 +1448,92 @@ function requireActiveConnection(workflow, payload) {
   return true;
 }
 
+// Prevent image drag and accidental selection highlight artifacts across chrome/sidebar/brand
+document.addEventListener("dragstart", (event) => {
+  if (event.target.tagName === "IMG" || event.target.closest(".sidebar, .brand-row, .brand-mark, .about-hero")) {
+    event.preventDefault();
+  }
+});
+
+document.addEventListener("selectstart", (event) => {
+  if (event.target.closest(".brand-mark, .sidebar-head, .brand-row, .sidebar, .sidebar-toggle, .about-hero-center, .about-hero-logo")) {
+    event.preventDefault();
+  }
+});
+
+const clearSidebarSelection = () => {
+  try {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const inChrome = (node) => {
+      if (!node) return false;
+      const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      return !!el?.closest?.(".sidebar, .brand-row, .brand-mark, #brand-logo, .about-hero-logo, .about-hero-center, .topbar");
+    };
+    if (inChrome(sel.anchorNode) || inChrome(sel.focusNode)) {
+      sel.removeAllRanges();
+    }
+  } catch (_) {}
+};
+
+const clearChromeArtifacts = () => {
+  try {
+    window.getSelection()?.removeAllRanges();
+    if (document.activeElement && document.activeElement !== document.body && document.activeElement.closest?.(".sidebar, .brand-row, #brand-logo, .brand-mark, .topbar")) {
+      document.activeElement.blur();
+    }
+  } catch (_) {}
+};
+
+for (const delay of [0, 40, 100, 250, 500, 1000, 2000]) {
+  setTimeout(clearChromeArtifacts, delay);
+}
+
+document.addEventListener("selectionchange", clearSidebarSelection);
+document.addEventListener("mousedown", (event) => {
+  if (event.target.closest(".sidebar, .brand-row, .brand-mark, #brand-logo, .about-hero-logo, .topbar")) {
+    clearChromeArtifacts();
+  }
+}, { capture: true });
+
+document.addEventListener("mouseup", (event) => {
+  if (event.target.closest(".sidebar, .brand-row, .brand-mark, #brand-logo, .about-hero-logo, .topbar")) {
+    clearChromeArtifacts();
+  }
+}, { capture: true });
+
+window.addEventListener("focus", clearChromeArtifacts);
+clearChromeArtifacts();
+
 document.addEventListener("click", async (event) => {
+  const tocBtn = event.target.closest("[data-action='help-toc']");
+  if (tocBtn) {
+    event.preventDefault();
+    const targetId = tocBtn.dataset.target;
+    if (targetId) {
+      const targetEl = document.getElementById(targetId);
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        document.querySelectorAll(".help-toc-link").forEach((btn) => btn.classList.remove("active"));
+        tocBtn.classList.add("active");
+      }
+    }
+    return;
+  }
+
+  const anchorLink = event.target.closest("a[href^='#']");
+  if (anchorLink) {
+    event.preventDefault();
+    const hash = anchorLink.getAttribute("href").replace(/^#/, "");
+    if (hash) {
+      const targetEl = document.getElementById(decodeURIComponent(hash)) || document.getElementById(hash);
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+    return;
+  }
+
   const externalLink = event.target.closest("a[href]");
   if (externalLink && isExternalUrl(externalLink.href)) {
     event.preventDefault();
@@ -1399,8 +1573,46 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const caseProfileCard = event.target.closest(".case-profile-card[data-case-name]");
+  if (caseProfileCard) {
+    const caseName = caseProfileCard.dataset.caseName;
+    const matched = state.cases.find((c) => c.case_name === caseName);
+    if (matched && state.activeCase?.case_name !== caseName) {
+      state.activeCase = matched;
+      render();
+      return;
+    }
+  }
+
+  const helpDocBtn = event.target.closest("[data-action='help-select-doc'][data-doc]");
+  if (helpDocBtn) {
+    event.preventDefault();
+    state.activeHelpDoc = helpDocBtn.dataset.doc;
+    render();
+    return;
+  }
+
+  const helpCopyBtn = event.target.closest("[data-action='copy-help-code']");
+  if (helpCopyBtn) {
+    event.preventDefault();
+    const pre = helpCopyBtn.closest(".help-code-block")?.querySelector("pre code");
+    if (pre) {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(pre.textContent || "");
+      }
+      const label = helpCopyBtn.querySelector("span") || helpCopyBtn;
+      const orig = label.textContent;
+      label.textContent = state.language === "en" ? "Copied!" : "Kopyalandı!";
+      setTimeout(() => { label.textContent = orig; }, 1800);
+    }
+    return;
+  }
+
   const routeButton = event.target.closest("[data-route]");
   if (routeButton) {
+    if (routeButton.dataset.tab) {
+      state.activeTab = routeButton.dataset.tab;
+    }
     setRoute(routeButton.dataset.route);
     return;
   }
@@ -1672,6 +1884,8 @@ async function handleAction(button) {
   if (action === "profile-logout") {
     try {
       await apiRequest("/api/profiles/logout", { method: "POST" });
+      const profilesResp = await apiRequest("/api/profiles").catch(() => null);
+      state.profiles = Array.isArray(profilesResp?.profiles) ? profilesResp.profiles : [];
       state.activeProfile = null;
       state.activeCase = null;
       state.cases = [];
@@ -1729,6 +1943,7 @@ async function handleAction(button) {
 
   if (action === "theme-toggle") {
     setTheme(state.theme === "dark" ? "light" : "dark");
+    render();
     try {
       await persistSettingsFromControls();
     } catch (error) {
@@ -2394,6 +2609,70 @@ async function handleAction(button) {
     return;
   }
 
+  if (action === "about-check-update") {
+    button.classList.add("is-checking");
+    const lang = state.language || "en";
+    const isTr = lang === "tr";
+    try {
+      let result = null;
+      if (backendReady()) {
+        try {
+          result = await apiRequest("/api/update-check");
+        } catch (_) {}
+      }
+      if (!result || (!result.tag_name && !result.name)) {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 7000);
+        const res = await fetch(
+          "https://api.github.com/repos/noirlang/amele/releases/latest",
+          { signal: controller.signal, headers: { Accept: "application/vnd.github+json" } }
+        );
+        clearTimeout(tid);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        result = await res.json();
+      }
+
+      state.latestUpdate = result;
+      const latestTag = (result.tag_name || result.name || "").trim();
+      const releaseUrl = result.html_url || "https://github.com/noirlang/amele/releases/latest";
+
+      const parseVer = (v) => v.replace(/^v/i, "").split("-")[0].split(".").map(Number);
+      const [cMaj, cMin, cPatch] = parseVer(APP_VERSION);
+      const [lMaj, lMin, lPatch] = parseVer(latestTag);
+      const hasUpdate =
+        lMaj > cMaj ||
+        (lMaj === cMaj && lMin > cMin) ||
+        (lMaj === cMaj && lMin === cMin && lPatch > cPatch);
+
+      if (hasUpdate) {
+        showToast(
+          isTr
+            ? `🚀 Yeni sürüm mevcut: ${latestTag}! (Mevcut: ${APP_VERSION})`
+            : `🚀 New update available: ${latestTag}! (Current: ${APP_VERSION})`,
+          "success"
+        );
+        showUpdateToast({ latestTag, releaseUrl, isTr });
+      } else {
+        showToast(
+          isTr
+            ? `✓ Amele güncel! En son sürümü kullanıyorsunuz (${APP_VERSION}).`
+            : `✓ Amele is up to date! You are on the latest release (${APP_VERSION}).`,
+          "info"
+        );
+      }
+    } catch (error) {
+      showToast(
+        isTr
+          ? `Güncelleme kontrolü başarısız: ${error.message}`
+          : `Update check failed: ${error.message}`,
+        "error"
+      );
+    } finally {
+      setTimeout(() => button.classList.remove("is-checking"), 600);
+    }
+    return;
+  }
+
   if (action === "check-update") {
     try {
       setStatus("[data-update-status]", `${icon("refresh")} ${t("settings.updateChecked")}`);
@@ -2448,7 +2727,17 @@ async function handleAction(button) {
     return;
   }
 
-  if (action === "load-history") {
+  if (action === "refresh-cases") {
+    await loadEvidenceCases({ silent: false });
+    return;
+  }
+
+  if (action === "list-files") {
+    await listEvidenceFiles();
+    return;
+  }
+
+  if (action === "load-history" || action === "refresh-history") {
     await loadAcquisitionHistory({ silent: false });
     return;
   }
@@ -2460,6 +2749,21 @@ async function handleAction(button) {
 
   if (action === "create-report") {
     await createEvidenceReport();
+    return;
+  }
+
+  if (action === "list-reports") {
+    await listEvidenceReports();
+    return;
+  }
+
+  if (action === "refresh-logs") {
+    await loadEvidenceLogs();
+    return;
+  }
+
+  if (action === "run-hash") {
+    await calculateHashInOther();
     return;
   }
 
@@ -3411,7 +3715,10 @@ function compareHash() {
 
 function setStatus(selector, html) {
   const node = document.querySelector(selector);
-  if (node) node.innerHTML = html;
+  if (node) {
+    node.innerHTML = html;
+    node.style.display = html ? "inline-flex" : "none";
+  }
 }
 
 async function createEvidenceCase() {
@@ -3545,6 +3852,91 @@ async function createEvidenceReport() {
   } catch (error) {
     setStatus("[data-report-status]", `${icon("info")} ${t("report.failed", { message: escapeHtml(error.message) })}`);
     showToast(t("report.failed", { message: error.message }), "error");
+  }
+}
+
+async function calculateHashInOther() {
+  const inputEl = document.querySelector("#hash-target-path");
+  const path = inputEl?.value?.trim();
+  if (!path) {
+    showToast(t("hash.fileRequired"), "error");
+    return;
+  }
+  const algSelect = document.querySelector("#hash-algorithm");
+  const method = algSelect?.value || "sha256";
+  state.hashTargetInput = path;
+  state.hashMethod = method;
+
+  const algorithms = method === "both" ? ["sha256", "md5"] : [method];
+  setStatus("[data-hash-status]", `${icon("refresh")} ${t("hash.calculating")}`);
+  try {
+    const res = await apiRequest("/api/hash", {
+      method: "POST",
+      body: JSON.stringify({ path, algorithms })
+    });
+    state.hashResult = {
+      path,
+      sha256: res.sha256,
+      md5: res.md5
+    };
+    const outBox = document.querySelector("[data-hash-output]");
+    if (outBox) {
+      let outHtml = `<strong>${t("hash.file") || "Dosya"}:</strong> ${escapeHtml(path)}<br/>`;
+      if (res.sha256) outHtml += `<strong>SHA-256:</strong> <code style="word-break:break-all">${escapeHtml(res.sha256)}</code><br/>`;
+      if (res.md5) outHtml += `<strong>MD5:</strong> <code style="word-break:break-all">${escapeHtml(res.md5)}</code><br/>`;
+      outBox.innerHTML = outHtml;
+    }
+    setStatus("[data-hash-status]", `${icon("shield")} ${t("hash.done")}`);
+    showToast(t("hash.done"));
+  } catch (err) {
+    setStatus("[data-hash-status]", `${icon("info")} ${t("hash.failed", { message: escapeHtml(err.message) })}`);
+    showToast(t("hash.failed", { message: err.message }), "error");
+  }
+}
+
+async function listEvidenceReports() {
+  if (!state.activeCase) {
+    showToast(t("case.required"), "error");
+    return;
+  }
+  try {
+    const result = await apiRequest("/api/evidence-list-files", {
+      method: "POST",
+      body: JSON.stringify({ subdir: "raporlar" })
+    });
+    const files = result.files || [];
+    const outBox = document.querySelector("[data-report-output]");
+    if (outBox) {
+      outBox.innerHTML = files.length
+        ? files.map((f) => `<strong>${escapeHtml(f.name)}</strong> (${formatBytes(f.size)})<br/><small style="color:var(--muted)">${escapeHtml(f.path)}</small>`).join("<hr style='border:0;border-top:1px solid var(--line);margin:8px 0;'/>")
+        : t("report.noReports");
+    }
+    showToast(t("report.refreshDone"));
+  } catch (error) {
+    showToast(t("case.listFailed", { message: error.message }), "error");
+  }
+}
+
+async function loadEvidenceLogs() {
+  if (!state.activeCase) {
+    showToast(t("case.required"), "error");
+    return;
+  }
+  try {
+    const result = await apiRequest("/api/evidence-list-files", {
+      method: "POST",
+      body: JSON.stringify({ subdir: "gunlukler" })
+    });
+    const files = result.files || [];
+    const outBox = document.querySelector("[data-logs-output]");
+    if (outBox) {
+      outBox.innerHTML = files.length
+        ? files.map((f) => `<strong>${escapeHtml(f.name)}</strong> (${formatBytes(f.size)})<br/><small style="color:var(--muted)">${escapeHtml(f.path)}</small>`).join("<hr style='border:0;border-top:1px solid var(--line);margin:8px 0;'/>")
+        : t("logs.empty");
+    }
+    showToast(t("logs.refreshed"));
+  } catch (error) {
+    showToast(t("case.listFailed", { message: error.message }), "error");
   }
 }
 
@@ -4010,6 +4402,18 @@ async function bootApp() {
   // Background network tasks and timers (only in real browser / webview, not during Node unit tests)
   const isNodeTest = typeof process !== "undefined" && Boolean(process.versions?.node);
   if (!isNodeTest) {
+    // Online profil kontrolü & otomatik senkronizasyon:
+    // İnternet bağlıysa token geçerliliğini test edip senkronize et,
+    // internet yoksa hesabı offline modda tut.
+    if (state.activeProfile?.online) {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        state.activeProfile.online.status = "offline";
+        syncProfileButton();
+      } else {
+        syncOnlineProfile(null, true).catch(() => {});
+      }
+    }
+
     // Load latest GitHub contributors in background
     loadGitHubContributors().catch(() => {});
 
@@ -4041,14 +4445,14 @@ async function checkForUpdates() {
     const controller = new AbortController();
     const tid = setTimeout(() => controller.abort(), 6000);
     const res = await fetch(
-      "https://api.github.com/repos/amele-next/amele-next/releases/latest",
+      "https://api.github.com/repos/noirlang/amele/releases/latest",
       { signal: controller.signal, headers: { Accept: "application/vnd.github+json" } }
     );
     clearTimeout(tid);
     if (!res.ok) return;
     const data = await res.json();
     const latestTag = (data.tag_name || "").trim();
-    const releaseUrl = data.html_url || "https://github.com/amele-next/amele-next/releases/latest";
+    const releaseUrl = data.html_url || "https://github.com/noirlang/amele/releases/latest";
     if (!latestTag) return;
 
     // Basit semver karşılaştırması: APP_VERSION < latestTag
@@ -4169,6 +4573,16 @@ function startNewsCarouselTimer() {
   });
   window.addEventListener("online", () => {
     loadNewsAnnouncements(true).catch(() => {});
+    if (state.activeProfile?.online) {
+      syncOnlineProfile(null, true).catch(() => {});
+    }
+  });
+  window.addEventListener("offline", () => {
+    if (state.activeProfile?.online) {
+      state.activeProfile.online.status = "offline";
+      syncProfileButton();
+      render();
+    }
   });
 }
 

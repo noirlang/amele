@@ -91,8 +91,8 @@ export function dockerPage({ t, icon, state, pageTitle, pickerField, field, esca
           ${!isRemote ? `
             <p class="section-label">${t("docker.localSettings")}</p>
             ${renderPicker(t("docker.customRoot"), "docker-custom-root", d.customRoot || (typeof navigator !== "undefined" && (navigator.platform?.includes("Win") || navigator.userAgent?.includes("Windows")) ? "C:\\ProgramData\\Docker" : "/var/lib/docker"), "folder")}
-            <small class="field-hint" style="margin-top:-6px;margin-bottom:12px;display:block;">${t("docker.customRootHint")}</small>
-            <div class="button-row" style="margin-top:14px;">
+            <small class="field-hint" style="margin-top:8px;margin-bottom:16px;display:block;line-height:1.45;">${t("docker.customRootHint")}</small>
+            <div class="button-row" style="margin-top:16px;">
               <button class="primary-button" data-docker-action="scan-local" ${d.isScanning ? "disabled" : ""}>
                 ${icon("refresh")} ${d.isScanning ? t("docker.scanning") : t("docker.scan")}
               </button>

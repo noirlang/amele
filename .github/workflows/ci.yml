@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   pull_request:
     branches:
       - main
@@ -18,13 +20,14 @@ env:
 jobs:
   metadata:
     name: Commit metadata
-    if: contains(github.event.head_commit.message, '[build]') || github.event_name == 'workflow_dispatch' || github.actor == 'nektos/act'
+    if: contains(github.event.head_commit.message, '[build]') || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') || github.actor == 'nektos/act'
     runs-on: ubuntu-24.04
     outputs:
       asset_suffix: ${{ steps.commit.outputs.asset_suffix }}
       release_title: ${{ steps.commit.outputs.release_title }}
       short_sha: ${{ steps.commit.outputs.short_sha }}
       tag: ${{ steps.commit.outputs.tag }}
+      is_prerelease: ${{ steps.commit.outputs.is_prerelease }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -41,10 +44,20 @@ jobs:
           if [[ -z "$short_sha" ]]; then
             short_sha="$(git rev-parse --short=12 HEAD 2>/dev/null || echo 'localbuild000')"
           fi
+          if [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
+            tag="${GITHUB_REF_NAME}"
+            release_title="Amele ${GITHUB_REF_NAME}"
+            is_prerelease="false"
+          else
+            tag="commit-${short_sha}"
+            release_title="${commit_time} (${short_sha})"
+            is_prerelease="true"
+          fi
           echo "asset_suffix=${commit_time}" >> "$GITHUB_OUTPUT"
-          echo "release_title=${commit_time} (${short_sha})" >> "$GITHUB_OUTPUT"
+          echo "release_title=${release_title}" >> "$GITHUB_OUTPUT"
           echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
-          echo "tag=commit-${short_sha}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=${is_prerelease}" >> "$GITHUB_OUTPUT"
 
   quality:
     name: Tests and static checks
@@ -105,37 +118,42 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
           RELEASE_TITLE: ${{ needs.metadata.outputs.release_title }}
+          IS_PRERELEASE: ${{ needs.metadata.outputs.is_prerelease }}
         shell: bash
         run: |
           set -euo pipefail
           cat > release-notes.md <<EOF
-          Automated development release for **${RELEASE_TITLE}**.
+          Automated release for **${RELEASE_TITLE}**.
 
           Built from \`${GITHUB_SHA}\` on \`${GITHUB_REF_NAME}\`.
 
           Packages:
+          - Linux Standalone Binary (\`amele\`)
           - Linux AppImage
           - Debian/Ubuntu DEB
           - Fedora/RHEL RPM
           - Arch Linux package
           - Windows x64 MSI
-
-          This is an unsigned prerelease generated from a development commit.
           EOF
+
+          EXTRA_FLAGS=()
+          if [[ "$IS_PRERELEASE" == "true" ]]; then
+            EXTRA_FLAGS+=("--prerelease")
+          fi
 
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release edit "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --title "$RELEASE_TITLE" \
               --notes-file release-notes.md \
-              --prerelease
+              "${EXTRA_FLAGS[@]}"
           else
             gh release create "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --title "$RELEASE_TITLE" \
               --notes-file release-notes.md \
-              --prerelease
+              "${EXTRA_FLAGS[@]}"
           fi
 
   linux-packages:
@@ -176,6 +194,12 @@ jobs:
             "release-assets/amele-x64-${ASSET_SUFFIX}.rpm"
           cp dist/amele-linux-x64.pkg.tar.zst \
             "release-assets/amele-x64-${ASSET_SUFFIX}.pkg.tar.zst"
+          if [[ -f dist/amele ]]; then
+            cp dist/amele "release-assets/amele"
+          elif [[ -f target/release/amele ]]; then
+            cp target/release/amele "release-assets/amele"
+          fi
+          chmod +x "release-assets/amele"
 
       - name: Upload Linux assets to release
         if: github.actor != 'nektos/act'
@@ -183,17 +207,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
           RELEASE_TITLE: ${{ needs.metadata.outputs.release_title }}
+          IS_PRERELEASE: ${{ needs.metadata.outputs.is_prerelease }}
         shell: bash
         run: |
           set -euo pipefail
           if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $RELEASE_TAG does not exist yet. Creating..."
+            EXTRA_FLAGS=()
+            if [[ "$IS_PRERELEASE" == "true" ]]; then
+              EXTRA_FLAGS+=("--prerelease")
+            fi
             gh release create "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --title "$RELEASE_TITLE" \
-              --notes "Automated development prerelease for **${RELEASE_TITLE}**." \
-              --prerelease || true
+              --notes "Automated release for **${RELEASE_TITLE}**." \
+              "${EXTRA_FLAGS[@]}" || true
           fi
           for file in release-assets/*; do
             if [[ -f "$file" ]]; then

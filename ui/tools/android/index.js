@@ -1,10 +1,10 @@
 export function androidPage({ t, icon, pageTitle, state, escapeHtml, backendReady }) {
+  // TODO: Enable physical acquisition card, implement EDL/BROM device scan dropdown and physical image trigger
+  // ${androidImageModeCard("physical", t("android.mode.physical.title"), t("android.mode.physical.desc"), "disk", "var(--text)", t("android.mode.soon"), icon, escapeHtml, { disabled: true })}
   return `
     <section class="page">
       ${pageTitle(t("hub.android.title"), t("hub.android.desc"), "android")}
       <div class="tool-grid android-mode-grid">
-// TODO: Enable physical acquisition card, implement EDL/BROM device scan dropdown and physical image trigger
-        ${androidImageModeCard("physical", t("android.mode.physical.title"), t("android.mode.physical.desc"), "disk", "var(--text)", t("android.mode.soon"), icon, escapeHtml, { disabled: true })}
         ${androidImageModeCard("logical", t("android.mode.logical.title"), t("android.mode.logical.desc"), "android", "var(--text)", t("android.mode.logical.badge"), icon, escapeHtml)}
         ${androidImageModeCard("filesystem", t("android.mode.filesystem.title"), t("android.mode.filesystem.desc"), "folder", "var(--text)", t("android.mode.filesystem.badge"), icon, escapeHtml)}
         ${androidImageModeCard("ram", t("android.mode.ram.title"), t("android.mode.ram.desc"), "cpu", "var(--text)", t("android.mode.ram.badge"), icon, escapeHtml)}
@@ -48,7 +48,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
 
   return `
     <section class="page">
-      <button class="secondary-button android-back-button" data-route="android">${icon("grid")} ${t("android.back")}</button>
+      <button class="secondary-button android-back-button" data-route="android">${icon("android")} ${t("android.back")}</button>
       ${pageTitle(mode.title, mode.desc, mode.icon)}
       <div class="workflow-layout">
         <div class="workflow-panel">
@@ -120,7 +120,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
 
             <div class="section-divider"></div>
             <p class="section-label">${t("android.filesystem.options") || "Seçenekler"}</p>
-            <div class="field" style="flex-direction: row; align-items: center; gap: 10px;">
+            <div class="check-field" style="display: flex; align-items: center; gap: 10px; margin: 12px 0;">
               <input type="checkbox" id="android-filesystem-has-root" data-android-filesystem-has-root style="width: 18px; height: 18px; cursor: pointer;" />
               <label for="android-filesystem-has-root" style="cursor: pointer; user-select: none; font-size: 0.9rem; color: #acc0e4;">${t("android.filesystem.hasRoot") || "Cihazda Root Yetkisi Var (Doğrudan imaj al)"}</label>
             </div>
@@ -153,7 +153,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
                 ${ramModeOptions(android.ramMode || "volatile_data", t)}
               </select>
             </div>
-            <div class="field" style="flex-direction: row; align-items: center; gap: 10px;">
+            <div class="check-field" style="display: flex; align-items: center; gap: 10px; margin: 12px 0;">
               <input type="checkbox" id="android-ram-has-root" data-android-ram-has-root style="width: 18px; height: 18px; cursor: pointer;" />
               <label for="android-ram-has-root" style="cursor: pointer; user-select: none; font-size: 0.9rem; color: #acc0e4;">${t("android.filesystem.hasRoot") || "Cihazda Root Yetkisi Var"}</label>
             </div>

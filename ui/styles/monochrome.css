@@ -233,7 +233,6 @@ code {
 
 .action-tile,
 .forensic-card,
-.brand-mark,
 .workflow-panel,
 .side-panel,
 .status-strip,
@@ -272,7 +271,6 @@ code {
 
 .action-tile::before,
 .forensic-card::before,
-.brand-mark::before,
 .sidebar-toggle::before,
 .workflow-panel::before,
 .side-panel::before,
@@ -386,7 +384,6 @@ code {
 
 .action-tile > *,
 .forensic-card > *,
-.brand-mark > *,
 .sidebar-toggle > *,
 .workflow-panel > *,
 .side-panel > *,
@@ -407,13 +404,17 @@ code {
   z-index: 3;
 }
 
+.brand-mark::before,
+.brand-mark::after {
+  display: none !important;
+  content: none !important;
+}
+
 /* ── HOVER: cream LED glow (panels) ────────────────────────────── */
 
 .action-tile:hover::before,
 .forensic-card:hover::before,
-.brand-mark:hover::before,
 .sidebar-toggle:hover::before,
-.brand-mark:focus-visible::before,
 .sidebar-toggle:focus-visible::before,
 .workflow-panel:hover::before,
 .side-panel:hover::before,
@@ -449,9 +450,7 @@ code {
 
 .action-tile:hover,
 .forensic-card:hover,
-.brand-mark:hover,
 .sidebar-toggle:hover,
-.brand-mark:focus-visible,
 .sidebar-toggle:focus-visible,
 .workflow-panel:hover,
 .side-panel:hover,
@@ -666,12 +665,28 @@ code {
 
 .status-pill {
   display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
   width: fit-content;
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 4px 8px;
-  font-size: 12px;
+  padding: 3px 9px !important;
+  font-size: 11.5px !important;
   font-weight: 700;
+  line-height: 1 !important;
+  vertical-align: middle;
+}
+
+.status-pill svg {
+  width: 12px !important;
+  height: 12px !important;
+  min-width: 12px !important;
+  min-height: 12px !important;
+  stroke-width: 2.2 !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+  flex-shrink: 0 !important;
 }
 
 .status-pill.ok {
