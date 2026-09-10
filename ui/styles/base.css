@@ -294,17 +294,65 @@
   transition: all 0.25s ease;
 }
 
-.profile-hero-avatar-wrap {
+.profile-hero-avatar-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 92px;
+  height: 92px;
+  min-width: 92px;
+  min-height: 92px;
+  max-width: 92px;
+  max-height: 92px;
   flex-shrink: 0;
+  border-radius: 22px;
+  position: relative;
 }
 
-.profile-hero-avatar-wrap .profile-avatar {
-  width: 80px;
-  height: 80px;
-  border-radius: 20px;
-  font-size: 32px;
-  border: 2px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+.profile-avatar.profile-card-avatar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 92px !important;
+  height: 92px !important;
+  min-width: 92px !important;
+  min-height: 92px !important;
+  max-width: 92px !important;
+  max-height: 92px !important;
+  border-radius: 22px !important;
+  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: var(--input-bg) !important;
+  position: relative !important;
+  font-size: 34px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.profile-avatar.profile-card-avatar .avatar-img {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 100% !important;
+  min-height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 20px !important;
+  display: block !important;
+}
+
+.profile-avatar.profile-card-avatar .avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
+  color: var(--text);
 }
 
 .profile-hero-content {
@@ -556,9 +604,15 @@
   box-shadow: 0 12px 32px rgba(38, 33, 24, 0.08);
 }
 
-.theme-light .profile-hero-avatar-wrap .profile-avatar {
-  border-color: rgba(38, 33, 24, 0.2);
-  box-shadow: 0 4px 14px rgba(38, 33, 24, 0.12);
+.theme-light .profile-avatar.profile-card-avatar {
+  border-color: rgba(38, 33, 24, 0.2) !important;
+  box-shadow: 0 4px 14px rgba(38, 33, 24, 0.12) !important;
+  background: rgba(38, 33, 24, 0.04) !important;
+}
+
+.theme-light .profile-avatar.profile-card-avatar .avatar-fallback {
+  background: linear-gradient(135deg, rgba(38, 33, 24, 0.08), rgba(38, 33, 24, 0.03)) !important;
+  color: var(--text) !important;
 }
 
 .theme-light .profile-hero-roles {

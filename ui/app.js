@@ -465,7 +465,7 @@ function profileInitials(profile) {
 
 function getAvatarUrl(profile) {
   if (!profile) return "";
-  let rawUrl = profile.avatar_url || profile.avatarUrl || profile.online?.avatar_url || profile.online?.avatarUrl || "";
+  let rawUrl = profile.avatar_url || profile.avatarUrl || profile.online?.avatar_url || profile.online?.avatarUrl || profile.avatar || profile.online?.avatar || "";
   if (!rawUrl) return "";
   rawUrl = rawUrl.replace("://www.amele.noirlang.tr", "://amele.noirlang.tr");
   if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://") || rawUrl.startsWith("data:")) {
@@ -484,7 +484,7 @@ function renderProfileAvatar(profile, extraClass = "") {
   const initials = profileInitials(profile || {});
   const sizeClass = extraClass ? ` ${extraClass}` : "";
   if (avatarUrl) {
-    let rawPath = (profile.avatar_url || profile.avatarUrl || profile.online?.avatar_url || profile.online?.avatarUrl || "");
+    let rawPath = (profile.avatar_url || profile.avatarUrl || profile.online?.avatar_url || profile.online?.avatarUrl || profile.avatar || profile.online?.avatar || "");
     rawPath = rawPath.replace("://www.amele.noirlang.tr", "://amele.noirlang.tr");
     let altBase = "";
     if (rawPath.startsWith("/")) {
@@ -494,7 +494,7 @@ function renderProfileAvatar(profile, extraClass = "") {
     }
     return `<span class="profile-avatar${sizeClass}"><img src="${escapeHtml(avatarUrl)}" alt="Avatar" class="avatar-img" data-alt-src="${escapeHtml(altBase)}" onerror="if(this.dataset.altSrc && this.src !== this.dataset.altSrc){ this.src = this.dataset.altSrc; this.dataset.altSrc = ''; } else { this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-grid'; }" /><span class="avatar-fallback" style="display:none;">${initials}</span></span>`;
   }
-  return `<span class="profile-avatar${sizeClass}">${initials}</span>`;
+  return `<span class="profile-avatar${sizeClass}"><span class="avatar-fallback">${initials}</span></span>`;
 }
 
 function syncProfileButton() {
@@ -995,6 +995,8 @@ function profilePage({ t, icon, state, pageTitle, escapeHtml }) {
 
   const licenseHtml = online ? onlineLicenseText(online, t, escapeHtml) : "";
 
+  const activeText = t("case.active") === "case.active" ? (state.language === "en" ? "Active" : "Aktif") : t("case.active");
+
   // Cases grid
   const caseCards = state.cases.length
     ? state.cases.map((item) => {
@@ -1003,7 +1005,7 @@ function profilePage({ t, icon, state, pageTitle, escapeHtml }) {
           <article class="case-profile-card ${isActive ? "is-active-case" : ""}" data-case-name="${escapeHtml(item.case_name || "")}" role="button" tabindex="0">
             <div class="case-profile-top">
               <strong title="${escapeHtml(item.case_name || "")}">${escapeHtml(item.case_name || "-")}</strong>
-              ${isActive ? `<span class="status-pill ok case-active-pill">${icon("check")} ${t("case.active") || "Aktif"}</span>` : ""}
+              ${isActive ? `<span class="status-pill ok case-active-pill">${icon("check")} ${escapeHtml(activeText)}</span>` : ""}
             </div>
             <small title="${escapeHtml(item.case_dir || "")}">${escapeHtml(item.case_dir || "")}</small>
             <div class="case-profile-counts">
@@ -1024,8 +1026,8 @@ function profilePage({ t, icon, state, pageTitle, escapeHtml }) {
 
       <!-- 1. Büyük Yatay Profil Kartı -->
       <div class="profile-hero-card">
-        <div class="profile-hero-avatar-wrap">
-          ${renderProfileAvatar(profile || { full_name: fullName, username, online }, "hero")}
+        <div class="profile-hero-avatar-box">
+          ${renderProfileAvatar(profile || { full_name: fullName, username, online }, "profile-card-avatar")}
         </div>
         <div class="profile-hero-content">
           <div class="profile-hero-header">
@@ -1053,10 +1055,6 @@ function profilePage({ t, icon, state, pageTitle, escapeHtml }) {
               <div class="profile-roles-group">
                 <span class="profile-section-label">${t("profile.license") || "Lisans"}:</span>
                 <span class="status-pill ${online.has_license ? "ok" : "warn"}">${licenseHtml}</span>
-              </div>
-              <div class="profile-roles-group">
-                <span class="profile-section-label">${t("profile.mobileAccess") || "Mobil Araçlar"}:</span>
-                <span class="status-pill ${mobileAllowed ? "ok" : "danger"}">${mobileAllowed ? (t("profile.mobileUnlocked") || "Açık") : (t("profile.mobileLocked") || "Kilitli")}</span>
               </div>
             ` : ""}
           </div>
