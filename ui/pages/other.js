@@ -318,33 +318,33 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath, theme, state }) {
         <div class="about-hero-right">
           <div class="about-hero-features">
             <div class="about-feature-row">
-              <div class="about-feature-chip" data-route="windows">
+              <div class="about-feature-chip" data-route="windows" title="${t("nav.windows")}" aria-label="${t("nav.windows")}">
                 <span class="about-feature-icon">${icon("windows")}</span>
-                <span>${t("nav.windows")}</span>
+                <span class="about-feature-label">${t("nav.windows")}</span>
               </div>
-              <div class="about-feature-chip" data-route="linux">
+              <div class="about-feature-chip" data-route="linux" title="${t("nav.linux")}" aria-label="${t("nav.linux")}">
                 <span class="about-feature-icon">${icon("linux")}</span>
-                <span>${t("nav.linux")}</span>
+                <span class="about-feature-label">${t("nav.linux")}</span>
               </div>
             </div>
             <div class="about-feature-row">
-              <div class="about-feature-chip" data-route="docker">
+              <div class="about-feature-chip" data-route="docker" title="${t("nav.docker")}" aria-label="${t("nav.docker")}">
                 <span class="about-feature-icon">${icon("docker")}</span>
-                <span>${t("nav.docker")}</span>
+                <span class="about-feature-label">${t("nav.docker")}</span>
               </div>
-              <div class="about-feature-chip" data-route="android">
+              <div class="about-feature-chip" data-route="android" title="${t("nav.android")}" aria-label="${t("nav.android")}">
                 <span class="about-feature-icon">${icon("android")}</span>
-                <span>${t("nav.android")}</span>
+                <span class="about-feature-label">${t("nav.android")}</span>
               </div>
             </div>
             <div class="about-feature-row">
-              <div class="about-feature-chip" data-route="ios">
+              <div class="about-feature-chip" data-route="ios" title="${t("nav.ios")}" aria-label="${t("nav.ios")}">
                 <span class="about-feature-icon">${icon("ios")}</span>
-                <span>${t("nav.ios")}</span>
+                <span class="about-feature-label">${t("nav.ios")}</span>
               </div>
-              <div class="about-feature-chip" data-route="other">
+              <div class="about-feature-chip" data-route="other" title="${t("nav.other")}" aria-label="${t("nav.other")}">
                 <span class="about-feature-icon">${icon("tiles")}</span>
-                <span>${t("nav.other")}</span>
+                <span class="about-feature-label">${t("nav.other")}</span>
               </div>
             </div>
           </div>
