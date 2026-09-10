@@ -791,28 +791,35 @@ img, svg {
   color: #fff;
 }
 
+/* Standalone WebKit / Standard transparent selection */
 img::selection,
-img::-moz-selection,
 .brand-mark::selection,
 .brand-mark *::selection,
-.brand-mark::-moz-selection,
-.brand-mark *::-moz-selection,
 #brand-logo::selection,
 #brand-logo *::selection,
-#brand-logo::-moz-selection,
-#brand-logo *::-moz-selection,
 #brand-logo-img::selection,
-#brand-logo-img::-moz-selection,
 .sidebar::selection,
 .sidebar *::selection,
-.sidebar::-moz-selection,
-.sidebar *::-moz-selection,
 .brand-row::selection,
 .brand-row *::selection,
+.about-hero::selection,
+.about-hero *::selection {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: inherit !important;
+}
+
+/* Standalone Gecko selection override */
+img::-moz-selection,
+.brand-mark::-moz-selection,
+.brand-mark *::-moz-selection,
+#brand-logo::-moz-selection,
+#brand-logo *::-moz-selection,
+#brand-logo-img::-moz-selection,
+.sidebar::-moz-selection,
+.sidebar *::-moz-selection,
 .brand-row::-moz-selection,
 .brand-row *::-moz-selection,
-.about-hero::selection,
-.about-hero *::selection,
 .about-hero::-moz-selection,
 .about-hero *::-moz-selection {
   background: transparent !important;
@@ -1012,7 +1019,7 @@ html.sidebar-collapsed .shell {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
 }
 
@@ -1164,15 +1171,15 @@ html.sidebar-collapsed .sidebar-expand-toggle,
 
 .side-nav {
   display: grid;
-  gap: 10px;
-  margin-top: 20px;
+  gap: 8px;
+  margin-top: 14px;
   transition: margin-top 220ms var(--ease), gap 220ms var(--ease);
 }
 
 .sidebar-collapsed .side-nav {
   justify-items: center;
-  gap: 12px;
-  margin-top: 12px;
+  gap: 8px !important;
+  margin-top: 8px !important;
   width: 100%;
 }
 
@@ -3547,8 +3554,8 @@ svg.svg-fill path {
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
-    gap: 10px !important;
-    margin-top: 12px !important;
+    gap: 8px !important;
+    margin-top: 8px !important;
     width: 100% !important;
   }
 

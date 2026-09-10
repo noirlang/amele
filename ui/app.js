@@ -1476,35 +1476,34 @@ const clearSidebarSelection = () => {
   } catch (_) {}
 };
 
-document.addEventListener("selectionchange", clearSidebarSelection);
+const clearChromeArtifacts = () => {
+  try {
+    window.getSelection()?.removeAllRanges();
+    if (document.activeElement && document.activeElement !== document.body && document.activeElement.closest?.(".sidebar, .brand-row, #brand-logo, .brand-mark, .topbar")) {
+      document.activeElement.blur();
+    }
+  } catch (_) {}
+};
 
+for (const delay of [0, 40, 100, 250, 500, 1000, 2000]) {
+  setTimeout(clearChromeArtifacts, delay);
+}
+
+document.addEventListener("selectionchange", clearSidebarSelection);
 document.addEventListener("mousedown", (event) => {
   if (event.target.closest(".sidebar, .brand-row, .brand-mark, #brand-logo, .about-hero-logo, .topbar")) {
-    try { window.getSelection()?.removeAllRanges(); } catch (_) {}
+    clearChromeArtifacts();
   }
 }, { capture: true });
 
 document.addEventListener("mouseup", (event) => {
   if (event.target.closest(".sidebar, .brand-row, .brand-mark, #brand-logo, .about-hero-logo, .topbar")) {
-    try { window.getSelection()?.removeAllRanges(); } catch (_) {}
+    clearChromeArtifacts();
   }
 }, { capture: true });
 
-window.addEventListener("focus", () => {
-  try {
-    window.getSelection()?.removeAllRanges();
-    if (document.activeElement && document.activeElement.closest?.(".sidebar, #brand-logo, .topbar")) {
-      document.activeElement.blur();
-    }
-  } catch (_) {}
-});
-
-try {
-  window.getSelection()?.removeAllRanges();
-  if (document.activeElement && document.activeElement.closest?.(".sidebar, #brand-logo")) {
-    document.activeElement.blur();
-  }
-} catch (_) {}
+window.addEventListener("focus", clearChromeArtifacts);
+clearChromeArtifacts();
 
 document.addEventListener("click", async (event) => {
   const tocBtn = event.target.closest("[data-action='help-toc']");
