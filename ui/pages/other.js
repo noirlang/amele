@@ -336,29 +336,15 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath, theme, state }) {
                 <span class="about-feature-icon">${icon("android")}</span>
                 <span>${t("nav.android")}</span>
               </div>
+            </div>
+            <div class="about-feature-row">
               <div class="about-feature-chip" data-route="ios">
                 <span class="about-feature-icon">${icon("ios")}</span>
                 <span>${t("nav.ios")}</span>
               </div>
-            </div>
-            <div class="about-feature-row">
-              <div class="about-feature-chip" data-route="other" data-tab="evidence">
-                <span class="about-feature-icon">${icon("scale")}</span>
-                <span>${t("case.management")}</span>
-              </div>
-              <div class="about-feature-chip" data-route="other" data-tab="hash">
-                <span class="about-feature-icon">${icon("shield")}</span>
-                <span>${t("other.hash.title")}</span>
-              </div>
-            </div>
-            <div class="about-feature-row">
-              <div class="about-feature-chip" data-route="other" data-tab="reports">
-                <span class="about-feature-icon">${icon("report")}</span>
-                <span>${t("other.reports.title")}</span>
-              </div>
-              <div class="about-feature-chip" data-route="other" data-tab="history">
-                <span class="about-feature-icon">${icon("clock")}</span>
-                <span>${t("other.history.title")}</span>
+              <div class="about-feature-chip" data-route="other">
+                <span class="about-feature-icon">${icon("tiles")}</span>
+                <span>${t("nav.other")}</span>
               </div>
             </div>
           </div>

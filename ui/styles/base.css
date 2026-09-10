@@ -326,29 +326,73 @@ img, svg {
 }
 
 img::selection,
+img::-moz-selection,
 .brand-mark::selection,
 .brand-mark *::selection,
+.brand-mark::-moz-selection,
+.brand-mark *::-moz-selection,
+#brand-logo::selection,
+#brand-logo *::selection,
+#brand-logo::-moz-selection,
+#brand-logo *::-moz-selection,
+#brand-logo-img::selection,
+#brand-logo-img::-moz-selection,
+.sidebar::selection,
 .sidebar *::selection,
-.about-hero *::selection {
+.sidebar::-moz-selection,
+.sidebar *::-moz-selection,
+.brand-row::selection,
+.brand-row *::selection,
+.brand-row::-moz-selection,
+.brand-row *::-moz-selection,
+.about-hero::selection,
+.about-hero *::selection,
+.about-hero::-moz-selection,
+.about-hero *::-moz-selection {
   background: transparent !important;
+  background-color: transparent !important;
   color: inherit !important;
 }
 
 .shell,
 .sidebar,
+.sidebar *,
 .sidebar-head,
 .brand-row,
+.brand-row *,
 .brand-mark,
+.brand-mark *,
+#brand-logo,
+#brand-logo *,
 .sidebar-toggle,
 .side-nav,
 .nav-item,
 .sidebar-footer,
 .topbar,
+.topbar *,
 .about-hero,
+.about-hero *,
 .forensic-card,
 button {
-  user-select: none;
-  -webkit-user-select: none;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+#brand-logo,
+.brand-mark {
+  -webkit-touch-callout: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-focus-ring-color: transparent !important;
+  outline: none !important;
+}
+
+#brand-logo img,
+.brand-mark img {
+  pointer-events: none !important;
+  -webkit-user-drag: none !important;
+  -webkit-touch-callout: none !important;
 }
 
 button:focus:not(:focus-visible),
@@ -356,9 +400,11 @@ button:focus:not(:focus-visible),
 .nav-item:focus:not(:focus-visible),
 .brand-mark:focus,
 .brand-mark:focus-visible,
-.brand-mark:active {
+.brand-mark:active,
+#brand-logo:focus,
+#brand-logo:focus-visible,
+#brand-logo:active {
   outline: none !important;
-  box-shadow: none;
 }
 
 [hidden] {
@@ -2164,10 +2210,10 @@ code {
 
 .about-hero {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 32px;
+  grid-template-columns: minmax(130px, 1fr) auto minmax(180px, 1fr);
+  gap: clamp(16px, 2.5vw, 32px);
   align-items: center;
-  padding: 34px 38px;
+  padding: clamp(22px, 3vw, 34px) clamp(20px, 3.2vw, 38px);
   border: 1px solid var(--line);
   border-radius: var(--radius-xl);
   background:
@@ -2188,6 +2234,7 @@ code {
   justify-content: center;
   justify-self: start;
   text-align: center;
+  min-width: 0;
 }
 
 .about-hero-brand {
@@ -2206,7 +2253,7 @@ code {
   text-align: center;
   gap: 2px;
   font-family: "Borda Noir", "Borda", monospace;
-  font-size: clamp(34px, 3.8vw, 46px);
+  font-size: clamp(26px, 3.4vw, 46px);
   font-weight: 700;
   line-height: 0.94;
   letter-spacing: -0.03em;
@@ -2292,11 +2339,12 @@ code {
   align-items: center;
   justify-content: center;
   justify-self: center;
+  flex-shrink: 0;
 }
 
 .about-hero-logo {
-  width: 140px;
-  height: 140px;
+  width: clamp(105px, 12vw, 140px);
+  height: clamp(105px, 12vw, 140px);
   max-width: 100%;
   object-fit: contain;
   filter: drop-shadow(0 0 18px rgba(255, 255, 255, 0.4)) drop-shadow(0 0 5px rgba(255, 255, 255, 0.2));
@@ -3030,27 +3078,6 @@ svg.svg-fill path {
     grid-template-columns: 1fr;
   }
 
-  .about-hero {
-    grid-template-columns: 1fr;
-    gap: 22px;
-    padding: 22px;
-    text-align: center;
-  }
-
-  .about-hero-left,
-  .about-hero-brand {
-    align-items: center;
-  }
-
-  .about-hero-features {
-    align-items: center;
-  }
-
-  .about-feature-row {
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-
   .metric {
     border-right: 0;
     border-bottom: 1px solid var(--line);
@@ -3072,6 +3099,41 @@ svg.svg-fill path {
   .toast {
     right: 16px;
     bottom: 16px;
+  }
+}
+
+@media (max-width: 620px) {
+  .about-hero {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+    padding: 22px 16px !important;
+    text-align: center !important;
+  }
+
+  .about-hero-left,
+  .about-hero-center,
+  .about-hero-right {
+    justify-self: center !important;
+    align-self: center !important;
+    align-items: center !important;
+    text-align: center !important;
+    width: 100% !important;
+  }
+
+  .about-hero-brand {
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  .about-hero-features {
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+  }
+
+  .about-feature-row {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
   }
 }
 

@@ -1379,27 +1379,61 @@ function requireActiveConnection(workflow, payload) {
 
 // Prevent image drag and accidental selection highlight artifacts across chrome/sidebar/brand
 document.addEventListener("dragstart", (event) => {
-  if (event.target.tagName === "IMG" || event.target.closest(".sidebar, .brand-row, .about-hero")) {
+  if (event.target.tagName === "IMG" || event.target.closest(".sidebar, .brand-row, .brand-mark, .about-hero")) {
     event.preventDefault();
   }
 });
 
 document.addEventListener("selectstart", (event) => {
-  if (event.target.closest(".brand-mark, .sidebar-head, .brand-row, .sidebar-toggle, .about-hero-center")) {
+  if (event.target.closest(".brand-mark, .sidebar-head, .brand-row, .sidebar, .sidebar-toggle, .about-hero-center, .about-hero-logo")) {
     event.preventDefault();
   }
 });
 
-document.addEventListener("mouseover", (event) => {
-  if (event.target.closest(".brand-mark, .sidebar-toggle")) {
-    try {
-      const sel = window.getSelection();
-      if (sel && sel.toString() === "" && sel.rangeCount > 0) {
-        sel.removeAllRanges();
-      }
-    } catch (_) {}
+const clearSidebarSelection = () => {
+  try {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const inChrome = (node) => {
+      if (!node) return false;
+      const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      return !!el?.closest?.(".sidebar, .brand-row, .brand-mark, #brand-logo, .about-hero-logo, .about-hero-center, .topbar");
+    };
+    if (inChrome(sel.anchorNode) || inChrome(sel.focusNode)) {
+      sel.removeAllRanges();
+    }
+  } catch (_) {}
+};
+
+document.addEventListener("selectionchange", clearSidebarSelection);
+
+document.addEventListener("mousedown", (event) => {
+  if (event.target.closest(".sidebar, .brand-row, .brand-mark, #brand-logo, .about-hero-logo, .topbar")) {
+    try { window.getSelection()?.removeAllRanges(); } catch (_) {}
   }
+}, { capture: true });
+
+document.addEventListener("mouseup", (event) => {
+  if (event.target.closest(".sidebar, .brand-row, .brand-mark, #brand-logo, .about-hero-logo, .topbar")) {
+    try { window.getSelection()?.removeAllRanges(); } catch (_) {}
+  }
+}, { capture: true });
+
+window.addEventListener("focus", () => {
+  try {
+    window.getSelection()?.removeAllRanges();
+    if (document.activeElement && document.activeElement.closest?.(".sidebar, #brand-logo, .topbar")) {
+      document.activeElement.blur();
+    }
+  } catch (_) {}
 });
+
+try {
+  window.getSelection()?.removeAllRanges();
+  if (document.activeElement && document.activeElement.closest?.(".sidebar, #brand-logo")) {
+    document.activeElement.blur();
+  }
+} catch (_) {}
 
 document.addEventListener("click", async (event) => {
   const externalLink = event.target.closest("a[href]");
