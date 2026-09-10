@@ -8,9 +8,18 @@ export const helpModules = [
   { id: "ios", icon: "ios", titleTr: "iOS Modülü", titleEn: "iOS Module", badge: "Backup2FS" }
 ];
 
+export function slugify(text = "") {
+  return text
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u00C0-\u024F\u1E00-\u1EFF\u0400-\u04FF]+/gi, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export function helpPage({ t, icon, state, pageTitle, escapeHtml }) {
   const activeDocId = state.activeHelpDoc || "windows";
-  const activeLang = state.helpLang || (state.language === "en" ? "en" : "tr");
+  const activeLang = state.language === "en" ? "en" : "tr";
   const docMarkdown = (helpDocs[activeLang] && helpDocs[activeLang][activeDocId]) || 
                       (helpDocs.tr && helpDocs.tr[activeDocId]) || "";
 
@@ -32,23 +41,15 @@ export function helpPage({ t, icon, state, pageTitle, escapeHtml }) {
   const tocItems = headings.length
     ? headings.map((h) => {
         const indentClass = `help-toc-level-${h.level}`;
-        return `<li><a href="#${h.id}" class="help-toc-link ${indentClass}">${escapeHtml(h.title)}</a></li>`;
+        return `<li><button type="button" class="help-toc-link ${indentClass}" data-action="help-toc" data-target="${h.id}">${escapeHtml(h.title)}</button></li>`;
       }).join("")
-    : `<li><span class="help-toc-empty">${activeLang === "en" ? "No headings" : "Başlık yok"}</span></li>`;
+    : `<li><span class="help-toc-empty">${t("help.noHeadings") || (activeLang === "en" ? "No headings" : "Başlık yok")}</span></li>`;
 
   return `
     <section class="page help-page">
       <div class="help-top-header">
         <div class="help-header-title">
-          ${pageTitle(t("help.title") || "Yardım ve Dokümantasyon", t("help.desc") || "Amele Adli Bilişim modülleri kullanım kılavuzları ve teknik referanslar.", "help")}
-        </div>
-        <div class="help-lang-switch">
-          <button class="help-lang-btn ${activeLang === "tr" ? "active" : ""}" data-action="help-set-lang" data-lang="tr" type="button">
-            🇹🇷 Türkçe
-          </button>
-          <button class="help-lang-btn ${activeLang === "en" ? "active" : ""}" data-action="help-set-lang" data-lang="en" type="button">
-            🇬🇧 English
-          </button>
+          ${pageTitle(t("help.title") || (activeLang === "en" ? "Help & Documentation" : "Yardım ve Dokümantasyon"), t("help.desc") || (activeLang === "en" ? "User guides and technical references for Amele Forensic modules." : "Amele Adli Bilişim modülleri kullanım kılavuzları ve teknik referanslar."), "help")}
         </div>
       </div>
 
@@ -56,14 +57,14 @@ export function helpPage({ t, icon, state, pageTitle, escapeHtml }) {
         <!-- Sol Modül Listesi -->
         <aside class="help-sidebar">
           <div class="help-sidebar-title">
-            <span>${activeLang === "en" ? "Modules" : "Modüller"}</span>
+            <span>${t("help.modules") || (activeLang === "en" ? "Modules" : "Modüller")}</span>
           </div>
           <div class="help-nav-list">
             ${navItems}
           </div>
 
           <div class="help-sidebar-title" style="margin-top: 20px;">
-            <span>${activeLang === "en" ? "Table of Contents" : "İçindekiler"}</span>
+            <span>${t("help.toc") || (activeLang === "en" ? "Table of Contents" : "İçindekiler")}</span>
           </div>
           <nav class="help-toc-nav">
             <ul class="help-toc-list">
@@ -86,6 +87,7 @@ export function helpPage({ t, icon, state, pageTitle, escapeHtml }) {
 function extractHeadings(md = "") {
   const lines = md.split(/\r?\n/);
   const headings = [];
+  const occurrences = new Map();
   let inCode = false;
 
   for (const line of lines) {
@@ -99,7 +101,10 @@ function extractHeadings(md = "") {
     if (match) {
       const level = match[1].length;
       const title = match[2].trim();
-      const id = title.toLowerCase().replace(/[^a-z0-9\u00C0-\u024F\u1E00-\u1EFF]+/g, "-").replace(/^-|-$/g, "");
+      const base = slugify(title) || "section";
+      const count = occurrences.get(base) || 0;
+      occurrences.set(base, count + 1);
+      const id = count === 0 ? base : `${base}-${count}`;
       headings.push({ level, title, id });
     }
   }
@@ -111,6 +116,7 @@ export function renderMarkdown(md = "", escapeHtml = (s) => s) {
   if (!md) return "";
   const lines = md.split(/\r?\n/);
   const out = [];
+  const headingOccurrences = new Map();
   let inCodeBlock = false;
   let codeLang = "";
   let codeLines = [];
@@ -202,8 +208,11 @@ export function renderMarkdown(md = "", escapeHtml = (s) => s) {
       const match = trimmed.match(/^(#{1,6})\s+(.*)$/);
       if (match) {
         const level = match[1].length;
-        const title = match[2];
-        const id = title.toLowerCase().replace(/[^a-z0-9\u00C0-\u024F\u1E00-\u1EFF]+/g, "-").replace(/^-|-$/g, "");
+        const title = match[2].trim();
+        const base = slugify(title) || "section";
+        const count = headingOccurrences.get(base) || 0;
+        headingOccurrences.set(base, count + 1);
+        const id = count === 0 ? base : `${base}-${count}`;
         out.push(`<h${level} id="${id}" class="help-h${level}">${formatInline(title)}</h${level}>`);
         continue;
       }

@@ -3884,39 +3884,6 @@ html, body {
   min-width: 260px;
 }
 
-.help-lang-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--input-bg);
-  border: 1px solid var(--line);
-  padding: 3px;
-  border-radius: 999px;
-}
-
-.help-lang-btn {
-  background: transparent;
-  border: none;
-  border-radius: 999px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 5px 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.help-lang-btn:hover {
-  color: var(--text);
-}
-
-.help-lang-btn.active {
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
 .help-layout {
   display: grid;
   grid-template-columns: 280px 1fr;
@@ -4035,10 +4002,16 @@ html, body {
 
 .help-toc-link {
   display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
   font-size: 12px;
   color: var(--muted);
   text-decoration: none;
-  padding: 4px 8px;
+  padding: 5px 8px;
   border-radius: 6px;
   transition: all 0.15s ease;
   white-space: nowrap;
@@ -4049,6 +4022,12 @@ html, body {
 .help-toc-link:hover {
   color: var(--text);
   background: rgba(255, 255, 255, 0.04);
+}
+
+.help-toc-link.active {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+  font-weight: 600;
 }
 
 .help-toc-level-1 {
@@ -4084,6 +4063,13 @@ html, body {
   font-size: 14.5px;
   line-height: 1.7;
   color: var(--text);
+}
+
+.help-h1,
+.help-h2,
+.help-h3,
+.help-h4 {
+  scroll-margin-top: 24px;
 }
 
 .help-h1 {
@@ -4281,15 +4267,18 @@ html, body {
   border-color: rgba(38, 33, 24, 0.22);
 }
 
-.theme-light .help-lang-switch {
-  background: rgba(38, 33, 24, 0.05);
-  border-color: rgba(38, 33, 24, 0.14);
+.theme-light .help-toc-link {
+  color: #71717a;
 }
 
-.theme-light .help-lang-btn.active {
-  background: #fff;
-  border-color: rgba(38, 33, 24, 0.18);
-  box-shadow: 0 2px 8px rgba(38, 33, 24, 0.08);
+.theme-light .help-toc-link:hover {
+  background: rgba(38, 33, 24, 0.05);
+  color: #18181b;
+}
+
+.theme-light .help-toc-link.active {
+  background: rgba(38, 33, 24, 0.08);
+  color: #18181b;
 }
 
 .theme-light .help-main-content {

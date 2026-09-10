@@ -1167,7 +1167,13 @@ function profileActivityHtml(profile, t, icon, escapeHtml) {
 
 function isExternalUrl(url) {
   try {
+    if (typeof url === "string" && (url.startsWith("#") || url.startsWith("/api/"))) {
+      return false;
+    }
     const parsed = new URL(url, window.location.href);
+    if (parsed.origin === window.location.origin) {
+      return false;
+    }
     return ["http:", "https:", "mailto:"].includes(parsed.protocol);
   } catch {
     return false;
@@ -1501,6 +1507,34 @@ try {
 } catch (_) {}
 
 document.addEventListener("click", async (event) => {
+  const tocBtn = event.target.closest("[data-action='help-toc']");
+  if (tocBtn) {
+    event.preventDefault();
+    const targetId = tocBtn.dataset.target;
+    if (targetId) {
+      const targetEl = document.getElementById(targetId);
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        document.querySelectorAll(".help-toc-link").forEach((btn) => btn.classList.remove("active"));
+        tocBtn.classList.add("active");
+      }
+    }
+    return;
+  }
+
+  const anchorLink = event.target.closest("a[href^='#']");
+  if (anchorLink) {
+    event.preventDefault();
+    const hash = anchorLink.getAttribute("href").replace(/^#/, "");
+    if (hash) {
+      const targetEl = document.getElementById(decodeURIComponent(hash)) || document.getElementById(hash);
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+    return;
+  }
+
   const externalLink = event.target.closest("a[href]");
   if (externalLink && isExternalUrl(externalLink.href)) {
     event.preventDefault();
@@ -1555,14 +1589,6 @@ document.addEventListener("click", async (event) => {
   if (helpDocBtn) {
     event.preventDefault();
     state.activeHelpDoc = helpDocBtn.dataset.doc;
-    render();
-    return;
-  }
-
-  const helpLangBtn = event.target.closest("[data-action='help-set-lang'][data-lang]");
-  if (helpLangBtn) {
-    event.preventDefault();
-    state.helpLang = helpLangBtn.dataset.lang;
     render();
     return;
   }
