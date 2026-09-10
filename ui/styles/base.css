@@ -859,6 +859,8 @@ button {
   -webkit-tap-highlight-color: transparent !important;
   -webkit-focus-ring-color: transparent !important;
   outline: none !important;
+  transform: none !important;
+  will-change: auto !important;
 }
 
 #brand-logo img,
@@ -866,6 +868,9 @@ button {
   pointer-events: none !important;
   -webkit-user-drag: none !important;
   -webkit-touch-callout: none !important;
+  transform: none !important;
+  transition: none !important;
+  will-change: auto !important;
 }
 
 button:focus:not(:focus-visible),
@@ -1043,12 +1048,15 @@ html.sidebar-collapsed .shell {
   outline: none;
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
-  transition: border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease;
+  transition: border-color 0.22s ease, box-shadow 0.22s ease;
+  transform: none !important;
+  will-change: auto !important;
 }
 
 .brand-mark:hover {
   border-color: rgba(255, 255, 255, 0.28);
   box-shadow: 0 0 18px rgba(255, 255, 255, 0.14), 0 16px 28px rgba(0, 0, 0, 0.35);
+  transform: none !important;
 }
 
 .brand-mark:focus,
@@ -1068,19 +1076,16 @@ html.sidebar-collapsed .shell {
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: none !important;
+  transition: none !important;
+  will-change: auto !important;
 }
 
-.brand-mark:hover img {
-  transform: scale(1.08);
-}
-
-.sidebar-collapsed .brand-mark img {
-  transform: translateX(1px);
-}
-
+.brand-mark:hover img,
+.sidebar-collapsed .brand-mark img,
 .sidebar-collapsed .brand-mark:hover img {
-  transform: translateX(1px) scale(1.08);
+  transform: none !important;
+  transition: none !important;
 }
 
 .theme-light .brand-mark {
