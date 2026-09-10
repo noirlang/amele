@@ -29,24 +29,26 @@ export function detailPanel({ tab, t, icon, state, pickerField, field, escapeHtm
   if (tab === "evidence") {
     return `
       <p class="section-label">${t("case.management")}</p>
-      <div class="side-info">
+      <div class="side-info" style="margin: 12px 0 16px;">
         <span class="metric-icon">${icon("folder")}</span>
         <span><strong>${t("case.location")}</strong><small data-case-base>${escapeHtml(state.caseBaseDir || "~/Amele/Vakalar")}</small></span>
       </div>
       <p class="field-hint">${t("case.fixedLocation")}</p>
       ${field(t("case.name"), '<input id="case-name" class="input" placeholder="Case_2026_001" />')}
-      <div class="button-row">
+      <div class="button-row" style="margin: 14px 0;">
         <button class="primary-button" data-action="create-case">${icon("folder")} ${t("case.create")}</button>
         <button class="secondary-button" data-action="refresh-cases">${icon("refresh")} ${t("case.refresh")}</button>
         <button class="secondary-button" data-action="create-manifest">${icon("shield")} ${t("case.manifest.create")}</button>
       </div>
-      <div class="status-badge" data-case-status>${icon("info")} ${state.activeCase ? t("case.created", { path: state.activeCase.case_dir }) : t("case.notCreated")}</div>
-      <div class="status-badge" data-manifest-status>${icon("shield")} ${state.activeCase?.manifest_path ? t("case.manifest.ready", { path: escapeHtml(state.activeCase.manifest_path) }) : t("case.manifest.waiting")}</div>
+      <div class="case-status-container" style="display:flex; flex-direction:column; gap:8px; margin: 12px 0 6px;">
+        <div class="status-badge" data-case-status style="display:none"></div>
+        <div class="status-badge" data-manifest-status style="display:none"></div>
+      </div>
       <div class="section-divider"></div>
       <p class="section-label">${t("case.files")}</p>
       ${field(t("case.folder"), `<select id="case-folder" class="select"><option value="ciktilar">${t("case.outputs")}</option><option value="disk_imajlari">${t("case.diskImages")}</option><option value="ram">${t("case.ram")}</option><option value="android">${t("case.android")}</option><option value="raporlar">${t("case.reports")}</option><option value="hash">${t("case.hash")}</option><option value="notlar">${t("case.notes")}</option><option value="gunlukler">${t("case.logs")}</option></select>`)}
       ${field(t("case.file"), `<select id="case-file-list" class="select"><option>${t("case.listFilesPlaceholder")}</option></select>`)}
-      <div class="button-row">
+      <div class="button-row" style="margin: 14px 0;">
         <button class="secondary-button" data-action="list-files">${icon("search")} ${t("case.listFiles")}</button>
       </div>
     `;
@@ -58,28 +60,29 @@ export function detailPanel({ tab, t, icon, state, pickerField, field, escapeHtm
       ${field(t("report.case"), `<select id="report-case" class="select" data-case-select data-allow-new-case="1">${caseSelectOptions(state.activeCase?.case_name, { allowNew: true })}</select>`)}
       ${field(t("report.title"), `<input id="report-title" class="input" value="${t("report.defaultTitle")}" />`)}
       ${field(t("report.format"), '<select id="report-format" class="select"><option value="txt">TXT</option><option value="json">JSON</option></select>')}
-      ${field(t("report.signHash"), '<label class="checkbox-row"><input id="report-sign-hash" type="checkbox" checked /><span>' + t("report.signHashDesc") + "</span></label>")}
-      <div class="button-row">
+      ${field(t("report.signHash"), '<label class="checkbox-row" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer;"><input id="report-sign-hash" type="checkbox" checked style="width:18px;height:18px;cursor:pointer;" /><span>' + t("report.signHashDesc") + "</span></label>")}
+      <div class="button-row" style="margin: 16px 0;">
         <button class="primary-button" data-action="create-report">${icon("report")} ${t("report.generate")}</button>
         <button class="secondary-button" data-action="list-reports">${icon("refresh")} ${t("report.refresh")}</button>
       </div>
-      <div class="status-badge" data-report-status>${icon("info")} ${t("ready")}</div>
-      <div class="log-box" data-report-output>${t("report.outputWaiting")}</div>
+      <div class="status-badge" data-report-status style="display:none"></div>
+      <div class="log-box" data-report-output style="margin-top: 14px;">${t("report.outputWaiting")}</div>
     `;
   }
   if (tab === "history") {
+    const historyItems = Array.isArray(state?.acquisitionHistory) ? state.acquisitionHistory : [];
     return `
       <p class="section-label">${t("history.title")}</p>
       <p class="field-hint">${t("history.hint")}</p>
-      <div class="side-info">
+      <div class="side-info" style="margin: 12px 0 16px;">
         <span class="metric-icon">${icon("clock")}</span>
         <span><strong>${t("history.scope")}</strong><small>${escapeHtml(t("history.scopeAll"))}</small></span>
       </div>
-      <div class="button-row">
+      <div class="button-row" style="margin: 14px 0;">
         <button class="secondary-button" data-action="refresh-history">${icon("refresh")} ${t("history.refresh")}</button>
       </div>
-      <div class="history-list" data-history-list>
-        <div class="log-box">${t("history.loading")}</div>
+      <div class="history-list acquisition-history-list" data-history-list style="margin-top: 14px;">
+        ${historyItems.length > 0 ? renderHistoryList(historyItems, escapeHtml, icon) : `<div class="log-box">${t("history.loading")}</div>`}
       </div>
     `;
   }
@@ -87,53 +90,68 @@ export function detailPanel({ tab, t, icon, state, pickerField, field, escapeHtm
     return `
       <p class="section-label">${t("logs.title")}</p>
       <p class="field-hint">${t("logs.hint")}</p>
-      <div class="side-info">
+      <div class="side-info" style="margin: 12px 0 16px;">
         <span class="metric-icon">${icon("clock")}</span>
         <span><strong>${t("logs.scope")}</strong><small>${escapeHtml(state.activeCase?.case_name ? `${state.activeCase.case_name}/gunlukler` : t("logs.activeCaseOnly"))}</small></span>
       </div>
-      <div class="button-row">
+      <div class="button-row" style="margin: 14px 0;">
         <button class="secondary-button" data-action="refresh-logs">${icon("refresh")} ${t("logs.refresh")}</button>
       </div>
-      <div class="log-box" data-logs-output>${t("logs.outputWaiting")}</div>
+      <div class="log-box" data-logs-output style="margin-top: 14px;">${t("logs.outputWaiting")}</div>
     `;
   }
   return hashPanel(pickerField, field, state, t, icon);
+}
+
+function renderHistoryList(items, escapeHtml, icon) {
+  return items.map((item) => `
+    <div class="acquisition-history-item">
+      <span class="metric-icon">${icon("clock")}</span>
+      <div>
+        <div class="history-title-row">
+          <strong>${escapeHtml(item.mode || item.title || item.type || "Adli Edinim")}</strong>
+          <small>${escapeHtml(item.timestamp || item.created_at || "")}</small>
+        </div>
+        <small class="path-text">${escapeHtml(item.path || item.output || item.case_name || "")}</small>
+      </div>
+    </div>
+  `).join("");
 }
 
 export function hashPanel(pickerField, field, state, t, icon) {
   const method = state?.hashMethod || "sha256";
   const path = state?.hashTargetInput || "";
   const result = state?.hashResult || null;
-  const status = state?.hashStatus || t("ready");
 
   return `
     <p class="section-label">${t("hash.title")}</p>
     <p class="field-hint">${t("hash.hint")}</p>
     ${pickerField(
       t("hash.targetFile"),
-      `<input id="hash-target-path" class="input" placeholder="/path/to/evidence.raw" value="${path}" />`,
-      "pick-hash-target"
+      "hash-target-path",
+      path || "/path/to/evidence.raw",
+      "file"
     )}
     ${field(
       t("hash.algorithm"),
       `<select id="hash-algorithm" class="select">
-        <option value="sha256" ${method === "sha256" ? "selected" : ""}>SHA-256 (Önerilen)</option>
+        <option value="sha256" ${method === "sha256" ? "selected" : ""}>SHA-256 (Önerilen / Recommended)</option>
         <option value="md5" ${method === "md5" ? "selected" : ""}>MD5</option>
         <option value="both" ${method === "both" ? "selected" : ""}>SHA-256 + MD5</option>
       </select>`
     )}
-    <div class="button-row">
+    <div class="button-row" style="margin: 16px 0;">
       <button class="primary-button" data-action="run-hash">${icon("shield")} ${t("hash.calculate")}</button>
     </div>
-    <div class="status-badge" data-hash-status>${icon("info")} ${status}</div>
-    <div class="log-box" data-hash-output>
+    <div class="status-badge" data-hash-status style="display:none"></div>
+    <div class="log-box" data-hash-output style="margin-top: 14px;">
       ${result ? renderHashResult(result, t) : t("hash.outputWaiting")}
     </div>
   `;
 }
 
 function renderHashResult(res, t) {
-  let out = `<strong>Dosya:</strong> ${res.path}<br/><strong>Boyut:</strong> ${res.file_size_formatted || res.file_size + " B"}<br/>`;
+  let out = `<strong>${t("hash.file") || "Dosya"}:</strong> ${res.path}<br/><strong>${t("hash.size") || "Boyut"}:</strong> ${res.file_size_formatted || res.file_size + " B"}<br/>`;
   if (res.sha256) out += `<strong>SHA-256:</strong> <code style="word-break:break-all">${res.sha256}</code><br/>`;
   if (res.md5) out += `<strong>MD5:</strong> <code style="word-break:break-all">${res.md5}</code><br/>`;
   return out;

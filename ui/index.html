@@ -5,9 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Amele Forensic Tool</title>
     <link rel="stylesheet" href="./styles.css" />
+    <script>
+      try {
+        if (localStorage.getItem("amele-sidebar-collapsed") === "1") {
+          document.documentElement.classList.add("sidebar-collapsed");
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="app" class="shell theme-dark">
+      <script>
+        try {
+          if (localStorage.getItem("amele-sidebar-collapsed") === "1") {
+            document.getElementById("app")?.classList.add("sidebar-collapsed");
+          }
+        } catch (e) {}
+      </script>
       <aside class="sidebar">
         <div class="brand-row">
           <button class="brand-mark" id="brand-logo" data-route="home" aria-label="Amele ana sayfa">

@@ -59,7 +59,7 @@ const state = {
   language: preferredLanguage,
   sidebarCollapsed: preferredSidebarCollapsed,
   platform: detectPlatform(),
-  news: [],
+  news: safeJsonParse(localStorage.getItem("amele_news_cache"))?.items || [],
   activeNewsIndex: 0,
   files: {},
   activeTab: "hash",
@@ -184,15 +184,18 @@ function syncBrandLogo() {
 
 function syncSidebarState() {
   app.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
+  document.documentElement?.classList?.toggle?.("sidebar-collapsed", state.sidebarCollapsed);
   document.querySelectorAll("[data-sidebar-toggle]").forEach((button) => {
     button.setAttribute("aria-expanded", String(!state.sidebarCollapsed));
-    button.setAttribute("aria-label", state.sidebarCollapsed ? "Menüyü genişlet" : "Menüyü daralt");
+    button.setAttribute("aria-label", state.sidebarCollapsed ? t("sidebar.expand") : t("sidebar.collapse"));
   });
 }
 
 function setSidebarCollapsed(collapsed) {
   state.sidebarCollapsed = Boolean(collapsed);
-  localStorage.setItem("amele-sidebar-collapsed", state.sidebarCollapsed ? "1" : "0");
+  try {
+    localStorage.setItem("amele-sidebar-collapsed", state.sidebarCollapsed ? "1" : "0");
+  } catch (_) {}
   syncSidebarState();
 }
 
@@ -2448,7 +2451,17 @@ async function handleAction(button) {
     return;
   }
 
-  if (action === "load-history") {
+  if (action === "refresh-cases") {
+    await loadEvidenceCases({ silent: false });
+    return;
+  }
+
+  if (action === "list-files") {
+    await listEvidenceFiles();
+    return;
+  }
+
+  if (action === "load-history" || action === "refresh-history") {
     await loadAcquisitionHistory({ silent: false });
     return;
   }
@@ -2460,6 +2473,21 @@ async function handleAction(button) {
 
   if (action === "create-report") {
     await createEvidenceReport();
+    return;
+  }
+
+  if (action === "list-reports") {
+    await listEvidenceReports();
+    return;
+  }
+
+  if (action === "refresh-logs") {
+    await loadEvidenceLogs();
+    return;
+  }
+
+  if (action === "run-hash") {
+    await calculateHashInOther();
     return;
   }
 
@@ -3411,7 +3439,10 @@ function compareHash() {
 
 function setStatus(selector, html) {
   const node = document.querySelector(selector);
-  if (node) node.innerHTML = html;
+  if (node) {
+    node.innerHTML = html;
+    node.style.display = html ? "inline-flex" : "none";
+  }
 }
 
 async function createEvidenceCase() {
@@ -3545,6 +3576,91 @@ async function createEvidenceReport() {
   } catch (error) {
     setStatus("[data-report-status]", `${icon("info")} ${t("report.failed", { message: escapeHtml(error.message) })}`);
     showToast(t("report.failed", { message: error.message }), "error");
+  }
+}
+
+async function calculateHashInOther() {
+  const inputEl = document.querySelector("#hash-target-path");
+  const path = inputEl?.value?.trim();
+  if (!path) {
+    showToast(t("hash.fileRequired"), "error");
+    return;
+  }
+  const algSelect = document.querySelector("#hash-algorithm");
+  const method = algSelect?.value || "sha256";
+  state.hashTargetInput = path;
+  state.hashMethod = method;
+
+  const algorithms = method === "both" ? ["sha256", "md5"] : [method];
+  setStatus("[data-hash-status]", `${icon("refresh")} ${t("hash.calculating")}`);
+  try {
+    const res = await apiRequest("/api/hash", {
+      method: "POST",
+      body: JSON.stringify({ path, algorithms })
+    });
+    state.hashResult = {
+      path,
+      sha256: res.sha256,
+      md5: res.md5
+    };
+    const outBox = document.querySelector("[data-hash-output]");
+    if (outBox) {
+      let outHtml = `<strong>${t("hash.file") || "Dosya"}:</strong> ${escapeHtml(path)}<br/>`;
+      if (res.sha256) outHtml += `<strong>SHA-256:</strong> <code style="word-break:break-all">${escapeHtml(res.sha256)}</code><br/>`;
+      if (res.md5) outHtml += `<strong>MD5:</strong> <code style="word-break:break-all">${escapeHtml(res.md5)}</code><br/>`;
+      outBox.innerHTML = outHtml;
+    }
+    setStatus("[data-hash-status]", `${icon("shield")} ${t("hash.done")}`);
+    showToast(t("hash.done"));
+  } catch (err) {
+    setStatus("[data-hash-status]", `${icon("info")} ${t("hash.failed", { message: escapeHtml(err.message) })}`);
+    showToast(t("hash.failed", { message: err.message }), "error");
+  }
+}
+
+async function listEvidenceReports() {
+  if (!state.activeCase) {
+    showToast(t("case.required"), "error");
+    return;
+  }
+  try {
+    const result = await apiRequest("/api/evidence-list-files", {
+      method: "POST",
+      body: JSON.stringify({ subdir: "raporlar" })
+    });
+    const files = result.files || [];
+    const outBox = document.querySelector("[data-report-output]");
+    if (outBox) {
+      outBox.innerHTML = files.length
+        ? files.map((f) => `<strong>${escapeHtml(f.name)}</strong> (${formatBytes(f.size)})<br/><small style="color:var(--muted)">${escapeHtml(f.path)}</small>`).join("<hr style='border:0;border-top:1px solid var(--line);margin:8px 0;'/>")
+        : t("report.noReports");
+    }
+    showToast(t("report.refreshDone"));
+  } catch (error) {
+    showToast(t("case.listFailed", { message: error.message }), "error");
+  }
+}
+
+async function loadEvidenceLogs() {
+  if (!state.activeCase) {
+    showToast(t("case.required"), "error");
+    return;
+  }
+  try {
+    const result = await apiRequest("/api/evidence-list-files", {
+      method: "POST",
+      body: JSON.stringify({ subdir: "gunlukler" })
+    });
+    const files = result.files || [];
+    const outBox = document.querySelector("[data-logs-output]");
+    if (outBox) {
+      outBox.innerHTML = files.length
+        ? files.map((f) => `<strong>${escapeHtml(f.name)}</strong> (${formatBytes(f.size)})<br/><small style="color:var(--muted)">${escapeHtml(f.path)}</small>`).join("<hr style='border:0;border-top:1px solid var(--line);margin:8px 0;'/>")
+        : t("logs.empty");
+    }
+    showToast(t("logs.refreshed"));
+  } catch (error) {
+    showToast(t("case.listFailed", { message: error.message }), "error");
   }
 }
 
