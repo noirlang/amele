@@ -148,7 +148,15 @@ mod linux {
             .arg(format!("--user-data-dir={}", data_dir.display()))
             .arg("--no-first-run")
             .arg("--no-default-browser-check")
-            .arg("--disable-features=Translate")
+            .arg("--disable-extensions")
+            .arg("--disable-component-extensions-with-background-pages")
+            .arg("--disable-default-apps")
+            .arg("--disable-translate")
+            .arg("--disable-features=Translate,OptimizationHints,MediaRouter")
+            .arg("--disable-save-password-bubble")
+            .arg("--disable-sync")
+            .arg("--disable-background-networking")
+            .arg("--disable-search-engine-choice-screen")
             .arg("--password-store=basic")
             .arg("--ozone-platform-hint=auto");
 
