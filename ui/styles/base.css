@@ -2492,20 +2492,30 @@ code {
   flex-direction: column;
   gap: 20px;
   width: 100%;
-  max-width: 820px;
-  margin: 0 auto;
 }
 
 .settings-card-horizontal {
   width: 100%;
-  padding: 24px 28px;
+  padding: clamp(22px, 2.5vw, 32px) clamp(22px, 3vw, 38px);
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: var(--panel);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.04), transparent 60%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.008)),
+    var(--panel);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5), 0 0 35px rgba(255, 255, 255, 0.02);
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.theme-light .settings-card-horizontal {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(38, 33, 24, 0.02), transparent 60%),
+    linear-gradient(145deg, rgba(38, 33, 24, 0.03), rgba(38, 33, 24, 0.01)),
+    #fcfbf7;
+  border-color: rgba(38, 33, 24, 0.16);
+  box-shadow: 0 12px 32px rgba(38, 33, 24, 0.08);
 }
 
 .settings-card-body {
@@ -2705,8 +2715,8 @@ code {
 }
 
 .settings-centered-title {
-  margin: 0 0 8px 0;
-  font-size: 20px;
+  margin: 0 0 10px 0;
+  font-size: 22px;
   font-weight: 700;
   color: var(--text);
   text-align: center;
@@ -2717,8 +2727,8 @@ code {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 36px;
-  padding: 14px 0;
+  gap: 56px;
+  padding: 18px 0;
   width: 100%;
   border-bottom: 1px solid var(--line);
 }

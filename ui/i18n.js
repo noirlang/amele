@@ -740,7 +740,7 @@ export const translations = {
     "settings.packageAuto": "Otomatik algılanacak",
     "settings.assetAuto": "Güncelleme kontrolünde seçilecek",
     "settings.installCommand": "Kurulum komutu",
-    "settings.checkUpdate": "Güncellemeyi Kontrol Et",
+    "settings.checkUpdate": "Güncellemeleri Denetle",
     "settings.downloadInstall": "İndir ve Kurulum Konsolunu Aç",
     "settings.releaseNotes": "Hazır.",
     "settings.updateChecked": "Güncelleme kontrol edildi",
