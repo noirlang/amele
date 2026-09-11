@@ -2508,29 +2508,6 @@ code {
   gap: 16px;
 }
 
-.settings-card-header {
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 14px;
-}
-
-.settings-kicker {
-  display: inline-flex;
-  margin-bottom: 8px;
-  color: var(--green);
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.settings-card-title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: -0.02em;
-}
-
 .settings-card-body {
   display: flex;
   flex-direction: column;
@@ -2574,18 +2551,11 @@ code {
   height: 18px;
 }
 
-.settings-row-text strong {
+.settings-row-title {
   display: block;
   font-size: 15px;
   font-weight: 600;
   color: var(--text);
-}
-
-.settings-row-text small {
-  display: block;
-  margin-top: 3px;
-  font-size: 13px;
-  color: var(--muted);
 }
 
 .settings-row-control {
@@ -2597,12 +2567,12 @@ code {
 /* Modern Switch Toggle */
 .modern-switch-toggle {
   position: relative;
-  width: 58px;
-  height: 32px;
+  width: 50px;
+  height: 28px;
   padding: 0;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.12);
   cursor: pointer;
   outline: none;
   transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
@@ -2613,80 +2583,53 @@ code {
 
 .modern-switch-toggle:hover {
   border-color: rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.1);
 }
 
 .modern-switch-toggle.is-dark {
-  background: rgba(101, 229, 138, 0.16);
-  border-color: rgba(101, 229, 138, 0.45);
-  box-shadow: 0 0 14px rgba(101, 229, 138, 0.2);
+  background: var(--green);
+  border-color: var(--green);
+  box-shadow: 0 0 14px rgba(101, 229, 138, 0.3);
 }
 
 .switch-toggle-track {
   position: relative;
   width: 100%;
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 7px;
-  box-sizing: border-box;
-}
-
-.switch-toggle-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 13px;
-  height: 13px;
-  opacity: 0.45;
-  transition: opacity 0.2s ease;
-  pointer-events: none;
-}
-
-.switch-toggle-icon svg {
-  width: 100%;
-  height: 100%;
-}
-
-.modern-switch-toggle.is-dark .icon-moon {
-  opacity: 0.95;
-  color: var(--green);
-}
-
-.modern-switch-toggle.is-light .icon-sun {
-  opacity: 0.95;
-  color: #f59e0b;
+  display: block;
 }
 
 .switch-toggle-knob {
   position: absolute;
-  top: 3px;
-  left: 4px;
-  width: 24px;
-  height: 24px;
+  top: 2px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease;
   pointer-events: none;
 }
 
 .modern-switch-toggle.is-dark .switch-toggle-knob {
-  transform: translateX(25px);
-  background: var(--green);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 10px rgba(101, 229, 138, 0.4);
+  transform: translateX(22px);
+  background: #fff;
 }
 
 .theme-light .modern-switch-toggle {
-  background: rgba(0, 0, 0, 0.06);
-  border-color: rgba(0, 0, 0, 0.16);
+  background: rgba(0, 0, 0, 0.16);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.theme-light .modern-switch-toggle.is-dark {
+  background: #16a34a;
+  border-color: #16a34a;
+  box-shadow: 0 0 12px rgba(22, 163, 74, 0.25);
 }
 
 .theme-light .modern-switch-toggle.is-light .switch-toggle-knob {
   transform: translateX(0);
-  background: #f59e0b;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 0 10px rgba(245, 158, 11, 0.4);
+  background: #fff;
 }
 
 /* Circular Flag Buttons */
@@ -2752,21 +2695,40 @@ code {
   white-space: nowrap;
 }
 
-/* Version & License Card */
-.settings-info-grid {
+/* Centered Card 2: Version & License */
+.settings-card-centered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.settings-centered-title {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+  letter-spacing: -0.02em;
+}
+
+.settings-centered-info {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  flex-wrap: wrap;
-  gap: 24px;
-  padding: 16px 0;
+  justify-content: center;
+  gap: 36px;
+  padding: 14px 0;
+  width: 100%;
   border-bottom: 1px solid var(--line);
 }
 
 .settings-info-item {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 4px;
+  text-align: center;
 }
 
 .settings-info-label {
@@ -2796,19 +2758,19 @@ code {
 }
 
 /* Sleek Minimal Update Button */
-.settings-update-row {
+.settings-update-row-centered {
   display: flex;
+  justify-content: center;
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding-top: 16px;
+  margin-top: 16px;
+  width: 100%;
 }
 
 .settings-minimal-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 18px;
+  padding: 9px 20px;
   border: 1px solid var(--line-strong);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
@@ -2843,10 +2805,21 @@ code {
   animation: spin 0.8s linear infinite;
 }
 
+.settings-update-status-row {
+  margin-top: 8px;
+  width: 100%;
+  text-align: center;
+}
+
 .settings-update-status-text {
   font-size: 13px;
   color: var(--muted);
   font-weight: 500;
+}
+
+.settings-update-result {
+  width: 100%;
+  text-align: center;
 }
 
 .theme-light .settings-minimal-btn {
@@ -2859,6 +2832,41 @@ code {
   background: rgba(0, 0, 0, 0.07);
   border-color: rgba(0, 0, 0, 0.24);
   color: #000;
+}
+
+/* En Alttaki Ayrı Copyright Çubuğu */
+.settings-copyright-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 18px 0 28px 0;
+  font-size: 13px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.noirlang-link {
+  color: var(--green);
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid transparent;
+}
+
+.noirlang-link:hover {
+  color: #fff;
+  border-bottom-color: var(--green);
+  text-shadow: 0 0 10px rgba(101, 229, 138, 0.4);
+}
+
+.theme-light .noirlang-link {
+  color: #15803d;
+}
+
+.theme-light .noirlang-link:hover {
+  color: #166534;
+  border-bottom-color: #15803d;
 }
 
 .compact-log {

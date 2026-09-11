@@ -164,42 +164,29 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION, pageT
     <section class="page settings-page">
       ${pageTitle ? pageTitle(t("settings.title"), "", "settings", icon) : ""}
       <div class="settings-stack">
-        <!-- 1. Yatay Div: Görünüm ve Tercihler -->
+        <!-- 1. Yatay Kart: Tercihler (Başlık / Kicker yok) -->
         <article class="settings-card settings-card-horizontal">
-          <div class="settings-card-header">
-            <span class="settings-kicker">${t("settings.general")}</span>
-            <h3 class="settings-card-title">${t("settings.appearanceLanguage")}</h3>
-          </div>
-
           <div class="settings-card-body">
-            <!-- Tema Satırı (Açılıp Kapanan Switch Butonu) -->
+            <!-- Karanlık Tema Satırı -->
             <div class="settings-row">
               <div class="settings-row-label">
-                <span class="settings-row-icon">${isDark ? icon("moon") : icon("sun")}</span>
-                <div class="settings-row-text">
-                  <strong>${t("settings.theme")}</strong>
-                  <small>${isDark ? t("settings.themeDark") : t("settings.themeLight")}</small>
-                </div>
+                <span class="settings-row-icon">${icon("moon")}</span>
+                <span class="settings-row-title">${t("settings.darkTheme") || "Karanlık Tema"}</span>
               </div>
               <div class="settings-row-control">
-                <button type="button" class="modern-switch-toggle ${isDark ? "is-dark" : "is-light"}" data-action="theme-toggle" role="switch" aria-checked="${isDark ? "true" : "false"}" aria-label="${t("settings.theme")}">
+                <button type="button" class="modern-switch-toggle ${isDark ? "is-dark" : "is-light"}" data-action="theme-toggle" role="switch" aria-checked="${isDark ? "true" : "false"}" aria-label="${t("settings.darkTheme") || "Karanlık Tema"}">
                   <span class="switch-toggle-track">
-                    <span class="switch-toggle-icon icon-sun">${icon("sun")}</span>
-                    <span class="switch-toggle-icon icon-moon">${icon("moon")}</span>
                     <span class="switch-toggle-knob"></span>
                   </span>
                 </button>
               </div>
             </div>
 
-            <!-- Dil Satırı (Yuvarlak Türkiye ve Birleşik Krallık Bayrakları) -->
+            <!-- Dil Satırı -->
             <div class="settings-row">
               <div class="settings-row-label">
                 <span class="settings-row-icon">${icon("globe")}</span>
-                <div class="settings-row-text">
-                  <strong>${t("settings.language")}</strong>
-                  <small>${state.language === "tr" ? "Türkçe" : "English"}</small>
-                </div>
+                <span class="settings-row-title">${t("settings.language") || "Dil"}</span>
               </div>
               <div class="settings-row-control">
                 <div class="flag-switch-group" role="radiogroup" aria-label="${t("settings.language")}">
@@ -216,11 +203,8 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION, pageT
             <!-- Algılanan Sistem Satırı -->
             <div class="settings-row">
               <div class="settings-row-label">
-                <span class="settings-row-icon">${icon(state.platform === "windows" ? "windows" : state.platform === "linux" ? "linux" : "monitor")}</span>
-                <div class="settings-row-text">
-                  <strong>${t("settings.detectedSystem")}</strong>
-                  <small>${t("settings.detectedHint") || "Platform çalışma ortamı"}</small>
-                </div>
+                <span class="settings-row-icon">${icon("monitor")}</span>
+                <span class="settings-row-title">${t("settings.detectedSystem") || "Algılanan Sistem"}</span>
               </div>
               <div class="settings-row-control">
                 <span class="platform-badge">${icon(state.platform === "windows" ? "windows" : state.platform === "linux" ? "linux" : "monitor")} ${platformLabel(state.platform)}</span>
@@ -229,46 +213,41 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION, pageT
           </div>
         </article>
 
-        <!-- 2. Yatay Div: Sürüm, Lisans ve Sade Güncelleme Butonu -->
-        <article class="settings-card settings-card-horizontal">
-          <div class="settings-card-header">
-            <span class="settings-kicker">${t("settings.version")}</span>
-            <h3 class="settings-card-title">${t("settings.aboutApp") || "Uygulama Bilgileri"}</h3>
+        <!-- 2. Yatay Kart: Uygulama Bilgileri (Ortalanmış) -->
+        <article class="settings-card settings-card-horizontal settings-card-centered">
+          <h3 class="settings-centered-title">${t("settings.aboutApp") || "Uygulama Bilgileri"}</h3>
+
+          <div class="settings-centered-info">
+            <div class="settings-info-item">
+              <span class="settings-info-label">${t("settings.versionNumber") || "Sürüm Numarası"}</span>
+              <span class="settings-info-value version-highlight">${APP_VERSION}</span>
+            </div>
+            <div class="settings-info-divider"></div>
+            <div class="settings-info-item">
+              <span class="settings-info-label">${t("settings.license") || "Lisans"}</span>
+              <span class="settings-info-value">GPL-3.0</span>
+            </div>
           </div>
 
-          <div class="settings-card-body">
-            <!-- Sürüm, Lisans ve Copyright Bilgi Satırı -->
-            <div class="settings-info-grid">
-              <div class="settings-info-item">
-                <span class="settings-info-label">${t("settings.versionNumber") || "Sürüm Numarası"}</span>
-                <span class="settings-info-value version-highlight">${APP_VERSION}</span>
-              </div>
-              <div class="settings-info-divider"></div>
-              <div class="settings-info-item">
-                <span class="settings-info-label">${t("settings.license") || "Lisans"}</span>
-                <span class="settings-info-value">GPL-3.0</span>
-              </div>
-              <div class="settings-info-divider"></div>
-              <div class="settings-info-item">
-                <span class="settings-info-label">${t("settings.copyright") || "Telif Hakkı"}</span>
-                <span class="settings-info-value">Copyright © 2026</span>
-              </div>
-            </div>
+          <div class="settings-update-row-centered">
+            <button type="button" class="settings-minimal-btn" data-action="check-update">
+              <span class="btn-icon">${icon("refresh")}</span>
+              <span>${t("settings.checkUpdate") || "Güncellemeleri Denetle"}</span>
+            </button>
+          </div>
+          <div class="settings-update-status-row text-center">
+            <span class="settings-update-status-text" data-update-status></span>
+          </div>
 
-            <!-- Sürümün altındaki sade güncelleme butonu -->
-            <div class="settings-update-row">
-              <button type="button" class="settings-minimal-btn" data-action="check-update">
-                <span class="btn-icon">${icon("refresh")}</span>
-                <span>${t("settings.checkUpdate") || "Güncellemeleri Denetle"}</span>
-              </button>
-              <span class="settings-update-status-text" data-update-status></span>
-            </div>
-
-            <div class="settings-update-result" data-update-result style="display: none;">
-              <button class="secondary-button" data-action="download-update" style="display: none; margin-top: 10px;">${icon("download")} ${t("settings.downloadInstall")}</button>
-            </div>
+          <div class="settings-update-result text-center" data-update-result style="display: none;">
+            <button class="secondary-button" data-action="download-update" style="display: none; margin: 8px auto 0;">${icon("download")} ${t("settings.downloadInstall")}</button>
           </div>
         </article>
+
+        <!-- 3. En Altta Ayrı Div: Copyright & noirLang Linki -->
+        <div class="settings-copyright-bar">
+          <span>Copyright © 2026 <a href="https://noirlang.tr" target="_blank" rel="noopener noreferrer" class="noirlang-link">noirLang</a></span>
+        </div>
       </div>
     </section>
   `;
