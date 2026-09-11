@@ -68,7 +68,7 @@ amele [seçenekler] <komut> [alt-komut] [argümanlar]
 
 | Bayrak | Kısa | Açıklama |
 | :--- | :--- | :--- |
-| `--version` | `-V` | Sürüm bilgisini (`amele 0.0.19`) basar, logo ve profil gerektirmez, çıkış kodu `0`dır. |
+| `--version` | `-V` | Sürüm bilgisini (`amele 0.0.20`) basar, logo ve profil gerektirmez, çıkış kodu `0`dır. |
 | `--quiet` | `-q` | ASCII logo başlığını gizler (script, boru hattı ve otomasyon dostu temiz çıktı). |
 | `--no-logo` | | ASCII logo başlığını bastırır (`--quiet` eşdeğeri). |
 | `--verbose` | `-v` | Hata ayıklama modunu açar; tüm arka plan loglarını konsola (`stderr`) yazdırır. |
