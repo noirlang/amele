@@ -44,10 +44,21 @@ mod linux {
 
     const GTK_WINDOW_TOPLEVEL: c_int = 0;
 
-    /// GTK/WebKit render ayarlarını güvenli varsayılanlara çeker.
+    /// GTK/WebKit render ve GPU donanim hizlandirma ayarlarini optimize eder.
     pub fn prepare_environment() -> Result<(), String> {
         set_env_if_missing("GDK_BACKEND", "x11");
-        set_env_if_missing("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+
+        let disable_gpu = std::env::var_os("AMELE_DISABLE_GPU").is_some()
+            || std::env::var_os("WEBKIT_DISABLE_COMPOSITING_MODE").is_some();
+
+        if disable_gpu {
+            set_env_if_missing("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+            set_env_if_missing("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+        } else {
+            // GPU compositing ve donanim hizlandirma boru hattini etkinlestir
+            set_env_if_missing("WEBKIT_FORCE_COMPOSITING_MODE", "1");
+        }
+
         Ok(())
     }
 
@@ -80,6 +91,11 @@ mod linux {
     #[link(name = "webkit2gtk-4.1")]
     unsafe extern "C" {
         fn webkit_web_view_new() -> *mut c_void;
+        fn webkit_web_view_get_settings(web_view: *mut c_void) -> *mut c_void;
+        fn webkit_settings_set_hardware_acceleration_policy(settings: *mut c_void, policy: c_int);
+        fn webkit_settings_set_enable_accelerated_2d_canvas(settings: *mut c_void, enabled: c_int);
+        fn webkit_settings_set_enable_webgl(settings: *mut c_void, enabled: c_int);
+        fn webkit_settings_set_enable_smooth_scrolling(settings: *mut c_void, enabled: c_int);
         fn webkit_web_view_load_uri(web_view: *mut c_void, uri: *const c_char);
     }
 
@@ -136,6 +152,23 @@ mod linux {
                     "WebKit webview olusturulamadi.",
                     "webkit_web_view_new null dondu. WebKitGTK runtime veya grafik bagimliliklari eksik olabilir.",
                 ));
+            }
+
+            let settings = webkit_web_view_get_settings(webview);
+            if !settings.is_null() {
+                let disable_gpu = std::env::var_os("AMELE_DISABLE_GPU").is_some();
+                let policy = if disable_gpu {
+                    2 /* NEVER */
+                } else {
+                    1 /* ALWAYS */
+                };
+                webkit_settings_set_hardware_acceleration_policy(settings, policy);
+                webkit_settings_set_enable_accelerated_2d_canvas(
+                    settings,
+                    if disable_gpu { 0 } else { 1 },
+                );
+                webkit_settings_set_enable_webgl(settings, if disable_gpu { 0 } else { 1 });
+                webkit_settings_set_enable_smooth_scrolling(settings, 1);
             }
 
             gtk_window_set_title(window, title.as_ptr());
