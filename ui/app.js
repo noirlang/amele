@@ -2691,7 +2691,10 @@ async function handleAction(button) {
     const lang = state.language || "en";
     const isTr = lang === "tr";
     try {
-      setStatus("[data-update-status]", `${icon("refresh")} ${t("settings.updateChecked") || "Kontrol ediliyor..."}`);
+      setStatus(
+        "[data-update-status]",
+        `<span class="status-spinner">${icon("refresh")}</span> <span>${t("settings.updateChecking") || (isTr ? "Güncellemeler denetleniyor..." : "Checking for updates...")}</span>`
+      );
       let result = null;
       if (backendReady()) {
         try {
@@ -2732,7 +2735,10 @@ async function handleAction(button) {
           "success"
         );
         showUpdateToast({ latestTag, releaseUrl, isTr });
-        setStatus("[data-update-status]", `🚀 ${isTr ? "Yeni sürüm:" : "New version:"} <b>${escapeHtml(latestTag)}</b>`);
+        setStatus(
+          "[data-update-status]",
+          `<span class="status-icon-update">🚀</span> <span>${isTr ? "Yeni sürüm:" : "New version:"} <b>${escapeHtml(latestTag)}</b></span>`
+        );
         const resultArea = document.querySelector("[data-update-result]");
         if (resultArea) {
           resultArea.style.display = "block";
@@ -2746,11 +2752,17 @@ async function handleAction(button) {
             : `✓ Amele is up to date! You are on the latest release (${APP_VERSION}).`,
           "info"
         );
-        setStatus("[data-update-status]", `✓ ${isTr ? "Amele güncel" : "Amele is up to date"} (${APP_VERSION})`);
+        setStatus(
+          "[data-update-status]",
+          `<span class="status-icon-success">${icon("check")}</span> <span>${isTr ? "Amele güncel" : "Amele is up to date"} (${APP_VERSION})</span>`
+        );
       }
     } catch (error) {
       showToast(t("settings.updateFailed", { message: error.message }), "error");
-      setStatus("[data-update-status]", `${icon("alert-circle")} ${escapeHtml(error.message)}`);
+      setStatus(
+        "[data-update-status]",
+        `<span class="status-icon-error">${icon("alert-circle")}</span> <span>${escapeHtml(error.message)}</span>`
+      );
     } finally {
       setTimeout(() => button.classList.remove("is-checking"), 600);
     }

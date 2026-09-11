@@ -2816,15 +2816,62 @@ code {
 }
 
 .settings-update-status-row {
-  margin-top: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 10px;
   width: 100%;
-  text-align: center;
 }
 
 .settings-update-status-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   font-size: 13px;
   color: var(--muted);
   font-weight: 500;
+  line-height: 1.4;
+}
+
+.settings-update-status-text svg {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.settings-update-status-text .status-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--green);
+}
+
+.settings-update-status-text .status-spinner svg {
+  animation: spin 0.8s linear infinite;
+}
+
+.settings-update-status-text .status-icon-success {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--green);
+}
+
+.settings-update-status-text .status-icon-error {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--red);
+}
+
+.settings-update-status-text .status-icon-update {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
 }
 
 .settings-update-result {
