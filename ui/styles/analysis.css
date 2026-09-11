@@ -39,6 +39,27 @@
   box-shadow: 0 2px 8px rgba(101, 229, 138, 0.2);
 }
 
+.theme-light .analysis-tabs {
+  background: rgba(38, 33, 24, 0.05);
+  border-color: rgba(38, 33, 24, 0.12);
+}
+
+.theme-light .analysis-tab-btn {
+  color: var(--muted);
+}
+
+.theme-light .analysis-tab-btn:hover {
+  background: rgba(38, 33, 24, 0.04);
+  color: var(--text);
+}
+
+.theme-light .analysis-tab-btn.active {
+  background: #ffffff;
+  color: #1a4a2b;
+  border: 1px solid rgba(26, 74, 43, 0.2);
+  box-shadow: 0 2px 8px rgba(38, 33, 24, 0.08);
+}
+
 .forensic-split {
   display: grid;
   grid-template-columns: 340px 1fr;
