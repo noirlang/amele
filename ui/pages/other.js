@@ -227,6 +227,38 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION, pageT
                 <span class="platform-badge">${icon(state.platform === "windows" ? "windows" : state.platform === "linux" ? "linux" : "monitor")} ${platformLabel(state.platform)}</span>
               </div>
             </div>
+
+            ${state.platform === "linux" ? `
+            <!-- Linux Render Motoru Satırı -->
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-row-icon engine-icon ${state.renderingEngine === "webkit" ? "is-webkit" : "is-chromium"}">${icon(state.renderingEngine === "webkit" ? "gauge" : "zap")}</span>
+                <span class="settings-row-title">${t("settings.renderingEngine") || "Arayüz Motoru"}</span>
+              </div>
+              <div class="settings-row-control">
+                <span class="engine-badge ${state.renderingEngine === "webkit" ? "is-webkit" : "is-chromium"}">
+                  ${icon(state.renderingEngine === "webkit" ? "alert-circle" : "check")}
+                  ${state.renderingEngine === "webkit" ? (t("settings.engineWebKit") || "WebKitGTK") : (t("settings.engineChromium") || "Chromium")}
+                </span>
+              </div>
+            </div>
+            ${state.renderingEngine === "webkit" ? `
+            <div class="settings-engine-banner is-warning">
+              <span class="settings-engine-banner-icon">${icon("alert-circle")}</span>
+              <div class="settings-engine-banner-text">
+                <strong>${t("settings.engineRecommendation") || "Öneri:"}</strong>
+                <span>${t("settings.engineWebKitRecommend") || "Daha akıcı bir deneyim için sisteminize Chromium tabanlı bir tarayıcı kurmanızı öneririz."}</span>
+              </div>
+            </div>
+            ` : `
+            <div class="settings-engine-banner is-success">
+              <span class="settings-engine-banner-icon">${icon("check")}</span>
+              <div class="settings-engine-banner-text">
+                <span>${t("settings.engineChromiumDesc") || "Uygulamadan en iyi şekilde verim alıyorsunuz."}</span>
+              </div>
+            </div>
+            `}
+            ` : ""}
           </div>
         </article>
 

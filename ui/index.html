@@ -1,11 +1,22 @@
 <!doctype html>
-<html lang="tr">
+<html lang="tr" class="notranslate" translate="no">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="google" content="notranslate" />
     <title>Amele Forensic Tool</title>
+    <link rel="icon" type="image/png" href="./assets/logo/icon.png" />
     <link rel="stylesheet" href="./styles.css" />
     <script>
+      // Native masaüstü penceresi deneyimi: Tarayıcı sağ tık menüsünü engelle
+      window.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+      }, { capture: true });
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "F5" || ((e.ctrlKey || e.metaKey) && (e.key === "r" || e.key === "R"))) {
+          e.preventDefault();
+        }
+      }, { capture: true });
       try {
         if (localStorage.getItem("amele-sidebar-collapsed") === "1") {
           document.documentElement.classList.add("sidebar-collapsed");
