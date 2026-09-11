@@ -155,8 +155,52 @@
 .platform-note strong,
 .proc-row.active strong,
 .string-match-item .match-meta span strong,
-code {
+code:not(.help-code-block code) {
   color: var(--text) !important;
+}
+
+/* Analysis Tabs & Segmented Controls */
+.analysis-tab-btn.active {
+  background: var(--text) !important;
+  color: var(--bg) !important;
+  box-shadow: none !important;
+}
+
+.theme-light .analysis-tabs {
+  background: rgba(38, 33, 24, 0.05) !important;
+  border-color: rgba(38, 33, 24, 0.14) !important;
+}
+
+.theme-light .analysis-tab-btn {
+  color: #6b6353 !important;
+}
+
+.theme-light .analysis-tab-btn:hover {
+  color: #262118 !important;
+  background: rgba(38, 33, 24, 0.04) !important;
+}
+
+.theme-light .analysis-tab-btn.active {
+  background: #ffffff !important;
+  color: #1a4a2b !important;
+  border: 1px solid rgba(26, 74, 43, 0.22) !important;
+  box-shadow: 0 2px 8px rgba(38, 33, 24, 0.08) !important;
+}
+
+/* Help Documentation Code & Dir Blocks */
+.help-code-block code,
+.help-code-block pre code {
+  color: #e4e4e7 !important;
+}
+
+.theme-light .help-code-block {
+  background: #f7f4ec !important;
+  border-color: rgba(38, 33, 24, 0.16) !important;
+}
+
+.theme-light .help-code-block code,
+.theme-light .help-code-block pre code {
+  color: #1a1712 !important;
 }
 
 .progress-bar {

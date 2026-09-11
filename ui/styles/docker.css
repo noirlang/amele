@@ -506,3 +506,57 @@
   word-break: break-all;
   white-space: pre-wrap;
 }
+
+/* Light Theme Overrides for Docker */
+.theme-light .status-card {
+  background: #fdfbf7;
+  border-color: rgba(38, 33, 24, 0.14);
+}
+
+.theme-light .filter-pill {
+  background: #fdfbf7;
+  border-color: rgba(38, 33, 24, 0.16);
+  color: #6b6353;
+}
+
+.theme-light .filter-pill:hover {
+  background: #ffffff;
+  color: #262118;
+  border-color: rgba(38, 33, 24, 0.28);
+}
+
+.theme-light .filter-pill.active {
+  background: #1a4a2b;
+  border-color: #1a4a2b;
+  color: #ffffff;
+}
+
+.theme-light .docker-container-table-wrapper {
+  background: #fdfbf7;
+  border-color: rgba(38, 33, 24, 0.14);
+}
+
+.theme-light .docker-table th {
+  background: rgba(38, 33, 24, 0.04);
+  color: #6b6353;
+  border-bottom-color: rgba(38, 33, 24, 0.12);
+}
+
+.theme-light .docker-table td {
+  border-bottom-color: rgba(38, 33, 24, 0.08);
+}
+
+.theme-light .docker-row:hover {
+  background: rgba(38, 33, 24, 0.03);
+}
+
+.theme-light .drift-info-card {
+  background: #fdfbf7;
+  border-color: rgba(38, 33, 24, 0.14);
+}
+
+.theme-light .log-viewer-box {
+  background: #f7f4ec;
+  color: #1a1712;
+  border-color: rgba(38, 33, 24, 0.16);
+}

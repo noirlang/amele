@@ -157,60 +157,114 @@ function renderHashResult(res, t) {
   return out;
 }
 
-export function settingsPage({ t, icon, state, platformLabel, APP_VERSION }) {
+export function settingsPage({ t, icon, state, platformLabel, APP_VERSION, pageTitle }) {
   const isDark = state.theme !== "light";
-  const packageLabel = state.updateCheck?.package_type?.toUpperCase() || (state.platform === "windows" ? "MSI" : "APPIMAGE");
-  const assetName = state.updateCheck?.asset_name || (state.platform === "windows" ? "amele-windows-x64.msi" : "amele-linux-x64.AppImage");
-  const detectedBy = state.updateCheck?.detected_by ? `<span>Tespit: ${state.updateCheck.detected_by}</span>` : "";
 
   return `
-    <section class="page">
-      <div class="settings-grid">
-        <article class="settings-card">
-          <span class="settings-kicker">${t("settings.general")}</span>
-          <h3>${t("settings.appearanceLanguage")}</h3>
+    <section class="page settings-page">
+      ${pageTitle ? pageTitle(t("settings.title"), "", "settings", icon) : ""}
+      <div class="settings-stack">
+        <!-- 1. Yatay Kart: Tercihler (Başlık / Kicker yok) -->
+        <article class="settings-card settings-card-horizontal">
+          <div class="settings-card-body">
+            <!-- Karanlık Tema Satırı (Gündüz / Gece Efektli Toggle) -->
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-row-icon">${isDark ? icon("moon") : icon("sun")}</span>
+                <span class="settings-row-title">${t("settings.darkTheme") || "Karanlık Tema"}</span>
+              </div>
+              <div class="settings-row-control">
+                <button type="button" class="day-night-toggle ${isDark ? "is-dark" : "is-light"}" data-action="theme-toggle" role="switch" aria-checked="${isDark ? "true" : "false"}" aria-label="${t("settings.darkTheme") || "Karanlık Tema"}">
+                  <span class="dn-track">
+                    <!-- Gece Yıldızları (Gece Modunda Görünür) -->
+                    <span class="dn-stars">
+                      <span class="dn-star dn-star-1"></span>
+                      <span class="dn-star dn-star-2"></span>
+                      <span class="dn-star dn-star-3"></span>
+                      <span class="dn-star dn-star-4"></span>
+                    </span>
+                    <!-- Gündüz Bulutları (Gündüz Modunda Görünür) -->
+                    <span class="dn-clouds">
+                      <span class="dn-cloud dn-cloud-1"></span>
+                      <span class="dn-cloud dn-cloud-2"></span>
+                    </span>
+                    <!-- Güneş / Ay Düğmesi (Sun / Moon Knob) -->
+                    <span class="dn-knob">
+                      <span class="dn-crater dn-crater-1"></span>
+                      <span class="dn-crater dn-crater-2"></span>
+                      <span class="dn-crater dn-crater-3"></span>
+                    </span>
+                  </span>
+                </button>
+              </div>
+            </div>
 
-          <div class="settings-row">
-            <span><strong>${t("settings.theme")}</strong></span>
-            <button class="secondary-button" data-action="theme-toggle">${isDark ? icon("sun") : icon("moon")} ${isDark ? t("settings.themeLight") : t("settings.themeDark")}</button>
-          </div>
+            <!-- Dil Satırı -->
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-row-icon">${icon("globe")}</span>
+                <span class="settings-row-title">${t("settings.language") || "Dil"}</span>
+              </div>
+              <div class="settings-row-control">
+                <div class="flag-switch-group" role="radiogroup" aria-label="${t("settings.language")}">
+                  <button type="button" class="flag-btn ${state.language === "tr" ? "is-active" : ""}" data-action="set-language" data-lang="tr" aria-label="Türkçe" title="Türkçe">
+                    <img src="./assets/flags/tr.svg" alt="Türkçe" class="flag-circle-img" draggable="false" />
+                  </button>
+                  <button type="button" class="flag-btn ${state.language === "en" ? "is-active" : ""}" data-action="set-language" data-lang="en" aria-label="English" title="English">
+                    <img src="./assets/flags/gb.svg" alt="English" class="flag-circle-img" draggable="false" />
+                  </button>
+                </div>
+              </div>
+            </div>
 
-          <div class="settings-row">
-            <span><strong>${t("settings.language")}</strong></span>
-            <select class="select compact-select" data-action="language-select" aria-label="${t("settings.language")}">
-              <option value="tr" ${state.language === "tr" ? "selected" : ""}>Türkçe</option>
-              <option value="en" ${state.language === "en" ? "selected" : ""}>English</option>
-            </select>
-          </div>
-
-          <div class="settings-row">
-            <span><strong>${t("settings.detectedSystem")}</strong></span>
-            <span class="platform-badge">${icon(state.platform === "windows" ? "windows" : state.platform === "linux" ? "linux" : "monitor")} ${platformLabel(state.platform)}</span>
-          </div>
-
-          <div class="settings-actions-row">
-            <button class="primary-button" data-action="save-settings">${t("settings.save")}</button>
-            <span class="settings-status-line" data-settings-status>${icon("info")} ${t("ready")}</span>
+            <!-- Algılanan Sistem Satırı -->
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-row-icon">${icon("monitor")}</span>
+                <span class="settings-row-title">${t("settings.detectedSystem") || "Algılanan Sistem"}</span>
+              </div>
+              <div class="settings-row-control">
+                <span class="platform-badge">${icon(state.platform === "windows" ? "windows" : state.platform === "linux" ? "linux" : "monitor")} ${platformLabel(state.platform)}</span>
+              </div>
+            </div>
           </div>
         </article>
 
-        <article class="settings-card settings-update">
-          <span class="settings-kicker">${t("settings.version")}</span>
-          <h3>${t("settings.update")}</h3>
-          <div class="settings-meta">
-            <span>${t("settings.installed")}: ${APP_VERSION}</span>
-            <span>${t("settings.package")}: ${packageLabel}</span>
-            ${detectedBy}
-            <span>Asset: ${assetName}</span>
+        <!-- 2. Yatay Kart: Uygulama Bilgileri (Ortalanmış) -->
+        <article class="settings-card settings-card-horizontal settings-card-centered">
+          <h3 class="settings-centered-title">${t("settings.aboutApp") || "Uygulama Bilgileri"}</h3>
+
+          <div class="settings-centered-info">
+            <div class="settings-info-item">
+              <span class="settings-info-label">${t("settings.versionNumber") || "Sürüm Numarası"}</span>
+              <span class="settings-info-value version-highlight">${APP_VERSION}</span>
+            </div>
+            <div class="settings-info-divider"></div>
+            <div class="settings-info-item">
+              <span class="settings-info-label">${t("settings.license") || "Lisans"}</span>
+              <span class="settings-info-value">GPL-3.0</span>
+            </div>
           </div>
-          <div class="progress-bar" data-update-progress style="--value:0%"><span></span><b>0%</b></div>
-          <div class="button-row">
-            <button class="primary-button" data-action="check-update">${icon("refresh")} ${t("settings.checkUpdate")}</button>
-            <button class="secondary-button" data-action="download-update">${icon("download")} ${t("settings.downloadInstall")}</button>
+
+          <div class="settings-update-row-centered">
+            <button type="button" class="settings-minimal-btn" data-action="check-update">
+              <span class="btn-icon">${icon("refresh")}</span>
+              <span>${t("settings.checkUpdate") || "Güncellemeleri Denetle"}</span>
+            </button>
           </div>
-          <span class="settings-status-line" data-update-status>${icon("info")} ${t("ready")}</span>
-          <div class="log-box compact-log" data-update-log>${t("settings.releaseNotes")}</div>
+          <div class="settings-update-status-row text-center">
+            <span class="settings-update-status-text" data-update-status></span>
+          </div>
+
+          <div class="settings-update-result text-center" data-update-result style="display: none;">
+            <button class="secondary-button" data-action="download-update" style="display: none; margin: 8px auto 0;">${icon("download")} ${t("settings.downloadInstall")}</button>
+          </div>
         </article>
+
+        <!-- 3. En Altta Ayrı Div: Copyright & noirLang Linki -->
+        <div class="settings-copyright-bar">
+          <span>Copyright © 2026 <a href="https://noirlang.tr" target="_blank" rel="noopener noreferrer" class="noirlang-link">noirLang</a></span>
+        </div>
       </div>
     </section>
   `;

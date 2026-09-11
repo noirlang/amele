@@ -895,6 +895,8 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
+  transition: background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 button,
@@ -917,7 +919,9 @@ button {
   overflow: hidden;
   background: var(--bg);
   color: var(--text);
-  transition: grid-template-columns 220ms var(--ease);
+  transition: grid-template-columns 220ms var(--ease),
+              background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .shell.sidebar-collapsed,
@@ -955,7 +959,9 @@ html.sidebar-collapsed .shell {
   border-right: 1px solid var(--line);
   background: var(--bg);
   overflow: hidden;
-  transition: padding 220ms var(--ease), background 180ms var(--ease);
+  transition: padding 220ms var(--ease),
+              background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sidebar-collapsed .sidebar {
@@ -1048,7 +1054,9 @@ html.sidebar-collapsed .shell {
   outline: none;
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
-  transition: border-color 0.22s ease, box-shadow 0.22s ease;
+  transition: background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.7s cubic-bezier(0.4, 0, 0.2, 1);
   transform: none !important;
   will-change: auto !important;
 }
@@ -1401,6 +1409,8 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   border-bottom: 1px solid var(--line);
   background: rgba(6, 11, 16, 0.72);
   backdrop-filter: blur(22px);
+  transition: background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .theme-light .topbar {
@@ -1447,6 +1457,8 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   min-width: 0;
   overflow: auto;
   padding: 28px;
+  transition: background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .view:focus {
@@ -1503,11 +1515,20 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   padding: 0;
   overflow: hidden;
   border-radius: var(--radius-xl, 28px);
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background-color: var(--panel);
+  border: 1px solid var(--line);
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
+  transition: background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-light .home-hero {
+  background-color: #fdfbf7;
+  border-color: rgba(38, 33, 24, 0.16);
+  box-shadow: 0 14px 38px rgba(38, 33, 24, 0.08);
 }
 
 .news-slides-container {
@@ -1532,9 +1553,10 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.32);
+  background-color: rgba(0, 0, 0, 0.32);
   overflow: hidden;
-  border-radius: var(--radius-xl, 28px) var(--radius-xl, 28px) 0 0;
+  border-radius: var(--radius-xl, 28px);
+  transition: background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .news-media::after {
@@ -1545,6 +1567,15 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   border-radius: inherit;
   box-shadow: inset 0 0 54px 24px rgba(8, 12, 16, 0.88);
   z-index: 2;
+  transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-light .news-media {
+  background-color: #ede8dc;
+}
+
+.theme-light .news-media::after {
+  opacity: 0;
 }
 
 .news-media img {
@@ -1565,7 +1596,7 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   left: 0;
   right: 0;
   padding: 56px 32px 24px;
-  background: linear-gradient(180deg, rgba(10, 14, 18, 0) 0%, rgba(10, 14, 18, 0.65) 28%, rgba(8, 12, 16, 0.92) 100%);
+  background: linear-gradient(180deg, rgba(10, 14, 18, 0) 0%, rgba(10, 14, 18, 0.72) 30%, rgba(8, 12, 16, 0.94) 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1573,27 +1604,44 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   text-align: center;
   z-index: 3;
   pointer-events: none;
+  transition: background 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-light .news-overlay {
+  background: linear-gradient(180deg, rgba(253, 251, 247, 0) 0%, rgba(253, 251, 247, 0.88) 30%, rgba(253, 251, 247, 0.98) 100%);
 }
 
 .news-title {
   font-size: 1.25rem;
   font-weight: 700;
-  color: var(--text, #fff);
+  color: #ffffff;
   margin: 0 0 8px 0;
   line-height: 1.35;
   text-align: center;
   max-width: 820px;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.95);
+  transition: color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-light .news-title {
+  color: #1a1712 !important;
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.9);
 }
 
 .news-summary {
   font-size: 0.92rem;
-  color: rgba(255, 255, 255, 0.88);
+  color: rgba(255, 255, 255, 0.9);
   margin: 0;
   line-height: 1.5;
   text-align: center;
   max-width: 780px;
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+  transition: color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-light .news-summary {
+  color: #4a4436 !important;
+  text-shadow: none;
 }
 
 .news-nav-btn {
@@ -1613,7 +1661,7 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   justify-content: center;
   cursor: pointer;
   z-index: 5;
-  transition: all 180ms ease;
+  transition: all 180ms ease, background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
   backdrop-filter: blur(8px);
 }
 
@@ -1622,6 +1670,19 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   color: #000;
   border-color: var(--green, #65e58a);
   transform: translateY(-50%) scale(1.08);
+}
+
+.theme-light .news-nav-btn {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(38, 33, 24, 0.18);
+  color: #262118;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.theme-light .news-nav-btn:hover {
+  background: #1a4a2b;
+  color: #fff;
+  border-color: #1a4a2b;
 }
 
 .news-nav-btn.prev {
@@ -1651,7 +1712,7 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   border: none;
   cursor: pointer;
   padding: 0;
-  transition: all 250ms ease;
+  transition: all 200ms ease;
 }
 
 .news-dot.is-active {
@@ -1659,6 +1720,16 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   width: 22px;
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(101, 229, 138, 0.6);
+}
+
+.theme-light .news-dot {
+  background: rgba(38, 33, 24, 0.22);
+}
+
+.theme-light .news-dot.is-active {
+  background: #1a4a2b;
+  width: 22px;
+  box-shadow: none;
 }
 
 .hero::after {
@@ -1930,6 +2001,10 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   color: var(--text);
   flex-shrink: 0;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  transition: background 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .page-title-icon svg {
@@ -1952,6 +2027,7 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   line-height: 1.1;
   letter-spacing: -0.035em;
   color: var(--text);
+  transition: color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .tool-grid {
@@ -2487,176 +2563,670 @@ code {
   background: rgba(255, 255, 255, 0.035);
 }
 
-.settings-grid {
-  grid-template-columns: 1fr 1.6fr;
-  align-items: start;
-}
-
-.settings-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 18px;
-}
-
-.settings-update {
+.settings-stack {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 20px;
+  width: 100%;
 }
 
-.settings-update h3 {
-  margin: 0 0 4px 0 !important;
-}
-
-.settings-update .settings-meta {
-  margin: 0 !important;
+.settings-card-horizontal {
+  width: 100%;
+  padding: clamp(22px, 2.5vw, 32px) clamp(22px, 3vw, 38px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background-color: var(--panel);
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.04), transparent 60%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.008));
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5), 0 0 35px rgba(255, 255, 255, 0.02);
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  gap: 16px;
+  transition: background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.settings-update .progress-bar {
-  margin: 4px 0 !important;
-  height: 24px !important;
-  background: var(--bg-2) !important;
-  border-radius: 8px !important;
+.theme-light .settings-card-horizontal {
+  background-color: #fcfbf7;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(38, 33, 24, 0.02), transparent 60%),
+    linear-gradient(145deg, rgba(38, 33, 24, 0.03), rgba(38, 33, 24, 0.01));
+  border-color: rgba(38, 33, 24, 0.16);
+  box-shadow: 0 12px 32px rgba(38, 33, 24, 0.08);
 }
 
-.settings-update .progress-bar b {
-  font-weight: 800 !important;
-  font-size: 11px !important;
-  color: var(--text) !important;
-}
-
-.settings-update .button-row {
+.settings-card-body {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: 0 !important;
-}
-
-.settings-update .status-badge {
-  margin: 0 !important;
-  align-self: flex-start;
-}
-
-.settings-update .log-box {
-  margin-top: 4px !important;
-  flex: 1;
-  min-height: 80px;
-}
-
-.settings-header {
-  margin-bottom: 18px;
-}
-
-.settings-header h1 {
-  margin: 0;
-  font-size: clamp(42px, 6vw, 64px);
-  line-height: 0.95;
-  letter-spacing: -0.07em;
-}
-
-.settings-kicker {
-  display: inline-flex;
-  margin-bottom: 10px;
-  color: var(--green);
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.settings-card h3 {
-  margin-top: 0;
-}
-
-.settings-primary {
-  align-self: start;
+  flex-direction: column;
 }
 
 .settings-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 14px 0;
+  justify-content: space-between;
+  padding: 16px 0;
   border-bottom: 1px solid var(--line);
+  gap: 18px;
+  transition: border-color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.settings-row:last-of-type {
+.settings-row:last-child {
   border-bottom: 0;
+  padding-bottom: 4px;
 }
 
-.settings-row strong,
-.settings-row small {
+.settings-row-label {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.settings-row-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  color: var(--green);
+  flex-shrink: 0;
+  transition: background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-light .settings-row-icon {
+  background-color: rgba(38, 33, 24, 0.04);
+}
+
+.settings-row-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.settings-row-title {
   display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  transition: color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.settings-row small {
-  margin-top: 4px;
-  color: var(--muted);
-  line-height: 1.45;
+.settings-row-control {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
-/* settings-card içindeki button-row ve status-badge için düzgün aralık */
-.settings-card > .button-row {
-  margin-top: 18px;
-}
-
-.settings-card > .status-badge[data-settings-status] {
-  margin-top: 10px;
-  background: transparent;
-  border: 0;
+/* Gündüz / Gece Efektli Day-Night Toggle */
+.day-night-toggle {
+  position: relative;
+  width: 66px;
+  height: 34px;
   padding: 0;
-  font-size: 12px;
-  color: var(--muted);
-  font-weight: 500;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.15s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.compact-select {
-  width: 180px;
+.day-night-toggle:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: scale(1.03);
 }
 
-/* Platform badge — ayarlar sayfasında platform adı */
+.day-night-toggle:active {
+  transform: scale(0.97);
+}
+
+.dn-track {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  overflow: hidden;
+  transition: background 0.75s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Day Mode Track (Açık Gündüz Gökyüzü) */
+.day-night-toggle.is-light .dn-track {
+  background: linear-gradient(135deg, #38bdf8 0%, #60a5fa 100%);
+}
+
+/* Night Mode Track (Derin Yıldızlı Gece Gökyüzü) */
+.day-night-toggle.is-dark .dn-track {
+  background: linear-gradient(135deg, #091122 0%, #172338 100%);
+}
+
+/* Yıldızlar (Gece Modu) */
+.dn-stars {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transition: opacity 0.7s ease, transform 0.75s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.day-night-toggle.is-light .dn-stars {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.7);
+}
+
+.day-night-toggle.is-dark .dn-stars {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.dn-star {
+  position: absolute;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 3px #ffffff, 0 0 6px rgba(255, 255, 255, 0.85);
+  animation: dn-twinkle 2.4s ease-in-out infinite alternate;
+}
+
+.dn-star-1 {
+  top: 8px;
+  left: 10px;
+  width: 3px;
+  height: 3px;
+  animation-delay: 0s;
+}
+
+.dn-star-2 {
+  top: 20px;
+  left: 16px;
+  width: 2px;
+  height: 2px;
+  animation-delay: 0.6s;
+}
+
+.dn-star-3 {
+  top: 9px;
+  left: 24px;
+  width: 2.5px;
+  height: 2.5px;
+  animation-delay: 1.2s;
+}
+
+.dn-star-4 {
+  top: 22px;
+  left: 8px;
+  width: 1.5px;
+  height: 1.5px;
+  animation-delay: 1.8s;
+}
+
+@keyframes dn-twinkle {
+  0% { opacity: 0.45; transform: scale(0.85); }
+  100% { opacity: 1; transform: scale(1.15); }
+}
+
+/* Bulutlar (Gündüz Modu) */
+.dn-clouds {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transition: opacity 0.7s ease, transform 0.75s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.day-night-toggle.is-light .dn-clouds {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.day-night-toggle.is-dark .dn-clouds {
+  opacity: 0;
+  transform: translateY(10px) scale(0.7);
+}
+
+.dn-cloud {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.dn-cloud-1 {
+  bottom: 4px;
+  right: 7px;
+  width: 24px;
+  height: 8px;
+}
+
+.dn-cloud-1::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.dn-cloud-1::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: 11px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.dn-cloud-2 {
+  top: 6px;
+  right: 19px;
+  width: 11px;
+  height: 4px;
+  opacity: 0.75;
+}
+
+.dn-cloud-2::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+/* Güneş / Ay Düğmesi (Knob) */
+.dn-knob {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  transition: transform 0.75s cubic-bezier(0.34, 1.25, 0.64, 1), background 0.7s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Gündüz Güneşi (Sola yavaşça kayıp sarı güneşe dönüşür) */
+.day-night-toggle.is-light .dn-knob {
+  transform: translateX(0) rotate(0deg);
+  background: linear-gradient(135deg, #fffa86 0%, #facc15 60%, #eab308 100%);
+  box-shadow: 0 0 10px #facc15, 0 0 18px rgba(250, 204, 21, 0.5), inset 0 -1px 2px rgba(0, 0, 0, 0.15);
+}
+
+/* Gece Ayı (Sağa yavaşça kayıp beyaz aya ve kraterlere dönüşür) */
+.day-night-toggle.is-dark .dn-knob {
+  transform: translateX(32px) rotate(360deg);
+  background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 70%, #cbd5e1 100%);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6), 0 0 16px rgba(226, 232, 240, 0.25), inset 0 -1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Ay Kraterleri */
+.dn-crater {
+  position: absolute;
+  border-radius: 50%;
+  background: #94a3b8;
+  opacity: 0;
+  transition: opacity 0.65s ease, transform 0.65s ease;
+}
+
+.day-night-toggle.is-dark .dn-crater {
+  opacity: 0.65;
+  transform: scale(1);
+}
+
+.day-night-toggle.is-light .dn-crater {
+  opacity: 0;
+  transform: scale(0.4);
+}
+
+.dn-crater-1 {
+  top: 4px;
+  left: 6px;
+  width: 5px;
+  height: 5px;
+  box-shadow: inset 0.5px 0.5px 1px rgba(0, 0, 0, 0.25);
+}
+
+.dn-crater-2 {
+  top: 12px;
+  left: 3px;
+  width: 4px;
+  height: 4px;
+  box-shadow: inset 0.5px 0.5px 1px rgba(0, 0, 0, 0.25);
+}
+
+.dn-crater-3 {
+  top: 11px;
+  left: 13px;
+  width: 6px;
+  height: 6px;
+  box-shadow: inset 0.5px 0.5px 1px rgba(0, 0, 0, 0.25);
+}
+
+.theme-light .day-night-toggle {
+  border-color: rgba(0, 0, 0, 0.16);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* Circular Flag Buttons */
+.flag-switch-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.flag-btn {
+  width: 38px;
+  height: 38px;
+  padding: 2px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  opacity: 0.45;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.flag-btn:hover {
+  opacity: 0.85;
+  transform: scale(1.05);
+}
+
+.flag-btn.is-active {
+  opacity: 1;
+  border-color: var(--green);
+  box-shadow: 0 0 0 2px rgba(101, 229, 138, 0.2), 0 0 14px rgba(101, 229, 138, 0.35);
+  transform: scale(1.06);
+}
+
+.flag-circle-img {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* Platform badge */
 .platform-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px;
+  padding: 6px 14px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
+  background-color: rgba(255, 255, 255, 0.04);
   color: var(--muted);
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
+  transition: background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Kaydet butonu + durum satırı yan yana */
-.settings-actions-row {
+.theme-light .platform-badge {
+  background-color: rgba(38, 33, 24, 0.04);
+}
+
+/* Centered Card 2: Version & License */
+.settings-card-centered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.settings-centered-title {
+  margin: 0 0 10px 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+  letter-spacing: -0.02em;
+  transition: color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.settings-centered-info {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
+  justify-content: center;
+  gap: 56px;
+  padding: 18px 0;
+  width: 100%;
+  border-bottom: 1px solid var(--line);
+  transition: border-color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Durum satırı — "Hazır" gibi küçük bilgi metni */
-.settings-status-line {
+.settings-info-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.settings-info-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.settings-info-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  font-family: var(--mono);
+  transition: color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.settings-info-value.version-highlight {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.settings-info-divider {
+  width: 1px;
+  height: 32px;
+  background-color: var(--line);
+  transition: background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Sleek Minimal Update Button */
+.settings-update-row-centered {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 16px;
+  width: 100%;
+}
+
+.settings-minimal-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--muted);
-  font-weight: 500;
-  opacity: 0.85;
+  gap: 8px;
+  padding: 9px 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background-color: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.settings-update .settings-status-line {
-  margin-top: 4px;
+.settings-minimal-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #fff;
+}
+
+.settings-minimal-btn .btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.settings-minimal-btn .btn-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.settings-minimal-btn.is-checking .btn-icon svg {
+  animation: spin 0.8s linear infinite;
+}
+
+.settings-update-status-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 10px;
+  width: 100%;
+}
+
+.settings-update-status-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.settings-update-status-text svg {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.settings-update-status-text .status-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--green);
+}
+
+.settings-update-status-text .status-spinner svg {
+  animation: spin 0.8s linear infinite;
+}
+
+.settings-update-status-text .status-icon-success {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--green);
+}
+
+.settings-update-status-text .status-icon-error {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--red);
+}
+
+.settings-update-status-text .status-icon-update {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.settings-update-result {
+  width: 100%;
+  text-align: center;
+}
+
+.theme-light .settings-minimal-btn {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.14);
+  color: var(--text);
+}
+
+.theme-light .settings-minimal-btn:hover {
+  background: rgba(0, 0, 0, 0.07);
+  border-color: rgba(0, 0, 0, 0.24);
+  color: #000;
+}
+
+/* En Alttaki Ayrı Copyright Çubuğu */
+.settings-copyright-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 18px 0 28px 0;
+  font-size: 13px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  text-align: center;
+  transition: color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.noirlang-link {
+  color: var(--green);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              text-shadow 0.2s ease;
+  border-bottom: 1px solid transparent;
+}
+
+.noirlang-link:hover {
+  color: #fff;
+  border-bottom-color: var(--green);
+  text-shadow: 0 0 10px rgba(101, 229, 138, 0.4);
+}
+
+.theme-light .noirlang-link {
+  color: #15803d;
+}
+
+.theme-light .noirlang-link:hover {
+  color: #166534;
+  border-bottom-color: #15803d;
 }
 
 .compact-log {
@@ -2727,15 +3297,18 @@ code {
   padding: clamp(22px, 3vw, 34px) clamp(20px, 3.2vw, 38px);
   border: 1px solid var(--line);
   border-radius: var(--radius-xl);
-  background:
+  background-color: var(--panel);
+  background-image:
     radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.04), transparent 60%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.008)),
-    var(--panel);
+    linear-gradient(145deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.008));
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5), 0 0 35px rgba(255, 255, 255, 0.02);
   position: relative;
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
+  transition: background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .about-hero-left {
@@ -2967,10 +3540,10 @@ code {
 }
 
 .theme-light .about-hero {
-  background:
+  background-color: #fcfbf7;
+  background-image:
     radial-gradient(circle at 50% 50%, rgba(38, 33, 24, 0.02), transparent 60%),
-    linear-gradient(145deg, rgba(38, 33, 24, 0.03), rgba(38, 33, 24, 0.01)),
-    #fcfbf7;
+    linear-gradient(145deg, rgba(38, 33, 24, 0.03), rgba(38, 33, 24, 0.01));
   border-color: rgba(38, 33, 24, 0.16);
   box-shadow: 0 12px 32px rgba(38, 33, 24, 0.08);
 }
@@ -4252,7 +4825,7 @@ html, body {
   background: transparent !important;
   border: none !important;
   padding: 0 !important;
-  color: #e4e4e7;
+  color: #e4e4e7 !important;
 }
 
 .help-doc-body code {
@@ -4321,8 +4894,39 @@ html, body {
 }
 
 .theme-light .help-code-block {
-  background: #18181b;
-  border-color: rgba(38, 33, 24, 0.2);
+  background: #f7f4ec;
+  border-color: rgba(38, 33, 24, 0.16);
+  box-shadow: inset 0 1px 2px rgba(38, 33, 24, 0.04);
+}
+
+.theme-light .help-code-bar {
+  background: rgba(38, 33, 24, 0.04);
+  border-bottom: 1px solid rgba(38, 33, 24, 0.1);
+}
+
+.theme-light .help-code-lang {
+  color: #716958;
+  font-weight: 700;
+}
+
+.theme-light .help-copy-btn {
+  background: #ffffff;
+  border: 1px solid rgba(38, 33, 24, 0.16);
+  color: #262118;
+  box-shadow: 0 1px 3px rgba(38, 33, 24, 0.06);
+}
+
+.theme-light .help-copy-btn:hover {
+  background: rgba(38, 33, 24, 0.08);
+}
+
+.theme-light .help-code-block pre {
+  background: transparent;
+}
+
+.theme-light .help-code-block code,
+.theme-light .help-code-block pre code {
+  color: #1a1712 !important;
 }
 
 .theme-light .help-doc-body code:not(pre code) {
