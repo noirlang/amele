@@ -167,16 +167,33 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION, pageT
         <!-- 1. Yatay Kart: Tercihler (Başlık / Kicker yok) -->
         <article class="settings-card settings-card-horizontal">
           <div class="settings-card-body">
-            <!-- Karanlık Tema Satırı -->
+            <!-- Karanlık Tema Satırı (Gündüz / Gece Efektli Toggle) -->
             <div class="settings-row">
               <div class="settings-row-label">
-                <span class="settings-row-icon">${icon("moon")}</span>
+                <span class="settings-row-icon">${isDark ? icon("moon") : icon("sun")}</span>
                 <span class="settings-row-title">${t("settings.darkTheme") || "Karanlık Tema"}</span>
               </div>
               <div class="settings-row-control">
-                <button type="button" class="modern-switch-toggle ${isDark ? "is-dark" : "is-light"}" data-action="theme-toggle" role="switch" aria-checked="${isDark ? "true" : "false"}" aria-label="${t("settings.darkTheme") || "Karanlık Tema"}">
-                  <span class="switch-toggle-track">
-                    <span class="switch-toggle-knob"></span>
+                <button type="button" class="day-night-toggle ${isDark ? "is-dark" : "is-light"}" data-action="theme-toggle" role="switch" aria-checked="${isDark ? "true" : "false"}" aria-label="${t("settings.darkTheme") || "Karanlık Tema"}">
+                  <span class="dn-track">
+                    <!-- Gece Yıldızları (Gece Modunda Görünür) -->
+                    <span class="dn-stars">
+                      <span class="dn-star dn-star-1"></span>
+                      <span class="dn-star dn-star-2"></span>
+                      <span class="dn-star dn-star-3"></span>
+                      <span class="dn-star dn-star-4"></span>
+                    </span>
+                    <!-- Gündüz Bulutları (Gündüz Modunda Görünür) -->
+                    <span class="dn-clouds">
+                      <span class="dn-cloud dn-cloud-1"></span>
+                      <span class="dn-cloud dn-cloud-2"></span>
+                    </span>
+                    <!-- Güneş / Ay Düğmesi (Sun / Moon Knob) -->
+                    <span class="dn-knob">
+                      <span class="dn-crater dn-crater-1"></span>
+                      <span class="dn-crater dn-crater-2"></span>
+                      <span class="dn-crater dn-crater-3"></span>
+                    </span>
                   </span>
                 </button>
               </div>

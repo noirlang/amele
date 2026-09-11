@@ -2574,72 +2574,258 @@ code {
   flex-shrink: 0;
 }
 
-/* Modern Switch Toggle */
-.modern-switch-toggle {
+/* Gündüz / Gece Efektli Day-Night Toggle */
+.day-night-toggle {
   position: relative;
-  width: 50px;
-  height: 28px;
+  width: 66px;
+  height: 34px;
   padding: 0;
-  border: 1px solid var(--line-strong);
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  background: transparent;
   cursor: pointer;
   outline: none;
-  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
-  display: inline-flex;
-  align-items: center;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.15s ease;
+  user-select: none;
+  -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
 
-.modern-switch-toggle:hover {
-  border-color: rgba(255, 255, 255, 0.3);
+.day-night-toggle:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: scale(1.03);
 }
 
-.modern-switch-toggle.is-dark {
-  background: var(--green);
-  border-color: var(--green);
-  box-shadow: 0 0 14px rgba(101, 229, 138, 0.3);
+.day-night-toggle:active {
+  transform: scale(0.97);
 }
 
-.switch-toggle-track {
+.dn-track {
   position: relative;
+  display: block;
   width: 100%;
   height: 100%;
-  display: block;
+  border-radius: 999px;
+  overflow: hidden;
+  transition: background 0.45s ease;
 }
 
-.switch-toggle-knob {
+/* Day Mode Track (Açık Gökyüzü) */
+.day-night-toggle.is-light .dn-track {
+  background: linear-gradient(135deg, #38bdf8 0%, #60a5fa 100%);
+}
+
+/* Night Mode Track (Yıldızlı Gece Gökyüzü) */
+.day-night-toggle.is-dark .dn-track {
+  background: linear-gradient(135deg, #091122 0%, #172338 100%);
+}
+
+/* Yıldızlar (Gece Modu) */
+.dn-stars {
   position: absolute;
-  top: 2px;
-  left: 3px;
-  width: 22px;
-  height: 22px;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transition: opacity 0.35s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.day-night-toggle.is-light .dn-stars {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.day-night-toggle.is-dark .dn-stars {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.dn-star {
+  position: absolute;
+  background: #ffffff;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease;
+  box-shadow: 0 0 3px #ffffff, 0 0 6px rgba(255, 255, 255, 0.85);
+}
+
+.dn-star-1 {
+  top: 8px;
+  left: 10px;
+  width: 3px;
+  height: 3px;
+  opacity: 0.95;
+}
+
+.dn-star-2 {
+  top: 20px;
+  left: 16px;
+  width: 2px;
+  height: 2px;
+  opacity: 0.8;
+}
+
+.dn-star-3 {
+  top: 9px;
+  left: 24px;
+  width: 2.5px;
+  height: 2.5px;
+  opacity: 0.9;
+}
+
+.dn-star-4 {
+  top: 22px;
+  left: 8px;
+  width: 1.5px;
+  height: 1.5px;
+  opacity: 0.7;
+}
+
+/* Bulutlar (Gündüz Modu) */
+.dn-clouds {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transition: opacity 0.35s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.day-night-toggle.is-light .dn-clouds {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.day-night-toggle.is-dark .dn-clouds {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.dn-cloud {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.dn-cloud-1 {
+  bottom: 4px;
+  right: 7px;
+  width: 24px;
+  height: 8px;
+}
+
+.dn-cloud-1::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.dn-cloud-1::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: 11px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.dn-cloud-2 {
+  top: 6px;
+  right: 19px;
+  width: 11px;
+  height: 4px;
+  opacity: 0.75;
+}
+
+.dn-cloud-2::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+/* Güneş / Ay Düğmesi (Knob) */
+.dn-knob {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  transition: transform 0.42s cubic-bezier(0.34, 1.3, 0.64, 1), background 0.35s ease, box-shadow 0.35s ease;
+  z-index: 2;
+  overflow: hidden;
   pointer-events: none;
 }
 
-.modern-switch-toggle.is-dark .switch-toggle-knob {
-  transform: translateX(22px);
-  background: #fff;
-}
-
-.theme-light .modern-switch-toggle {
-  background: rgba(0, 0, 0, 0.16);
-  border-color: rgba(0, 0, 0, 0.2);
-}
-
-.theme-light .modern-switch-toggle.is-dark {
-  background: #16a34a;
-  border-color: #16a34a;
-  box-shadow: 0 0 12px rgba(22, 163, 74, 0.25);
-}
-
-.theme-light .modern-switch-toggle.is-light .switch-toggle-knob {
+/* Gündüz Güneşi */
+.day-night-toggle.is-light .dn-knob {
   transform: translateX(0);
-  background: #fff;
+  background: linear-gradient(135deg, #fffa86 0%, #facc15 60%, #eab308 100%);
+  box-shadow: 0 0 10px #facc15, 0 0 18px rgba(250, 204, 21, 0.5), inset 0 -1px 2px rgba(0, 0, 0, 0.15);
+}
+
+/* Gece Ayı */
+.day-night-toggle.is-dark .dn-knob {
+  transform: translateX(32px);
+  background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 70%, #cbd5e1 100%);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6), 0 0 16px rgba(226, 232, 240, 0.25), inset 0 -1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Ay Kraterleri */
+.dn-crater {
+  position: absolute;
+  border-radius: 50%;
+  background: #94a3b8;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.day-night-toggle.is-dark .dn-crater {
+  opacity: 0.65;
+}
+
+.dn-crater-1 {
+  top: 4px;
+  left: 6px;
+  width: 5px;
+  height: 5px;
+  box-shadow: inset 0.5px 0.5px 1px rgba(0, 0, 0, 0.25);
+}
+
+.dn-crater-2 {
+  top: 12px;
+  left: 3px;
+  width: 4px;
+  height: 4px;
+  box-shadow: inset 0.5px 0.5px 1px rgba(0, 0, 0, 0.25);
+}
+
+.dn-crater-3 {
+  top: 11px;
+  left: 13px;
+  width: 6px;
+  height: 6px;
+  box-shadow: inset 0.5px 0.5px 1px rgba(0, 0, 0, 0.25);
+}
+
+.theme-light .day-night-toggle {
+  border-color: rgba(0, 0, 0, 0.16);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 /* Circular Flag Buttons */
