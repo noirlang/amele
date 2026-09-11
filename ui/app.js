@@ -1943,11 +1943,24 @@ async function handleAction(button) {
 
   if (action === "theme-toggle") {
     setTheme(state.theme === "dark" ? "light" : "dark");
-    render();
     try {
-      await persistSettingsFromControls();
+      await saveSettingsFromControls();
     } catch (error) {
       showToast(`Ayarlar kaydedilemedi: ${error.message}`, "error");
+    }
+    render();
+    return;
+  }
+
+  if (action === "set-language") {
+    const lang = button.dataset.lang || (state.language === "tr" ? "en" : "tr");
+    if (lang !== state.language) {
+      setLanguage(lang);
+      try {
+        await saveSettingsFromControls();
+      } catch (error) {
+        showToast(`Ayarlar kaydedilemedi: ${error.message}`, "error");
+      }
       render();
     }
     return;
@@ -2674,30 +2687,72 @@ async function handleAction(button) {
   }
 
   if (action === "check-update") {
+    button.classList.add("is-checking");
+    const lang = state.language || "en";
+    const isTr = lang === "tr";
     try {
-      setStatus("[data-update-status]", `${icon("refresh")} ${t("settings.updateChecked")}`);
-      const result = await apiRequest("/api/update-check");
+      setStatus("[data-update-status]", `${icon("refresh")} ${t("settings.updateChecked") || "Kontrol ediliyor..."}`);
+      let result = null;
+      if (backendReady()) {
+        try {
+          result = await apiRequest("/api/update-check");
+        } catch (_) {}
+      }
+      if (!result || (!result.tag_name && !result.name)) {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 7000);
+        const res = await fetch(
+          "https://api.github.com/repos/noirlang/amele/releases/latest",
+          { signal: controller.signal, headers: { Accept: "application/vnd.github+json" } }
+        );
+        clearTimeout(tid);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        result = await res.json();
+      }
+
       state.latestUpdate = result;
       state.updateTarget = result.update_target || state.updateTarget;
-      render();
-      const asset = result.platform_asset || {};
-      const target = result.update_target || {};
-      const missingAsset = result.asset_error || t("settings.noAssetForPackage", {
-        package: target.asset_package_label || target.package_label || "-"
-      });
-      const assetLine = asset.name ? `<br />Asset: ${escapeHtml(asset.name)} (${formatBytes(asset.size)})` : `<br />${escapeHtml(missingAsset)}`;
-      const packageLine = target.asset_package_label || target.package_label
-        ? `<br />${t("settings.package")}: ${escapeHtml(target.asset_package_label || target.package_label)}`
-        : "";
-      const commandLine = target.install_command
-        ? `<br />${t("settings.installCommand")}: <code>${escapeHtml(target.install_command)}</code>`
-        : "";
-      setStatus("[data-update-status]", `${icon("info")} ${t("settings.latestVersion", { version: result.tag_name || result.name || "-" })}`);
-      setStatus("[data-update-log]", `${escapeHtml(result.body || t("settings.releaseNotes")).replaceAll("\n", "<br />")}${assetLine}${packageLine}${commandLine}`);
-      showToast(t("settings.updateDone"));
+
+      const latestTag = (result.tag_name || result.name || "").trim();
+      const releaseUrl = result.html_url || "https://github.com/noirlang/amele/releases/latest";
+
+      const parseVer = (v) => v.replace(/^v/i, "").split("-")[0].split(".").map(Number);
+      const [cMaj, cMin, cPatch] = parseVer(APP_VERSION);
+      const [lMaj, lMin, lPatch] = parseVer(latestTag);
+      const hasUpdate =
+        lMaj > cMaj ||
+        (lMaj === cMaj && lMin > cMin) ||
+        (lMaj === cMaj && lMin === cMin && lPatch > cPatch);
+
+      if (hasUpdate) {
+        showToast(
+          isTr
+            ? `🚀 Yeni sürüm mevcut: ${latestTag}! (Mevcut: ${APP_VERSION})`
+            : `🚀 New update available: ${latestTag}! (Current: ${APP_VERSION})`,
+          "success"
+        );
+        showUpdateToast({ latestTag, releaseUrl, isTr });
+        setStatus("[data-update-status]", `🚀 ${isTr ? "Yeni sürüm:" : "New version:"} <b>${escapeHtml(latestTag)}</b>`);
+        const resultArea = document.querySelector("[data-update-result]");
+        if (resultArea) {
+          resultArea.style.display = "block";
+          const dl = resultArea.querySelector("[data-action='download-update']");
+          if (dl) dl.style.display = "inline-flex";
+        }
+      } else {
+        showToast(
+          isTr
+            ? `✓ Amele güncel! En son sürümü kullanıyorsunuz (${APP_VERSION}).`
+            : `✓ Amele is up to date! You are on the latest release (${APP_VERSION}).`,
+          "info"
+        );
+        setStatus("[data-update-status]", `✓ ${isTr ? "Amele güncel" : "Amele is up to date"} (${APP_VERSION})`);
+      }
     } catch (error) {
-      setStatus("[data-update-status]", `${icon("info")} ${t("settings.updateFailed", { message: escapeHtml(error.message) })}`);
       showToast(t("settings.updateFailed", { message: error.message }), "error");
+      setStatus("[data-update-status]", `${icon("alert-circle")} ${escapeHtml(error.message)}`);
+    } finally {
+      setTimeout(() => button.classList.remove("is-checking"), 600);
     }
     return;
   }

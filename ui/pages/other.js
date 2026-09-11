@@ -157,59 +157,117 @@ function renderHashResult(res, t) {
   return out;
 }
 
-export function settingsPage({ t, icon, state, platformLabel, APP_VERSION }) {
+export function settingsPage({ t, icon, state, platformLabel, APP_VERSION, pageTitle }) {
   const isDark = state.theme !== "light";
-  const packageLabel = state.updateCheck?.package_type?.toUpperCase() || (state.platform === "windows" ? "MSI" : "APPIMAGE");
-  const assetName = state.updateCheck?.asset_name || (state.platform === "windows" ? "amele-windows-x64.msi" : "amele-linux-x64.AppImage");
-  const detectedBy = state.updateCheck?.detected_by ? `<span>Tespit: ${state.updateCheck.detected_by}</span>` : "";
 
   return `
-    <section class="page">
-      <div class="settings-grid">
-        <article class="settings-card">
-          <span class="settings-kicker">${t("settings.general")}</span>
-          <h3>${t("settings.appearanceLanguage")}</h3>
-
-          <div class="settings-row">
-            <span><strong>${t("settings.theme")}</strong></span>
-            <button class="secondary-button" data-action="theme-toggle">${isDark ? icon("sun") : icon("moon")} ${isDark ? t("settings.themeLight") : t("settings.themeDark")}</button>
+    <section class="page settings-page">
+      ${pageTitle ? pageTitle(t("settings.title"), "", "settings", icon) : ""}
+      <div class="settings-stack">
+        <!-- 1. Yatay Div: Görünüm ve Tercihler -->
+        <article class="settings-card settings-card-horizontal">
+          <div class="settings-card-header">
+            <span class="settings-kicker">${t("settings.general")}</span>
+            <h3 class="settings-card-title">${t("settings.appearanceLanguage")}</h3>
           </div>
 
-          <div class="settings-row">
-            <span><strong>${t("settings.language")}</strong></span>
-            <select class="select compact-select" data-action="language-select" aria-label="${t("settings.language")}">
-              <option value="tr" ${state.language === "tr" ? "selected" : ""}>Türkçe</option>
-              <option value="en" ${state.language === "en" ? "selected" : ""}>English</option>
-            </select>
-          </div>
+          <div class="settings-card-body">
+            <!-- Tema Satırı (Açılıp Kapanan Switch Butonu) -->
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-row-icon">${isDark ? icon("moon") : icon("sun")}</span>
+                <div class="settings-row-text">
+                  <strong>${t("settings.theme")}</strong>
+                  <small>${isDark ? t("settings.themeDark") : t("settings.themeLight")}</small>
+                </div>
+              </div>
+              <div class="settings-row-control">
+                <button type="button" class="modern-switch-toggle ${isDark ? "is-dark" : "is-light"}" data-action="theme-toggle" role="switch" aria-checked="${isDark ? "true" : "false"}" aria-label="${t("settings.theme")}">
+                  <span class="switch-toggle-track">
+                    <span class="switch-toggle-icon icon-sun">${icon("sun")}</span>
+                    <span class="switch-toggle-icon icon-moon">${icon("moon")}</span>
+                    <span class="switch-toggle-knob"></span>
+                  </span>
+                </button>
+              </div>
+            </div>
 
-          <div class="settings-row">
-            <span><strong>${t("settings.detectedSystem")}</strong></span>
-            <span class="platform-badge">${icon(state.platform === "windows" ? "windows" : state.platform === "linux" ? "linux" : "monitor")} ${platformLabel(state.platform)}</span>
-          </div>
+            <!-- Dil Satırı (Yuvarlak Türkiye ve Birleşik Krallık Bayrakları) -->
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-row-icon">${icon("globe")}</span>
+                <div class="settings-row-text">
+                  <strong>${t("settings.language")}</strong>
+                  <small>${state.language === "tr" ? "Türkçe" : "English"}</small>
+                </div>
+              </div>
+              <div class="settings-row-control">
+                <div class="flag-switch-group" role="radiogroup" aria-label="${t("settings.language")}">
+                  <button type="button" class="flag-btn ${state.language === "tr" ? "is-active" : ""}" data-action="set-language" data-lang="tr" aria-label="Türkçe" title="Türkçe">
+                    <img src="./assets/flags/tr.svg" alt="Türkçe" class="flag-circle-img" draggable="false" />
+                  </button>
+                  <button type="button" class="flag-btn ${state.language === "en" ? "is-active" : ""}" data-action="set-language" data-lang="en" aria-label="English" title="English">
+                    <img src="./assets/flags/gb.svg" alt="English" class="flag-circle-img" draggable="false" />
+                  </button>
+                </div>
+              </div>
+            </div>
 
-          <div class="settings-actions-row">
-            <button class="primary-button" data-action="save-settings">${t("settings.save")}</button>
-            <span class="settings-status-line" data-settings-status>${icon("info")} ${t("ready")}</span>
+            <!-- Algılanan Sistem Satırı -->
+            <div class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-row-icon">${icon(state.platform === "windows" ? "windows" : state.platform === "linux" ? "linux" : "monitor")}</span>
+                <div class="settings-row-text">
+                  <strong>${t("settings.detectedSystem")}</strong>
+                  <small>${t("settings.detectedHint") || "Platform çalışma ortamı"}</small>
+                </div>
+              </div>
+              <div class="settings-row-control">
+                <span class="platform-badge">${icon(state.platform === "windows" ? "windows" : state.platform === "linux" ? "linux" : "monitor")} ${platformLabel(state.platform)}</span>
+              </div>
+            </div>
           </div>
         </article>
 
-        <article class="settings-card settings-update">
-          <span class="settings-kicker">${t("settings.version")}</span>
-          <h3>${t("settings.update")}</h3>
-          <div class="settings-meta">
-            <span>${t("settings.installed")}: ${APP_VERSION}</span>
-            <span>${t("settings.package")}: ${packageLabel}</span>
-            ${detectedBy}
-            <span>Asset: ${assetName}</span>
+        <!-- 2. Yatay Div: Sürüm, Lisans ve Sade Güncelleme Butonu -->
+        <article class="settings-card settings-card-horizontal">
+          <div class="settings-card-header">
+            <span class="settings-kicker">${t("settings.version")}</span>
+            <h3 class="settings-card-title">${t("settings.aboutApp") || "Uygulama Bilgileri"}</h3>
           </div>
-          <div class="progress-bar" data-update-progress style="--value:0%"><span></span><b>0%</b></div>
-          <div class="button-row">
-            <button class="primary-button" data-action="check-update">${icon("refresh")} ${t("settings.checkUpdate")}</button>
-            <button class="secondary-button" data-action="download-update">${icon("download")} ${t("settings.downloadInstall")}</button>
+
+          <div class="settings-card-body">
+            <!-- Sürüm, Lisans ve Copyright Bilgi Satırı -->
+            <div class="settings-info-grid">
+              <div class="settings-info-item">
+                <span class="settings-info-label">${t("settings.versionNumber") || "Sürüm Numarası"}</span>
+                <span class="settings-info-value version-highlight">${APP_VERSION}</span>
+              </div>
+              <div class="settings-info-divider"></div>
+              <div class="settings-info-item">
+                <span class="settings-info-label">${t("settings.license") || "Lisans"}</span>
+                <span class="settings-info-value">GPL-3.0</span>
+              </div>
+              <div class="settings-info-divider"></div>
+              <div class="settings-info-item">
+                <span class="settings-info-label">${t("settings.copyright") || "Telif Hakkı"}</span>
+                <span class="settings-info-value">Copyright © 2026</span>
+              </div>
+            </div>
+
+            <!-- Sürümün altındaki sade güncelleme butonu -->
+            <div class="settings-update-row">
+              <button type="button" class="settings-minimal-btn" data-action="check-update">
+                <span class="btn-icon">${icon("refresh")}</span>
+                <span>${t("settings.checkUpdate") || "Güncellemeleri Denetle"}</span>
+              </button>
+              <span class="settings-update-status-text" data-update-status></span>
+            </div>
+
+            <div class="settings-update-result" data-update-result style="display: none;">
+              <button class="secondary-button" data-action="download-update" style="display: none; margin-top: 10px;">${icon("download")} ${t("settings.downloadInstall")}</button>
+            </div>
           </div>
-          <span class="settings-status-line" data-update-status>${icon("info")} ${t("ready")}</span>
-          <div class="log-box compact-log" data-update-log>${t("settings.releaseNotes")}</div>
         </article>
       </div>
     </section>
