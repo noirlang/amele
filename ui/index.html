@@ -8,15 +8,36 @@
     <link rel="icon" type="image/png" href="./assets/logo/icon.png" />
     <link rel="stylesheet" href="./styles.css" />
     <script>
-      // Native masaüstü penceresi deneyimi: Tarayıcı sağ tık menüsünü engelle
-      window.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-      }, { capture: true });
-      window.addEventListener("keydown", (e) => {
-        if (e.key === "F5" || ((e.ctrlKey || e.metaKey) && (e.key === "r" || e.key === "R"))) {
+      // Native masaüstü penceresi deneyimi: Tarayıcı sağ tık menüsünü ve geliştirici araçlarını engelle
+      const isDebug = new URLSearchParams(window.location.search).get("debug") === "1";
+      if (!isDebug) {
+        window.addEventListener("contextmenu", (e) => {
           e.preventDefault();
-        }
-      }, { capture: true });
+        }, { capture: true });
+        window.addEventListener("keydown", (e) => {
+          const isMac = /mac/i.test(navigator.platform);
+          const modKey = isMac ? e.metaKey : e.ctrlKey;
+
+          // F5 ve Ctrl+R sayfa yenilemelerini engelle
+          if (e.key === "F5" || (modKey && (e.key === "r" || e.key === "R"))) {
+            e.preventDefault();
+          }
+
+          // F12 ve DevTools / Kaynak görüntüleme kısayollarını engelle
+          if (e.key === "F12") {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+          if (modKey && e.shiftKey && ["I", "i", "J", "j", "C", "c"].includes(e.key)) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+          if (modKey && !e.shiftKey && ["u", "U", "s", "S", "p", "P"].includes(e.key)) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }, { capture: true });
+      }
       try {
         if (localStorage.getItem("amele-sidebar-collapsed") === "1") {
           document.documentElement.classList.add("sidebar-collapsed");

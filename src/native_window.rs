@@ -81,12 +81,18 @@ mod linux {
 
         if !force_webkit {
             if let Some(browser_bin) = find_chromium_binary() {
-                let target_url = append_engine_param(url, "chromium");
+                let mut target_url = append_engine_param(url, "chromium");
+                if std::env::var_os("AMELE_DEBUG_UI").is_some() {
+                    target_url.push_str("&debug=1");
+                }
                 return run_chromium_app(&browser_bin, &target_url);
             }
         }
 
-        let target_url = append_engine_param(url, "webkit");
+        let mut target_url = append_engine_param(url, "webkit");
+        if std::env::var_os("AMELE_DEBUG_UI").is_some() {
+            target_url.push_str("&debug=1");
+        }
         run_webkit_gtk(&target_url)
     }
 
@@ -175,7 +181,9 @@ mod linux {
             cmd.arg("--disable-gpu");
         }
 
-        if std::env::var_os("AMELE_DEBUG_UI").is_none() {
+        let is_debug = std::env::var_os("AMELE_DEBUG_UI").is_some();
+        if !is_debug {
+            cmd.arg("--disable-dev-tools");
             cmd.stdout(Stdio::null());
             cmd.stderr(Stdio::null());
         }
@@ -222,6 +230,7 @@ mod linux {
         fn webkit_settings_set_enable_accelerated_2d_canvas(settings: *mut c_void, enabled: c_int);
         fn webkit_settings_set_enable_webgl(settings: *mut c_void, enabled: c_int);
         fn webkit_settings_set_enable_smooth_scrolling(settings: *mut c_void, enabled: c_int);
+        fn webkit_settings_set_enable_developer_extras(settings: *mut c_void, enabled: c_int);
         fn webkit_web_view_load_uri(web_view: *mut c_void, uri: *const c_char);
     }
 
@@ -296,6 +305,8 @@ mod linux {
                 );
                 webkit_settings_set_enable_webgl(settings, if disable_gpu { 0 } else { 1 });
                 webkit_settings_set_enable_smooth_scrolling(settings, 1);
+                let is_debug = std::env::var_os("AMELE_DEBUG_UI").is_some();
+                webkit_settings_set_enable_developer_extras(settings, if is_debug { 1 } else { 0 });
             }
 
             gtk_window_set_title(window, title.as_ptr());
@@ -549,7 +560,12 @@ mod windows {
                     return;
                 }
             };
-            let webview = match WebViewBuilder::new().with_url(&self.url).build(&window) {
+            let is_debug = std::env::var_os("AMELE_DEBUG_UI").is_some();
+            let webview = match WebViewBuilder::new()
+                .with_devtools(is_debug)
+                .with_url(&self.url)
+                .build(&window)
+            {
                 Ok(webview) => webview,
                 Err(err) => {
                     self.fail_startup(event_loop, webview2_error_message(&err.to_string()));
