@@ -81,11 +81,22 @@ mod linux {
 
         if !force_webkit {
             if let Some(browser_bin) = find_chromium_binary() {
-                return run_chromium_app(&browser_bin, url);
+                let target_url = append_engine_param(url, "chromium");
+                return run_chromium_app(&browser_bin, &target_url);
             }
         }
 
-        run_webkit_gtk(url)
+        let target_url = append_engine_param(url, "webkit");
+        run_webkit_gtk(&target_url)
+    }
+
+    /// URL'e motor parametresi ekler.
+    fn append_engine_param(url: &str, engine: &str) -> String {
+        if url.contains('?') {
+            format!("{url}&engine={engine}")
+        } else {
+            format!("{url}?engine={engine}")
+        }
     }
 
     /// PATH ve bilinen sistem yollarında Chromium tabanlı tarayıcı ikili dosyasını arar.
@@ -443,6 +454,18 @@ mod linux {
         #[test]
         fn test_find_chromium_binary_runs_without_panic() {
             let _ = find_chromium_binary();
+        }
+
+        #[test]
+        fn test_append_engine_param() {
+            assert_eq!(
+                append_engine_param("http://127.0.0.1:4444/?native=1", "chromium"),
+                "http://127.0.0.1:4444/?native=1&engine=chromium"
+            );
+            assert_eq!(
+                append_engine_param("http://127.0.0.1:4444", "webkit"),
+                "http://127.0.0.1:4444?engine=webkit"
+            );
         }
     }
 }

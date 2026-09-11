@@ -227,6 +227,41 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION, pageT
                 <span class="platform-badge">${icon(state.platform === "windows" ? "windows" : state.platform === "linux" ? "linux" : "monitor")} ${platformLabel(state.platform)}</span>
               </div>
             </div>
+
+            ${state.platform === "linux" ? `
+            <!-- Linux Render Motoru Satırı -->
+            <div class="settings-row settings-engine-row">
+              <div class="settings-row-label">
+                <span class="settings-row-icon engine-icon ${state.renderingEngine === "webkit" ? "is-webkit" : "is-chromium"}">${icon(state.renderingEngine === "webkit" ? "gauge" : "zap")}</span>
+                <div class="settings-row-text">
+                  <span class="settings-row-title">${t("settings.renderingEngine") || "Arayüz Motoru"}</span>
+                  <span class="settings-row-hint">${state.renderingEngine === "webkit" ? (t("settings.engineWebKitActive") || "Sisteminiz şu an WebKitGTK motoru üzerinden açık.") : (t("settings.engineChromiumActive") || "Sisteminiz şu an Chromium motoru üzerinden açık.")}</span>
+                </div>
+              </div>
+              <div class="settings-row-control">
+                <span class="engine-badge ${state.renderingEngine === "webkit" ? "is-webkit" : "is-chromium"}">
+                  ${icon(state.renderingEngine === "webkit" ? "alert-circle" : "check")}
+                  ${state.renderingEngine === "webkit" ? (t("settings.engineWebKit") || "WebKitGTK") : (t("settings.engineChromium") || "Chromium")}
+                </span>
+              </div>
+            </div>
+            ${state.renderingEngine === "webkit" ? `
+            <div class="settings-engine-banner is-warning">
+              <span class="settings-engine-banner-icon">${icon("alert-circle")}</span>
+              <div class="settings-engine-banner-text">
+                <strong>${t("settings.engineRecommendation") || "Öneri:"}</strong>
+                <span>${t("settings.engineWebKitRecommend") || "Daha akıcı bir deneyim (120 FPS donanım hızlandırma) için sisteminize Chromium tabanlı bir tarayıcı (Chromium, Google Chrome, Brave vb.) kurmanızı öneririz. Kurulum sonrası Amele otomatik olarak Chromium motoruna geçiş yapacaktır."}</span>
+              </div>
+            </div>
+            ` : `
+            <div class="settings-engine-banner is-success">
+              <span class="settings-engine-banner-icon">${icon("check")}</span>
+              <div class="settings-engine-banner-text">
+                <span>${t("settings.engineChromiumDesc") || "120 FPS donanım ivmeli, yüksek performanslı ve ultra akıcı render modu devrede."}</span>
+              </div>
+            </div>
+            `}
+            ` : ""}
           </div>
         </article>
 

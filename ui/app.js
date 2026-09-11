@@ -59,6 +59,13 @@ const state = {
   language: preferredLanguage,
   sidebarCollapsed: preferredSidebarCollapsed,
   platform: detectPlatform(),
+  renderingEngine: urlParams.get("engine") || (
+    (typeof window !== "undefined" && window.chrome && /Chrome|Chromium/i.test(navigator.userAgent || ""))
+      ? "chromium"
+      : /WebKit/i.test(navigator.userAgent || "")
+        ? "webkit"
+        : "chromium"
+  ),
   news: safeJsonParse(localStorage.getItem("amele_news_cache"))?.items || [],
   activeNewsIndex: 0,
   files: {},
