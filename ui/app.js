@@ -1942,13 +1942,26 @@ async function handleAction(button) {
   }
 
   if (action === "theme-toggle") {
-    setTheme(state.theme === "dark" ? "light" : "dark");
+    const nextTheme = state.theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+
+    // Update the button state and row icon in place so the Day/Night animation plays smoothly without DOM destruction
+    const isDark = nextTheme === "dark";
+    button.classList.toggle("is-dark", isDark);
+    button.classList.toggle("is-light", !isDark);
+    button.setAttribute("aria-checked", isDark ? "true" : "false");
+    button.setAttribute("aria-label", t("settings.darkTheme") || "Karanlık Tema");
+
+    const rowIcon = button.closest(".settings-row")?.querySelector(".settings-row-icon");
+    if (rowIcon) {
+      rowIcon.innerHTML = icon(isDark ? "moon" : "sun");
+    }
+
     try {
       await saveSettingsFromControls();
     } catch (error) {
       showToast(`Ayarlar kaydedilemedi: ${error.message}`, "error");
     }
-    render();
     return;
   }
 
