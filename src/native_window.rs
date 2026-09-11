@@ -40,25 +40,26 @@ mod linux {
     use std::ffi::CString;
     use std::os::raw::{c_char, c_int, c_ulong, c_void};
     use std::path::{Path, PathBuf};
+    use std::process::{Command, Stdio};
     use std::ptr;
 
     const GTK_WINDOW_TOPLEVEL: c_int = 0;
 
-    /// GTK/WebKit render ve GPU donanim hizlandirma ayarlarini optimize eder.
+    const CHROMIUM_CANDIDATES: &[&str] = &[
+        "google-chrome-stable",
+        "google-chrome",
+        "chromium",
+        "chromium-browser",
+        "brave-browser",
+        "brave",
+        "microsoft-edge-stable",
+        "microsoft-edge",
+    ];
+
+    /// Ortam değişkenlerini hazırlar; WebKitGTK yedek modu için güvenli render ayarlarını uygular.
     pub fn prepare_environment() -> Result<(), String> {
         set_env_if_missing("GDK_BACKEND", "x11");
-
-        let disable_gpu = std::env::var_os("AMELE_DISABLE_GPU").is_some()
-            || std::env::var_os("WEBKIT_DISABLE_COMPOSITING_MODE").is_some();
-
-        if disable_gpu {
-            set_env_if_missing("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-            set_env_if_missing("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
-        } else {
-            // GPU compositing ve donanim hizlandirma boru hattini etkinlestir
-            set_env_if_missing("WEBKIT_FORCE_COMPOSITING_MODE", "1");
-        }
-
+        set_env_if_missing("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
         Ok(())
     }
 
@@ -69,6 +70,112 @@ mod linux {
                 std::env::set_var(key, value);
             }
         }
+    }
+
+    /// Linux üzerinde native UI penceresini açar.
+    /// Sistemde Chromium tabanlı tarayıcı (Chrome, Chromium, Brave, Edge) varsa 120 FPS
+    /// donanım hızlandırmalı standalone `--app` moduyla açar; aksi halde WebKitGTK'ya döner.
+    pub fn run(url: &str) -> Result<(), String> {
+        let force_webkit = std::env::var_os("AMELE_FORCE_WEBKIT").is_some()
+            || std::env::var_os("AMELE_USE_WEBKIT").is_some();
+
+        if !force_webkit {
+            if let Some(browser_bin) = find_chromium_binary() {
+                return run_chromium_app(&browser_bin, url);
+            }
+        }
+
+        run_webkit_gtk(url)
+    }
+
+    /// PATH ve bilinen sistem yollarında Chromium tabanlı tarayıcı ikili dosyasını arar.
+    fn find_chromium_binary() -> Option<PathBuf> {
+        if let Some(path) = std::env::var_os("AMELE_BROWSER_BIN") {
+            let path = PathBuf::from(path);
+            if path.is_file() {
+                return Some(path);
+            }
+        }
+
+        if let Some(path_var) = std::env::var_os("PATH") {
+            for dir in std::env::split_paths(&path_var) {
+                for candidate in CHROMIUM_CANDIDATES {
+                    let full = dir.join(candidate);
+                    if full.is_file() {
+                        return Some(full);
+                    }
+                }
+            }
+        }
+
+        for candidate in CHROMIUM_CANDIDATES {
+            let standard_path = PathBuf::from("/usr/bin").join(candidate);
+            if standard_path.is_file() {
+                return Some(standard_path);
+            }
+        }
+
+        None
+    }
+
+    /// Amele UI için izole kullanıcı veri klasörünü döndürür.
+    fn chromium_user_data_dir() -> PathBuf {
+        if let Some(path) = std::env::var_os("AMELE_CHROMIUM_DATA_DIR") {
+            return PathBuf::from(path);
+        }
+
+        let base = if let Some(path) = std::env::var_os("XDG_CONFIG_HOME") {
+            PathBuf::from(path).join("amele")
+        } else if let Some(home) = std::env::var_os("HOME") {
+            PathBuf::from(home).join(".config").join("amele")
+        } else {
+            std::env::temp_dir().join("amele")
+        };
+
+        base.join("chromium-ui")
+    }
+
+    /// Chromium tabanlı tarayıcıyı bağımsız masaüstü penceresi (`--app`) olarak çalıştırır.
+    fn run_chromium_app(bin: &Path, url: &str) -> Result<(), String> {
+        let data_dir = chromium_user_data_dir();
+        let _ = std::fs::create_dir_all(&data_dir);
+
+        let mut cmd = Command::new(bin);
+        cmd.arg(format!("--app={url}"))
+            .arg("--class=amele")
+            .arg("--name=amele")
+            .arg("--window-size=1280,820")
+            .arg(format!("--user-data-dir={}", data_dir.display()))
+            .arg("--no-first-run")
+            .arg("--no-default-browser-check")
+            .arg("--disable-features=Translate")
+            .arg("--password-store=basic")
+            .arg("--ozone-platform-hint=auto");
+
+        if std::env::var_os("AMELE_DISABLE_GPU").is_some() {
+            cmd.arg("--disable-gpu");
+        }
+
+        if std::env::var_os("AMELE_DEBUG_UI").is_none() {
+            cmd.stdout(Stdio::null());
+            cmd.stderr(Stdio::null());
+        }
+
+        let mut child = cmd.spawn().map_err(|err| {
+            crate::diagnostics::startup_error(
+                "Chromium native penceresi baslatilamadi.",
+                &format!("{}: {err}", bin.display()),
+            )
+        })?;
+
+        let _ = child.wait().map_err(|err| {
+            crate::diagnostics::startup_error(
+                "Chromium pencere sureci beklenirken hata olustu.",
+                &err.to_string(),
+            )
+        })?;
+
+        Ok(())
     }
 
     #[link(name = "gtk-3")]
@@ -117,8 +224,8 @@ mod linux {
         fn g_set_application_name(application_name: *const c_char);
     }
 
-    /// GTK penceresi ve WebKit view oluşturup UI URL'ini yükler.
-    pub fn run(url: &str) -> Result<(), String> {
+    /// WebKitGTK penceresi ve WebKit view oluşturup UI URL'ini yükler (Chromium olmadığında veya zorlandığında yedek yol).
+    fn run_webkit_gtk(url: &str) -> Result<(), String> {
         ensure_webkit_helper_available()?;
 
         let title = CString::new("Amele Forensic Tool").map_err(|err| err.to_string())?;
@@ -156,7 +263,8 @@ mod linux {
 
             let settings = webkit_web_view_get_settings(webview);
             if !settings.is_null() {
-                let disable_gpu = std::env::var_os("AMELE_DISABLE_GPU").is_some();
+                let disable_gpu = std::env::var_os("AMELE_DISABLE_GPU").is_some()
+                    || std::env::var_os("WAYLAND_DISPLAY").is_some();
                 let policy = if disable_gpu {
                     2 /* NEVER */
                 } else {
@@ -303,6 +411,31 @@ mod linux {
         let dev_icon =
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("ui/assets/logo/icon.png");
         dev_icon.exists().then_some(dev_icon)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn test_chromium_user_data_dir() {
+            let dir = chromium_user_data_dir();
+            assert!(dir.to_string_lossy().contains("amele"));
+            assert!(dir.to_string_lossy().contains("chromium-ui"));
+        }
+
+        #[test]
+        fn test_chromium_candidates_present() {
+            assert!(CHROMIUM_CANDIDATES.contains(&"chromium"));
+            assert!(CHROMIUM_CANDIDATES.contains(&"google-chrome"));
+            assert!(CHROMIUM_CANDIDATES.contains(&"google-chrome-stable"));
+            assert!(CHROMIUM_CANDIDATES.contains(&"brave-browser"));
+        }
+
+        #[test]
+        fn test_find_chromium_binary_runs_without_panic() {
+            let _ = find_chromium_binary();
+        }
     }
 }
 
