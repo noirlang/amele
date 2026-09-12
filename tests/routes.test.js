@@ -83,6 +83,21 @@ test("Frontend Routing and Module Health", async (t) => {
     assert.strictEqual(typeof icon, "function", "icon should be a function");
     assert.strictEqual(typeof hydrateIcons, "function", "hydrateIcons should be a function");
     assert.ok(icons.home, "home icon path should exist");
+    assert.ok(icons.mouse, "mouse icon path should exist");
+
+    const { homePage } = await import("../ui/pages/home.js");
+    const rendered = homePage({
+      t: (k) => k,
+      icon,
+      assetPath: "/assets",
+      theme: "dark",
+      state: {
+        news: [{ id: "n1", slug: "amele-v0-0-19", title: "Test Announcement" }]
+      }
+    });
+    assert.ok(rendered.includes("news-link-btn"), "news-link-btn should be rendered beside news title");
+    assert.ok(rendered.includes("data-news-link"), "data-news-link attribute should be present");
+    assert.ok(rendered.includes("amele.noirlang.tr/announcements/amele-v0-0-19"), "link should point to announcement url");
   });
 
   await t.test("app.js initializes and executes without crashing", async () => {

@@ -1555,6 +1555,16 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const newsLink = event.target.closest("[data-news-link]");
+  if (newsLink) {
+    event.preventDefault();
+    const url = newsLink.dataset.newsLink || newsLink.getAttribute("href");
+    if (url) {
+      openExternalUrl(url);
+    }
+    return;
+  }
+
   const newsAction = event.target.closest("[data-news-action]");
   if (newsAction) {
     event.preventDefault();
