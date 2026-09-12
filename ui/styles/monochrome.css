@@ -309,6 +309,8 @@ code:not(.help-code-block code) {
 .help-nav-btn,
 .help-code-block,
 .help-table-container,
+.home-hero,
+.news-hero-container,
 .primary-button,
 .secondary-button,
 .danger-button,
@@ -358,7 +360,9 @@ code:not(.help-code-block code) {
 .help-main-content::before,
 .help-nav-btn::before,
 .help-code-block::before,
-.help-table-container::before {
+.help-table-container::before,
+.home-hero::before,
+.news-hero-container::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -389,6 +393,11 @@ code:not(.help-code-block code) {
   opacity: 0.65;
   transition: opacity 220ms var(--ease), background 220ms var(--ease);
   will-change: --glow-angle;
+}
+
+.home-hero::before,
+.news-hero-container::before {
+  z-index: 4;
 }
 
 /* ── Rotating light beam – buttons (no overflow:hidden) ────────── */
@@ -459,7 +468,9 @@ code:not(.help-code-block code) {
 .help-main-content::after,
 .help-nav-btn::after,
 .help-code-block::after,
-.help-table-container::after {
+.help-table-container::after,
+.home-hero::after,
+.news-hero-container::after {
   display: none !important;
 }
 
@@ -539,7 +550,9 @@ code:not(.help-code-block code) {
 .help-nav-btn:hover::before,
 .help-nav-btn.active::before,
 .help-code-block:hover::before,
-.help-table-container:hover::before {
+.help-table-container:hover::before,
+.home-hero:hover::before,
+.news-hero-container:hover::before {
   background: 
     conic-gradient(
       from var(--glow-angle),
@@ -586,7 +599,9 @@ code:not(.help-code-block code) {
 .help-nav-btn:hover,
 .help-nav-btn.active,
 .help-code-block:hover,
-.help-table-container:hover {
+.help-table-container:hover,
+.home-hero:hover,
+.news-hero-container:hover {
   box-shadow: 0 0 24px var(--glow-hover-glow) !important;
 }
 
@@ -676,6 +691,8 @@ code:not(.help-code-block code) {
 .native-linux .help-nav-btn,
 .native-linux .help-code-block,
 .native-linux .help-table-container,
+.native-linux .home-hero,
+.native-linux .news-hero-container,
 .native-linux .primary-button,
 .native-linux .secondary-button,
 .native-linux .danger-button,
@@ -716,6 +733,8 @@ code:not(.help-code-block code) {
 .native-linux .help-nav-btn::before,
 .native-linux .help-code-block::before,
 .native-linux .help-table-container::before,
+.native-linux .home-hero::before,
+.native-linux .news-hero-container::before,
 .native-linux .primary-button::before,
 .native-linux .secondary-button::before,
 .native-linux .danger-button::before,
@@ -757,6 +776,8 @@ code:not(.help-code-block code) {
 .native-linux .help-nav-btn.active::before,
 .native-linux .help-code-block:hover::before,
 .native-linux .help-table-container:hover::before,
+.native-linux .home-hero:hover::before,
+.native-linux .news-hero-container:hover::before,
 .native-linux .primary-button:hover::before,
 .native-linux .secondary-button:hover::before,
 .native-linux .danger-button:hover::before,
