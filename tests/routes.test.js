@@ -84,6 +84,7 @@ test("Frontend Routing and Module Health", async (t) => {
     assert.strictEqual(typeof hydrateIcons, "function", "hydrateIcons should be a function");
     assert.ok(icons.home, "home icon path should exist");
     assert.ok(icons.mouse, "mouse icon path should exist");
+    assert.ok(icons["external-link"], "external-link icon path should exist");
 
     const { homePage } = await import("../ui/pages/home.js");
     const rendered = homePage({

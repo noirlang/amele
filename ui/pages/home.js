@@ -59,7 +59,7 @@ export function homePage({ t, icon, assetPath, theme, state }) {
       const openAria = isEn ? "Open announcement" : "Duyuruyu aç";
 
       const linkBtnHtml = targetUrl
-        ? ` <a href="${targetUrl}" data-news-link="${targetUrl}" class="news-link-btn" target="_blank" rel="noopener noreferrer" title="${openTooltip}" aria-label="${openAria}">${icon("mouse")}</a>`
+        ? ` <a href="${targetUrl}" data-news-link="${targetUrl}" class="news-link-btn" target="_blank" rel="noopener noreferrer" title="${openTooltip}" aria-label="${openAria}">${icon("external-link")}</a>`
         : "";
 
       return `
