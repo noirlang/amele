@@ -1,4 +1,34 @@
-//! Platforma göre native pencere açma ve WebView ortam hazırlığını yapar.
+//! ============================================================================
+//! # HİBRİT MASAÜSTÜ PENCERE MOTORU MİMARİSİ (src/native_window.rs)
+//! ============================================================================
+//!
+//! Bu modül, Amele'nin masaüstü kullanıcı arayüzünü (GUI) harici ağır çatılara
+//! (Electron vb.) ihtiyaç duymadan yerel (native) pencere olarak açar.
+//!
+//! ## 🖥️ ÇOKLU MOTOR STRATEJİSİ:
+//!
+//! 1. **Öncelik: Chromium Bağımsız Masaüstü Modu (`--app`):**
+//!    Sistemde yüklü bir Chromium türevi (Chrome, Chromium, Brave, Edge) aranır.
+//!    Varsa 120 FPS donanım hızlandırmalı, pencereli kiosk modunda açılır.
+//!    - **Adli İzolasyon Bayrakları:**
+//!      - `--user-data-dir`: İncelemeyi yapan uzmanın kişisel tarayıcı profiliyle
+//!        Amele oturumu ve çerezleri birbirine karışmasın diye izole profil dizini açar.
+//!      - `--disable-sync` & `--disable-background-networking`: Chromium'un arka planda
+//!        Google sunucularına telemetri veya veri göndermesini engeller.
+//!      - `--disable-extensions`: Tarayıcı eklentilerinin delil ekranına script
+//!        enjekte etmesini engeller.
+//!
+//! 2. **Yedek: Doğrudan C FFI ile WebKitGTK / GTK3:**
+//!    Chromium bulunamazsa veya `AMELE_FORCE_WEBKIT=1` verilirse, Rust'ın `unsafe extern "C"`
+//!    Foreign Function Interface (FFI) mekanizmasıyla doğrudan sistemin `libgtk-3`
+//!    ve `libwebkit2gtk-4.0` paylaşımlı kütüphanelerine bağlanılır. Ekstra Rust
+//!    crate bağımlılığı olmadan yerel GTK penceresi çizilir.
+//!
+//! 3. **Windows Desteği:**
+//!    Windows platformunda Microsoft WebView2 / WRY motoru kullanılarak aynı
+//!    yüksek performanslı yerel pencere deneyimi sunulur.
+//! ============================================================================
+
 #[cfg(target_os = "linux")]
 /// Linux WebKit/GTK ortam değişkenlerini hazırlar.
 pub fn prepare_environment() -> Result<(), String> {

@@ -1,4 +1,31 @@
-//! iOS iTunes/Finder backup normalizasyonu.
+//! ============================================================================
+//! # İOS ADLİ BİLİŞİM VE YEDEK NORMALİZASYON MİMARİSİ (src/ios.rs)
+//! ============================================================================
+//!
+//! Bu modül, Apple iOS (iPhone / iPad) cihazlarından alınan iTunes/Finder
+//! veya `idevicebackup2` yedekleme klasörlerini adli olarak analiz eder,
+//! SHA-1 karmaşık dosya isimlerini orijinal dosya ağacına dönüştürür (normalizasyon).
+//!
+//! ## 🍏 İOS ADLİ NORMALİZASYON MİMARİSİ:
+//!
+//! 1. **Manifest.db ve Plist Ayrıştırma:**
+//!    iOS yedekleri, dosyaları gizlemek için iki karakterli klasörler altında
+//!    40 karakterlik SHA-1 karma isimleriyle (örn: `ab/ab12...`) saklar.
+//!    Amele, SQLite tabanlı `Manifest.db` veritabanını ve `Info.plist` / `Status.plist`
+//!    dosyalarını salt-okunur modda (`OpenFlags::SQLITE_OPEN_READ_ONLY`) açar.
+//!    Domain adı (örn: `CameraRollDomain`, `AppDomain-com.apple.mobilesafari`)
+//!    ve göreli dosya yollarını haritalandırır.
+//!
+//! 2. **Yeniden İnşa ve Dizin Ağacı:**
+//!    Karmaşık SHA-1 dosyaları okunarak, vaka dizininde anlaşılır bir hiyerarşide
+//!    (klasörler, fotoğraflar, veritabanları) kopyalanır ve adli bütünlük için
+//!    orijinal dosya ile normalize dosyanın SHA-256 hash'leri doğrulanır.
+//!
+//! 3. **Sembolik Bağ (Symlink) ve Zip-Slip Koruması:**
+//!    Yedek içindeki sembolik bağlar adli istasyonun kök dizinine işaret edemez;
+//!    tüm hedefler normalize çıktı dizini sınırlarında tutulur.
+//! ============================================================================
+
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::hash::{HashAlgorithm, calculate_file_hash, calculate_multiple};
 use crate::logging::{LogLevel, runtime_log};

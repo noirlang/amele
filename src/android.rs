@@ -1,4 +1,35 @@
-//! Android edinim, profil ve analiz alt modüllerini tek noktadan dışarı açar.
+//! ============================================================================
+//! # ANDROİD MOBİL ADLİ BİLİŞİM VE MANTIKSAL EDİNİM MİMARİSİ (src/android.rs)
+//! ============================================================================
+//!
+//! Bu modül, Android akıllı telefon ve tabletlerden adli veri toplama,
+//! yetenek analizi (capability check), non-root mantıksal edinim ve
+//! Türkiye odaklı uygulama katalog taramasını tek noktadan koordine eder.
+//!
+//! ## 📱 MOBİL ADLİ MİMARİ:
+//!
+//! 1. **Fiziksel vs. Mantıksal Edinim (Physical vs. Logical Extraction):**
+//!    Modern Android cihazlarda donanımsal dosya tabanlı şifreleme (FBE - File-Based
+//!    Encryption) nedeniyle root yetkisi olmadan ham çip dökümü almak kısıtlıdır.
+//!    Amele, Android Debug Bridge (ADB) üzerinden çalışan mantıksal edinim hattıyla:
+//!    - Cihaz ve donanım metaverileri (`getprop`),
+//!    - Kurulu paketler ve UID listeleri (`pm list packages -f -U`),
+//!    - Çalışan süreçler ve bellek durumları (`ps -A`, `dumpsys meminfo`),
+//!    - Sistem logları (`logcat -d`, `dmesg`),
+//!    - Hesaplar (`dumpsys account`),
+//!    - SD kart ve paylaşımlı medya dizinlerini (`/sdcard/DCIM`, Download vb.)
+//!    bütünlük manifestolarıyla birlikte toplar.
+//!
+//! 2. **Hedef Odaklı Türkiye Uygulama Kataloğu (`app_catalog`):**
+//!    WhatsApp, Telegram, Signal gibi genel haberleşme araçlarının yanı sıra;
+//!    Türkiye'de yaygın kullanılan bankacılık, kamu (e-Devlet) ve yerel mesajlaşma
+//!    uygulamalarının veri yolları ve varlıkları otomatik taranır.
+//!
+//! 3. **Taşıma Katmanı Soyutlaması (`session`):**
+//!    Cihaz doğrudan USB kablosuyla veya yerel ağ üzerinden TCP portu (`adb connect`)
+//!    ile bağlı olsa da tekdüze bir oturum arabirimi üzerinden yönetilir.
+//! ============================================================================
+
 mod adb;
 mod app_catalog;
 mod capability;

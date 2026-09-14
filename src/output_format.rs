@@ -1,4 +1,27 @@
-//! Edinim çıktısını RAW veya AFF4 paket biçimine dönüştürür.
+//! ============================================================================
+//! # ADLİ ÇIKTI FORMATLARI VE AFF4 PAKETLEME MİMARİSİ (src/output_format.rs)
+//! ============================================================================
+//!
+//! Bu modül, disk veya RAM edinimi sonucunda elde edilen verilerin standart
+//! adli dosya biçimlerine (RAW / DD veya AFF4) dönüştürülmesini ve mühürlenmesini yönetir.
+//!
+//! ## 📦 DESTEKLENEN FORMATLAR VE MİMARİ:
+//!
+//! 1. **RAW / DD Biçimi (.raw, .img, .dd):**
+//!    Geleneksel adli araçlarla (Autopsy, FTK, EnCase, Volatility) tam uyumludur.
+//!    Veri doğrudan bayt bayt kopyalanır ve yanına delil bütünlüğü için
+//!    `<dosya>.sha256` sidecar dosyası yazılır.
+//!
+//! 2. **AFF4 (Advanced Forensic Format 4) Konteyneri (.aff4):**
+//!    Modern adli bilişim standardıdır. İmaj verisi ile metaverileri tek bir
+//!    konteynerde birleştirir. İçerisinde:
+//!    - `manifest.json`: Operatör bilgisi, vaka adı, edinim tarihi, kaynak aygıt,
+//!      ham boyut ve ham SHA-256 hash'i bulunur.
+//!    - `evidence.raw`: Ham imaj verisinin kendisi arşivlenir.
+//!    Paket oluşturulduktan sonra geçici çalışma dosyası temizlenir ve final
+//!    `.aff4` dosyasının da SHA-256 sidecar özeti üretilir.
+//! ============================================================================
+
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::hash::{self, HashAlgorithm};
 use chrono::Local;

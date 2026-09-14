@@ -1,4 +1,28 @@
-//! HTTP metod ve path değerlerini ilgili API endpoint fonksiyonlarına bağlar.
+//! ============================================================================
+//! # GÖMÜLÜ REST API YÖNLENDİRİCİ (ROUTER) MİMARİSİ (src/api/router.rs)
+//! ============================================================================
+//!
+//! Bu modül, kullanıcı arayüzünden (JavaScript frontend) gelen HTTP isteklerini
+//! ayrıştırır ve ilgili Rust servis modüllerine yönlendirir (Route Dispatcher).
+//!
+//! ## 🌐 REST API MİMARİ DÜZENİ:
+//!
+//! 1. **Deterministik Desen Eşleştirme (Pattern Matching):**
+//!    Rust'ın güçlü `match (method, path)` deseni kullanılır. Karmaşık regex veya
+//!    dinamik rota ağaçları yerine doğrudan derleme zamanında optimize edilen
+//!    sabit string eşleşmeleriyle mikrosaniye seviyesinde yönlendirme yapılır.
+//!
+//! 2. **Modüler Endpoint Dağılımı:**
+//!    - `/api/health`: Sunucu sağlık ve tekil oturum kontrolü.
+//!    - `/api/disks`, `/api/acquire-disk`: Disk tarama ve adli imaj tetikleme.
+//!    - `/api/ram-status`, `/api/acquire-ram`: RAM araç kontrolü ve bellek dökümü.
+//!    - `/api/ssh/*`: Uzaktan SSH bağlantı, disk listeleme ve imaj akışı.
+//!    - `/api/android/*`: ADB cihaz listesi, paketler ve mantıksal edinim.
+//!    - `/api/ios/*`: iTunes/Finder yedek tespiti ve normalizasyon.
+//!    - `/api/cases/*`, `/api/export-case`: Vaka manifestoları ve .amelecase paketi.
+//!    - `/api/developer-logs`: Gerçek zamanlı adli olay günlüğü (audit stream).
+//! ============================================================================
+
 use crate::server::{Response, json_error, json_ok};
 
 use super::{

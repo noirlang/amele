@@ -1,3 +1,27 @@
+// ============================================================================
+// # ARKA PLAN GÖREV VE İLERLEME TAKİP WİDGETI MİMARİSİ (ui/core/jobs.js)
+// ============================================================================
+//
+// Bu modül, uzun süren adli edinim görevlerinin (disk klonlama, RAM dökümü,
+// mobil yedek çıkarma) arka planda asenkron çalışmasını ve durumunun
+// sağ alt köşedeki kayan widget üzerinde anlık izlenmesini sağlar.
+//
+// ## 📊 ÇALIŞMA PRENSİPLERİ:
+//
+// 1. **Periyodik Durum Yoklaması (Polling):**
+//    Arka planda aktif bir edinim varsa her 1000 ms'de bir `/api/acquisition-status`
+//    endpoint'i sorgulanır. Okunan bayt, toplam bayt ve yüzde (%) anlık güncellenir.
+//
+// 2. **Dinamik Araç İkonları ve Durum İpuçları:**
+//    İş kimliğine (jobId) göre disk (💿), Android (📱), iOS (🍎), Docker (🐳)
+//    veya RAM (🧠) ikonu atanarak kullanıcının hangi aracın çalıştığını tek
+//    bakışta görmesi sağlanır.
+//
+// 3. **Kullanıcı Kontrolleri (Duraklat / Devam / İptal):**
+//    Kullanıcı arayüzü kilitlemeden görevi duraklatabilir veya iptal edebilir;
+//    sinyaller Rust tarafındaki `CancellationToken` yapısına anında iletilir.
+// ============================================================================
+
 import { escapeHtml } from "./utils.js";
 
 let widgetElement = null;

@@ -1,15 +1,24 @@
-//! Docker ve konteyner ortamları için adli bilişim (Container DFIR) analiz ve edinim modülüdür.
+//! ============================================================================
+//! # KONTEYNER ADLİ BİLİŞİMİ VE DOCKER DFIR MİMARİSİ (src/docker.rs)
+//! ============================================================================
 //!
-//! Bu modül, hem çalışan (canlı) Linux sistemlerindeki Docker daemon ve `/var/lib/docker/` yapısını,
-//! hem de disk imajı olarak bağlanmış (soğuk/offline) `/var/lib/docker/` dizinlerini ayrıştırabilir.
+//! Bu modül, hem canlı Linux sistemlerindeki Docker ortamlarını hem de adli
+//! imajlardan bağlanan soğuk (offline) `/var/lib/docker/` dizinlerini inceler.
 //!
-//! Temel Yetenekler:
-//! - `config.v2.json` ve `hostconfig.json` ayrıştırma (konteyner meta verileri, mount'lar, ağlar).
-//! - Ortam değişkenlerinde (`ENV`) parola, token ve API anahtarı (secret) tespiti.
-//! - Konteynerden kaçış (Container Escape) risk analizi (`--privileged`, `/var/run/docker.sock` mount, `hostPID` vb.).
-//! - `UpperDir` (OverlayFS diff/drift) katmanının tespiti ve delil olarak `.tar.gz` arşivlenmesi.
-//! - Konteyner JSON loglarının (`<id>-json.log`) okunması ve zaman çizelgesine dökülmesi.
-//! - Vaka klasörüne SHA-256 hash doğrulamalı adli paket üretimi.
+//! ## 🐳 KONTEYNER ADLİ ANALİZ YETENEKLERİ:
+//!
+//! 1. **OverlayFS Değişiklik Katmanı (UpperDir Drift):**
+//!    Konteyner çalışırken oluşturulan veya değiştirilen tüm dosyaları barındıran
+//!    `upperdir` katmanını izole eder ve delil olarak `.tar.gz` biçiminde arşivler.
+//!
+//! 2. **Konteynerden Kaçış (Escape) Risk Analizi:**
+//!    `--privileged` bayrağı, `/var/run/docker.sock` soket bağlamaları, `hostPID`
+//!    ve tehlikeli Linux Capabilities (`CAP_SYS_ADMIN` vb.) izinlerini denetler.
+//!
+//! 3. **Gizli Veri (Secret) Taraması:**
+//!    Ortam değişkenlerinde (`ENV`) sızdırılan parolaları, AWS/GCP/SSH token'larını
+//!    ve özel anahtarları otomatik tespit eder.
+//! ============================================================================
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::evidence::EvidenceVault;

@@ -1,3 +1,26 @@
+// ============================================================================
+// # KULLANICI ARAYÜZÜ REST APİ KÖPRÜSÜ MİMARİSİ (ui/core/api.js)
+// ============================================================================
+//
+// Bu modül, tarayıcı/WebView içindeki JavaScript kullanıcı arayüzünün (Frontend),
+// arka planda çalışan gömülü Rust HTTP sunucusuyla (`127.0.0.1:4444`) konuşmasını sağlar.
+//
+// ## 🌐 İLETİŞİM VE HATA YÖNETİM PRENSİPLERİ:
+//
+// 1. **Deterministik JSON İletişimi:**
+//    Tüm istekler (`createApiRequest`) gömülü Rust backend rotalarına (`/api/*`)
+//    yapılır. Başlıklar otomatik olarak `application/json` olarak ayarlanır.
+//
+// 2. **Gelişmiş Adli Tehis ve Hata Açıklayıcı (Diagnostic Error Handling):**
+//    Backend'den HTTP 400 veya 500 hatası döndüğünde yalnızca ham hata metni
+//    değil; hatanın kodu (`code`), nedeni (`detail`) ve uzmana önerilen çözüm
+//    adımı (`suggestion`) kullanıcıya sunulur.
+//
+// 3. **Fire-and-Forget Geliştirici Günlüğü (`_reportToDevLog`):**
+//    Arayüzde oluşan ağ veya ayrıştırma hataları, backend'in `server:api:error`
+//    günlüğüne tek yönlü bildirilir; loglama hatası kullanıcı deneyimini etkilemez.
+// ============================================================================
+
 import { explainErrorMessage } from "./errors.js";
 
 // Backend'e hata log satırı gönderen tek yönlü fire-and-forget fonksiyon.

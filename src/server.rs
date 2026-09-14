@@ -1,4 +1,33 @@
-//! Yerel HTTP sunucusunu ve native pencere açılışını yönetir.
+//! ============================================================================
+//! # GÖMÜLÜ HTTP SUNUCUSU VE PENCERE BAŞLATMA MİMARİSİ (src/server.rs)
+//! ============================================================================
+//!
+//! Bu modül, Amele'nin grafik arayüzü (UI) ve REST API isteklerini karşılayan
+//! gömülü, sıfır bağımlılıklı (zero-dependency) HTTP/1.1 sunucusunu yönetir.
+//!
+//! ## 🛠️ MİMARİ KARARLAR VE TASARIM GEREKÇELERİ:
+//!
+//! 1. **Neden Actix-web veya Axum Değil?**
+//!    Adli bilişim araçlarında güvenilirlik, bağımsızlık ve minimal binary boyutu
+//!    esastır. Tokio/Actix gibi kütüphaneler yüzlerce ek bağımlılık ve karmaşık
+//!    async çalışma zamanı getirir. Amele, doğrudan `std::net::TcpListener` ve
+//!    iş parçacığı (thread) havuzu kullanarak son derece sade ve güvenli çalışır.
+//!
+//! 2. **Loopback İzolasyonu (Güvenlik Kalkanı):**
+//!    Sunucu sadece yerel makineye (`127.0.0.1`) hizmet verir. Dış ağdan (LAN/WAN)
+//!    gelen tüm TCP bağlantıları anında reddedilir. Böylece yerel ağdaki üçüncü
+//!    şahısların adli delillere ve API'ye erişmesi engellenir.
+//!
+//! 3. **Panik İzolasyonu (`panic::catch_unwind`):**
+//!    Kullanıcı arayüzünden gelen bozuk bir istek veya beklenmeyen bir API rotası
+//!    panik oluştursa dahi tüm Amele süreci çökmez. Panik yakalanır, 500 JSON hatası
+//!    döndürülür ve sunucu çalışmaya devam eder.
+//!
+//! 4. **Singleton (Tekil Oturum) Yönetimi (`is_amele_running_on`):**
+//!    Kullanıcı Amele'yi arka planda çalışırken 2. kez açtığında port çakışması
+//!    (EADDRINUSE) yaşanmaz; çalışan mevcut oturum tespit edilip öne getirilir.
+//! ============================================================================
+
 use crate::router;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};

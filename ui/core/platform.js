@@ -1,3 +1,12 @@
+// ============================================================================
+// # ÇALIŞMA PLATFORMU VE İŞLETİM SİSTEMİ TESPİTİ (ui/core/platform.js)
+// ============================================================================
+//
+// Bu modül, tarayıcı ortamından veya gömülü WebView'den işletim sistemini
+// (Windows, Linux, Android, macOS) tespit eder; platforma özgü arayüz
+// optimizasyonlarını ve dosya yolu ayrıştırıcılarını (`/` vs `\`) etkinleştirir.
+// ============================================================================
+
 export function detectPlatform() {
   const override = typeof window !== "undefined" && window.location ? new URLSearchParams(window.location.search).get("platform") : null;
   if (["windows", "linux", "android", "mac"].includes(override || "")) return override;

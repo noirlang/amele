@@ -1,4 +1,29 @@
-//! Dosya hash hesaplama ve yan hash dosyası üretme işlemlerini içerir.
+//! ============================================================================
+//! # KRİPTOGRAFİK ADLİ ÖZETLEME (HASH) MİMARİSİ (src/hash.rs)
+//! ============================================================================
+//!
+//! Bu modül, adli delillerin dijital parmak izini (hash) çıkarır, doğrular
+//! ve endüstri standardı yan (sidecar) dosyalarını üretir.
+//!
+//! ## 🔍 TEMEL PRENSİPLER:
+//!
+//! 1. **Parçalı Okuma (Streaming Digest - 1 MB Tampon):**
+//!    `HASH_BUFFER_SIZE = 1024 * 1024` bayt (1 MB). Dev boyutlu disk ve RAM
+//!    imajları (örneğin 2 TB) RAM'e tek seferde yüklenmeden, 1 MB'lık akışla
+//!    okunarak hash hesaplanır; bellek tüketimi $O(1)$ kalır.
+//!
+//! 2. **Çoklu Algoritma Desteği:**
+//!    - **SHA-256 / SHA-512:** Günümüz adli standartlarında çakışma (collision)
+//!      riski olmayan, yasal delil kabulü en yüksek kriptografik özetler.
+//!    - **MD5 / SHA-1:** Eski vaka kayıtları ve geriye dönük adli veritabanları
+//!      (NSRL, VirusTotal) ile uyumluluk için desteklenir.
+//!
+//! 3. **GNU Coreutils Uyumlu Sidecar Formatı:**
+//!    Üretilen `<dosya>.sha256` dosyaları `SHA256 (dosya_adi) = hash` veya
+//!    `hash  dosya_adi` formatında yazılarak terminaldeki `sha256sum -c` komutlarıyla
+//!    harici olarak da doğrulanabilir niteliktedir.
+//! ============================================================================
+
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use digest::Digest;
 use md5::Md5;
