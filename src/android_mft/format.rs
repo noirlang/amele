@@ -1,4 +1,9 @@
-//! Android MFT paket formatındaki alan, kayıt ve başlık yapılarını tanımlar.
+//! ============================================================================
+//! # ANDROİD MFT İKİLİ FORMAT VE BAŞLIK DÜZENİ (src/android_mft/format.rs)
+//! ============================================================================
+//!
+//! 1. Veri Yapıları: Dosya başlığı, kayıt başlıkları ve sürüm alanlarının ikili bellek düzenini belirler.
+//! ============================================================================
 use std::io::{self, Write};
 use std::time::{SystemTime, UNIX_EPOCH};
 

@@ -1,5 +1,9 @@
-//! Amele CLI kabuk otomatik tamamlama (shell autocompletion) script üreticisi.
-//! Bash, Zsh ve Fish kabukları için tamamlama betikleri oluşturur.
+//! ============================================================================
+//! # KABUK (SHELL) TAMAMLAMA MOTORU (src/completion.rs)
+//! ============================================================================
+//!
+//! 1. Otomatik Tamamlama: Bash, Zsh ve Fish kabukları için Amele komutlarının tab-tamamlama betiklerini üretir.
+//! ============================================================================
 
 /// Bash otomatik tamamlama betiğini üretir.
 pub fn generate_bash_completion() -> &'static str {

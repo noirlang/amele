@@ -1,4 +1,9 @@
-//! Vaka, kanıt notu, dosya listesi ve rapor API uçlarını yönetir.
+//! ============================================================================
+//! # ADLİ DELİL KASASI VE VAKA APİ'Sİ (src/api/evidence.rs)
+//! ============================================================================
+//!
+//! 1. Vaka API Servisleri: Vaka oluşturma, dosya listeleme, vaka manifestosu ve özet verilerini sunar.
+//! ============================================================================
 use crate::api::{
     current_evidence_case, current_evidence_vault, default_case_base_dir, evidence_subdir,
     report_evidence_vault, sanitize_case_name, set_current_evidence_case,

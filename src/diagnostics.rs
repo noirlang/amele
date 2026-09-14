@@ -1,4 +1,10 @@
-//! Hata mesajlarını sınıflandırır ve kullanıcıya uygulanabilir çözüm önerileri üretir.
+//! ============================================================================
+//! # SİSTEM TEŞHİSİ VE ÇALIŞMA ZAMANI DENETİM MOTORU (src/diagnostics.rs)
+//! ============================================================================
+//!
+//! 1. Başlangıç Ortam Denetimleri: Ekran sunucusu (DISPLAY, Wayland), grafik hızlandırma, WebKit runtime ve Root izinlerini test eder.
+//! 2. Hata Sınıflandırma ve Çözüm Rehberi: Adli inceleme sırasında oluşan izin ve aygıt hatalarını kullanıcı dostu tavsiyelere çevirir.
+//! ============================================================================
 use std::path::Path;
 
 #[derive(Debug, Clone, Copy)]

@@ -1,4 +1,9 @@
-//! HTTP API modüllerini ve ortak API yardımcılarını dışarı açar.
+//! ============================================================================
+//! # GÖMÜLÜ REST APİ MODÜL TANIMLARI (src/api/mod.rs)
+//! ============================================================================
+//!
+//! 1. Modül Organizasyonu: Tüm REST API servis alt modüllerini tanımlar ve ortak durumları yönetir.
+//! ============================================================================
 pub mod acquisition_control;
 pub mod android;
 pub mod case_transfer;

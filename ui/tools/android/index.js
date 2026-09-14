@@ -1,3 +1,9 @@
+// ============================================================================
+// # ANDROİD ARACI ÖN YÜZ GİRİŞ NOKTASI (ui/tools/android/index.js)
+// ============================================================================
+//
+// 1. Modül Yönlendiricisi: Android araç sayfasının rota ve aksiyon yönetimini üstlenir.
+// ============================================================================
 export function androidPage({ t, icon, pageTitle, state, escapeHtml, backendReady }) {
   // TODO: Enable physical acquisition card, implement EDL/BROM device scan dropdown and physical image trigger
   // ${androidImageModeCard("physical", t("android.mode.physical.title"), t("android.mode.physical.desc"), "disk", "var(--text)", t("android.mode.soon"), icon, escapeHtml, { disabled: true })}

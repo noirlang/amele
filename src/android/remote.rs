@@ -1,8 +1,9 @@
-//! Uzak Android cihazlara TCP/IP ADB ve MESH üzerinden bağlantı yönetimi.
+//! ============================================================================
+//! # UZAK ANDROİD VE LEMON BAĞLANTISI (src/android/remote.rs)
+//! ============================================================================
 //!
-//! Bu modül doğrudan MESH kodu içermez (AGPL lisans nedeniyle).
-//! Bunun yerine MESH'i harici bir remote ADB transport noktası olarak kullanır:
-//! kullanıcı MESH endpoint'ini belirtir, Amele standart `adb connect ip:port` ile bağlanır.
+//! 1. Uzak Android İncelemesi: TCP üzerinden veya Lemon ajanıyla ağdaki Android cihazlara bağlanır.
+//! ============================================================================
 
 use super::adb::run_adb_command_timeout;
 use serde::{Deserialize, Serialize};

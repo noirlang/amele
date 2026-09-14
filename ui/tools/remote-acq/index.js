@@ -1,3 +1,9 @@
+// ============================================================================
+// # UZAKTAN EDİNİM ARACI ÖN YÜZ GİRİŞ NOKTASI (ui/tools/remote-acq/index.js)
+// ============================================================================
+//
+// 1. Modül Yönlendiricisi: Uzaktan SSH disk ve RAM akış araç sayfasının yönetimini üstlenir.
+// ============================================================================
 export function remoteAcqPage({ t, icon, pageTitle }) {
   return `
     <section class="page">

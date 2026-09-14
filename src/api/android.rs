@@ -1,4 +1,9 @@
-//! Android edinim ve analiz işlemlerinin HTTP API uçlarını sağlar.
+//! ============================================================================
+//! # ANDROİD MOBİL ADLİ APİ UÇ NOKTALARI (src/api/android.rs)
+//! ============================================================================
+//!
+//! 1. Android API Servisleri: Cihaz listeleme, yetenek raporu alma ve mantıksal edinim başlatma rotalarını sağlar.
+//! ============================================================================
 use crate::android;
 use crate::android_analysis;
 use crate::api::{

@@ -1,4 +1,9 @@
-//! Toplanan Android vaka klasörlerini özetler ve analiz ekranına veri üretir.
+//! ============================================================================
+//! # ANDROİD ARTEFAKT VE DELİL ANALİZ MOTORU (src/android_analysis.rs)
+//! ============================================================================
+//!
+//! 1. Artefakt Ayrıştırma: Çıkarılan Android verilerini analiz ederek uzman için özet bulgular üretir.
+//! ============================================================================
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;

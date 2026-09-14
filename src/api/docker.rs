@@ -1,4 +1,9 @@
-//! Docker ve Konteyner Adli Bilişimi HTTP API uç noktalarını yönetir.
+//! ============================================================================
+//! # DOCKER VE KONTEYNER ADLİ ANALİZ APİ'Sİ (src/api/docker.rs)
+//! ============================================================================
+//!
+//! 1. Konteyner API Servisleri: Canlı/soğuk konteynerleri listeleme ve gizli veri taraması rotaları.
+//! ============================================================================
 use chrono::Local;
 use serde::Deserialize;
 use serde_json::{Value, json};

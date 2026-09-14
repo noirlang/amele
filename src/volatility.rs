@@ -1,4 +1,10 @@
-//! Volatility3 entegrasyonu, sembol kontrolü ve RAM proses analizi işlemlerini yürütür.
+//! ============================================================================
+//! # VOLATILITY 3 BELLEK ANALİZ KÖPRÜSÜ (src/volatility.rs)
+//! ============================================================================
+//!
+//! 1. Bellek Adli Analizi: Alınan RAM dökümlerini Volatility 3 çerçevesiyle analiz eder.
+//! 2. Eklenti Desteği: Çalışan süreçler (pslist), ağ soketleri (netscan) ve kod enjeksiyonlarını (malfind) tespit eder.
+//! ============================================================================
 use crate::logging::{LogLevel, runtime_log};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

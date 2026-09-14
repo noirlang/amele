@@ -1,3 +1,9 @@
+// ============================================================================
+// # ADLİ İŞ AKIŞI ADIMLARI VE VAKA SEÇİM SAYFASI (ui/pages/workflow.js)
+// ============================================================================
+//
+// 1. İş Akışı Sihirbazı: Adım adım adli edinim sürecini ve vaka seçim/oluşturma panelini yönetir.
+// ============================================================================
 import { icon as defaultIcon } from "../icons.js";
 
 export function workflowPage({ id, workflows, state, t, icon, localText, canonicalRamFileName, caseSelectOptions, caseOutputLabel, escapeHtml }) {

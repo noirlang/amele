@@ -1,4 +1,9 @@
-//! Developer modu log ve sistem tanılama API uçlarını içerir.
+//! ============================================================================
+//! # GELİŞTİRİCİ KONSOLU VE SİSTEM GÜNLÜKLERİ APİ'Sİ (src/api/developer.rs)
+//! ============================================================================
+//!
+//! 1. Canlı Günlük Servisi: Sistem ve denetim loglarını geliştirici arayüzüne filtreli aktarır.
+//! ============================================================================
 use serde::Deserialize;
 use serde_json::{Value, json};
 

@@ -1,4 +1,10 @@
-//! Android/ADB hatalarını kullanıcıya anlaşılır açıklamalara çevirir.
+//! ============================================================================
+//! # ANDROİD ADLİ HATA AÇIKLAMA VE TAVSİYE MOTORU (src/android/errors.rs)
+//! ============================================================================
+//!
+//! 1. Hata Teşhisi: ADB yetkisiz aygıt (unauthorized), eksik binary veya izin reddi hatalarını analiz eder.
+//! 2. Uzmana Rehberlik: Hatayı çözmek için ekranda yapılması gereken adımları Türkçe olarak bildirir.
+//! ============================================================================
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]

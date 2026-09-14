@@ -1,3 +1,9 @@
+// ============================================================================
+// # ÇOKLU DİL (İ18N) ÇEVİRİ VE YERELLEŞTİRME MOTORU (ui/i18n.js)
+// ============================================================================
+//
+// 1. Dil Sözlüğü: Türkçe ve İngilizce arayüz metinlerini yönetir, dinamik şablon değişkenlerini doldurur.
+// ============================================================================
 export const translations = {
   tr: {
     "nav.home": "Ana Sayfa",

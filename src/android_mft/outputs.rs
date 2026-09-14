@@ -1,4 +1,9 @@
-//! Android edinim sonuçlarından JSON, rapor, timeline ve MFT çıktıları üretir.
+//! ============================================================================
+//! # ANDROİD MFT ÇIKTI DÖNÜŞTÜRÜCÜSÜ (src/android_mft/outputs.rs)
+//! ============================================================================
+//!
+//! 1. Çıktı Üretimi: MFT kayıtlarını JSON ve zaman çizelgesi formatlarına dönüştürür.
+//! ============================================================================
 use super::format::{Field, FieldType, MAGIC, MftBundleInfo, Record, RecordType, VERSION, now_ns};
 use super::parsers::{
     build_logical_records, parse_getprop_line, parse_i64_prefix, read_text_file, trim_for_record,

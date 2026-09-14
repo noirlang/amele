@@ -1,4 +1,9 @@
-//! Disk/RAM edinim işlerinin durum ve kontrol API uçlarını yönetir.
+//! ============================================================================
+//! # EDİNİM SÜREÇ DENETİMİ APİ UÇ NOKTALARI (src/api/acquisition_control.rs)
+//! ============================================================================
+//!
+//! 1. Görev Denetimi: Devam eden disk/RAM edinimlerine duraklatma, devam etme veya iptal sinyali iletir.
+//! ============================================================================
 use serde::Deserialize;
 use serde_json::json;
 

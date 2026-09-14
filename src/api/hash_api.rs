@@ -1,4 +1,9 @@
-//! Dosya hash hesaplama API uçlarını yönetir.
+//! ============================================================================
+//! # KRİPTOGRAFİK ADLİ ÖZET APİ'Sİ (src/api/hash_api.rs)
+//! ============================================================================
+//!
+//! 1. Hash Servisleri: İstenen dosyalar için anlık SHA-256/MD5 hesaplama ve sidecar doğrulama servisleri.
+//! ============================================================================
 use serde::Deserialize;
 use serde_json::Value;
 

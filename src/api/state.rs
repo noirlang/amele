@@ -1,4 +1,9 @@
-//! API genelinde paylaşılan bağlantı, vaka ve mount durumunu saklar.
+//! ============================================================================
+//! # PAYLAŞILAN GÖMÜLÜ APİ DURUMU (src/api/state.rs)
+//! ============================================================================
+//!
+//! 1. Global Thread-Safe Durum: Sunucu portu, aktif vaka ve sistem durumunu thread-safe mutex'lerle saklar.
+//! ============================================================================
 use crate::server::{Response, json_error};
 use chrono::Local;
 use std::path::PathBuf;

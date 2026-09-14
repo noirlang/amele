@@ -1,3 +1,9 @@
+// ============================================================================
+// # ADLİ İŞ AKIŞLARI VE SENARYO TANIMLARI (ui/core/workflows.js)
+// ============================================================================
+//
+// 1. Senaryo Kartları: Disk, RAM, Mobil ve Ağ senaryolarının adım ve rehberlik tanımlarını içerir.
+// ============================================================================
 function L(tr, en) {
   return { tr, en };
 }

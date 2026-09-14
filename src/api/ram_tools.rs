@@ -1,4 +1,9 @@
-//! RAM edinim araçlarının indirme ve kurulum API uçlarını içerir.
+//! ============================================================================
+//! # RAM ARAÇLARI VE ÖNKOŞUL DENETİM APİ'Sİ (src/api/ram_tools.rs)
+//! ============================================================================
+//!
+//! 1. Yetki ve Araç Denetimi: Bellek edinimi öncesinde AVML/WinPMEM ve yönetici yetkilerini sorgular.
+//! ============================================================================
 use serde_json::{Value, json};
 use std::fs;
 

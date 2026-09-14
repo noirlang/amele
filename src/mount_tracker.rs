@@ -1,4 +1,10 @@
-//! Aktif imaj mount'larını takip eder; vaka değişimi veya kapanışta temizler.
+//! ============================================================================
+//! # ADLİ İMAJ BAĞLAMA VE TEMİZLEME MOTORU (src/mount_tracker.rs)
+//! ============================================================================
+//!
+//! 1. Salt-Okunur Bağlama (Read-Only Mount): Disk imajlarını delil bütünlüğünü bozmadan inceleme için sisteme bağlar.
+//! 2. Otomatik Temizleme (Cleanup): Uygulama kapandığında tüm bağlı aygıtları otomatik olarak çözerek sistem kilitlenmelerini önler.
+//! ============================================================================
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::process::Command;

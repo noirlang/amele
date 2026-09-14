@@ -1,4 +1,9 @@
-//! Disk, hash, uzak agent, imaj bağlama ve sistem işlemleri API uçlarını içerir.
+//! ============================================================================
+//! # SİSTEM VE DONANIM BİLGİSİ APİ'Sİ (src/api/system.rs)
+//! ============================================================================
+//!
+//! 1. Donanım Servisleri: İşletim sistemi, CPU mimarisi, fiziksel RAM ve disk alanı bilgilerini sunar.
+//! ============================================================================
 use chrono::Local;
 use serde::Deserialize;
 use serde_json::{Value, json};

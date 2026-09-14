@@ -1,4 +1,9 @@
-//! Uygulama güncelleme kontrolü, indirme ve paket kurulumu API uçlarını içerir.
+//! ============================================================================
+//! # GÜNCELLEME DENETİM VE KURULUM APİ'Sİ (src/api/update.rs)
+//! ============================================================================
+//!
+//! 1. Güncelleme Servisleri: GitHub üzerinden yeni sürümleri denetler ve kurulum komutlarını hazırlar.
+//! ============================================================================
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::fs;

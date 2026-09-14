@@ -1,3 +1,9 @@
+// ============================================================================
+// # ADLİ HATA TEŞHİS VE TAVSİYE KÜTÜPHANESİ (ui/core/errors.js)
+// ============================================================================
+//
+// 1. Hata Teşhis Analizi: Backend ve arayüz hatalarını analiz ederek uzmana önerilen çözüm adımlarını üretir.
+// ============================================================================
 import { escapeHtml } from "./utils.js";
 
 const KNOWN_ERROR_RULES = [

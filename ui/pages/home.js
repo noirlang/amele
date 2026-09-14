@@ -1,3 +1,9 @@
+// ============================================================================
+// # ANA SAYFA VE ADLİ KOKPİT BİLEŞENİ (ui/pages/home.js)
+// ============================================================================
+//
+// 1. Kokpit Ekranı: Sistem metrikleri, aktif vaka durumu ve hızlı adli eylem kartlarını sunar.
+// ============================================================================
 export function homePage({ t, icon, assetPath, theme, state }) {
   const logoFile = "amele.png";
   const defaultFallbackImage = `${assetPath}/logo/${logoFile}`;

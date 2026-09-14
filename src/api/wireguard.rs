@@ -1,4 +1,9 @@
-//! WireGuard yapılandırma dosyası üretimi ve bağlantı API uçlarını yönetir.
+//! ============================================================================
+//! # WIREGUARD VPN TÜNEL APİ'Sİ (src/api/wireguard.rs)
+//! ============================================================================
+//!
+//! 1. VPN Servisleri: Güvenli uzaktan adli veri aktarımı için WireGuard tünel yapılandırma servisleri.
+//! ============================================================================
 use super::wireguard_manager;
 use crate::server::{Response, json_error, json_ok};
 use crate::wireguard::{self, WireGuardConfig, WireGuardManager};

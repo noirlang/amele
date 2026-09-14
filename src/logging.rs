@@ -1,4 +1,11 @@
-//! Uygulama günlüklerini dosyaya ve bellekteki kısa kuyruğa yazar.
+//! ============================================================================
+//! # YAPILANDIRILMIŞ ADLİ DENETİM GÜNLÜĞÜ (AUDIT LOGGING) MİMARİSİ (src/logging.rs)
+//! ============================================================================
+//!
+//! 1. Adli Delil Zinciri (Audit Trail): Yapılan her adli işlemin zaman damgası, kullanıcı bilgisi ve seviyesiyle (Debug, Info, Warn, Error) kayıt altına alınmasını sağlar.
+//! 2. Vaka Bazlı Günlük İzolasyonu: Günlükler doğrudan vaka klasörünün altındaki 'gunlukler/' dizininde saklanır.
+//! 3. Bellek İçi Halka Tampon (Ring Buffer): Geliştirici konsoluna anlık log akışı sağlamak için son log kayıtlarını RAM'de tutar.
+//! ============================================================================
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use chrono::Local;
 use serde::{Deserialize, Serialize};

@@ -1,4 +1,10 @@
-//! Linux/Windows agent protokolüyle uzak disk ve RAM edinim bağlantılarını yönetir.
+//! ============================================================================
+//! # UZAK ADLİ AJAN (AGENT) İLETİŞİM PROTOKOLÜ (src/remote.rs)
+//! ============================================================================
+//!
+//! 1. Hafif Adli Ajan Protokolü: Uzak hedef makinelere geçici olarak konuşlandırılan adli ajanla TCP üzerinden haberleşir.
+//! 2. Güvenli Çerçeveleme (Framing): Disk listeleme, canlı imaj akışı ve sistem metaverilerini yapılandırılmış paketlerle iletir.
+//! ============================================================================
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::output_format::AcquisitionOutputFormat;
 use crate::settings::DEFAULT_CHUNK_SIZE;

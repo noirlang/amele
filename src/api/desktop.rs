@@ -1,4 +1,9 @@
-//! Masaüstü entegrasyonu gerektiren URL açma ve dosya seçici API uçlarını içerir.
+//! ============================================================================
+//! # MASAÜSTÜ PENCERE DENETİM APİ'Sİ (src/api/desktop.rs)
+//! ============================================================================
+//!
+//! 1. Masaüstü Entegrasyonu: Geliştirici konsolunu açma ve pencere ayarlarını yönetme servisleri.
+//! ============================================================================
 use serde::Deserialize;
 use serde_json::json;
 use std::process::{Command, Stdio};

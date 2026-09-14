@@ -1,4 +1,10 @@
-//! Android cihazlardan mantıksal veri, medya, log ve manifest çıktıları toplar.
+//! ============================================================================
+//! # NON-ROOT MANTIKSAL ANDROİD EDİNİM MOTORU (src/android/logical.rs)
+//! ============================================================================
+//!
+//! 1. Root Gerektirmeyen Çıkarım: ADB servisleri üzerinden getprop, pm list, dumpsys account ve logcat verilerini çeker.
+//! 2. Sosyal ve İletişim Verileri: Hedef uygulamaların çalışma süreçlerini ve erişilebilir veri yollarını raporlar.
+//! ============================================================================
 use super::adb::{
     first_non_empty, run_adb_command, run_adb_command_timeout, run_adb_file_command,
     run_adb_file_command_timeout,

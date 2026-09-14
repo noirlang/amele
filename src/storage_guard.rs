@@ -1,4 +1,10 @@
-//! Edinim öncesi hedef diskte yeterli boş alan olup olmadığını denetler.
+//! ============================================================================
+//! # DEPOLAMA ALANI ÖN DENETİM MOTORU (src/storage_guard.rs)
+//! ============================================================================
+//!
+//! 1. Ön Kontrol (Preflight Check): İmaj alma başlamadan önce hedef diskin boş alanını denetler.
+//! 2. Delil Kaybı Önleme: Yetersiz depolama durumunda işlemi başlatmadan durdurarak saatler süren yarıda kalma riskini engeller.
+//! ============================================================================
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use std::path::Path;
 

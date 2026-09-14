@@ -1,3 +1,9 @@
+// ============================================================================
+// # AYARLAR, HAKKINDA VE HASH HESAPLAMA SAYFASI (ui/pages/other.js)
+// ============================================================================
+//
+// 1. Ek Paneller: Kriptografik hash hesaplama paneli, sistem ayarları ve katkıda bulunanlar ekranıdır.
+// ============================================================================
 export function otherPage({ t, icon, state, pageTitle, pickerField, field, escapeHtml, caseSelectOptions, detailPanel }) {
   return `
     <section class="page">

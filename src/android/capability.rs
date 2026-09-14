@@ -1,4 +1,10 @@
-//! Android cihazın hangi forensic modülleri desteklediğini raporlar.
+//! ============================================================================
+//! # ANDROİD CİHAZ YETENEK VE GÜVENLİK PROFİLİ ANALİZİ (src/android/capability.rs)
+//! ============================================================================
+//!
+//! 1. Yetenek Seviyesi Tespiti: Cihazın root yetkisi, donanım mimarisi (ABI) ve FBE şifreleme durumunu sorgular.
+//! 2. Edinim Stratejisi Belirleme: Cihaz yeteneklerine göre mantıksal veya gelişmiş edinim modunu seçer.
+//! ============================================================================
 use super::adb::run_adb_command_timeout;
 use super::profile::AndroidDeviceProfile;
 use serde::Serialize;

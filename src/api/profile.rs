@@ -1,4 +1,9 @@
-//! Yerel profil oluşturma, seçme ve çıkış API uçlarını içerir.
+//! ============================================================================
+//! # UZMAN PROFİLİ VE LİSANS APİ'Sİ (src/api/profile.rs)
+//! ============================================================================
+//!
+//! 1. Profil Servisleri: Uzman profili seçimi, yeni profil oluşturma ve yetki doğrulama uç noktaları.
+//! ============================================================================
 use serde::Deserialize;
 use serde_json::json;
 

@@ -1,4 +1,10 @@
-//! Android edinim çıktıları için ortak manifest üretir.
+//! ============================================================================
+//! # ANDROİD EDİNİM MANİFESTOSU VE DELİL DENETİMİ (src/android/manifest.rs)
+//! ============================================================================
+//!
+//! 1. Adli Manifest Oluşturma: Toplanan her bir dosyanın adını, boyutunu ve SHA-256 özetini manifestoya kaydeder.
+//! 2. Delil Zinciri Doğrulaması: Mahkeme ve inceleme aşaması için değiştirilemez delil günlüğü üretir.
+//! ============================================================================
 use super::capability::AndroidCapabilityReport;
 use super::logical::AcquisitionItem;
 use super::session::AndroidSession;

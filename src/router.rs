@@ -1,4 +1,10 @@
-//! HTTP isteklerini API uçlarına veya statik UI dosyalarına yönlendirir.
+//! ============================================================================
+//! # KÖK İSTEK YÖNLENDİRİCİSİ VE STATİK DOSYA SERVİSİ (src/router.rs)
+//! ============================================================================
+//!
+//! 1. Çoklu Yol Dağıtımı: Gelen HTTP isteklerini API rotaları (/api/*) ile gömülü UI dosyaları (/index.html, /app.js) arasında paylaştırır.
+//! 2. Gömülü Varlık Yönetimi: Derleme anında ikili dosyaya gömülen arayüz dosyalarını MIME türlerine göre doğrudan sunar.
+//! ============================================================================
 use crate::api;
 use crate::server::{self, Response};
 use std::fs;

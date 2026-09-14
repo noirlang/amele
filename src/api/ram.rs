@@ -1,4 +1,9 @@
-//! Yerel/uzak RAM edinimi, araç kurulumu ve RAM analiz API uçlarını yönetir.
+//! ============================================================================
+//! # CANLI BELLEK (RAM) EDİNİM APİ'Sİ (src/api/ram.rs)
+//! ============================================================================
+//!
+//! 1. RAM API Servisi: Yerel fiziksel bellek dökümü alma sürecini tetikler ve ilerlemeyi izler.
+//! ============================================================================
 use chrono::Local;
 use serde::Deserialize;
 use serde_json::{Value, json};

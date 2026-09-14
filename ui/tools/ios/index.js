@@ -1,3 +1,9 @@
+// ============================================================================
+// # İOS ARACI ÖN YÜZ GİRİŞ NOKTASI (ui/tools/ios/index.js)
+// ============================================================================
+//
+// 1. Modül Yönlendiricisi: iOS araç sayfasının rota ve aksiyon yönetimini üstlenir.
+// ============================================================================
 export function iosPage({ t, icon, pageTitle, state, escapeHtml, backendReady, casePanel, field }) {
   const ios = state.ios || {};
   const backupPath = ios.backupPath || "";

@@ -1,4 +1,9 @@
-//! Yetki yükseltme, dosya indirme, JSON yardımcıları ve ortak API araçlarını içerir.
+//! ============================================================================
+//! # APİ YARDIMCI METOTLARI VE JSON YÖNETİCİSİ (src/api/helpers.rs)
+//! ============================================================================
+//!
+//! 1. JSON Ayrıştırma ve Hata Yönetimi: İstek gövdelerindeki JSON yüklerini doğrular ve standart cevaplar üretir.
+//! ============================================================================
 use chrono::Local;
 use serde_json::{Value, json};
 use std::fs;

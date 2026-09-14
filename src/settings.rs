@@ -1,4 +1,10 @@
-//! Kullanıcı ayarları ve varsayılan uygulama tercihlerini tanımlar.
+//! ============================================================================
+//! # UYGULAMA YAPILANDIRMASI VE SABİT PARAMETRELER (src/settings.rs)
+//! ============================================================================
+//!
+//! 1. Adli Çalışma Parametreleri: Varsayılan sunucu portu (4444), varsayılan tampon boyutu (4 MB) ve ağ zaman aşımı sabitlerini tanımlar.
+//! 2. Kalıcı Tercihler: Kullanıcının dil, tema ve dizin ayarlarını yapılandırma dosyasında güvenle saklar.
+//! ============================================================================
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use serde::{Deserialize, Serialize};
 use std::fs;

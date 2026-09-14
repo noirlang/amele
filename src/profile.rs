@@ -1,4 +1,11 @@
-//! Yerel profil, profil bazlı ayar ve vaka klasörü yönetimini sağlar.
+//! ============================================================================
+//! # ADLİ UZMAN PROFİLİ VE KİMLİK YÖNETİMİ (src/profile.rs)
+//! ============================================================================
+//!
+//! 1. Çoklu Uzman Yönetimi: İncelemeyi yapan uzmanların ad, soyad ve kurum bilgilerini ayrı profiller altında yönetir.
+//! 2. Delil Eşleştirme: Alınan her delil ve üretilen rapor, işlemi yapan aktif uzman profiliyle ilişkilendirilir.
+//! 3. Güvenli Saklama: Lisans anahtarları ve hassas veriler profilde maskelenerek saklanır.
+//! ============================================================================
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::settings;
 use chrono::Local;

@@ -1,4 +1,9 @@
-//! Android metin/JSON çıktılarından yapılandırılmış MFT kayıtları çıkarır.
+//! ============================================================================
+//! # ANDROİD HAM ÇIKTI AYRIŞTIRICILARI (src/android_mft/parsers.rs)
+//! ============================================================================
+//!
+//! 1. Metin Ayrıştırma: Ham dumpsys ve kabuk çıktılarını yapılandırılmış MFT nesnelerine çevirir.
+//! ============================================================================
 use super::format::{Field, MAX_RECORDS_PER_SOURCE, MAX_TEXT_INPUT, Record, RecordType};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};

@@ -1,4 +1,9 @@
-//! Android edinim adımlarını profil, dosya sistemi ve RAM akışları için koordine eder.
+//! ============================================================================
+//! # ANDROİD ADLİ EDİNİM ORKESTRASYON MOTORU (src/android/orchestrator.rs)
+//! ============================================================================
+//!
+//! 1. Pipeline Yönetimi: Cihaz kontrolünden başlayıp veri çıkarma ve manifest mühürlemeye kadar tüm adımları sırayla yürütür.
+//! ============================================================================
 use super::capability::write_android_capability_report;
 use super::manifest::{
     manifest_from_logical_items, manifest_from_single_artifact, write_android_manifest,

@@ -1,4 +1,9 @@
-//! Kalıcı uygulama ayarları API uçlarını içerir.
+//! ============================================================================
+//! # UYGULAMA AYARLARI YAPILANDIRMA APİ'Sİ (src/api/settings.rs)
+//! ============================================================================
+//!
+//! 1. Ayar Servisleri: Sistem dili, tema, port ve zaman aşımı değerlerini okuma ve güncelleme servisleri.
+//! ============================================================================
 use serde::Deserialize;
 use serde_json::json;
 

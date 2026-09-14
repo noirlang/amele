@@ -1,4 +1,10 @@
-//! ADB kurulumunu, bağlı cihaz listesini ve temel ADB komutlarını yönetir.
+//! ============================================================================
+//! # ADB (ANDROID DEBUG BRIDGE) İLETİŞİM MOTORU (src/android/adb.rs)
+//! ============================================================================
+//!
+//! 1. Cihaz Keşfi: USB veya TCP üzerinden bağlı Android cihazları tespit eder.
+//! 2. Komut Yürütme: Güvenli zaman aşımlı shell komutları çalıştırır ve çıktıyı akış olarak toplar.
+//! ============================================================================
 use serde::Serialize;
 use std::io;
 use std::process::{Command, Stdio};

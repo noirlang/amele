@@ -1,4 +1,9 @@
-//! Disk imajlarını salt-okunur bağlama ve loop cihaz yönetimini yapar.
+//! ============================================================================
+//! # ADLİ İMAJ BAĞLAMA (MOUNT) APİ'Sİ (src/api/mount.rs)
+//! ============================================================================
+//!
+//! 1. İmaj Bağlama Servisleri: Adli imajları salt-okunur olarak bağlama ve bağlantı çözme rotaları.
+//! ============================================================================
 use serde_json::json;
 use std::fs;
 use std::path::{Path, PathBuf};

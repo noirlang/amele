@@ -1,4 +1,11 @@
-//! Uygulama genelinde kullanılan hata kodu, hata tipi ve sonuç aliasını tanımlar.
+//! ============================================================================
+//! # BİRLEŞİK ADLİ HATA YÖNETİMİ VE HATA SINIFLANDIRMA MİMARİSİ (src/error.rs)
+//! ============================================================================
+//!
+//! 1. HataKodu Sınıflandırması: Adli süreçlerde karşılaşılan tüm hataları (DiskOkuma, DosyaYazma, Guvenlik, AgBaglanti vb.) kategorize eder.
+//! 2. Sessiz Hataların Engellenmesi: AmeleResult<T> ve AmeleError tipleriyle hiçbir hatanın sessizce yutulmamasını garanti eder.
+//! 3. Teşhis ve Tavsiye Üretimi: Hata oluştuğunda operatöre doğrudan Türkçe çözüm adımları (suggestion ve detail) önerir.
+//! ============================================================================
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::error::Error;

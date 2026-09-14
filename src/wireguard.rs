@@ -1,4 +1,10 @@
-//! WireGuard VPN yapılandırmasını doğrular ve config dosyasına dönüştürür.
+//! ============================================================================
+//! # WIREGUARD VPN GÜVENLİ ADLİ TÜNEL MİMARİSİ (src/wireguard.rs)
+//! ============================================================================
+//!
+//! 1. Kriptografik Adli Tünel: Uzaktaki hedeflerden veya şubelerden delil aktarırken WireGuard protokolüyle uçtan uca şifreleme sağlar.
+//! 2. Dinamik Konfigürasyon: Peer ve arayüz ayarlarını güvenli biçimde oluşturur ve yönetir.
+//! ============================================================================
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::logging::{LogLevel, runtime_log};
 use serde::{Deserialize, Serialize};

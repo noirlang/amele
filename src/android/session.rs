@@ -1,4 +1,9 @@
-//! Android hedef oturumunu ve ADB taşıma tipini standartlaştırır.
+//! ============================================================================
+//! # ANDROİD OTURUM SOYUTLAMASI (src/android/session.rs)
+//! ============================================================================
+//!
+//! 1. Taşıma Katmanı Soyutlaması: USB veya TCP bağlantı türünü tekdüze bir oturum arabirimi üzerinden sunar.
+//! ============================================================================
 use super::adb::run_adb_command_timeout;
 use super::profile::AndroidDeviceProfile;
 use serde::Serialize;
