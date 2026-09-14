@@ -1,3 +1,13 @@
+/*
+============================================================================
+# GELİŞTİRİCİ KONSOLU VE LOG STİLLERİ (ui/styles/developer.css)
+============================================================================
+
+Bu stil dosyası Amele kullanıcı arayüzünün adli görsel katmanını tanımlar:
+- Terminal penceresi, canlı log akışı, debug istatistikleri ve konsol düğmeleri.
+============================================================================
+*/
+
 /* ============================================================
    DEVELOPER PANEL — Amele Forensic Tool
    Logoya 5x tıklayınca açılan gizli geliştirici konsolu

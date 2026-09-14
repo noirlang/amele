@@ -1,3 +1,13 @@
+/*
+============================================================================
+# DOCKER ADLİ ANALİZ STİLLERİ (ui/styles/docker.css)
+============================================================================
+
+Bu stil dosyası Amele kullanıcı arayüzünün adli görsel katmanını tanımlar:
+- Konteyner güvenlik kartları, kaçış risk göstergeleri ve secret tarama paneli.
+============================================================================
+*/
+
 /* Docker & Konteyner Adli Bilişimi Stilleri - Amele Tasarım Sistemi */
 
 .docker-status-cards {

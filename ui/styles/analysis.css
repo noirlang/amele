@@ -1,3 +1,13 @@
+/*
+============================================================================
+# ADLİ ANALİZ VE ARTEFAKT STİLLERİ (ui/styles/analysis.css)
+============================================================================
+
+Bu stil dosyası Amele kullanıcı arayüzünün adli görsel katmanını tanımlar:
+- Zaman çizelgesi (timeline), delil ağacı, dosya listeleri ve bulgu panelleri stilleri.
+============================================================================
+*/
+
 /* --- Forensic Evidence & RAM Analysis Redesign Styles --- */
 
 .analysis-tabs {

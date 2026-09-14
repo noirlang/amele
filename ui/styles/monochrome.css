@@ -1,3 +1,13 @@
+/*
+============================================================================
+# MONOKROM VE YÜKSEK KONTRAST STİLLERİ (ui/styles/monochrome.css)
+============================================================================
+
+Bu stil dosyası Amele kullanıcı arayüzünün adli görsel katmanını tanımlar:
+- Sadeleştirilmiş arayüz modu ve yüksek kontrastlı renk şemaları.
+============================================================================
+*/
+
 /* Monochrome UI refresh */
 .shell,
 .sidebar,
