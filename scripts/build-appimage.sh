@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# ==============================================================================
+# # LINUX APPIMAGE TAŞINABİLİR PAKET DERLEME BETİĞİ (scripts/build-appimage.sh)
+# ==============================================================================
+#
+# Bu betik, Amele Forensic Tool'u tüm bağımlılıklarıyla birlikte tek bir
+# çalıştırılabilir .AppImage dosyası haline getirir (dağıtım paketi).
+# ==============================================================================
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

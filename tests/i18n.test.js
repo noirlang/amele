@@ -1,3 +1,12 @@
+// ============================================================================
+// # ÇOKLU DİL (İ18N) SÖZLÜK BÜTÜNLÜĞÜ TESTLERİ (tests/i18n.test.js)
+// ============================================================================
+//
+// Bu test süiti, Türkçe ve İngilizce dil anahtarlarının tam örtüşmesini,
+// eksik çeviri anahtarlarını ve dinamik şablon değişkenlerinin ({variable})
+// her iki dilde de birebir eşleştiğini doğrular.
+// ============================================================================
+
 import test from "node:test";
 import assert from "node:assert";
 import { translations } from "../ui/i18n.js";

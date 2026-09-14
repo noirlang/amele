@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
-"""Amele Volatility3 worker.
-
-This small wrapper keeps Volatility3's Python-specific setup in Python while
-the Rust application stays responsible for UI, jobs, and JSON parsing.
-"""
+# ============================================================================
+# # VOLATILITY 3 İŞÇİ VE KÖPRÜ MODÜLÜ (tools/amele_volatility_worker.py)
+# ============================================================================
+#
+# Bu yardımcı betik, Volatility 3 bellek adli analiz çerçevesini izole bir
+# Python alt sürecinde (subprocess) çalıştırır ve çıktıları JSON formatında
+# Amele'nin Rust arka planına iletir.
+#
+# 1. Görev İzolasyonu: Rust çekirdeğinin Python C-API veya bağımlılıklarıyla
+#    şişmesini engeller; Volatility3 ortamını harici bir işçi olarak yönetir.
+# 2. Linux Banner Taraması: Bellek dökümü içerisindeki çekirdek banner dizgisini
+#    tarayarak doğru sembol tablosunun (ISF) otomatik seçilmesine yardımcı olur.
+# ============================================================================
+"""Amele Volatility3 worker."""
 
 from __future__ import annotations
 

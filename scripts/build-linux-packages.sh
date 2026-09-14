@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# ==============================================================================
+# # LINUX DAĞITIM PAKETLERİ DERLEME BETİĞİ (scripts/build-linux-packages.sh)
+# ==============================================================================
+#
+# Bu betik; Debian (.deb), RedHat/Fedora (.rpm) ve Arch Linux (.pkg.tar.zst)
+# paketlerini otomatik olarak oluşturur ve dist/ dizininde yayınlar.
+# ==============================================================================
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

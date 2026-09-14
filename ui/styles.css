@@ -1,3 +1,17 @@
+/*
+============================================================================
+# AMELE FORENSIC TOOL - ANA STİL GİRİŞİ (ui/styles.css)
+============================================================================
+
+Bu dosya, Amele ön yüzünün modüler CSS mimarisini tek çatı altında toplar:
+- base.css: Temel renk paleti, tipografi, grid/flex yerleşimi ve tema değişkenleri.
+- analysis.css: Adli analiz panelleri, zaman çizelgesi ve dosya listesi stilleri.
+- monochrome.css: Yüksek kontrastlı ve sadeleştirilmiş arayüz modu.
+- developer.css: Geliştirici konsolu ve terminal log penceresi stilleri.
+- docker.css: Konteyner analizi ve güvenlik kartı stilleri.
+============================================================================
+*/
+
 @import "./styles/base.css";
 @import "./styles/analysis.css";
 @import "./styles/monochrome.css";

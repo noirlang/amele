@@ -1,3 +1,12 @@
+// ============================================================================
+// # ÖN YÜZ ROTA VE MODÜL DOĞRULAMA TESTLERİ (tests/routes.test.js)
+// ============================================================================
+//
+// Bu test süiti, Node.js yerleşik test motoruyla DOM ve tarayıcı ortamını
+// taklit (mock) ederek; ui/app.js ve sayfa modüllerinin çökmeden yüklendiğini,
+// tüm adli araç rotalarının hatasız yönlendirildiğini test eder.
+// ============================================================================
+
 import test from "node:test";
 import assert from "node:assert";
 

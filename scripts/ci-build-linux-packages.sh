@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# ==============================================================================
+# # CI/CD LİNUX DAĞITIM DERLEME BETİĞİ (scripts/ci-build-linux-packages.sh)
+# ==============================================================================
+#
+# Bu betik, GitHub Actions CI ortamında geriye dönük glibc uyumluluğuyla
+# Linux paketlerini (.AppImage, .deb, .rpm, .pkg.tar.zst) derler.
+# ==============================================================================
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

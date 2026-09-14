@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Amele Forensic Tool - Premium Test Runner
+# # BİRLEŞİK ADLİ TEST VE DOĞRULAMA KOŞUCUSU (tests/run_tests.sh)
+# ==============================================================================
+#
+# Bu betik, CI/CD süreçlerinde veya yerel geliştirmede Amele'nin 3 aşamalı
+# kalite ve adli bütünlük testini baştan sona icra eder:
+# 1. Aşama: Rust Çekirdek Birim Testleri (cargo test --lib)
+# 2. Aşama: Çoklu Dil (i18n) Sözlük Anahtar Bütünlüğü
+# 3. Aşama: ES Modülleri ve Ön Yüz Rota Yönlendirici Sağlığı
 # ==============================================================================
 
 # Set styling colors
