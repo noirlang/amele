@@ -67,9 +67,56 @@ pub fn json_error(status: u16, message: impl Into<String>) -> Response {
     }
 }
 
+/// Belirtilen portta çalışan sağlıklı bir Amele backend'i olup olmadığını kontrol eder.
+pub fn is_amele_running_on(port: u16) -> bool {
+    let addr = format!("127.0.0.1:{port}");
+    let Ok(sock_addr) = addr.parse() else {
+        return false;
+    };
+    let Ok(mut stream) =
+        TcpStream::connect_timeout(&sock_addr, std::time::Duration::from_millis(250))
+    else {
+        return false;
+    };
+
+    let _ = stream.set_read_timeout(Some(std::time::Duration::from_millis(400)));
+    let _ = stream.set_write_timeout(Some(std::time::Duration::from_millis(400)));
+
+    let request =
+        format!("GET /api/health HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n");
+    if stream.write_all(request.as_bytes()).is_err() {
+        return false;
+    }
+
+    let mut response = [0u8; 512];
+    if let Ok(n) = stream.read(&mut response) {
+        let text = String::from_utf8_lossy(&response[..n]);
+        text.contains("\"ok\":true") || text.contains("\"version\"")
+    } else {
+        false
+    }
+}
+
 /// Yerel backend'i başlatır ve native WebView penceresini açar.
 pub fn run_native() -> Result<(), String> {
     crate::native_window::prepare_environment()?;
+
+    let target_port = std::env::var("AMELE_PORT")
+        .ok()
+        .and_then(|s| s.trim().parse::<u16>().ok())
+        .unwrap_or(crate::settings::DEFAULT_PORT);
+
+    // Eğer bu portta zaten çalışan sağlıklı bir Amele oturumu varsa:
+    // İkinci bir sunucu başlatıp port çakışması veya ölü geçici port yaratmak yerine,
+    // doğrudan mevcut oturumu ön plana getir / pencereyi aç.
+    if is_amele_running_on(target_port) {
+        println!(
+            "Amele zaten arka planda çalışıyor (127.0.0.1:{target_port}). Mevcut oturum açılıyor..."
+        );
+        let native_url = format!("http://127.0.0.1:{target_port}/?native=1");
+        return crate::native_window::run(&native_url);
+    }
+
     let url = start_background()?;
     let native_url = format!("{url}?native=1");
     println!("Amele native UI: {native_url}");
@@ -78,6 +125,20 @@ pub fn run_native() -> Result<(), String> {
 
 /// Yerel backend'i başlatır ve debug için sistem tarayıcısını açar.
 pub fn run_browser() -> Result<(), String> {
+    let target_port = std::env::var("AMELE_PORT")
+        .ok()
+        .and_then(|s| s.trim().parse::<u16>().ok())
+        .unwrap_or(crate::settings::DEFAULT_PORT);
+
+    if is_amele_running_on(target_port) {
+        println!(
+            "Amele zaten arka planda çalışıyor (127.0.0.1:{target_port}). Tarayıcıda açılıyor..."
+        );
+        let url = format!("http://127.0.0.1:{target_port}/");
+        open_window(&url);
+        return Ok(());
+    }
+
     let url = start_background()?;
     println!("Amele UI backend: {url}");
     open_window(&url);
@@ -509,6 +570,35 @@ mod tests {
         assert!(embedded_ui_asset("app.js").is_some());
         assert!(embedded_ui_asset("styles.css").is_some());
         assert!(embedded_ui_asset("missing.js").is_none());
+    }
+
+    #[test]
+    fn test_is_amele_running_on_closed_port() {
+        // Rastgele kullanılmayan bir port seç
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener); // portu hemen kapat
+
+        assert!(!super::is_amele_running_on(port));
+    }
+
+    #[test]
+    fn test_is_amele_running_on_active_server() {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        let handle = std::thread::spawn(move || {
+            if let Ok((mut stream, _)) = listener.accept() {
+                let mut buf = [0u8; 256];
+                let _ = stream.read(&mut buf);
+                let resp = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{\"ok\":true,\"version\":\"0.0.20\"}";
+                let _ = stream.write_all(resp.as_bytes());
+            }
+        });
+
+        assert!(super::is_amele_running_on(port));
+        let _ = handle.join();
     }
 }
 // o gözlerin geçmeyen hisleri var

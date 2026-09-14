@@ -135,8 +135,20 @@ mod linux {
         None
     }
 
+    /// Verilen URL'deki port numarasını ayrıştırır.
+    fn extract_port_from_url(url: &str) -> Option<u16> {
+        let stripped = url
+            .strip_prefix("http://")
+            .or_else(|| url.strip_prefix("https://"))?;
+        let host_port = stripped.split('/').next()?;
+        let port_str = host_port.split(':').nth(1)?;
+        port_str.parse().ok()
+    }
+
     /// Amele UI için izole kullanıcı veri klasörünü döndürür.
-    fn chromium_user_data_dir() -> PathBuf {
+    /// Standart olmayan portlar için profil dizinini ayırarak Chromium tekil oturum (singleton)
+    /// aktarımının farklı portlardaki sunucuları ezmesini veya kapatmasını engeller.
+    fn chromium_user_data_dir(url: &str) -> PathBuf {
         if let Some(path) = std::env::var_os("AMELE_CHROMIUM_DATA_DIR") {
             return PathBuf::from(path);
         }
@@ -149,12 +161,17 @@ mod linux {
             std::env::temp_dir().join("amele")
         };
 
-        base.join("chromium-ui")
+        let port_suffix = extract_port_from_url(url)
+            .filter(|&p| p != crate::settings::DEFAULT_PORT)
+            .map(|p| format!("-{p}"))
+            .unwrap_or_default();
+
+        base.join(format!("chromium-ui{port_suffix}"))
     }
 
     /// Chromium tabanlı tarayıcıyı bağımsız masaüstü penceresi (`--app`) olarak çalıştırır.
     fn run_chromium_app(bin: &Path, url: &str) -> Result<(), String> {
-        let data_dir = chromium_user_data_dir();
+        let data_dir = chromium_user_data_dir(url);
         let _ = std::fs::create_dir_all(&data_dir);
 
         let mut cmd = Command::new(bin);
@@ -449,9 +466,26 @@ mod linux {
 
         #[test]
         fn test_chromium_user_data_dir() {
-            let dir = chromium_user_data_dir();
-            assert!(dir.to_string_lossy().contains("amele"));
-            assert!(dir.to_string_lossy().contains("chromium-ui"));
+            let default_dir = chromium_user_data_dir("http://127.0.0.1:4444/?native=1");
+            assert!(default_dir.to_string_lossy().contains("amele"));
+            assert!(default_dir.to_string_lossy().ends_with("chromium-ui"));
+
+            let custom_dir = chromium_user_data_dir("http://127.0.0.1:5555/?native=1");
+            assert!(custom_dir.to_string_lossy().ends_with("chromium-ui-5555"));
+        }
+
+        #[test]
+        fn test_extract_port_from_url() {
+            assert_eq!(
+                extract_port_from_url("http://127.0.0.1:4444/?native=1"),
+                Some(4444)
+            );
+            assert_eq!(
+                extract_port_from_url("https://127.0.0.1:9090/app"),
+                Some(9090)
+            );
+            assert_eq!(extract_port_from_url("http://localhost/"), None);
+            assert_eq!(extract_port_from_url("not_a_url"), None);
         }
 
         #[test]
