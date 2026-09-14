@@ -37,6 +37,31 @@ export function homePage({ t, icon, assetPath, theme, state }) {
         : (item.summaryTr || item.summary || item.summaryEn || (item.contentTr || item.content ? (item.contentTr || item.content).slice(0, 160) + "..." : ""));
       const hasText = Boolean(title || summary);
 
+      let targetUrl = "";
+      if (item.link && typeof item.link === "string" && item.link.trim()) {
+        targetUrl = item.link.trim();
+      } else if (item.url && typeof item.url === "string" && item.url.trim()) {
+        targetUrl = item.url.trim();
+      } else if (item.slug && typeof item.slug === "string" && item.slug.trim()) {
+        targetUrl = `https://amele.noirlang.tr/announcements/${encodeURIComponent(item.slug.trim())}`;
+      } else if (item.id && item.id !== "default" && typeof item.id === "string" && item.id.trim()) {
+        targetUrl = `https://amele.noirlang.tr/announcements/${encodeURIComponent(item.id.trim())}`;
+      } else if (hasNews) {
+        targetUrl = "https://amele.noirlang.tr/announcements";
+      } else {
+        targetUrl = "https://amele.noirlang.tr";
+      }
+      if (targetUrl.startsWith("/")) {
+        targetUrl = `https://amele.noirlang.tr${targetUrl}`;
+      }
+
+      const openTooltip = isEn ? "Open announcement in browser" : "Duyuruyu tarayıcıda aç";
+      const openAria = isEn ? "Open announcement" : "Duyuruyu aç";
+
+      const linkBtnHtml = targetUrl
+        ? ` <a href="${targetUrl}" data-news-link="${targetUrl}" class="news-link-btn" target="_blank" rel="noopener noreferrer" title="${openTooltip}" aria-label="${openAria}">${icon("external-link")}</a>`
+        : "";
+
       return `
         <div class="news-slide ${isActive ? "is-active" : ""}" data-index="${idx}">
           <div class="news-media">
@@ -46,7 +71,7 @@ export function homePage({ t, icon, assetPath, theme, state }) {
             hasText
               ? `
             <div class="news-overlay">
-              ${title ? `<h3 class="news-title">${title}</h3>` : ""}
+              ${title ? `<h3 class="news-title"><span>${title}</span>${linkBtnHtml}</h3>` : ""}
               ${summary ? `<p class="news-summary">${summary}</p>` : ""}
             </div>
           `

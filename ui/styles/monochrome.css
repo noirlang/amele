@@ -31,7 +31,13 @@
 .company-logo-card,
 .ram-stat-card,
 .carved-card,
-.modal-content {
+.modal-content,
+.profile-hero-card,
+.profile-cases-section,
+.profile-action-bar,
+.profile-gate-card,
+.help-sidebar,
+.help-main-content {
   background: var(--panel) !important;
   background-image: none !important;
   border-color: var(--line) !important;
@@ -292,6 +298,19 @@ code:not(.help-code-block code) {
 .carved-card,
 .modal-content,
 .status-badge,
+.profile-hero-card,
+.profile-cases-section,
+.case-profile-card,
+.profile-action-bar,
+.profile-gate-card,
+.profile-card,
+.help-sidebar,
+.help-main-content,
+.help-nav-btn,
+.help-code-block,
+.help-table-container,
+.home-hero,
+.news-hero-container,
 .primary-button,
 .secondary-button,
 .danger-button,
@@ -330,7 +349,20 @@ code:not(.help-code-block code) {
 .ram-stat-card::before,
 .carved-card::before,
 .modal-content::before,
-.status-badge::before {
+.status-badge::before,
+.profile-hero-card::before,
+.profile-cases-section::before,
+.case-profile-card::before,
+.profile-action-bar::before,
+.profile-gate-card::before,
+.profile-card::before,
+.help-sidebar::before,
+.help-main-content::before,
+.help-nav-btn::before,
+.help-code-block::before,
+.help-table-container::before,
+.home-hero::before,
+.news-hero-container::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -361,6 +393,11 @@ code:not(.help-code-block code) {
   opacity: 0.65;
   transition: opacity 220ms var(--ease), background 220ms var(--ease);
   will-change: --glow-angle;
+}
+
+.home-hero::before,
+.news-hero-container::before {
+  z-index: 4;
 }
 
 /* ── Rotating light beam – buttons (no overflow:hidden) ────────── */
@@ -420,7 +457,20 @@ code:not(.help-code-block code) {
 .ram-stat-card::after,
 .carved-card::after,
 .modal-content::after,
-.status-badge::after {
+.status-badge::after,
+.profile-hero-card::after,
+.profile-cases-section::after,
+.case-profile-card::after,
+.profile-action-bar::after,
+.profile-gate-card::after,
+.profile-card::after,
+.help-sidebar::after,
+.help-main-content::after,
+.help-nav-btn::after,
+.help-code-block::after,
+.help-table-container::after,
+.home-hero::after,
+.news-hero-container::after {
   display: none !important;
 }
 
@@ -443,7 +493,18 @@ code:not(.help-code-block code) {
 .ram-stat-card > *,
 .carved-card > *,
 .modal-content > *,
-.status-badge > * {
+.status-badge > *,
+.profile-hero-card > *,
+.profile-cases-section > *,
+.case-profile-card > *,
+.profile-action-bar > *,
+.profile-gate-card > *,
+.profile-card > *,
+.help-sidebar > *,
+.help-main-content > *,
+.help-nav-btn > *,
+.help-code-block > *,
+.help-table-container > * {
   position: relative;
   z-index: 3;
 }
@@ -476,7 +537,22 @@ code:not(.help-code-block code) {
 .modal-content:hover::before,
 .status-badge:hover::before,
 .action-tile:focus-visible::before,
-.forensic-card:focus-visible::before {
+.forensic-card:focus-visible::before,
+.profile-hero-card:hover::before,
+.profile-cases-section:hover::before,
+.case-profile-card:hover::before,
+.case-profile-card.is-active-case::before,
+.profile-action-bar:hover::before,
+.profile-gate-card:hover::before,
+.profile-card:hover::before,
+.help-sidebar:hover::before,
+.help-main-content:hover::before,
+.help-nav-btn:hover::before,
+.help-nav-btn.active::before,
+.help-code-block:hover::before,
+.help-table-container:hover::before,
+.home-hero:hover::before,
+.news-hero-container:hover::before {
   background: 
     conic-gradient(
       from var(--glow-angle),
@@ -510,7 +586,22 @@ code:not(.help-code-block code) {
 .ram-stat-card:hover,
 .carved-card:hover,
 .modal-content:hover,
-.status-badge:hover {
+.status-badge:hover,
+.profile-hero-card:hover,
+.profile-cases-section:hover,
+.case-profile-card:hover,
+.case-profile-card.is-active-case,
+.profile-action-bar:hover,
+.profile-gate-card:hover,
+.profile-card:hover,
+.help-sidebar:hover,
+.help-main-content:hover,
+.help-nav-btn:hover,
+.help-nav-btn.active,
+.help-code-block:hover,
+.help-table-container:hover,
+.home-hero:hover,
+.news-hero-container:hover {
   box-shadow: 0 0 24px var(--glow-hover-glow) !important;
 }
 
@@ -589,6 +680,19 @@ code:not(.help-code-block code) {
 .native-linux .carved-card,
 .native-linux .modal-content,
 .native-linux .status-badge,
+.native-linux .profile-hero-card,
+.native-linux .profile-cases-section,
+.native-linux .case-profile-card,
+.native-linux .profile-action-bar,
+.native-linux .profile-gate-card,
+.native-linux .profile-card,
+.native-linux .help-sidebar,
+.native-linux .help-main-content,
+.native-linux .help-nav-btn,
+.native-linux .help-code-block,
+.native-linux .help-table-container,
+.native-linux .home-hero,
+.native-linux .news-hero-container,
 .native-linux .primary-button,
 .native-linux .secondary-button,
 .native-linux .danger-button,
@@ -618,6 +722,19 @@ code:not(.help-code-block code) {
 .native-linux .carved-card::before,
 .native-linux .modal-content::before,
 .native-linux .status-badge::before,
+.native-linux .profile-hero-card::before,
+.native-linux .profile-cases-section::before,
+.native-linux .case-profile-card::before,
+.native-linux .profile-action-bar::before,
+.native-linux .profile-gate-card::before,
+.native-linux .profile-card::before,
+.native-linux .help-sidebar::before,
+.native-linux .help-main-content::before,
+.native-linux .help-nav-btn::before,
+.native-linux .help-code-block::before,
+.native-linux .help-table-container::before,
+.native-linux .home-hero::before,
+.native-linux .news-hero-container::before,
 .native-linux .primary-button::before,
 .native-linux .secondary-button::before,
 .native-linux .danger-button::before,
@@ -646,6 +763,21 @@ code:not(.help-code-block code) {
 .native-linux .carved-card:hover::before,
 .native-linux .modal-content:hover::before,
 .native-linux .status-badge:hover::before,
+.native-linux .profile-hero-card:hover::before,
+.native-linux .profile-cases-section:hover::before,
+.native-linux .case-profile-card:hover::before,
+.native-linux .case-profile-card.is-active-case::before,
+.native-linux .profile-action-bar:hover::before,
+.native-linux .profile-gate-card:hover::before,
+.native-linux .profile-card:hover::before,
+.native-linux .help-sidebar:hover::before,
+.native-linux .help-main-content:hover::before,
+.native-linux .help-nav-btn:hover::before,
+.native-linux .help-nav-btn.active::before,
+.native-linux .help-code-block:hover::before,
+.native-linux .help-table-container:hover::before,
+.native-linux .home-hero:hover::before,
+.native-linux .news-hero-container:hover::before,
 .native-linux .primary-button:hover::before,
 .native-linux .secondary-button:hover::before,
 .native-linux .danger-button:hover::before,
