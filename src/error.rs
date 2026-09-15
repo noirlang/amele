@@ -1,11 +1,7 @@
-//! ============================================================================
-//! # BİRLEŞİK ADLİ HATA YÖNETİMİ VE HATA SINIFLANDIRMA MİMARİSİ (src/error.rs)
-//! ============================================================================
-//!
-//! 1. HataKodu Sınıflandırması: Adli süreçlerde karşılaşılan tüm hataları (DiskOkuma, DosyaYazma, Guvenlik, AgBaglanti vb.) kategorize eder.
-//! 2. Sessiz Hataların Engellenmesi: AmeleResult<T> ve AmeleError tipleriyle hiçbir hatanın sessizce yutulmamasını garanti eder.
-//! 3. Teşhis ve Tavsiye Üretimi: Hata oluştuğunda operatöre doğrudan Türkçe çözüm adımları (suggestion ve detail) önerir.
-//! ============================================================================
+//! Hata türleri ve hata dönüşüm tanımları.
+//! Sistem genelindeki I/O, ağ, format ve izin hatalarını tek bir standart hata
+//! numaralandırmasında (enum) toplayıp HTTP/CLI yanıtlarına dönüştürüyoruz.
+
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::error::Error;

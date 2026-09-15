@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # UYGULAMA AYARLARI YAPILANDIRMA APİ'Sİ (src/api/settings.rs)
-//! ============================================================================
-//!
-//! 1. Ayar Servisleri: Sistem dili, tema, port ve zaman aşımı değerlerini okuma ve güncelleme servisleri.
-//! ============================================================================
+//! Uygulama ayarları API uç noktası.
+//! Dil, tema, varsayılan kayıt dizinleri gibi ayarları okuma ve güncelleme isteklerini işler.
+
 use serde::Deserialize;
 use serde_json::json;
 

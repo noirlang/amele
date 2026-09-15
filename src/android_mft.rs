@@ -1,9 +1,7 @@
-//! ============================================================================
-//! # ANDROİD MFT (MASTER FILE TABLE) ANALİZ MOTORU (src/android_mft.rs)
-//! ============================================================================
-//!
-//! 1. Android MFT Konsepti: Android dosya kayıtlarını MFT formatında yapılandırıp arama ve analize açar.
-//! ============================================================================
+//! Android cihazlarda dosya ağacı ve metadata çıkarma orkestratörü.
+//! Sistemdeki tüm dosya ve dizinlerin izinlerini, erişim ve değiştirilme tarihlerini
+//! MFT benzeri kronolojik bir tabloya dönüştürür.
+
 mod bundle;
 mod format;
 mod outputs;

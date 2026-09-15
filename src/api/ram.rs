@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # CANLI BELLEK (RAM) EDİNİM APİ'Sİ (src/api/ram.rs)
-//! ============================================================================
-//!
-//! 1. RAM API Servisi: Yerel fiziksel bellek dökümü alma sürecini tetikler ve ilerlemeyi izler.
-//! ============================================================================
+//! Bellek dökümü (RAM) başlatma API uç noktası.
+//! Canlı sistem belleğini alma komutunu alır ve ram edinim modülünü tetikler.
+
 use chrono::Local;
 use serde::Deserialize;
 use serde_json::{Value, json};

@@ -1,10 +1,7 @@
-//! ============================================================================
-//! # ANDROİD ÇIKARICI ADIM TANIMLARI VE PROFİLLERİ (src/android/extractors.rs)
-//! ============================================================================
-//!
-//! 1. Modüler Edinim Adımları: Sistem bilgisi, paketler, logcat, dumpsys ve medya adımlarını modüler tanımlar.
-//! 2. Profilleme: Hızlı (Quick), Tam (Full) ve Uçucu (Volatile) edinim profillerini yapılandırır.
-//! ============================================================================
+//! Özelleşmiş Android veri çıkarıcıları.
+//! Medya dosyaları, APK paketleri ve sistem ayarlarını hedef alarak parça parça
+//! adli kopyalarını çeker.
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

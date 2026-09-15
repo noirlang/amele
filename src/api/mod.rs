@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # GÖMÜLÜ REST APİ MODÜL TANIMLARI (src/api/mod.rs)
-//! ============================================================================
-//!
-//! 1. Modül Organizasyonu: Tüm REST API servis alt modüllerini tanımlar ve ortak durumları yönetir.
-//! ============================================================================
+//! REST API katmanının ana modül kütüğü.
+//! Frontend'in istek attığı tüm alt API modüllerini burada toplayıp router'a bağlar.
+
 pub mod acquisition_control;
 pub mod android;
 pub mod case_transfer;

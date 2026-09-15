@@ -1,10 +1,7 @@
-//! ============================================================================
-//! # HEDEF MOBİL UYGULAMA KATALOĞU (src/android/app_catalog.rs)
-//! ============================================================================
-//!
-//! 1. Türkiye Odaklı Uygulama Kataloğu: e-Devlet, yerel mesajlaşma ve bankacılık uygulamalarının paket adlarını tanımlar.
-//! 2. Veri Yolu Haritalandırması: Her uygulamanın açık ve root gerektiren depolama yollarını eşler.
-//! ============================================================================
+//! Popüler Android uygulamaları kataloğu.
+//! WhatsApp, Telegram, bankacılık ve sosyal medya uygulamalarının paket isimlerini ve
+//! varsayılan veri dizinlerini tanır.
+
 #[derive(Debug, Clone, Copy)]
 /// Android uygulama hedef kataloğundaki tek paket kaydını temsil eder.
 pub(super) struct AndroidAppTarget {

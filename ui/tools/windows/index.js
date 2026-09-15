@@ -1,9 +1,7 @@
-// ============================================================================
-// # WİNDOWS ARACI ÖN YÜZ GİRİŞ NOKTASI (ui/tools/windows/index.js)
-// ============================================================================
-//
-// 1. Modül Yönlendiricisi: Windows araç sayfasının rota ve aksiyon yönetimini üstlenir.
-// ============================================================================
+// Windows adli araçlar bileşeni.
+// WinPmem sürücüsünü sisteme yükleme, VSS (Volume Shadow Copy) tarama ve
+// sayfa dosyası (pagefile.sys) dökümü araçlarını yönetir.
+
 export function windowsPage({ t, icon, state, pageTitle, toolHub }) {
   return toolHub("windows");
 }

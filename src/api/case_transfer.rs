@@ -1,9 +1,7 @@
-//! ============================================================================
-//! # VAKA TRANSFER VE .AMELECASE APİ'Sİ (src/api/case_transfer.rs)
-//! ============================================================================
-//!
-//! 1. Vaka Paketleme Servisleri: Vakayı .amelecase paketi olarak dışa aktarma ve içe aktarma rotaları.
-//! ============================================================================
+//! Vaka ve delil transferi uç noktası.
+//! Hazırlanan vaka paketlerinin ağ üzerinden başka bir adli sunucuya
+//! güvenli aktarılmasını yönetir.
+
 use crate::case_package::{export_case, import_case, verify_package};
 use crate::evidence::EvidenceVault;
 use crate::server::{Response, json_error, json_ok, json_serialize};

@@ -1,9 +1,7 @@
-//! ============================================================================
-//! # PAYLAŞILAN GÖMÜLÜ APİ DURUMU (src/api/state.rs)
-//! ============================================================================
-//!
-//! 1. Global Thread-Safe Durum: Sunucu portu, aktif vaka ve sistem durumunu thread-safe mutex'lerle saklar.
-//! ============================================================================
+//! API durum ve paylaşılan bellek yöneticisi.
+//! Aktif görevler, sistem ayarları ve donanım kilitleri gibi thread-safe
+//! durumları tüm isteklerin erişimine sunar.
+
 use crate::server::{Response, json_error};
 use chrono::Local;
 use std::path::PathBuf;

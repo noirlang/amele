@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # ARKA PLAN EDİNİM İŞLERİ APİ'Sİ (src/api/jobs.rs)
-//! ============================================================================
-//!
-//! 1. Durum Sorgulama: Arayüzdeki widget için /api/acquisition-status üzerinden güncel ilerlemeyi döner.
-//! ============================================================================
+//! Arka plan görevleri durum takip API uç noktası.
+//! Devam eden tüm işlemlerin anlık yüzdesini, okuma hızını ve tamamlanma durumunu JSON olarak döner.
+
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};

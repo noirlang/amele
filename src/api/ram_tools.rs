@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # RAM ARAÇLARI VE ÖNKOŞUL DENETİM APİ'Sİ (src/api/ram_tools.rs)
-//! ============================================================================
-//!
-//! 1. Yetki ve Araç Denetimi: Bellek edinimi öncesinde AVML/WinPMEM ve yönetici yetkilerini sorgular.
-//! ============================================================================
+//! Bellek yardımcı araçları API uç noktası.
+//! LiME veya WinPmem sürücülerinin sisteme yüklenip kaldırılmasını yönetir.
+
 use serde_json::{Value, json};
 use std::fs;
 

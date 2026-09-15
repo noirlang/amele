@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# # CI/CD LİNUX DAĞITIM DERLEME BETİĞİ (scripts/ci-build-linux-packages.sh)
-# ==============================================================================
-#
-# Bu betik, GitHub Actions CI ortamında geriye dönük glibc uyumluluğuyla
-# Linux paketlerini (.AppImage, .deb, .rpm, .pkg.tar.zst) derler.
-# ==============================================================================
+# GitHub Actions CI ortamında otomatik Linux paketlerini derleyen betik.
+# Ortamda fpm, dpkg-deb veya rpmbuild araçlarının durumunu kontrol edip sanal sunucuda
+# otomatik paketleme ve artifact üretimini yönetiyor.
+
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

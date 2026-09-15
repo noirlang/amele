@@ -1,9 +1,7 @@
-// ============================================================================
-// # TEMEL YARDIMCI ARAÇLAR VE BİÇİMLENDİRİCİLER (ui/core/utils.js)
-// ============================================================================
-//
-// 1. Biçimlendirme Araçları: Bayt boyutlarını (KB, MB, GB), HTML kaçırma ve metin kırpma yardımcılarını sağlar.
-// ============================================================================
+// Genel yardımcı fonksiyonlar deposu.
+// Bayt boyutlarını (MB, GB) formatlama, zaman damgası hesaplama, metin filtreleme ve
+// DOM manipülasyonu gibi sık tekrar eden ufak işleri burada topladık.
+
 export function timestampForFileName(date = new Date()) {
   const pad = (value) => String(value).padStart(2, "0");
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;

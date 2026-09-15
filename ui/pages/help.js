@@ -1,9 +1,7 @@
-// ============================================================================
-// # YARDIM VE DOKÜMANTASYON SAYFASI BİLEŞENİ (ui/pages/help.js)
-// ============================================================================
-//
-// 1. Yardım Ekranı: Kullanıcıya operasyonel rehberlik ve komut ipuçları sağlayan arayüz sayfasıdır.
-// ============================================================================
+// Yardım ve dokümantasyon ekranı.
+// Araçların nasıl kullanılacağını, komut satırı parametrelerini ve sık sorulan soruları
+// kullanıcıya sunar.
+
 import { helpDocs } from "../docs/helpContent.js";
 
 export const helpModules = [

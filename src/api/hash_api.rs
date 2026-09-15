@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # KRİPTOGRAFİK ADLİ ÖZET APİ'Sİ (src/api/hash_api.rs)
-//! ============================================================================
-//!
-//! 1. Hash Servisleri: İstenen dosyalar için anlık SHA-256/MD5 hesaplama ve sidecar doğrulama servisleri.
-//! ============================================================================
+//! Kriptografik özetleme API uç noktası.
+//! Kullanıcının seçtiği herhangi bir dosyanın anlık MD5, SHA-1 veya SHA-256 özetini hesaplayıp döner.
+
 use serde::Deserialize;
 use serde_json::Value;
 

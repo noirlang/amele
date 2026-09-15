@@ -1,9 +1,7 @@
-// ============================================================================
-// # VEKTÖREL SİSTEM İKONLARI VE HİDRASYON KÜTÜPHANESİ (ui/icons.js)
-// ============================================================================
-//
-// 1. İkon Enjeksiyonu: Arayüzdeki adli araç simgelerini (SVG/FontAwesome) dinamik olarak DOM elemanlarına bağlar.
-// ============================================================================
+// Arayüzde kullandığımız SVG ikon tanımları.
+// Dışarıdan ek font veya ikon kütüphanesi yükleyip bağımlılık yaratmak yerine
+// sık kullandığımız disk, cpu, android, dosya vb. ikonları direkt inline SVG olarak burada tutuyoruz.
+
 export const icons = {
   home: '<path d="m3 11 9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
   grid: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',

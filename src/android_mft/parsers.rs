@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # ANDROİD HAM ÇIKTI AYRIŞTIRICILARI (src/android_mft/parsers.rs)
-//! ============================================================================
-//!
-//! 1. Metin Ayrıştırma: Ham dumpsys ve kabuk çıktılarını yapılandırılmış MFT nesnelerine çevirir.
-//! ============================================================================
+//! Android ls ve find komut çıktısı ayrıştırıcıları.
+//! Terminalden gelen ham dosya listelerini parse edip boyut, sahip ve tarih bilgilerini çeker.
+
 use super::format::{Field, MAX_RECORDS_PER_SOURCE, MAX_TEXT_INPUT, Record, RecordType};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};

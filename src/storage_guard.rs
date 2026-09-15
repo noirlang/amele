@@ -1,10 +1,7 @@
-//! ============================================================================
-//! # DEPOLAMA ALANI ÖN DENETİM MOTORU (src/storage_guard.rs)
-//! ============================================================================
-//!
-//! 1. Ön Kontrol (Preflight Check): İmaj alma başlamadan önce hedef diskin boş alanını denetler.
-//! 2. Delil Kaybı Önleme: Yetersiz depolama durumunda işlemi başlatmadan durdurarak saatler süren yarıda kalma riskini engeller.
-//! ============================================================================
+//! Depolama alanı koruma ve taşma önleme mekanizması.
+//! Edinim sırasında hedef diski anlık gözlemler, alan kritik seviyenin altına indiğinde
+//! işlemi kontrollü olarak durdurup veri bozulmasını engeller.
+
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use std::path::Path;
 

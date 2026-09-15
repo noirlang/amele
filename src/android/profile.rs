@@ -1,9 +1,7 @@
-//! ============================================================================
-//! # ANDROİD CİHAZ PARMAK İZİ VE PROFİL TESPİTİ (src/android/profile.rs)
-//! ============================================================================
-//!
-//! 1. Donanım ve Yazılım Tespiti: Model, marka, seri numarası, Android sürümü ve güvenlik yama tarihini toplar.
-//! ============================================================================
+//! Android edinim profilleri yapılandırması.
+//! Sadece İletişim, Tam Mantıksal veya Uygulama Verileri gibi filtreleme
+//! şablonlarını yönetir.
+
 use super::adb::{first_non_empty, run_adb_command, run_adb_command_timeout};
 use serde::Serialize;
 use std::collections::BTreeMap;

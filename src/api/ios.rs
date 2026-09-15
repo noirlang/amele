@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # İOS YEDEK NORMALİZASYON APİ'Sİ (src/api/ios.rs)
-//! ============================================================================
-//!
-//! 1. iOS Servisleri: iTunes/Finder yedeklerini doğrulama ve normalizasyon işlemini tetikleme servisleri.
-//! ============================================================================
+//! iOS adli operasyonları API uç noktası.
+//! Bağlı iPhone cihazları sorgulama ve yedek çıkarma isteklerini yönetir.
+
 use crate::api::{
     append_acquisition_log, create_acquisition_job, evidence_vault_for_output,
     fail_acquisition_job_with_message, finish_acquisition_job_with_message, sanitize_file_stem,

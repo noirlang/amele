@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # SİSTEM VE DONANIM BİLGİSİ APİ'Sİ (src/api/system.rs)
-//! ============================================================================
-//!
-//! 1. Donanım Servisleri: İşletim sistemi, CPU mimarisi, fiziksel RAM ve disk alanı bilgilerini sunar.
-//! ============================================================================
+//! Sistem bilgisi ve donanım API uç noktası.
+//! İşletim sistemi sürümü, CPU/RAM bilgileri ve root/admin yetki durumunu döndürür.
+
 use chrono::Local;
 use serde::Deserialize;
 use serde_json::{Value, json};

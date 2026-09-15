@@ -1,10 +1,7 @@
-# ==============================================================================
-# # WINDOWS MSI KURULUM PAKETİ DERLEME BETİĞİ (scripts/build-windows-msi.ps1)
-# ==============================================================================
-#
-# Bu PowerShell betiği, WiX Toolset kullanarak Amele Forensic Tool için
-# Windows Installer (.msi) kurulum paketini derler.
-# ==============================================================================
+# Windows için MSI kurulum paketi (installer) oluşturan PowerShell betiği.
+# WiX Toolset ile amele binary'sini, sürücüleri ve servis kısayollarını paketleyip
+# Windows ortamına standart kurulum sihirbazı oluşturuyoruz.
+
 param(
     [string]$OutputPath = ""
 )

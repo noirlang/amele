@@ -1,22 +1,7 @@
-//! ============================================================================
-//! # DERLEME ZAMANI VARLIK GÖMME VE KAYNAK DERLEYİCİ MİMARİSİ (build.rs)
-//! ============================================================================
-//!
-//! Bu dosya, Cargo'nun derleme öncesi (build script) sürecinde çalışır.
-//!
-//! ## 🛠️ DERLEME MİMARİSİ:
-//!
-//! 1. **Zero-Dependency UI Varlık Gömme (`generate_embedded_ui_assets`):**
-//!    `ui/` klasöründeki tüm HTML, CSS, JS, SVG ve font dosyalarını özyinelemeli
-//!    olarak tarar ve `OUT_DIR/ui_assets.rs` dosyasını üretir.
-//!    Bu sayede tüm ön yüz dosyaları derleme anında `include_bytes!` makrosuyla
-//!    doğrudan tek bir binary (.exe veya ELF) içerisine gömülür.
-//!    Uygulama çalıştırıldığında dışarıdan hiçbir web varlığına ihtiyaç duymaz.
-//!
-//! 2. **Windows Kaynak ve İkon Entegrasyonu (`compile_windows_resources`):**
-//!    Windows platformunda `packaging/windows/amele.ico` ikon dosyasını
-//!    ve sürüm bilgilerini PE (.exe) dosyasının gömülü kaynaklarına ekler.
-//! ============================================================================
+//! Derleme aşamasında çalışan hazırlık dosyası.
+//! Arayüz (UI) dosyalarını tek tek okuyup Rust koduna gömülü bayt (include_bytes!)
+//! olarak ekliyoruz ki program tek bir binary halinde taşınabilsin, dışarıdan HTML/JS
+//! aramak zorunda kalmasın. Windows tarafında da uygulama simgesi ve manifest derliyoruz.
 
 fn main() {
     generate_embedded_ui_assets();

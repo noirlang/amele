@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # ADLİ İMAJ BAĞLAMA (MOUNT) APİ'Sİ (src/api/mount.rs)
-//! ============================================================================
-//!
-//! 1. İmaj Bağlama Servisleri: Adli imajları salt-okunur olarak bağlama ve bağlantı çözme rotaları.
-//! ============================================================================
+//! Adli imaj bağlama (mount) API uç noktası.
+//! Alınmış bir disk imajını işletim sistemine salt-okunur sürücü olarak bağlama ve ayırma isteklerini karşılar.
+
 use serde_json::json;
 use std::fs;
 use std::path::{Path, PathBuf};

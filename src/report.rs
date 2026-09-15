@@ -1,10 +1,7 @@
-//! ============================================================================
-//! # ADLİ VAKA RAPORLAMA VE DELİL TUTANAĞI MOTORU (src/report.rs)
-//! ============================================================================
-//!
-//! 1. Standart Delil Tutanağı: Toplanan tüm verileri, donanım bilgilerini, hash özetlerini ve uzman notlarını tek bir raporda birleştirir.
-//! 2. Çoklu Format Desteği: Mahkemeler ve resmi kurumlar için JSON ve yazdırılabilir HTML rapor formatları üretir.
-//! ============================================================================
+//! Otomatik adli rapor üreteci.
+//! İnceleme bittiğinde vaka bilgilerini, çıkarılan artefaktları ve hash doğrulama
+//! sonuçlarını HTML, PDF veya metin formatında şık bir rapora dönüştürür.
+
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::evidence::EvidenceVault;
 use chrono::Local;

@@ -1,24 +1,6 @@
-//! ============================================================================
-//! # KONTEYNER ADLİ BİLİŞİMİ VE DOCKER DFIR MİMARİSİ (src/docker.rs)
-//! ============================================================================
-//!
-//! Bu modül, hem canlı Linux sistemlerindeki Docker ortamlarını hem de adli
-//! imajlardan bağlanan soğuk (offline) `/var/lib/docker/` dizinlerini inceler.
-//!
-//! ## 🐳 KONTEYNER ADLİ ANALİZ YETENEKLERİ:
-//!
-//! 1. **OverlayFS Değişiklik Katmanı (UpperDir Drift):**
-//!    Konteyner çalışırken oluşturulan veya değiştirilen tüm dosyaları barındıran
-//!    `upperdir` katmanını izole eder ve delil olarak `.tar.gz` biçiminde arşivler.
-//!
-//! 2. **Konteynerden Kaçış (Escape) Risk Analizi:**
-//!    `--privileged` bayrağı, `/var/run/docker.sock` soket bağlamaları, `hostPID`
-//!    ve tehlikeli Linux Capabilities (`CAP_SYS_ADMIN` vb.) izinlerini denetler.
-//!
-//! 3. **Gizli Veri (Secret) Taraması:**
-//!    Ortam değişkenlerinde (`ENV`) sızdırılan parolaları, AWS/GCP/SSH token'larını
-//!    ve özel anahtarları otomatik tespit eder.
-//! ============================================================================
+//! Docker konteyner adli edinim motoru.
+//! Docker daemon ile soket üzerinden haberleşip konteyner dosya sistemi katmanlarını,
+//! çalışma anı loglarını ve volume verilerini adli kopyaya aktarır.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::evidence::EvidenceVault;

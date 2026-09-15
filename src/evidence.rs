@@ -1,29 +1,6 @@
-//! ============================================================================
-//! # ADLİ DELİL KASASI VE DELİL ZİNCİRİ MİMARİSİ (src/evidence.rs)
-//! ============================================================================
-//!
-//! Bu modül, adli vakaların (case) disk üzerindeki hiyerarşik dizin yapısını,
-//! delil zincirini (Chain of Custody) ve bütünlük manifestosunu yönetir.
-//!
-//! ## 🏛️ DELİL KASASI (EvidenceVault) MİMARİSİ:
-//!
-//! 1. **İzole Dizin Ağacı:**
-//!    Her vaka adı için temel bir klasör oluşturulur ve adli veriler katı bir
-//!    ayrımla alt klasörlere dağıtılır:
-//!    - `ciktilar/`: Ham disk imajları (RAW / AFF4).
-//!    - `ram/`: Canlı bellek dökümleri (LiME / Raw / WinPMEM).
-//!    - `android/` & `ios/`: Mobil mantıksal edinim ve yedekleme verileri.
-//!    - `docker/`: Konteyner analiz raporları ve imajları.
-//!    - `gunlukler/`: Operasyonel çalışma zamanı logları (audit trail).
-//!    - `hash/`: SHA-256 / MD5 doğrulama özetleri.
-//!    - `notlar/` & `raporlar/`: Uzman notları ve nihai adli raporlar.
-//!
-//! 2. **Vaka Bütünlük Manifestosu (`write_case_manifest`):**
-//!    Vaka kapatılırken veya dışa aktarılırken, kasa altındaki tüm dosyalar
-//!    özyinelemeli (recursive) taranır. Dosya boyutu, türü (dosya veya symlink),
-//!    değiştirilme zamanı ve SHA-256 hash'i hesaplanarak `vaka.json` manifestosu
-//!    üretilir. Böylece mahkeme veya denetçiler için delil zinciri mühürlenmiş olur.
-//! ============================================================================
+//! Adli delil kasası ve metadata yöneticisi.
+//! Toplanan imajların hash değerlerini, operatör bilgilerini, tarih-saat kayıtlarını
+//! ve donanım seri numaralarını adli raporla ilişkilendirir.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::hash::{HashAlgorithm, calculate_file_hash};

@@ -1,30 +1,6 @@
-//! ============================================================================
-//! # VAKA PAKETLEME VE GÜVENLİ İÇE/DIŞA AKTARIM MİMARİSİ (src/case_package.rs)
-//! ============================================================================
-//!
-//! Bu modül, adli vakaların tamamını (çıktılar, günlükler, bellek dökümleri,
-//! mobil kayıtlar, notlar ve raporlar) `.amelecase` (tar.gz) biçiminde
-//! paketler, mühürler, doğrular ve içe aktarır.
-//!
-//! ## 🔐 GÜVENLİK VE BÜTÜNLÜK PRENSİPLERİ:
-//!
-//! 1. **Adli Delil Paketi Yapısı (.amelecase):**
-//!    Standart bir `tar.gz` arşividir. Arşivin en başında `amele_case_header.json`
-//!    dosyası yer alır. Bu başlıkta format sürümü, vaka adı, oluşturan operatör,
-//!    araç sürümü, toplam dosya adedi ve bayt boyutu bulunur.
-//!
-//! 2. **Zip-Slip / Path Traversal Saldırı Önleme Kalkanı:**
-//!    Zararlı hazırlanmış bir arşiv içindeki dosya isimleri `../../etc/shadow` veya
-//!    `/root/.bashrc` gibi göreli/mutlak yollar içerebilir. Amele, arşiv açılırken
-//!    `Component::ParentDir` (`..`) ve `Component::RootDir` (`/`) girdilerini
-//!    sıkı bir şekilde filtreler; `dest.starts_with(&case_dir)` kontrolüyle
-//!    dosyaların vaka sınırları dışına sızmasını kesinlikle engeller.
-//!
-//! 3. **Sidecar SHA-256 ve Çift Geçişli Doğrulama:**
-//!    Paket üretildiğinde `<vaka>.amelecase.sha256` dosyası oluşturulur.
-//!    İçe aktarma sırasında arşiv açılmadan önce paket bütünlüğü test edilir,
-//!    çıkarılan her dosyanın manifest hash'iyle eşleşip eşleşmediği denetlenir.
-//! ============================================================================
+//! Adli vaka paketleme ve arşivleme modülü.
+//! Alınan tüm imajları, bellek dökümlerini, logları ve raporu tek bir şifreli
+//! veya sıkıştırılmış vaka paketi (case bundle) haline getirir.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::evidence::EvidenceVault;

@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # UZMAN PROFİLİ VE LİSANS APİ'Sİ (src/api/profile.rs)
-//! ============================================================================
-//!
-//! 1. Profil Servisleri: Uzman profili seçimi, yeni profil oluşturma ve yetki doğrulama uç noktaları.
-//! ============================================================================
+//! Operasyon profilleri API uç noktası.
+//! Kayıtlı edinim profillerini listeler, yeni profil kaydeder veya siler.
+
 use serde::Deserialize;
 use serde_json::json;
 

@@ -1,9 +1,7 @@
-// ============================================================================
-// # DOCKER ARACI ÖN YÜZ GİRİŞ NOKTASI (ui/tools/docker/index.js)
-// ============================================================================
-//
-// 1. Modül Yönlendiricisi: Docker araç sayfasının rota ve aksiyon yönetimini üstlenir.
-// ============================================================================
+// Docker araçları arayüz bileşeni.
+// Konteyner katmanlarını inceleme ve disk alanı kullanımını sorgulama
+// fonksiyonlarını barındırır.
+
 // Docker ve Konteyner Adli Bilişimi Arayüz Modülü
 import { showToast } from "../../core/toast.js";
 

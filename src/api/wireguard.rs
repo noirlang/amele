@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # WIREGUARD VPN TÜNEL APİ'Sİ (src/api/wireguard.rs)
-//! ============================================================================
-//!
-//! 1. VPN Servisleri: Güvenli uzaktan adli veri aktarımı için WireGuard tünel yapılandırma servisleri.
-//! ============================================================================
+//! WireGuard VPN yapılandırma API uç noktası.
+//! Adli tünel yapılandırmalarını oluşturur ve bağlantıyı açıp kapatır.
+
 use super::wireguard_manager;
 use crate::server::{Response, json_error, json_ok};
 use crate::wireguard::{self, WireGuardConfig, WireGuardManager};

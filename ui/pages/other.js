@@ -1,9 +1,7 @@
-// ============================================================================
-// # AYARLAR, HAKKINDA VE HASH HESAPLAMA SAYFASI (ui/pages/other.js)
-// ============================================================================
-//
-// 1. Ek Paneller: Kriptografik hash hesaplama paneli, sistem ayarları ve katkıda bulunanlar ekranıdır.
-// ============================================================================
+// Diğer adli araçlar ve harici edinim modülleri.
+// Ağ trafiği dökümü (pcap), WireGuard tünelleme ve uzak adli ajan (agent) bağlantıları
+// buradan yönetilir.
+
 export function otherPage({ t, icon, state, pageTitle, pickerField, field, escapeHtml, caseSelectOptions, detailPanel }) {
   return `
     <section class="page">
