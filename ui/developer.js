@@ -786,10 +786,15 @@ function _installApiInterceptor(apiRequest, backendReady) {
       return response;
     } catch (err) {
       const duration = performance.now() - t0;
-      const msg = `${method} ${url} → HATA [${duration.toFixed(0)}ms]: ${err.message}`;
-      const entry = _makeFrontendEntry("ERROR", "api", msg, { error: err.message, duration_ms: duration.toFixed(0) });
+      const isAbort = err?.name === "AbortError" || String(err?.message || "").toLowerCase().includes("abort");
+      const isInternalApi = url.startsWith("/api/");
+      const msg = `${method} ${url} → ${isAbort ? "IPTAL / ZAMAN ASIMI" : "HATA"} [${duration.toFixed(0)}ms]: ${err.message}`;
+      const entry = _makeFrontendEntry(isAbort ? "WARN" : "ERROR", "api", msg, { error: err.message, duration_ms: duration.toFixed(0) });
       _appendLog(entry);
-      _sendToBackend("ERROR", "ui:api", msg, apiRequest, backendReady);
+      // Sadece dahili backend API istekleri ve iptal dışındaki hatalar backend loglarına iletilir
+      if (isInternalApi && !isAbort) {
+        _sendToBackend("ERROR", "ui:api", msg, apiRequest, backendReady);
+      }
       _refreshIfOpen();
       throw err;
     }

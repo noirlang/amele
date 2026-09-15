@@ -47,16 +47,20 @@ export function homePage({ t, icon, assetPath, theme, state }) {
       } else if (item.url && typeof item.url === "string" && item.url.trim()) {
         targetUrl = item.url.trim();
       } else if (item.slug && typeof item.slug === "string" && item.slug.trim()) {
-        targetUrl = `https://amele.noirlang.tr/announcements/${encodeURIComponent(item.slug.trim())}`;
+        targetUrl = `https://amele.noirlang.tr/news/${encodeURIComponent(item.slug.trim())}`;
       } else if (item.id && item.id !== "default" && typeof item.id === "string" && item.id.trim()) {
-        targetUrl = `https://amele.noirlang.tr/announcements/${encodeURIComponent(item.id.trim())}`;
+        targetUrl = `https://amele.noirlang.tr/news/${encodeURIComponent(item.id.trim())}`;
       } else if (hasNews) {
-        targetUrl = "https://amele.noirlang.tr/announcements";
+        targetUrl = "https://amele.noirlang.tr/news";
       } else {
         targetUrl = "https://amele.noirlang.tr";
       }
       if (targetUrl.startsWith("/")) {
         targetUrl = `https://amele.noirlang.tr${targetUrl}`;
+      }
+      targetUrl = targetUrl.replace("/announcements/", "/news/");
+      if (targetUrl.endsWith("/announcements")) {
+        targetUrl = targetUrl.replace(/\/announcements$/, "/news");
       }
 
       const openTooltip = isEn ? "Open announcement in browser" : "Duyuruyu tarayıcıda aç";

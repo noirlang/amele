@@ -40,7 +40,7 @@ export async function fetchNewsAnnouncements(apiBaseUrl = "https://amele.noirlan
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4500);
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
     const res = await fetch(`${apiBaseUrl}/api/announcements`, { signal: controller.signal });
     clearTimeout(timeoutId);
     if (res.ok) {
@@ -114,8 +114,18 @@ export function createApiRequest({ backendAvailable }) {
       throw new Error(msg);
     }
 
-    // Başarılı ama yavaş istekleri WARN olarak logla (>2000ms)
-    if (parseFloat(elapsed) > 2000) {
+    // Başarılı ama yavaş istekleri WARN olarak logla
+    // İnternet üzerinden çalışan senkronizasyon/güncelleme uç noktaları yavaş bağlantıda
+    // doğal olarak süre alabilir; kullanıcıyı gereksiz yere uyarmamak için eşiği yüksek tutuyoruz.
+    const isNetworkOrHeavyEndpoint =
+      path.includes("online") ||
+      path.includes("update") ||
+      path.includes("download") ||
+      path.includes("sync") ||
+      path.includes("tools-install");
+    const slowThreshold = isNetworkOrHeavyEndpoint ? 30000 : 8000;
+
+    if (parseFloat(elapsed) > slowThreshold) {
       _reportToDevLog(
         "WARN",
         `ui:api:slow`,
