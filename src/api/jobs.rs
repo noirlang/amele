@@ -1,5 +1,4 @@
-//! Arka plan görevleri durum takip API uç noktası.
-//! Devam eden tüm işlemlerin anlık yüzdesini, okuma hızını ve tamamlanma durumunu JSON olarak döner.
+//! arkadaki işlerin durumunu ve hızını dönen api rotası.
 
 use serde_json::Value;
 use std::collections::HashMap;

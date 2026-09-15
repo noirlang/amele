@@ -1,6 +1,4 @@
-//! Ağ üzerindeki (Wi-Fi/TCP) Android cihazlarla haberleşme.
-//! Kablo yerine adb connect ile kablosuz ağdaki hedef telefona bağlanıp
-//! adli işlemleri yürütür.
+//! wifi üzerinden tcp adb ile uzaktaki android cihaza bağlanan kısım.
 
 use super::adb::run_adb_command_timeout;
 use serde::{Deserialize, Serialize};

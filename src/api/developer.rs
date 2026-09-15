@@ -1,5 +1,4 @@
-//! Geliştirici konsolu ve iç durum API uç noktası.
-//! Canlı log akışı (SSE), bellek kullanım istatistikleri ve hata ayıklama verilerini döndürür.
+//! geliştirici konsolu canlı log akışı ve durum api rotası.
 
 use serde::Deserialize;
 use serde_json::{Value, json};

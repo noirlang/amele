@@ -1,6 +1,4 @@
-// Rust arka planıyla haberleşen HTTP istemcisi (fetch wrapper).
-// GET, POST ve SSE (Server-Sent Events) isteklerini tek merkezden yönetir, hata durumlarında
-// kullanıcıya düzgün hata mesajları döndürür.
+// rust backendine istek atan fetch fonksiyonu. get post isteklerini yönetiyo.
 
 import { explainErrorMessage } from "./errors.js";
 

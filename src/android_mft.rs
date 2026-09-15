@@ -1,6 +1,4 @@
-//! Android cihazlarda dosya ağacı ve metadata çıkarma orkestratörü.
-//! Sistemdeki tüm dosya ve dizinlerin izinlerini, erişim ve değiştirilme tarihlerini
-//! MFT benzeri kronolojik bir tabloya dönüştürür.
+//! android cihazdaki dosya listesini ve tarihlerini mft gibi tabloya döken yer.
 
 mod bundle;
 mod format;

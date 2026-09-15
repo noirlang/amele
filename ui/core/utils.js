@@ -1,6 +1,4 @@
-// Genel yardımcı fonksiyonlar deposu.
-// Bayt boyutlarını (MB, GB) formatlama, zaman damgası hesaplama, metin filtreleme ve
-// DOM manipülasyonu gibi sık tekrar eden ufak işleri burada topladık.
+// boyut formatlama, tarih saat çevirme gibi ufak tefek yardımcı fonksiyonlar.
 
 export function timestampForFileName(date = new Date()) {
   const pad = (value) => String(value).padStart(2, "0");

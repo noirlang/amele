@@ -1,6 +1,4 @@
-//! Android edinim profilleri yapılandırması.
-//! Sadece İletişim, Tam Mantıksal veya Uygulama Verileri gibi filtreleme
-//! şablonlarını yönetir.
+//! telefonun modelini, android sürümünü ve root durumunu çeken kısım.
 
 use super::adb::{first_non_empty, run_adb_command, run_adb_command_timeout};
 use serde::Serialize;

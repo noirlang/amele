@@ -1,6 +1,4 @@
-//! Gömülü REST API yönlendiricisi.
-//! JavaScript ön yüzünden gelen HTTP GET ve POST isteklerini URL desenine göre
-//! ilgili servis fonksiyonuna yönlendirir.
+//! frontendden gelen http get ve post isteklerini ilgili fonksiyona yollayan yönlendirici.
 
 use crate::server::{Response, json_error, json_ok};
 

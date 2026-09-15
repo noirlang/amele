@@ -1,6 +1,4 @@
-//! Amele adli bilişim kütüphanesinin ana modül haritası.
-//! Disk, RAM, Android, iOS, Docker edinim modüllerini, analiz motorlarını ve
-//! yardımcı servisleri burada toplayıp dışa aktarıyoruz.
+//! kütüphanenin ana modül haritası. disk, ram, mobil, analiz gibi modülleri dışarı açıyo.
 
 pub mod android;
 pub mod android_analysis;

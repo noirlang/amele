@@ -1,6 +1,4 @@
-// iOS adli araçlar bileşeni.
-// Cihaz eşleştirme (pairing), aktivasyon durumu sorgulama ve kilitli cihaz
-// tanı araçlarını yönetir.
+// ios cihaz araçları bileşeni.
 
 export function iosPage({ t, icon, pageTitle, state, escapeHtml, backendReady, casePanel, field }) {
   const ios = state.ios || {};

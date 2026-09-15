@@ -1,5 +1,4 @@
-//! Android işlemleri için REST API uç noktaları.
-//! Cihaz listeleme, yedek alma ve analiz isteklerini karşılayıp android çekirdeğine iletir.
+//! android cihaz listeleme ve yedek alma api rotaları.
 
 use crate::android;
 use crate::android_analysis;

@@ -1,6 +1,4 @@
-//! Platforma özel yerel pencere açma modülü.
-//! Sistemde kurulu Chromium, Chrome veya Edge'i kiosk modunda (adres çubuğu olmadan)
-//! çalıştırarak kullanıcıya masaüstü uygulama deneyimi sunuyoruz.
+//! chromium veya edge'i kiosk modunda açıp masaüstü penceresi gibi gösteren kısım.
 
 #[cfg(target_os = "linux")]
 /// Linux WebKit/GTK ortam değişkenlerini hazırlar.

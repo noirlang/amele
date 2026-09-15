@@ -1,8 +1,4 @@
-//! Uygulamanın ana giriş kapısı (main).
-//! Kullanıcı terminalden parametresiz çalıştırırsa gömülü HTTP sunucusunu ve pencereyi açıyoruz.
-//! Eğer parametre verilirse (disk, ram, android, docker vb.) arayüze hiç bulaşmadan
-//! doğrudan terminalden adli kopyalama ve analizleri headless çalıştırıyoruz.
-//! Hata durumlarında script'ler düzgün yakalayabilsin diye standart exit kodları dönüyoruz.
+//! cli ana giriş noktası. parametresiz çalışınca web sunucusunu ve pencereyi açıyo, parametre gelirse direkt terminalden headless hallediyo.
 
 #![cfg_attr(
     all(target_os = "windows", not(debug_assertions)),

@@ -1,5 +1,4 @@
-//! Uygulama ayarları API uç noktası.
-//! Dil, tema, varsayılan kayıt dizinleri gibi ayarları okuma ve güncelleme isteklerini işler.
+//! uygulama ayarlarını okuma ve kaydetme api rotaları.
 
 use serde::Deserialize;
 use serde_json::json;

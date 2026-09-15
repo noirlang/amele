@@ -1,6 +1,4 @@
-//! Kök seviyesindeki HTTP istek yönlendiricisi.
-//! Gelen istekleri statik UI dosyaları mı yoksa /api altındaki bir servis mi diye
-//! ayırıp ilgili işleyiciye (handler) teslim eder.
+//! istekleri ui dosyalarına veya api rotalarına dağıtan ana yönlendirici.
 
 use crate::api;
 use crate::server::{self, Response};

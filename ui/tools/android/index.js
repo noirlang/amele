@@ -1,6 +1,4 @@
-// Android adli araçlar bileşeni.
-// ADB komutlarını arayüzden tetikleyip cihaz bilgisi alma, logcat dökümü ve
-// uygulama yedekleme işlemlerini kontrol eder.
+// android edinim araçları bileşeni.
 
 export function androidPage({ t, icon, pageTitle, state, escapeHtml, backendReady }) {
   // TODO: Enable physical acquisition card, implement EDL/BROM device scan dropdown and physical image trigger

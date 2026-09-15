@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# GitHub Actions CI ortamında otomatik Linux paketlerini derleyen betik.
-# Ortamda fpm, dpkg-deb veya rpmbuild araçlarının durumunu kontrol edip sanal sunucuda
-# otomatik paketleme ve artifact üretimini yönetiyor.
+# ci tarafında linux paketlerini otomatik derleyen script.
 
 set -euo pipefail
 

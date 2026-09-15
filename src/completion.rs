@@ -1,6 +1,4 @@
-//! Terminal otomatik tamamlama (autocomplete) üreteci.
-//! Bash, Zsh ve PowerShell için amele CLI komut ve bayraklarını tamamlayan script'leri
-//! otomatik üretir.
+//! bash zsh powershell için otomatik komut tamamlama scriptleri üretiyo.
 
 /// Bash otomatik tamamlama betiğini üretir.
 pub fn generate_bash_completion() -> &'static str {

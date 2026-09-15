@@ -1,8 +1,5 @@
-// Docker araçları arayüz bileşeni.
-// Konteyner katmanlarını inceleme ve disk alanı kullanımını sorgulama
-// fonksiyonlarını barındırır.
+// docker araçları bileşeni.
 
-// Docker ve Konteyner Adli Bilişimi Arayüz Modülü
 import { showToast } from "../../core/toast.js";
 
 export const dockerState = {

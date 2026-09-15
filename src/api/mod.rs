@@ -1,5 +1,4 @@
-//! REST API katmanının ana modül kütüğü.
-//! Frontend'in istek attığı tüm alt API modüllerini burada toplayıp router'a bağlar.
+//! bütün api modüllerini toplayıp dışa aktaran kütük.
 
 pub mod acquisition_control;
 pub mod android;

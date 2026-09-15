@@ -1,6 +1,4 @@
-//! API işleyicileri için ortak yardımcı fonksiyonlar.
-//! JSON yanıtları oluşturma, HTTP başlıkları ekleme ve istek gövdesini (body)
-//! güvenli okuma rutinlerini barındırır.
+//! json yanıt üretme ve istek gövdesini okuma yardımcıları.
 
 use chrono::Local;
 use serde_json::{Value, json};

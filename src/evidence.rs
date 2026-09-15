@@ -1,6 +1,4 @@
-//! Adli delil kasası ve metadata yöneticisi.
-//! Toplanan imajların hash değerlerini, operatör bilgilerini, tarih-saat kayıtlarını
-//! ve donanım seri numaralarını adli raporla ilişkilendirir.
+//! delil kasası ve vaka klasörü yönetimi. toplanan delilleri hashleyip kaydediyo.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::hash::{HashAlgorithm, calculate_file_hash};

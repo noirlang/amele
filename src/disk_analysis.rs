@@ -1,6 +1,4 @@
-//! Alınan disk imajları üzerinde ön analiz yapan modül.
-//! Bölüntü tablosunu (MBR/GPT) ayrıştırır, dosya sistemlerini (NTFS, EXT4, FAT) tanır ve
-//! önemli sistem dosyalarını hızlıca tarar.
+//! alınan disk imajındaki mbr gpt bölüntülerini ve dosya sistemlerini inceleyen kısım.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

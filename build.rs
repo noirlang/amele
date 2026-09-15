@@ -1,7 +1,4 @@
-//! Derleme aşamasında çalışan hazırlık dosyası.
-//! Arayüz (UI) dosyalarını tek tek okuyup Rust koduna gömülü bayt (include_bytes!)
-//! olarak ekliyoruz ki program tek bir binary halinde taşınabilsin, dışarıdan HTML/JS
-//! aramak zorunda kalmasın. Windows tarafında da uygulama simgesi ve manifest derliyoruz.
+//! ui dosyalarını include_bytes ile binary içine gömüyo tek dosya çalışsın diye. windows simge ve manifesti de burda.
 
 fn main() {
     generate_embedded_ui_assets();

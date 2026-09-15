@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# Linux için tek dosyada çalışan AppImage paketi üretme betiği.
-# Tüm bağımlılıkları ve binary dosyasını AppDir içine toplayıp appimagetool ile paketliyoruz.
-# Böylece kullanıcı hangi Linux dağıtımını kullanırsa kullansın kurulumla uğraşmadan direkt açabiliyor.
+# linux için appimage paketi yapan script. binary ve gereken şeyleri toplayıp tek dosya haline getiriyo.
 
 set -euo pipefail
 

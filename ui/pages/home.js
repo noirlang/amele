@@ -1,6 +1,4 @@
-// Ana gösterge paneli (dashboard).
-// Sistemin genel durumu, hızlı edinim başlatma butonları, son görevler ve duyuruların
-// yer aldığı başlangıç sayfası.
+// ana dashboard ekranı. sistem durumu, haberler ve hızlı edinim butonları burda.
 
 export function homePage({ t, icon, assetPath, theme, state }) {
   const logoFile = "amele.png";

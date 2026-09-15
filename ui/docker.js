@@ -1,5 +1,3 @@
-// Docker adli inceleme sayfası ön yüz mantığı.
-// Sistemdeki aktif konteynerleri, volumeleri ve imajları listeleyip tek tıkla adli tar/raw
-// kopyasını alma işlemlerini koordine eder.
+// docker adli inceleme ekranı. konteyner ve imageleri listeleyip kopyalama başlatıyo.
 
 export * from "./tools/docker/index.js";

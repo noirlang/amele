@@ -1,6 +1,4 @@
-//! Bağlanan (mount edilen) adli imajları izleme modülü.
-//! İnceleme amacıyla read-only olarak bağlanan disk veya partition'ları takip eder,
-//! program kapanırken arkada açık bağlama noktası bırakmamak için temizlik yapar.
+//! inceleme için salt-okunur bağlanan disk imajlarını takip edip kapanışta temizliyo.
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

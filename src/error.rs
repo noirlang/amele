@@ -1,6 +1,4 @@
-//! Hata türleri ve hata dönüşüm tanımları.
-//! Sistem genelindeki I/O, ağ, format ve izin hatalarını tek bir standart hata
-//! numaralandırmasında (enum) toplayıp HTTP/CLI yanıtlarına dönüştürüyoruz.
+//! uygulama genelindeki hata kodları ve tipleri.
 
 use chrono::Local;
 use serde::{Deserialize, Serialize};

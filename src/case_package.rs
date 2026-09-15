@@ -1,6 +1,4 @@
-//! Adli vaka paketleme ve arşivleme modülü.
-//! Alınan tüm imajları, bellek dökümlerini, logları ve raporu tek bir şifreli
-//! veya sıkıştırılmış vaka paketi (case bundle) haline getirir.
+//! vaka klasörünü tar.gz olarak paketleyip dışa/içe aktaran yer.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::evidence::EvidenceVault;

@@ -1,6 +1,4 @@
-//! Cihaz yetenek ve erişim seviyesi kontrolü.
-//! Bağlı telefonun rootlu olup olmadığını, SELinux durumunu ve yedekleme (backup)
-//! izinlerini denetler.
+//! cihazın rootlu olup olmadığını ve yeteneklerini denetleyen modül.
 
 use super::adb::run_adb_command_timeout;
 use super::profile::AndroidDeviceProfile;

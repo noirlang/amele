@@ -1,6 +1,4 @@
-//! Arka plan görev kuyruğu ve ilerleme durumu takipçisi.
-//! Disk imajı alma veya RAM kopyalama gibi uzun süren işleri thread havuzunda koşturup
-//! anlık yüzdelerini ve hızlarını thread-safe olarak hafızada tutuyoruz.
+//! arkada çalışan kopyalama ve analiz işlerinin sırası ve ilerleme durumu.
 
 use crate::logging::Logger;
 use chrono::{DateTime, Local};

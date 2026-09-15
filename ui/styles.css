@@ -1,8 +1,4 @@
-/*
- * Ön yüzün ana stil giriş noktası.
- * Tüm modüler CSS dosyalarını (base, analysis, developer, docker vb.) tek çatıda topluyoruz
- * ki HTML tarafında onlarca link etiketi yerine tek bir dosya çağıralım.
- */
+/* tüm css dosyalarını tek yerde toplayan ana stil dosyası. */
 
 @import "./styles/base.css";
 @import "./styles/analysis.css";

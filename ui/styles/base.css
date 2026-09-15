@@ -1,8 +1,4 @@
-/*
- * Temel tasarım şablonu, renk paleti ve genel CSS kuralları.
- * Karanlık (dark) ve aydınlık (light) tema değişkenleri, buton stilleri, grid ve flex
- * yerleşim düzenlerini burada tanımlıyoruz.
- */
+/* genel tema stilleri, koyu açık tema renkleri ve buton yerleşimleri. */
 
 :root {
   color-scheme: dark;

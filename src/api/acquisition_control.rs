@@ -1,6 +1,4 @@
-//! Adli kopyalama başlatma/durdurma uç noktası.
-//! Frontend'den gelen disk/ram edinim emirlerini alır, arka plan görevini başlatıp
-//! durum takibi için görev ID'si döner.
+//! disk ve ram kopyalama başlatma durdurma api uç noktası.
 
 use serde::Deserialize;
 use serde_json::json;

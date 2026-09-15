@@ -1,5 +1,4 @@
-//! Sistem bilgisi ve donanım API uç noktası.
-//! İşletim sistemi sürümü, CPU/RAM bilgileri ve root/admin yetki durumunu döndürür.
+//! işletim sistemi bilgisi ve yetki durumunu dönen api rotası.
 
 use chrono::Local;
 use serde::Deserialize;

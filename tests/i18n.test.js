@@ -1,6 +1,4 @@
-// Türkçe ve İngilizce dil dosyalarının bütünlük testi.
-// Yeni bir metin eklediğimizde iki dilden birinde eksik anahtar (key) unutulmuş mu
-// veya format parametreleri ({count}, {path} vb.) uyuşuyor mu diye kontrol ediyoruz.
+// türkçe ve ingilizce çevirilerde eksik anahtar var mı diye bakan test.
 
 import test from "node:test";
 import assert from "node:assert";

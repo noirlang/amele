@@ -1,7 +1,4 @@
-//! Dahili HTTP sunucusu ve pencere yöneticisi.
-//! Neden Actix/Axum gibi büyük kütüphaneler kullanmadık: Dış bağımlılıkları sıfırlamak
-//! ve binary boyutunu ufak tutmak istedik. Standart TcpListener ile kendi hafif HTTP
-//! sunucumuzu ayağa kaldırıp ardından Chromium/tarayıcıyı başlatıyoruz.
+//! gömülü http sunucusu ve pencere açıcı. actix axum kullanmadık şişmesin diye, standart tcplistener ile hafif bi router kurduk sonra chromium penceresini açıyo.
 
 use crate::router;
 use std::io::{BufRead, BufReader, Read, Write};

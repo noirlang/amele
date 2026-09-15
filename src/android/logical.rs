@@ -1,6 +1,4 @@
-//! Mantıksal (logical) Android yedekleme yöneticisi.
-//! adb backup ve content provider sorguları üzerinden kullanıcı verilerini
-//! cihazı rootlamadan çeker.
+//! adb backup ve content provider ile rootsuz mantıksal veri çeken kısım.
 
 use super::adb::{
     first_non_empty, run_adb_command, run_adb_command_timeout, run_adb_file_command,

@@ -1,6 +1,4 @@
-// İşletim sistemi ve çevre algılama modülü.
-// Arayüzün Linux üzerinde mi Windows üzerinde mi çalıştığını, Chromium kiosk modunda mı
-// yoksa normal tarayıcıda mı açıldığını tespit eder.
+// sistemin linux mu windows mu olduğunu ve tarayıcı tipini anlayan modül.
 
 export function detectPlatform() {
   const override = typeof window !== "undefined" && window.location ? new URLSearchParams(window.location.search).get("platform") : null;

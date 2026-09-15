@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# Debian/Ubuntu (.deb) ve RedHat/Fedora (.rpm) paketlerini üreten betik.
-# Derlenen ikili dosyayı, masaüstü kısayolunu ve logoyu sistem dizinlerine (/usr/bin vb.)
-# uygun şekilde yerleştirip dpkg-deb ve rpmbuild ile paketler haline getiriyoruz.
+# deb ve rpm paketlerini derleyen script. dosyaları sistem dizinlerine yerleştirip paket haline getiriyo.
 
 set -euo pipefail
 

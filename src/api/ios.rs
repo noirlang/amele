@@ -1,5 +1,4 @@
-//! iOS adli operasyonları API uç noktası.
-//! Bağlı iPhone cihazları sorgulama ve yedek çıkarma isteklerini yönetir.
+//! ios cihaz yedekleme api rotası.
 
 use crate::api::{
     append_acquisition_log, create_acquisition_job, evidence_vault_for_output,

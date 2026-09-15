@@ -1,6 +1,4 @@
-//! Android işlemlerine özel hata tanımları.
-//! Kablo temassızlığı, USB hata ayıklama kapalı veya yetki reddi gibi Android
-//! kaynaklı sorunları anlaşılır hata mesajlarına dönüştürür.
+//! android adb hatalarını anlaşılır metinlere çeviriyo.
 
 use serde::Serialize;
 

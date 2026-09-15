@@ -1,6 +1,4 @@
-// Adli operasyon iş akışlarını (wizard) yöneten mantık.
-// Olay yeri ilk müdahale, delil toplama ve hash doğrulama adımlarını kullanıcıya
-// sıralı bir rehber şeklinde adım adım işletir.
+// olay yeri müdahale ve delil toplama sihirbazı adımları.
 
 function L(tr, en) {
   return { tr, en };

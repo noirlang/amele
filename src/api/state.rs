@@ -1,6 +1,4 @@
-//! API durum ve paylaşılan bellek yöneticisi.
-//! Aktif görevler, sistem ayarları ve donanım kilitleri gibi thread-safe
-//! durumları tüm isteklerin erişimine sunar.
+//! aktif görevler ve paylaşılan durum nesneleri.
 
 use crate::server::{Response, json_error};
 use chrono::Local;

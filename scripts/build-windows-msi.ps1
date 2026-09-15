@@ -1,6 +1,4 @@
-# Windows için MSI kurulum paketi (installer) oluşturan PowerShell betiği.
-# WiX Toolset ile amele binary'sini, sürücüleri ve servis kısayollarını paketleyip
-# Windows ortamına standart kurulum sihirbazı oluşturuyoruz.
+# windows için msi kurulum dosyası oluşturan powershell scripti.
 
 param(
     [string]$OutputPath = ""

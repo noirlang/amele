@@ -1,6 +1,4 @@
-//! Android adli edinim oturum yöneticisi.
-//! İşlem süresince cihaz durumunu, çekilen dosya sayısını ve harcanan zamanı
-//! oturum bazında kayıt altında tutar.
+//! android edinim oturumu ve transfer tipi yöneticisi.
 
 use super::adb::run_adb_command_timeout;
 use super::profile::AndroidDeviceProfile;

@@ -1,6 +1,4 @@
-//! Güvenli kabuk (SSH) adli tünel modülü.
-//! Uzak makineye bağlanıp yerel diski hedef makineye dokunmadan ağ üzerinden
-//! doğrudan analiz makinesine kopyalamamızı sağlar (disksiz/ramsız edinim).
+//! ssh tüneliyle uzaktaki makinenin diskini ve ramini ağ üzerinden çeken modül.
 
 use std::fs::{self, File};
 use std::io::{Read, Write};

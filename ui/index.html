@@ -1,8 +1,4 @@
-<!--
-  Uygulamanın tek sayfa (SPA) HTML kabuğu.
-  Masaüstü uygulama hissi vermek için gereksiz tarayıcı kısayollarını ve bağlam menülerini
-  burada engelliyoruz. Bütün sayfalar ve modüller JavaScript tarafında dinamik yükleniyor.
--->
+<!-- ana html kabuğu. masaüstü hissi versin diye sağ tık f12 falan engelli, sayfalar js ile dinamik basılıyo. -->
 
 <!doctype html>
 <html lang="tr" class="notranslate" translate="no">
@@ -14,7 +10,7 @@
     <link rel="icon" type="image/png" href="./assets/logo/icon.png" />
     <link rel="stylesheet" href="./styles.css" />
     <script>
-      // Native masaüstü penceresi deneyimi: Tarayıcı sağ tık menüsünü ve geliştirici araçlarını engelle
+      // masaüstü gibi dursun diye sağ tık ve devtools kısayollarını kapatıyoruz
       const isDebug = new URLSearchParams(window.location.search).get("debug") === "1";
       if (!isDebug) {
         window.addEventListener("contextmenu", (e) => {
@@ -24,12 +20,12 @@
           const isMac = /mac/i.test(navigator.platform);
           const modKey = isMac ? e.metaKey : e.ctrlKey;
 
-          // F5 ve Ctrl+R sayfa yenilemelerini engelle
+          // f5 ve ctrl+r engelle
           if (e.key === "F5" || (modKey && (e.key === "r" || e.key === "R"))) {
             e.preventDefault();
           }
 
-          // F12 ve DevTools / Kaynak görüntüleme kısayollarını engelle
+          // f12 engelle
           if (e.key === "F12") {
             e.preventDefault();
             e.stopPropagation();

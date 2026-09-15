@@ -1,6 +1,4 @@
-//! WireGuard güvenli tünel ve VPN yöneticisi.
-//! Uzak saha operasyonlarında delil verisinin şifreli ve izole bir adli ağ
-//! üzerinden merkeze aktarılmasını sağlar.
+//! uzak saha incelemelerinde güvenli vpn tüneli kuran yer.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::logging::{LogLevel, runtime_log};

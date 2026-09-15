@@ -1,6 +1,4 @@
-//! Alınan bellek dökümleri üzerinde hızlı string ve profil analizi.
-//! Bellek içindeki IP adreslerini, e-posta kalıplarını, URL'leri ve açık bağlantıları
-//! regex taramasıyla hızlıca ayıklar.
+//! alınan bellek dökümü içinde ip url mail falan arayan hızlı string analizcisi.
 
 use regex::bytes::Regex;
 use serde::{Deserialize, Serialize};

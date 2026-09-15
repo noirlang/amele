@@ -1,6 +1,4 @@
-// Çoklu dil (Türkçe/İngilizce) motorumuz.
-// Arayüzdeki tüm metinleri seçilen dile göre dinamik günceller, eksik çevirilerde
-// otomatik olarak ana dile düşerek arayüzün boş kalmasını engeller.
+// dil değiştirme motoru. tr ve en metinleri seçilen dile göre güncelliyo.
 
 export const translations = {
   tr: {

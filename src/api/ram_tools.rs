@@ -1,5 +1,4 @@
-//! Bellek yardımcı araçları API uç noktası.
-//! LiME veya WinPmem sürücülerinin sisteme yüklenip kaldırılmasını yönetir.
+//! lime ve winpmem sürücü kurulum api rotası.
 
 use serde_json::{Value, json};
 use std::fs;

@@ -1,6 +1,4 @@
-//! Android dosya metadata paketleyici.
-//! Toplanan tüm dosya özniteliklerini tek bir arşiv ve indeks dosyası halinde
-//! vaka klasörüne kaydeder.
+//! dosya listesi ve metadata kayıtlarını arşivleyen paketleyici.
 
 use super::format::{Field, MftBundleInfo, Record, RecordType, RecordWriter};
 use super::outputs::sha256_file;

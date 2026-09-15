@@ -1,6 +1,4 @@
-//! Uygulama genel ayarlarını yöneten modül.
-//! Hash algoritmaları, varsayılan kayıt yolları, dil ve tema tercihlerini
-//! JSON dosyasına kaydedip oradan okuyoruz.
+//! uygulama ayarlarını json dosyasında saklayıp okuyan yer.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use serde::{Deserialize, Serialize};

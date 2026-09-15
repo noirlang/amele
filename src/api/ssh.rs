@@ -1,5 +1,4 @@
-//! Uzak SSH adli edinim API uç noktası.
-//! SSH bağlantı parametrelerini alıp uzak makineden veri akışını başlatır.
+//! uzak ssh adli kopyalama api rotaları.
 
 use std::path::PathBuf;
 use std::thread;

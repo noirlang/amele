@@ -1,6 +1,4 @@
-// Bildirim ve toast mesajı yöneticisi.
-// İşlem başladığında, tamamlandığında veya hata oluştuğunda ekranın köşesinde
-// geçici bilgi kutucukları çıkarır.
+// ekranın köşesinde çıkan toast bildirim kutuları.
 
 import { normalizeErrorMessage } from "./errors.js";
 

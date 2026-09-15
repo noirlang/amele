@@ -1,5 +1,4 @@
-//! Docker adli işlemleri API uç noktası.
-//! Konteyner listesi, imaj kopyalama ve volumeleri tarama isteklerini Docker motoruna aktarır.
+//! docker konteyner ve imaj kopyalama api rotaları.
 
 use chrono::Local;
 use serde::Deserialize;

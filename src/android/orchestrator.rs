@@ -1,6 +1,4 @@
-//! Android edinim adımlarını sıralayan ana mantık.
-//! Yetenek kontrolünden başlayıp veri çekme ve raporlamaya kadar olan süreci
-//! otomatik bir akış halinde yürütür.
+//! android edinim sırasını baştan sona yöneten ana akış.
 
 use super::capability::write_android_capability_report;
 use super::manifest::{
