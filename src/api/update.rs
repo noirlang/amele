@@ -82,6 +82,8 @@ pub fn update_check_endpoint() -> Response {
         .arg("--fail")
         .arg("--silent")
         .arg("--show-error")
+        .arg("--max-time")
+        .arg("30")
         .arg("https://api.github.com/repos/noirlang/amele/releases/latest")
         .output();
     let output = match output {

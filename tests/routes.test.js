@@ -102,7 +102,7 @@ test("Frontend Routing and Module Health", async (t) => {
     });
     assert.ok(rendered.includes("news-link-btn"), "news-link-btn should be rendered beside news title");
     assert.ok(rendered.includes("data-news-link"), "data-news-link attribute should be present");
-    assert.ok(rendered.includes("amele.noirlang.tr/announcements/amele-v0-0-19"), "link should point to announcement url");
+    assert.ok(rendered.includes("amele.noirlang.tr/news/amele-v0-0-19"), "link should point to news url");
   });
 
   await t.test("app.js initializes and executes without crashing", async () => {

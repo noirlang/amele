@@ -2669,7 +2669,7 @@ async function handleAction(button) {
       }
       if (!result || (!result.tag_name && !result.name)) {
         const controller = new AbortController();
-        const tid = setTimeout(() => controller.abort(), 7000);
+        const tid = setTimeout(() => controller.abort(), 25000);
         const res = await fetch(
           "https://api.github.com/repos/noirlang/amele/releases/latest",
           { signal: controller.signal, headers: { Accept: "application/vnd.github+json" } }
@@ -2737,7 +2737,7 @@ async function handleAction(button) {
       }
       if (!result || (!result.tag_name && !result.name)) {
         const controller = new AbortController();
-        const tid = setTimeout(() => controller.abort(), 7000);
+        const tid = setTimeout(() => controller.abort(), 25000);
         const res = await fetch(
           "https://api.github.com/repos/noirlang/amele/releases/latest",
           { signal: controller.signal, headers: { Accept: "application/vnd.github+json" } }
@@ -4544,7 +4544,7 @@ async function checkForUpdates() {
 
   try {
     const controller = new AbortController();
-    const tid = setTimeout(() => controller.abort(), 6000);
+    const tid = setTimeout(() => controller.abort(), 25000);
     const res = await fetch(
       "https://api.github.com/repos/noirlang/amele/releases/latest",
       { signal: controller.signal, headers: { Accept: "application/vnd.github+json" } }

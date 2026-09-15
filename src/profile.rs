@@ -1248,7 +1248,7 @@ struct OnlineJsonResponse {
 
 fn online_agent() -> ureq::Agent {
     ureq::AgentBuilder::new()
-        .timeout(Duration::from_secs(20))
+        .timeout(Duration::from_secs(35))
         .build()
 }
 
