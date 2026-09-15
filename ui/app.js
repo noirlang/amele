@@ -1,32 +1,6 @@
-// ============================================================================
-// # AMELE FORENSIC TOOL - KULLANICI ARAYÜZÜ (UI) ANA KONTROLCÜSÜ (ui/app.js)
-// ============================================================================
-//
-// Bu dosya, Amele'nin masaüstü ve web tabanlı tek sayfa uygulamasının (SPA - Single
-// Page Application) ana orkestrasyon motorudur.
-//
-// ## 🖥️ ÖN YÜZ MİMARİSİ VE ÇALIŞMA DÜZENİ:
-//
-// 1. **Framework'süz Vanilla ES Modül Yapısı:**
-//    React, Vue veya Angular gibi ağır kütüphaneler yerine; sıfır derleme adımı
-//    (zero-build runtime) gerektiren yerel JavaScript ES modülleri kullanılmıştır.
-//    Böylece arayüz doğrudan Chromium ve WebKitGTK motorlarında 120 FPS hızında çalışır.
-//
-// 2. **Merkezi Reaktif State Yönetimi (`state`):**
-//    Aktif rota, tema (dark/light), dil (tr/en), seçili vaka (`activeCase`),
-//    çalışan adli edinim görevi (`activeAcquisition`), bağlı cihazlar ve
-//    operatör profili tek bir merkezi durum nesnesinde toplanır.
-//
-// 3. **Çoklu Render ve Pencere Adaptasyonu:**
-//    - `native=1`: Gömülü Chromium/WebKitGTK penceresi aktif olduğunda pencere
-//      başlığı ve yerel sistem optimizasyonları devreye girer.
-//    - `devlogs`: Geliştirici konsolu için ayrı bir debug rotası sağlar.
-//
-// 4. **Modüler Adli Araç Entegrasyonu:**
-//    Android, iOS, Docker, Linux, Windows ve Uzaktan Edinim ekranları ayrı
-//    modüller olarak içe aktarılır ve dinamik sayfa yönlendiricisi (`renderApp`)
-//    aracılığıyla DOM'a basılır.
-// ============================================================================
+// Ön yüzün ana orkestrasyon motoru.
+// Sayfa yönlendirmelerini (routing), sekmeler arası geçişleri, tema ve dil ayarlarını
+// burada başlatıyoruz. Sayfa ilk açıldığında işletim sistemini algılayıp ilgili modülleri yüklüyor.
 
 import { androidModePage, androidPage, handleAndroidAction, syncAndroidDeviceSelection } from "./tools/android/index.js";
 import { iosPage, handleIosAction, syncIosBackupPathInput } from "./tools/ios/index.js";

@@ -1,11 +1,9 @@
-//! ============================================================================
-//! # KOMUT SATIRI (CLI) ÇALIŞMA ZAMANI VE ALT KOMUT MİMARİSİ (src/main.rs)
-//! ============================================================================
-//!
-//! 1. Komut Satırı Ayrıştırma ve Mod Yönetimi: CLI bayraklarını (--quiet, --verbose, --version) ve alt komutları ayrıştırarak terminal veya grafik arayüz (UI) modunu başlatır.
-//! 2. Standart Adli Alt Komutlar: 'disk', 'ram', 'android', 'ios', 'docker', 'ssh', 'case' ve 'server' komutlarıyla terminalden doğrudan adli edinim yapabilme imkanı sunar.
-//! 3. Hata Raporlama ve Çıkış Kodları: Operasyonel hataları standart exit kodlarına (determine_exit_code) dönüştürerek script ve otomasyon araçlarıyla uyumlu çalışır.
-//! ============================================================================
+//! Uygulamanın ana giriş kapısı (main).
+//! Kullanıcı terminalden parametresiz çalıştırırsa gömülü HTTP sunucusunu ve pencereyi açıyoruz.
+//! Eğer parametre verilirse (disk, ram, android, docker vb.) arayüze hiç bulaşmadan
+//! doğrudan terminalden adli kopyalama ve analizleri headless çalıştırıyoruz.
+//! Hata durumlarında script'ler düzgün yakalayabilsin diye standart exit kodları dönüyoruz.
+
 #![cfg_attr(
     all(target_os = "windows", not(debug_assertions)),
     windows_subsystem = "windows"

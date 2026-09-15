@@ -1,7 +1,5 @@
-// ============================================================================
-// # LİNUX ADLİ EDİNİM SAYFASI BİLEŞENİ (ui/pages/linux.js)
-// ============================================================================
-//
-// 1. Linux Arayüzü: Linux sistemlerde disk, RAM ve günlük toplama işlemlerini başlatan arayüz bileşenidir.
-// ============================================================================
+// Linux odaklı yerel edinim sayfası.
+// Yerel diskler, çalışan süreçler, /proc dökümleri ve LiME bellek modülü yönetimini
+// bu ekran üzerinden yapıyoruz.
+
 export * from "../tools/linux/index.js";

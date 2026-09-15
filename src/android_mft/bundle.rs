@@ -1,9 +1,7 @@
-//! ============================================================================
-//! # ANDROİD MFT PAKETLEME (BUNDLE) MODÜLÜ (src/android_mft/bundle.rs)
-//! ============================================================================
-//!
-//! 1. İkili Paketleme: Ayrıştırılan Android kayıtlarını taşınabilir tek bir adli pakette birleştirir.
-//! ============================================================================
+//! Android dosya metadata paketleyici.
+//! Toplanan tüm dosya özniteliklerini tek bir arşiv ve indeks dosyası halinde
+//! vaka klasörüne kaydeder.
+
 use super::format::{Field, MftBundleInfo, Record, RecordType, RecordWriter};
 use super::outputs::sha256_file;
 use super::parsers::build_logical_records;

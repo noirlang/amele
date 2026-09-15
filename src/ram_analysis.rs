@@ -1,10 +1,7 @@
-//! ============================================================================
-//! # BELLEK DÖKÜMÜ SEZGİSEL ANALİZİ (src/ram_analysis.rs)
-//! ============================================================================
-//!
-//! 1. Çekirdek ve Mimari Tespiti: Ham RAM dökümü içindeki işletim sistemi çekirdek yapılarını tarar.
-//! 2. Kritik Veri Taraması: Bellekteki açık parola, API anahtarı ve URL dizgilerini sezgisel olarak filtreler.
-//! ============================================================================
+//! Alınan bellek dökümleri üzerinde hızlı string ve profil analizi.
+//! Bellek içindeki IP adreslerini, e-posta kalıplarını, URL'leri ve açık bağlantıları
+//! regex taramasıyla hızlıca ayıklar.
+
 use regex::bytes::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

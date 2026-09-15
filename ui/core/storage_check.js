@@ -1,15 +1,6 @@
-// ============================================================================
-// # ADLİ DEPOLAMA ÖN DENETİMİ (STORAGE PREFLIGHT CHECK) MİMARİSİ
-// ============================================================================
-//
-// Bu modül, disk veya RAM imajı alma işlemi başlatılmadan önce, hedef kayıt
-// klasörünün (Evidence Vault) bulunduğu sürücüdeki boş alanı denetler.
-//
-// ## 🛡️ KORUMA AMACI:
-// 500 GB'lık bir disk kopyalanırken hedef diskte 200 GB yer kalmışsa, saatler
-// süren işlem yarıda kesilip delil riske atılmasın diye kullanıcıya önceden
-// uyarı modalı gösterilir ve yetersiz alan varsa işlem güvenle engellenir.
-// ============================================================================
+// Hedef disk doluluk kontrol yardımcısı.
+// Büyük bir disk imajı veya RAM dökümü almadan önce, çıktının yazılacağı sürücüde
+// yeterli boş alan olup olmadığını denetler, veri kaybı ve taşmayı önler.
 
 import { formatBytes, escapeHtml } from "./utils.js";
 

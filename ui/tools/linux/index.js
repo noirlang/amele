@@ -1,9 +1,7 @@
-// ============================================================================
-// # LİNUX ARACI ÖN YÜZ GİRİŞ NOKTASI (ui/tools/linux/index.js)
-// ============================================================================
-//
-// 1. Modül Yönlendiricisi: Linux araç sayfasının rota ve aksiyon yönetimini üstlenir.
-// ============================================================================
+// Linux adli araçlar bileşeni.
+// Kernel sürümüne uygun LiME modülü derleme/yükleme ve blok cihaz listeleme
+// işlemlerini koordine eder.
+
 export function linuxPage({ t, icon, state, pageTitle, toolHub }) {
   return toolHub("linux");
 }

@@ -1,32 +1,6 @@
-//! ============================================================================
-//! # UZAKTAN CANLI EDİNİM VE ZERO-FOOTPRINT AKIŞ MİMARİSİ (src/ssh.rs)
-//! ============================================================================
-//!
-//! Bu modül, hedef makinelere (Linux ve Windows) fiziksel erişim olmadan,
-//! SSH2 protokolü üzerinden uzaktan canlı RAM ve Disk imajı almayı sağlar.
-//!
-//! ## 🛡️ ADLİ BİLİŞİM PRENSİPLERİ VE MİMARİ KARARLAR:
-//!
-//! 1. **RFC 3227 - Uçuculuk Sırası (Order of Volatility):**
-//!    Hedef makinedeki uçucu bellek (RAM) ve canlı disk durumları, hedef sisteme
-//!    zarar vermeden ve delil bütünlüğü bozulmadan en erken aşamada toplanır.
-//!
-//! 2. **Zero-Footprint (Hedef Makinede Sıfır Dosya/İz):**
-//!    Geleneksel adli araçlar RAM veya disk dökümünü hedefin yerel diskine
-//!    bir dosya olarak (örn: C:\mem.raw) kaydeder. Ancak bu işlem silinmiş
-//!    delillerin ve boş sektörlerin (unallocated space) ezilmesine sebep olur.
-//!    Amele'de:
-//!    - Linux RAM: `sudo avml /dev/stdout` ile doğrudan stdout'a basılır.
-//!    - Windows RAM: `winpmem.exe -` parametresiyle stdout'a yönlendirilir.
-//!    - Disk: `dd ... status=none` ile doğrudan SSH borusuna (pipe) verilir.
-//!    Hedef makinenin diskine tek bir bayt dahi yazılmaz!
-//!
-//! 3. **Eşzamanlı Çift Özetleme (Dual In-Flight Hashing):**
-//!    Veri şifreli SSH tünelinden incelenen cihaza akarken, aynı 4 MB'lık
-//!    parça üzerinde hem SHA-256 hem MD5 hash bağlamları eşzamanlı güncellenir.
-//!    Transfer bittiğinde adli delil özeti anında hazırdır; diski 2. kez okuma
-//!    maliyeti ortadan kalkar.
-//! ============================================================================
+//! Güvenli kabuk (SSH) adli tünel modülü.
+//! Uzak makineye bağlanıp yerel diski hedef makineye dokunmadan ağ üzerinden
+//! doğrudan analiz makinesine kopyalamamızı sağlar (disksiz/ramsız edinim).
 
 use std::fs::{self, File};
 use std::io::{Read, Write};

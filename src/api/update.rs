@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # GÜNCELLEME DENETİM VE KURULUM APİ'Sİ (src/api/update.rs)
-//! ============================================================================
-//!
-//! 1. Güncelleme Servisleri: GitHub üzerinden yeni sürümleri denetler ve kurulum komutlarını hazırlar.
-//! ============================================================================
+//! Güncelleme kontrol API uç noktası.
+//! Yeni bir Amele sürümü yayınlanmış mı diye kontrol eder.
+
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::fs;

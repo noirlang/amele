@@ -1,10 +1,7 @@
-//! ============================================================================
-//! # ASENKRON ADLİ GÖREV YÖNETİCİSİ VE İŞ TAKİBİ (src/job.rs)
-//! ============================================================================
-//!
-//! 1. Durum Makinesi: Uzun süreli edinim görevlerini (Hazır, Çalışıyor, Duraklatıldı, Tamamlandı, Hata) durumlarıyla yönetir.
-//! 2. Thread-Safe Görev Havuzu: Arka planda çalışan iş parçacıklarının ilerleme durumunu API'ye anlık olarak raporlar.
-//! ============================================================================
+//! Arka plan görev kuyruğu ve ilerleme durumu takipçisi.
+//! Disk imajı alma veya RAM kopyalama gibi uzun süren işleri thread havuzunda koşturup
+//! anlık yüzdelerini ve hızlarını thread-safe olarak hafızada tutuyoruz.
+
 use crate::logging::Logger;
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};

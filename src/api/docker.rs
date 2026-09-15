@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # DOCKER VE KONTEYNER ADLİ ANALİZ APİ'Sİ (src/api/docker.rs)
-//! ============================================================================
-//!
-//! 1. Konteyner API Servisleri: Canlı/soğuk konteynerleri listeleme ve gizli veri taraması rotaları.
-//! ============================================================================
+//! Docker adli işlemleri API uç noktası.
+//! Konteyner listesi, imaj kopyalama ve volumeleri tarama isteklerini Docker motoruna aktarır.
+
 use chrono::Local;
 use serde::Deserialize;
 use serde_json::{Value, json};

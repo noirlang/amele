@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # DEPOLAMA VE DİSK EDİNİM APİ'Sİ (src/api/storage.rs)
-//! ============================================================================
-//!
-//! 1. Disk API Servisleri: Blok aygıtları listeler ve sektör sektör adli imaj alma görevini başlatır.
-//! ============================================================================
+//! Depolama aygıtları listeleme API uç noktası.
+//! Sistemdeki tüm fiziksel diskleri, bölüntüleri ve boş alan durumunu listeler.
+
 use crate::api::current_evidence_case;
 use crate::mount_tracker::{cleanup_all_mounts, cleanup_case_mounts, list_active_mounts};
 use crate::server::{Response, json_error, json_ok, json_serialize};

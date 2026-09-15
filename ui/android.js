@@ -1,8 +1,5 @@
-// ============================================================================
-// # ANDROİD MODÜLÜ KULLANICI ARAYÜZÜ KONTROLCÜSÜ (ui/android.js)
-// ============================================================================
-//
-// 1. Arayüz Etkileşimi: Android cihaz seçimi, yetenek kartları ve mantıksal edinim sihirbazını yönetir.
-// 2. İlerleme Takibi: Çıkarılan paket ve logların anlık durumunu ekranda görselleştirir.
-// ============================================================================
+// Android adli edinim ekranının arayüz mantığı.
+// ADB üzerinden bağlı cihazları tarayıp ekrana döker, yedekleme (backup), mantıksal edinim
+// ve uygulama dökümü seçeneklerini kullanıcıya butonlarla sunar.
+
 export * from "./tools/android/index.js";

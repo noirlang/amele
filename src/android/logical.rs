@@ -1,10 +1,7 @@
-//! ============================================================================
-//! # NON-ROOT MANTIKSAL ANDROİD EDİNİM MOTORU (src/android/logical.rs)
-//! ============================================================================
-//!
-//! 1. Root Gerektirmeyen Çıkarım: ADB servisleri üzerinden getprop, pm list, dumpsys account ve logcat verilerini çeker.
-//! 2. Sosyal ve İletişim Verileri: Hedef uygulamaların çalışma süreçlerini ve erişilebilir veri yollarını raporlar.
-//! ============================================================================
+//! Mantıksal (logical) Android yedekleme yöneticisi.
+//! adb backup ve content provider sorguları üzerinden kullanıcı verilerini
+//! cihazı rootlamadan çeker.
+
 use super::adb::{
     first_non_empty, run_adb_command, run_adb_command_timeout, run_adb_file_command,
     run_adb_file_command_timeout,

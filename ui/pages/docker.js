@@ -1,7 +1,5 @@
-// ============================================================================
-// # DOCKER ADLİ ANALİZ SAYFASI BİLEŞENİ (ui/pages/docker.js)
-// ============================================================================
-//
-// 1. Konteyner Sayfası: Docker adli inceleme ve secret tarama kullanıcı arayüzü bileşenidir.
-// ============================================================================
+// Docker adli inceleme sekmesi.
+// Konteyner adli kopyalama işlemlerini, imaj dışa aktarımını ve konteyner ağ durumunu
+// tek ekrandan yönetmeyi sağlar.
+
 export * from "../tools/docker/index.js";

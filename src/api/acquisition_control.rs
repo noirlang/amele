@@ -1,9 +1,7 @@
-//! ============================================================================
-//! # EDİNİM SÜREÇ DENETİMİ APİ UÇ NOKTALARI (src/api/acquisition_control.rs)
-//! ============================================================================
-//!
-//! 1. Görev Denetimi: Devam eden disk/RAM edinimlerine duraklatma, devam etme veya iptal sinyali iletir.
-//! ============================================================================
+//! Adli kopyalama başlatma/durdurma uç noktası.
+//! Frontend'den gelen disk/ram edinim emirlerini alır, arka plan görevini başlatıp
+//! durum takibi için görev ID'si döner.
+
 use serde::Deserialize;
 use serde_json::json;
 

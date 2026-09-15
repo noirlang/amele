@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # UZAK SSH ADLİ BAĞLANTI APİ'Sİ (src/api/ssh.rs)
-//! ============================================================================
-//!
-//! 1. Uzak Edinim Servisleri: SSH kimlik doğrulaması, uzak disk sorgulama ve canlı akış başlatma uç noktaları.
-//! ============================================================================
+//! Uzak SSH adli edinim API uç noktası.
+//! SSH bağlantı parametrelerini alıp uzak makineden veri akışını başlatır.
+
 use std::path::PathBuf;
 use std::thread;
 

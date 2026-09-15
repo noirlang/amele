@@ -1,9 +1,7 @@
-//! ============================================================================
-//! # APİ YARDIMCI METOTLARI VE JSON YÖNETİCİSİ (src/api/helpers.rs)
-//! ============================================================================
-//!
-//! 1. JSON Ayrıştırma ve Hata Yönetimi: İstek gövdelerindeki JSON yüklerini doğrular ve standart cevaplar üretir.
-//! ============================================================================
+//! API işleyicileri için ortak yardımcı fonksiyonlar.
+//! JSON yanıtları oluşturma, HTTP başlıkları ekleme ve istek gövdesini (body)
+//! güvenli okuma rutinlerini barındırır.
+
 use chrono::Local;
 use serde_json::{Value, json};
 use std::fs;

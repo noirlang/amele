@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # KABUK (SHELL) TAMAMLAMA MOTORU (src/completion.rs)
-//! ============================================================================
-//!
-//! 1. Otomatik Tamamlama: Bash, Zsh ve Fish kabukları için Amele komutlarının tab-tamamlama betiklerini üretir.
-//! ============================================================================
+//! Terminal otomatik tamamlama (autocomplete) üreteci.
+//! Bash, Zsh ve PowerShell için amele CLI komut ve bayraklarını tamamlayan script'leri
+//! otomatik üretir.
 
 /// Bash otomatik tamamlama betiğini üretir.
 pub fn generate_bash_completion() -> &'static str {

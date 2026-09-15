@@ -1,9 +1,7 @@
-// ============================================================================
-// # BİLDİRİM VE TOAST MESAJ YÖNETİCİSİ (ui/core/toast.js)
-// ============================================================================
-//
-// 1. Kullanıcı Bildirimleri: İşlem başarı, uyarı ve hata mesajlarını ekranın üst kısmında animasyonlu gösterir.
-// ============================================================================
+// Bildirim ve toast mesajı yöneticisi.
+// İşlem başladığında, tamamlandığında veya hata oluştuğunda ekranın köşesinde
+// geçici bilgi kutucukları çıkarır.
+
 import { normalizeErrorMessage } from "./errors.js";
 
 let toastTimer = null;

@@ -1,9 +1,7 @@
-//! ============================================================================
-//! # ANDROİD OTURUM SOYUTLAMASI (src/android/session.rs)
-//! ============================================================================
-//!
-//! 1. Taşıma Katmanı Soyutlaması: USB veya TCP bağlantı türünü tekdüze bir oturum arabirimi üzerinden sunar.
-//! ============================================================================
+//! Android adli edinim oturum yöneticisi.
+//! İşlem süresince cihaz durumunu, çekilen dosya sayısını ve harcanan zamanı
+//! oturum bazında kayıt altında tutar.
+
 use super::adb::run_adb_command_timeout;
 use super::profile::AndroidDeviceProfile;
 use serde::Serialize;

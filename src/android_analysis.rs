@@ -1,9 +1,7 @@
-//! ============================================================================
-//! # ANDROİD ARTEFAKT VE DELİL ANALİZ MOTORU (src/android_analysis.rs)
-//! ============================================================================
-//!
-//! 1. Artefakt Ayrıştırma: Çıkarılan Android verilerini analiz ederek uzman için özet bulgular üretir.
-//! ============================================================================
+//! Android cihazdan toplanan verilerin analizi.
+//! Rehber, SMS, arama geçmişi ve popüler mesajlaşma uygulamalarının SQLite veritabanlarını
+//! çözümleyip anlamlı tablolara döker.
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;

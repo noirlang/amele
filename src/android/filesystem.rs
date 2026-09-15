@@ -1,10 +1,7 @@
-//! ============================================================================
-//! # ANDROİD DOSYA SİSTEMİ EDİNİMİ (src/android/filesystem.rs)
-//! ============================================================================
-//!
-//! 1. Dosya Sistemi Çıkarımı: ADB üzerinden paylaşımlı depolama ve izin verilen dizinleri arşivler.
-//! 2. İzinlerin Korunması: Dosya zaman damgalarını ve dosya izinlerini adli bütünlük için saklar.
-//! ============================================================================
+//! Android dosya sistemi tarama ve kopyalama yardımcısı.
+//! /data/local/tmp veya /sdcard gibi dizinleri tarayıp izin verilen dosyaları
+//! yerel depolamaya aktarır.
+
 use super::adb::run_adb_command;
 use serde::Serialize;
 use std::io::{Read, Write};

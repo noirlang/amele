@@ -1,9 +1,7 @@
-// ============================================================================
-// # ADLİ İŞ AKIŞLARI VE SENARYO TANIMLARI (ui/core/workflows.js)
-// ============================================================================
-//
-// 1. Senaryo Kartları: Disk, RAM, Mobil ve Ağ senaryolarının adım ve rehberlik tanımlarını içerir.
-// ============================================================================
+// Adli operasyon iş akışlarını (wizard) yöneten mantık.
+// Olay yeri ilk müdahale, delil toplama ve hash doğrulama adımlarını kullanıcıya
+// sıralı bir rehber şeklinde adım adım işletir.
+
 function L(tr, en) {
   return { tr, en };
 }

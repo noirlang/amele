@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # GELİŞTİRİCİ KONSOLU VE SİSTEM GÜNLÜKLERİ APİ'Sİ (src/api/developer.rs)
-//! ============================================================================
-//!
-//! 1. Canlı Günlük Servisi: Sistem ve denetim loglarını geliştirici arayüzüne filtreli aktarır.
-//! ============================================================================
+//! Geliştirici konsolu ve iç durum API uç noktası.
+//! Canlı log akışı (SSE), bellek kullanım istatistikleri ve hata ayıklama verilerini döndürür.
+
 use serde::Deserialize;
 use serde_json::{Value, json};
 

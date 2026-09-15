@@ -1,10 +1,7 @@
-//! ============================================================================
-//! # UYGULAMA YAPILANDIRMASI VE SABİT PARAMETRELER (src/settings.rs)
-//! ============================================================================
-//!
-//! 1. Adli Çalışma Parametreleri: Varsayılan sunucu portu (4444), varsayılan tampon boyutu (4 MB) ve ağ zaman aşımı sabitlerini tanımlar.
-//! 2. Kalıcı Tercihler: Kullanıcının dil, tema ve dizin ayarlarını yapılandırma dosyasında güvenle saklar.
-//! ============================================================================
+//! Uygulama genel ayarlarını yöneten modül.
+//! Hash algoritmaları, varsayılan kayıt yolları, dil ve tema tercihlerini
+//! JSON dosyasına kaydedip oradan okuyoruz.
+
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use serde::{Deserialize, Serialize};
 use std::fs;

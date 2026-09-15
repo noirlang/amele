@@ -1,28 +1,6 @@
-//! ============================================================================
-//! # CANLI BELLEK (RAM) EDİNİMİ VE SÜREÇ DENETİM MİMARİSİ (src/ram.rs)
-//! ============================================================================
-//!
-//! Bu modül, çalışan sistemlerin fiziksel belleğini (RAM) adli olarak toplar,
-//! araç önkoşullarını (root/admin yetkisi, araç mevcudiyeti) denetler ve
-//! thread-safe iptal/duraklatma süreçlerini yönetir.
-//!
-//! ## 🧠 ÇALIŞMA PRENSİPLERİ VE MİMARİ:
-//!
-//! 1. **Çoklu Araç Hiyerarşisi (Fallback Strategy):**
-//!    - **Linux:** Öncelikle Microsoft AVML (Acquire Volatile Memory for Linux)
-//!      aracı aranır. AVML yoksa sistem çekirdeğinin `/proc/kcore` arayüzü denenir.
-//!    - **Windows:** İmzalı WinPMEM sürücüsü (`go-winpmem_amd64_1.0-rc2_signed.exe`)
-//!      kullanılarak fiziksel bellek dökümü alınır.
-//!
-//! 2. **Thread-Safe Süreç Kontrolü (`CancellationToken`):**
-//!    Büyük belleklerde (örn: 64 GB - 128 GB) edinim sürerken arayüzden gelen
-//!    durdurma veya duraklatma sinyalleri `AtomicU8` ile korunur. Alt süreç (child process)
-//!    güvenle sonlandırılır ve yarım kalan delil durumu raporlanır.
-//!
-//! 3. **Dinamik İlerleme Takibi:**
-//!    Bellek dökümü yazılırken hedef dosyanın büyüme hızı ve fiziksel RAM boyutu
-//!    karşılaştırılarak arayüze gerçek zamanlı yüzde (%) bilgisi iletilir.
-//! ============================================================================
+//! Canlı sistem RAM dökümü (memory acquisition) alan modül.
+//! Linux'ta LiME veya /dev/fmem, Windows'ta WinPmem sürücüsü üzerinden belleğin
+//! fiziksel kopyasını alır. Çökme riskini azaltmak için erişim hatalarında kontrollü sayfa atlar.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::logging::{LogLevel, runtime_log};

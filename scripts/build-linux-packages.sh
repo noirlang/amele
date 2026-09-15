@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# # LINUX DAĞITIM PAKETLERİ DERLEME BETİĞİ (scripts/build-linux-packages.sh)
-# ==============================================================================
-#
-# Bu betik; Debian (.deb), RedHat/Fedora (.rpm) ve Arch Linux (.pkg.tar.zst)
-# paketlerini otomatik olarak oluşturur ve dist/ dizininde yayınlar.
-# ==============================================================================
+# Debian/Ubuntu (.deb) ve RedHat/Fedora (.rpm) paketlerini üreten betik.
+# Derlenen ikili dosyayı, masaüstü kısayolunu ve logoyu sistem dizinlerine (/usr/bin vb.)
+# uygun şekilde yerleştirip dpkg-deb ve rpmbuild ile paketler haline getiriyoruz.
+
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -1,9 +1,7 @@
-// ============================================================================
-// # GELİŞTİRİCİ KONSOLU VE SİSTEM GÜNLÜK EKRANI (ui/developer.js)
-// ============================================================================
-//
-// 1. Denetim Günlüğü Ekranı: Gerçek zamanlı sistem loglarını seviye bazında (Info, Warn, Error) filtreleyerek gösterir.
-// ============================================================================
+// Geliştirici araçları ve canlı log takip sayfası.
+// Rust çekirdeğinden gelen anlık logları, bellek kullanımını ve dahili HTTP isteklerini
+// arayüzde canlı bir konsol ekranında gösterir.
+
 const DEV_CLICK_TARGET   = 5;
 const DEV_CLICK_TIMEOUT  = 3000;
 const POLL_INTERVAL      = 1500;

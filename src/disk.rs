@@ -1,31 +1,6 @@
-//! ============================================================================
-//! # YEREL DİSK EDİNİMİ VE ANLIK ÖZETLEME MİMARİSİ (src/disk.rs)
-//! ============================================================================
-//!
-//! Bu modül, yerel sabit disklerden, USB belleklerden ve blok aygıtlardan
-//! bit-to-bit (birebir sektör) adli imaj alma sürecini yönetir.
-//!
-//! ## 🔬 TEMEL MİMARİ BİLEŞENLER:
-//!
-//! 1. **Doğrudan Blok Aygıt Erişimi (Direct Block Access):**
-//!    İşletim sistemi dosya sistemi tamponlarını atlayarak doğrudan blok cihaza
-//!    (Linux: `/dev/sdX`, `/dev/nvmeX`; Windows: `\\.\PhysicalDriveX`) bağlanır.
-//!
-//! 2. **Sabit 4 MB Tampon (O(1) Bellek Tüketimi):**
-//!    `DEFAULT_READ_CHUNK = 4 * 1024 * 1024` bayt olarak belirlenmiştir.
-//!    İster 32 GB USB ister 4 TB NVMe disk okunsun, işlem boyunca RAM'de
-//!    yalnızca 4 MB ayrılır; sistem belleği asla şişmez.
-//!
-//! 3. **Kesinti Yönetimi & Kaldığı Yerden Devam (Partial Resume):**
-//!    Okuma sırasında disk arızası veya kullanıcı iptali olursa dosya
-//!    `.partial` olarak işaretlenir. Yeniden başlatıldığında `SeekFrom::Start`
-//!    ile disk okuyucu tam kalınan bayta konumlanarak kaldığı yerden devam edebilir.
-//!
-//! 4. **Uçuş Anında Özetleme (In-Flight SHA-256):**
-//!    4 MB'lık her blok diske yazılırken aynı anda SHA-256 bağlamına beslenir.
-//!    İmaj tamamlandığında hash hazırdır; diski baştan sona 2. kez okuma gerekmez.
-//!    Sonuç `<imaj>.sha256` sidecar dosyası olarak delil zincirine eklenir.
-//! ============================================================================
+//! Ham disk kopyalama (bit-stream raw image) işlemlerini yöneten modül.
+//! Hedef sürücüyü açıp blok blok okuyarak dd/raw formatında yazıyoruz.
+//! Okuma sırasında eşzamanlı SHA-256 ve MD5 hesaplıyoruz ki doğrulama için diski tekrar okumak zorunda kalmayalım.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::hash::{to_hex, write_sha256_sidecar};

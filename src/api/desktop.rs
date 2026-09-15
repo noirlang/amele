@@ -1,9 +1,7 @@
-//! ============================================================================
-//! # MASAÜSTÜ PENCERE DENETİM APİ'Sİ (src/api/desktop.rs)
-//! ============================================================================
-//!
-//! 1. Masaüstü Entegrasyonu: Geliştirici konsolunu açma ve pencere ayarlarını yönetme servisleri.
-//! ============================================================================
+//! Masaüstü ve pencere kontrolü API uç noktası.
+//! Pencereyi simge durumuna küçültme, tam ekran yapma veya uygulamayı kapatma
+//! isteklerini yerel işletim sistemine iletir.
+
 use serde::Deserialize;
 use serde_json::json;
 use std::process::{Command, Stdio};

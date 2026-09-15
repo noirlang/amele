@@ -1,10 +1,7 @@
-//! ============================================================================
-//! # DİSK BÖLÜNTÜ TABLOSU VE DOSYA SİSTEMİ ANALİZİ (src/disk_analysis.rs)
-//! ============================================================================
-//!
-//! 1. Bölüntü Tablosu Tespiti: Disk imajları üzerindeki MBR ve GPT bölüntü tablolarını ayrıştırır.
-//! 2. Dosya Sistemi İmzaları: NTFS, ext4, FAT32 ve exFAT sistemlerinin başlangıç sektörlerini analiz eder.
-//! ============================================================================
+//! Alınan disk imajları üzerinde ön analiz yapan modül.
+//! Bölüntü tablosunu (MBR/GPT) ayrıştırır, dosya sistemlerini (NTFS, EXT4, FAT) tanır ve
+//! önemli sistem dosyalarını hızlıca tarar.
+
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs::{self, File};

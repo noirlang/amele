@@ -1,10 +1,7 @@
-//! ============================================================================
-//! # SİSTEM TEŞHİSİ VE ÇALIŞMA ZAMANI DENETİM MOTORU (src/diagnostics.rs)
-//! ============================================================================
-//!
-//! 1. Başlangıç Ortam Denetimleri: Ekran sunucusu (DISPLAY, Wayland), grafik hızlandırma, WebKit runtime ve Root izinlerini test eder.
-//! 2. Hata Sınıflandırma ve Çözüm Rehberi: Adli inceleme sırasında oluşan izin ve aygıt hatalarını kullanıcı dostu tavsiyelere çevirir.
-//! ============================================================================
+//! Sistem adli teşhis ve ön kontrol modülü.
+//! İşletim sistemi sürümü, yetkiler (root/admin), takılı sürücüler ve gerekli araçların
+//! (dd, lime, adb vb.) varlığını operasyon öncesi denetler.
+
 use std::path::Path;
 
 #[derive(Debug, Clone, Copy)]

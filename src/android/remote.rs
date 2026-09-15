@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # UZAK ANDROİD VE LEMON BAĞLANTISI (src/android/remote.rs)
-//! ============================================================================
-//!
-//! 1. Uzak Android İncelemesi: TCP üzerinden veya Lemon ajanıyla ağdaki Android cihazlara bağlanır.
-//! ============================================================================
+//! Ağ üzerindeki (Wi-Fi/TCP) Android cihazlarla haberleşme.
+//! Kablo yerine adb connect ile kablosuz ağdaki hedef telefona bağlanıp
+//! adli işlemleri yürütür.
 
 use super::adb::run_adb_command_timeout;
 use serde::{Deserialize, Serialize};

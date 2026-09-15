@@ -1,12 +1,8 @@
 /*
-============================================================================
-# TEMEL ARAYÜZ VE TEMA STİLLERİ (ui/styles/base.css)
-============================================================================
-
-Bu stil dosyası Amele kullanıcı arayüzünün adli görsel katmanını tanımlar:
-- Temel renk paleti, tipografi, grid/flex yerleşimi, karanlık/aydınlık tema değişkenleri ve animasyonlar.
-============================================================================
-*/
+ * Temel tasarım şablonu, renk paleti ve genel CSS kuralları.
+ * Karanlık (dark) ve aydınlık (light) tema değişkenleri, buton stilleri, grid ve flex
+ * yerleşim düzenlerini burada tanımlıyoruz.
+ */
 
 :root {
   color-scheme: dark;

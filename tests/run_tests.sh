@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
+# Bütün testleri tek komutla koşturan ana test betiğimiz.
+# Cargo unit testleri, Node.js API rota testleri ve dil (i18n) sözlük doğrulamasını
+# sırayla çalıştırıp herhangi bir hata varsa terminalde anında gösteriyor.
+
 # ==============================================================================
-# # BİRLEŞİK ADLİ TEST VE DOĞRULAMA KOŞUCUSU (tests/run_tests.sh)
-# ==============================================================================
-#
-# Bu betik, CI/CD süreçlerinde veya yerel geliştirmede Amele'nin 3 aşamalı
-# kalite ve adli bütünlük testini baştan sona icra eder:
-# 1. Aşama: Rust Çekirdek Birim Testleri (cargo test --lib)
-# 2. Aşama: Çoklu Dil (i18n) Sözlük Anahtar Bütünlüğü
-# 3. Aşama: ES Modülleri ve Ön Yüz Rota Yönlendirici Sağlığı
+# Amele Forensic Tool - Premium Test Runner
 # ==============================================================================
 
 # Set styling colors

@@ -1,9 +1,7 @@
-//! ============================================================================
-//! # ANDROİD ADLİ EDİNİM ORKESTRASYON MOTORU (src/android/orchestrator.rs)
-//! ============================================================================
-//!
-//! 1. Pipeline Yönetimi: Cihaz kontrolünden başlayıp veri çıkarma ve manifest mühürlemeye kadar tüm adımları sırayla yürütür.
-//! ============================================================================
+//! Android edinim adımlarını sıralayan ana mantık.
+//! Yetenek kontrolünden başlayıp veri çekme ve raporlamaya kadar olan süreci
+//! otomatik bir akış halinde yürütür.
+
 use super::capability::write_android_capability_report;
 use super::manifest::{
     manifest_from_logical_items, manifest_from_single_artifact, write_android_manifest,

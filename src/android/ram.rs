@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # ANDROİD BELLEK (RAM) EDİNİM MODÜLÜ (src/android/ram.rs)
-//! ============================================================================
-//!
-//! 1. Bellek Durumu Toplama: Lemon ajanı veya dumpsys meminfo ile Android çalışma zamanı bellek durumunu kaydeder.
-//! ============================================================================
+//! Android cihazlarda bellek dökümü alma denemesi.
+//! Rootlu cihazlarda /dev/kmem veya dd üzerinden fiziksel bellek dökümü almaya çalışır.
+
 use super::adb::run_adb_command;
 use serde::Serialize;
 use std::process::Command;

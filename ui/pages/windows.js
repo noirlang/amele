@@ -1,7 +1,5 @@
-// ============================================================================
-// # WİNDOWS ADLİ EDİNİM SAYFASI BİLEŞENİ (ui/pages/windows.js)
-// ============================================================================
-//
-// 1. Windows Arayüzü: Windows PhysicalDrive disk ve WinPMEM bellek edinimini yöneten arayüz bileşenidir.
-// ============================================================================
+// Windows sistemleri için adli edinim sayfası.
+// Fiziksel sürücüler, WinPmem bellek dökümü ve BitLocker durum kontrollerini
+// kullanıcıya sunan arayüz modülü.
+
 export * from "../tools/windows/index.js";

@@ -1,9 +1,6 @@
-//! ============================================================================
-//! # ANDROİD MOBİL ADLİ APİ UÇ NOKTALARI (src/api/android.rs)
-//! ============================================================================
-//!
-//! 1. Android API Servisleri: Cihaz listeleme, yetenek raporu alma ve mantıksal edinim başlatma rotalarını sağlar.
-//! ============================================================================
+//! Android işlemleri için REST API uç noktaları.
+//! Cihaz listeleme, yedek alma ve analiz isteklerini karşılayıp android çekirdeğine iletir.
+
 use crate::android;
 use crate::android_analysis;
 use crate::api::{
