@@ -1,5 +1,3 @@
-// Android adli edinim ekranının arayüz mantığı.
-// ADB üzerinden bağlı cihazları tarayıp ekrana döker, yedekleme (backup), mantıksal edinim
-// ve uygulama dökümü seçeneklerini kullanıcıya butonlarla sunar.
+// android arayüz mantığı. bağlı telefonları listeler, yedek alma ve döküm seçeneklerini gösterir.
 
 export * from "./tools/android/index.js";

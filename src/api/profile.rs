@@ -1,5 +1,4 @@
-//! Operasyon profilleri API uç noktası.
-//! Kayıtlı edinim profillerini listeler, yeni profil kaydeder veya siler.
+//! profil kaydetme ve online senkron api rotaları.
 
 use serde::Deserialize;
 use serde_json::json;

@@ -1,6 +1,4 @@
-//! Ham disk kopyalama (bit-stream raw image) işlemlerini yöneten modül.
-//! Hedef sürücüyü açıp blok blok okuyarak dd/raw formatında yazıyoruz.
-//! Okuma sırasında eşzamanlı SHA-256 ve MD5 hesaplıyoruz ki doğrulama için diski tekrar okumak zorunda kalmayalım.
+//! disk imajı alan yer. blok blok okuyup raw/dd yazıyo, okurken aynı anda sha256 hesaplıyo diski bi daha okumayalım diye.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::hash::{to_hex, write_sha256_sidecar};

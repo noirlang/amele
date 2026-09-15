@@ -1,6 +1,4 @@
-// Diğer adli araçlar ve harici edinim modülleri.
-// Ağ trafiği dökümü (pcap), WireGuard tünelleme ve uzak adli ajan (agent) bağlantıları
-// buradan yönetilir.
+// ağ trafiği pcap ve wireguard tünel sayfası.
 
 export function otherPage({ t, icon, state, pageTitle, pickerField, field, escapeHtml, caseSelectOptions, detailPanel }) {
   return `

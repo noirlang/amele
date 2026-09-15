@@ -1,6 +1,4 @@
-// Geliştirici araçları ve canlı log takip sayfası.
-// Rust çekirdeğinden gelen anlık logları, bellek kullanımını ve dahili HTTP isteklerini
-// arayüzde canlı bir konsol ekranında gösterir.
+// geliştirici ekranı. backendden gelen anlık logları ve istekleri canlı gösteriyo.
 
 const DEV_CLICK_TARGET   = 5;
 const DEV_CLICK_TIMEOUT  = 3000;

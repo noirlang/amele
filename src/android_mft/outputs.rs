@@ -1,5 +1,4 @@
-//! Dosya listesi raporlama ve dosya yazıcı.
-//! Hazırlanan dosya ağacını operatörün inceleyebileceği nihai rapor dosyalarına yazar.
+//! hazırlanan dosya ağacını rapor dosyalarına yazan yer.
 
 use super::format::{Field, FieldType, MAGIC, MftBundleInfo, Record, RecordType, VERSION, now_ns};
 use super::parsers::{

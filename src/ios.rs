@@ -1,6 +1,4 @@
-//! iOS cihazlardan adli veri toplama modülü.
-//! libimobiledevice araçları üzerinden iPhone/iPad cihazları tanır, eşleşme (pairing) kaydıyla
-//! şifrelenmemiş yerel yedek çıkarır.
+//! libimobiledevice ile iphone cihazlardan yedek çıkaran yer.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::hash::{HashAlgorithm, calculate_file_hash, calculate_multiple};

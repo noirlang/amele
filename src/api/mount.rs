@@ -1,5 +1,4 @@
-//! Adli imaj bağlama (mount) API uç noktası.
-//! Alınmış bir disk imajını işletim sistemine salt-okunur sürücü olarak bağlama ve ayırma isteklerini karşılar.
+//! alınan disk imajını bağlama ve ayırma api rotası.
 
 use serde_json::json;
 use std::fs;

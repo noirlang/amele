@@ -1,5 +1,4 @@
-//! Depolama aygıtları listeleme API uç noktası.
-//! Sistemdeki tüm fiziksel diskleri, bölüntüleri ve boş alan durumunu listeler.
+//! sistemdeki diskleri ve boş alanı dönen api rotası.
 
 use crate::api::current_evidence_case;
 use crate::mount_tracker::{cleanup_all_mounts, cleanup_case_mounts, list_active_mounts};

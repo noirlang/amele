@@ -1,6 +1,4 @@
-//! Android paket manifest ayrıştırıcısı.
-//! Yüklü uygulamaların izinlerini, servislerini ve alıcılarını (receivers)
-//! AndroidManifest.xml üzerinden çözümler.
+//! android manifest xml dosyalarını ayrıştıran yer.
 
 use super::capability::AndroidCapabilityReport;
 use super::logical::AcquisitionItem;

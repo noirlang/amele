@@ -1,6 +1,4 @@
-//! Özelleşmiş Android veri çıkarıcıları.
-//! Medya dosyaları, APK paketleri ve sistem ayarlarını hedef alarak parça parça
-//! adli kopyalarını çeker.
+//! medya ve sistem ayarları gibi verileri parça parça çeken modül.
 
 use serde::{Deserialize, Serialize};
 

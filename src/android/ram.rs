@@ -1,5 +1,4 @@
-//! Android cihazlarda bellek dökümü alma denemesi.
-//! Rootlu cihazlarda /dev/kmem veya dd üzerinden fiziksel bellek dökümü almaya çalışır.
+//! android cihazda mümkünse geçici bellek dökümü almaya çalışan yer.
 
 use super::adb::run_adb_command;
 use serde::Serialize;

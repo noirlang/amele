@@ -1,5 +1,4 @@
-//! WireGuard VPN yapılandırma API uç noktası.
-//! Adli tünel yapılandırmalarını oluşturur ve bağlantıyı açıp kapatır.
+//! wireguard vpn tüneli açıp kapatma api rotaları.
 
 use super::wireguard_manager;
 use crate::server::{Response, json_error, json_ok};

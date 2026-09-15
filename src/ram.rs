@@ -1,6 +1,4 @@
-//! Canlı sistem RAM dökümü (memory acquisition) alan modül.
-//! Linux'ta LiME veya /dev/fmem, Windows'ta WinPmem sürücüsü üzerinden belleğin
-//! fiziksel kopyasını alır. Çökme riskini azaltmak için erişim hatalarında kontrollü sayfa atlar.
+//! canlı ram dökümü alan modül. linux'ta lime, windows'ta winpmem sürücüsü kullanıyo.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::logging::{LogLevel, runtime_log};

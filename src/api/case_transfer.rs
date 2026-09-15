@@ -1,6 +1,4 @@
-//! Vaka ve delil transferi uç noktası.
-//! Hazırlanan vaka paketlerinin ağ üzerinden başka bir adli sunucuya
-//! güvenli aktarılmasını yönetir.
+//! vaka paketlerini ağdan aktarma api rotası.
 
 use crate::case_package::{export_case, import_case, verify_package};
 use crate::evidence::EvidenceVault;

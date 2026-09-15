@@ -1,6 +1,4 @@
-//! Kriptografik özetleme (hashing) motorumuz.
-//! MD5, SHA-1, SHA-256 ve SHA-512 algoritmalarını destekliyoruz. Adli imaj alırken
-//! veriyi diske yazarken aynı anda stream olarak özetini de hesaplıyoruz ki diski tekrar okumayalım.
+//! md5, sha1, sha256 hesaplayan yer. kopyalama yaparken eşzamanlı hesaplıyo.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use digest::Digest;

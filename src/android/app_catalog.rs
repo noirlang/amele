@@ -1,6 +1,4 @@
-//! Popüler Android uygulamaları kataloğu.
-//! WhatsApp, Telegram, bankacılık ve sosyal medya uygulamalarının paket isimlerini ve
-//! varsayılan veri dizinlerini tanır.
+//! whatsapp telegram gibi popüler uygulamaların paket adları kataloğu.
 
 #[derive(Debug, Clone, Copy)]
 /// Android uygulama hedef kataloğundaki tek paket kaydını temsil eder.

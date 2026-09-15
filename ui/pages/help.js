@@ -1,6 +1,4 @@
-// Yardım ve dokümantasyon ekranı.
-// Araçların nasıl kullanılacağını, komut satırı parametrelerini ve sık sorulan soruları
-// kullanıcıya sunar.
+// yardım ve sık sorulan sorular sayfası.
 
 import { helpDocs } from "../docs/helpContent.js";
 

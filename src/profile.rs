@@ -1,6 +1,4 @@
-//! Adli edinim profil şablonları yöneticisi.
-//! Hızlı Müdahale, Tam Klonlama veya Sadece Bellek gibi önceden belirlenmiş
-//! operasyon profillerini kaydeder ve tek tıkla uygulanmasını sağlar.
+//! yerel profiller ve online hesap senkronizasyonu.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::settings;

@@ -1,6 +1,4 @@
-// Arka planda çalışan adli işlemlerin ilerleme takip modülü.
-// Disk imajı alma, hash hesaplama veya RAM dökümü gibi uzun işlerin durumunu periyodik
-// olarak sorgulayıp sağ alttaki widget'ta yüzde ve hız olarak gösterir.
+// arkada çalışan işlerin durumunu sorgulayıp sağ alttaki widgeta basan kısım.
 
 import { escapeHtml } from "./utils.js";
 

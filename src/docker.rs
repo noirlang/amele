@@ -1,6 +1,4 @@
-//! Docker konteyner adli edinim motoru.
-//! Docker daemon ile soket üzerinden haberleşip konteyner dosya sistemi katmanlarını,
-//! çalışma anı loglarını ve volume verilerini adli kopyaya aktarır.
+//! docker soketine bağlanıp konteyner katmanlarını ve verilerini kopyalayan motor.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::evidence::EvidenceVault;

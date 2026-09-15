@@ -1,5 +1,3 @@
-// Linux odaklı yerel edinim sayfası.
-// Yerel diskler, çalışan süreçler, /proc dökümleri ve LiME bellek modülü yönetimini
-// bu ekran üzerinden yapıyoruz.
+// linux yerel edinim ekranı. diskler ve bellek dökümü burdan yönetiliyo.
 
 export * from "../tools/linux/index.js";

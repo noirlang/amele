@@ -1,6 +1,4 @@
-//! Sistem adli teşhis ve ön kontrol modülü.
-//! İşletim sistemi sürümü, yetkiler (root/admin), takılı sürücüler ve gerekli araçların
-//! (dd, lime, adb vb.) varlığını operasyon öncesi denetler.
+//! sistemde root yetkisi, araçlar falan var mı diye önden kontrol eden teşhis kısmı.
 
 use std::path::Path;
 

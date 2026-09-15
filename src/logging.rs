@@ -1,6 +1,4 @@
-//! Adli loglama ve konsol çıktı altyapısı.
-//! Yapılan tüm adli işlemleri, saat damgası ve seviyesiyle (INFO, WARN, ERROR)
-//! hem terminale hem de delil zinciri için log dosyasına yazıyoruz.
+//! logları hem terminale hem log dosyasına yazan altyapı.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use chrono::Local;

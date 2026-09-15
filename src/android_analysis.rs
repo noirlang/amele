@@ -1,6 +1,4 @@
-//! Android cihazdan toplanan verilerin analizi.
-//! Rehber, SMS, arama geçmişi ve popüler mesajlaşma uygulamalarının SQLite veritabanlarını
-//! çözümleyip anlamlı tablolara döker.
+//! telefondan çekilen sms, rehber, whatsapp sqlite veritabanlarını çözen analizci.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

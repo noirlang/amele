@@ -1,6 +1,4 @@
-// Kullanıcı kılavuzu ve yardım içeriği deposu.
-// Adli kopyalama adımları, yasal zincirleme (chain of custody) kuralları ve hata çözümleri
-// hakkındaki yardım metinlerini hem Türkçe hem İngilizce olarak burada tutuyoruz.
+// yardım ve kılavuz metinleri deposu.
 
 export const helpDocs = {
   "tr": {

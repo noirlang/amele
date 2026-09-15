@@ -1,6 +1,4 @@
-//! Masaüstü ve pencere kontrolü API uç noktası.
-//! Pencereyi simge durumuna küçültme, tam ekran yapma veya uygulamayı kapatma
-//! isteklerini yerel işletim sistemine iletir.
+//! tarayıcıda link açma ve masaüstü kontrolleri api rotası.
 
 use serde::Deserialize;
 use serde_json::json;

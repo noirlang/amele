@@ -1,6 +1,4 @@
-//! Depolama alanı koruma ve taşma önleme mekanizması.
-//! Edinim sırasında hedef diski anlık gözlemler, alan kritik seviyenin altına indiğinde
-//! işlemi kontrollü olarak durdurup veri bozulmasını engeller.
+//! hedef diskte yer kalmadıysa işlemi durdurup taşmayı önleyen koruma.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use std::path::Path;

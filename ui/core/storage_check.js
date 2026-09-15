@@ -1,6 +1,4 @@
-// Hedef disk doluluk kontrol yardımcısı.
-// Büyük bir disk imajı veya RAM dökümü almadan önce, çıktının yazılacağı sürücüde
-// yeterli boş alan olup olmadığını denetler, veri kaybı ve taşmayı önler.
+// imaj almadan önce hedef diskte yeterli yer var mı diye bakan kontrol.
 
 import { formatBytes, escapeHtml } from "./utils.js";
 

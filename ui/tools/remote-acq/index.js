@@ -1,6 +1,4 @@
-// Uzak adli edinim arayüz bileşeni.
-// SSH üzerinden uzak Linux/Windows makinelere bağlanıp disksiz veya yerel
-// adli kopyalama yapmamızı sağlayan form ve kontroller.
+// uzak ssh adli edinim formu ve kontrolleri.
 
 export function remoteAcqPage({ t, icon, pageTitle }) {
   return `

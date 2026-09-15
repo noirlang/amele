@@ -1,5 +1,4 @@
-//! Kriptografik özetleme API uç noktası.
-//! Kullanıcının seçtiği herhangi bir dosyanın anlık MD5, SHA-1 veya SHA-256 özetini hesaplayıp döner.
+//! dosya hash hesaplama api rotası.
 
 use serde::Deserialize;
 use serde_json::Value;

@@ -1,6 +1,4 @@
-//! Android dosya sistemi tarama ve kopyalama yardımcısı.
-//! /data/local/tmp veya /sdcard gibi dizinleri tarayıp izin verilen dosyaları
-//! yerel depolamaya aktarır.
+//! telefonun dosya sisteminden izin verilen dizinleri kopyalayan yer.
 
 use super::adb::run_adb_command;
 use serde::Serialize;

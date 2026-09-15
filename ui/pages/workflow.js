@@ -1,6 +1,4 @@
-// Adım adım adli vaka yöneticisi.
-// Vaka numarası açıp delil poşeti etiketleme, edinim sırası belirleme ve
-// sonunda otomatik rapor çıkarma süreçlerini yönetir.
+// adım adım vaka yönetim sihirbazı sayfası.
 
 import { icon as defaultIcon } from "../icons.js";
 

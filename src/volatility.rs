@@ -1,6 +1,4 @@
-//! Volatility 3 entegrasyon katmanı.
-//! Python worker betiğini tetikleyip bellek dökümünden süreç listesi (pslist), ağ soketleri (netstat)
-//! ve zararlı yazılım izlerini çeker.
+//! volatility 3 köprüsü. python worker ile bellekten süreç listesi falan çekiyo.
 
 use crate::logging::{LogLevel, runtime_log};
 use serde::{Deserialize, Serialize};

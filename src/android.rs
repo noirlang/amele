@@ -1,6 +1,4 @@
-//! Android cihazlardan adli veri toplama orkestratörü.
-//! ADB bağlantısını kurar, cihaz yeteneklerini kontrol eder ve kullanıcı verilerini
-//! root yetkisi olmadan da mümkün olduğunca eksiksiz çekmeye çalışır.
+//! android cihazlardan adb ile veri çeken ana koordinatör.
 
 mod adb;
 mod app_catalog;

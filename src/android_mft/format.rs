@@ -1,5 +1,4 @@
-//! Metadata çıktısı biçimlendirici.
-//! Dosya zaman damgalarını ve izinlerini CSV, JSON veya adli zaman çizelgesi formatına sokar.
+//! dosya zaman damgaları ve izinlerin format yapıları.
 
 use std::io::{self, Write};
 use std::time::{SystemTime, UNIX_EPOCH};

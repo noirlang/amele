@@ -1,6 +1,4 @@
-// Arayüz tarafındaki hata yakalama ve formatlama yardımcısı.
-// Sunucudan gelen adli veya sistem hatalarını kullanıcı dostu açıklamalara çevirip
-// ekranda uygun panellerde gösterilmesini sağlar.
+// hataları formatlayıp ekranda düzgün gösteren yardımcı.
 
 import { escapeHtml } from "./utils.js";
 

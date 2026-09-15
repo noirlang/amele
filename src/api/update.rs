@@ -1,5 +1,4 @@
-//! Güncelleme kontrol API uç noktası.
-//! Yeni bir Amele sürümü yayınlanmış mı diye kontrol eder.
+//! güncelleme kontrolü ve indirme api rotaları.
 
 use serde::Deserialize;
 use serde_json::{Value, json};

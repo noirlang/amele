@@ -1,6 +1,4 @@
-//! Adli çıktı formatlarını yöneten modül.
-//! Ham imaj (raw/dd) veya sıkıştırılmış format seçeneklerini yönetir, delil bütünlüğünü
-//! bozmadan dosyaya yazılmasını sağlar.
+//! raw dd formatında veya adli paket formatında dosya çıktısı üretme.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::hash::{self, HashAlgorithm};

@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-# Volatility 3 analizlerini arka planda koşturan Python köprü betiği.
-# Python ve Volatility kütüphanelerini ana Rust kodunun içine gömmek yerine subprocess olarak
-# çalıştırıyoruz. Bellek analizi sonuçlarını JSON olarak parse edip Rust tarafına geri dönüyoruz.
+# volatility 3 analizlerini arkada koşturan python scripti. sonuçları json yapıp rust tarafına yolluyo.
 
 """Amele Volatility3 worker.
 

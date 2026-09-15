@@ -1,5 +1,4 @@
-//! Delil kasası ve kayıtları API uç noktası.
-//! Mevcut delil kayıtlarını sorgulama, yeni kayıt ekleme ve hash doğrulama verilerini sunar.
+//! delil kasası ve dosya listesi api rotaları.
 
 use crate::api::{
     current_evidence_case, current_evidence_vault, default_case_base_dir, evidence_subdir,

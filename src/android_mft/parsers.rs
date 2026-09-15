@@ -1,5 +1,4 @@
-//! Android ls ve find komut çıktısı ayrıştırıcıları.
-//! Terminalden gelen ham dosya listelerini parse edip boyut, sahip ve tarih bilgilerini çeker.
+//! ls ve find komut çıktılarından dosya bilgilerini parse eden kısım.
 
 use super::format::{Field, MAX_RECORDS_PER_SOURCE, MAX_TEXT_INPUT, Record, RecordType};
 use serde_json::Value;

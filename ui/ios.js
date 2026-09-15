@@ -1,5 +1,3 @@
-// iOS cihaz edinim arayüzü kontrolcüsü.
-// USB'den bağlı iPhone/iPad cihazları algılar, ideviceinfo ve libimobiledevice üzerinden
-// şifresiz adli yedek çıkarma ve sistem teşhis işlemlerini tetikler.
+// ios arayüzü. takılı iphone cihazları bulup yedek alma işlemlerini başlatıyo.
 
 export * from "./tools/ios/index.js";

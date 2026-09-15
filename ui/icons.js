@@ -1,6 +1,4 @@
-// Arayüzde kullandığımız SVG ikon tanımları.
-// Dışarıdan ek font veya ikon kütüphanesi yükleyip bağımlılık yaratmak yerine
-// sık kullandığımız disk, cpu, android, dosya vb. ikonları direkt inline SVG olarak burada tutuyoruz.
+// arayüzdeki svg ikonlar. dışarıdan font yüklemeyelim diye svg olarak burda tutuyoruz.
 
 export const icons = {
   home: '<path d="m3 11 9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>',

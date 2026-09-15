@@ -1,6 +1,4 @@
-//! Android Debug Bridge (ADB) komut yöneticisi.
-//! Cihaza doğrudan adb komutları gönderir, yetkilendirme durumunu ve bağlı cihaz
-//! seri numaralarını sorgular.
+//! adb komutlarını terminalden koşturup çıktıları alan kısım.
 
 use serde::Serialize;
 use std::io;

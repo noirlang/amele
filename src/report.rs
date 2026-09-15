@@ -1,6 +1,4 @@
-//! Otomatik adli rapor üreteci.
-//! İnceleme bittiğinde vaka bilgilerini, çıkarılan artefaktları ve hash doğrulama
-//! sonuçlarını HTML, PDF veya metin formatında şık bir rapora dönüştürür.
+//! işlem bitince vaka raporunu text veya json formatında çıkaran modül.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::evidence::EvidenceVault;

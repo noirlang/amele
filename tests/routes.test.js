@@ -1,6 +1,4 @@
-// API rotalarını kontrol eden Node.js testi.
-// Arayüzün konuştuğu tüm REST uç noktalarının (endpoints) doğru HTTP kodları dönüp dönmediğini,
-// beklenen parametreleri alıp almadığını mock isteklerle sınıyoruz.
+// api rotalarının düzgün çalışıp çalışmadığını kontrol eden test.
 
 import test from "node:test";
 import assert from "node:assert";

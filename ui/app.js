@@ -1,6 +1,4 @@
-// Ön yüzün ana orkestrasyon motoru.
-// Sayfa yönlendirmelerini (routing), sekmeler arası geçişleri, tema ve dil ayarlarını
-// burada başlatıyoruz. Sayfa ilk açıldığında işletim sistemini algılayıp ilgili modülleri yüklüyor.
+// arayüzün ana dosyası. sayfa geçişleri, sekmeler, tema dil falan hepsi burdan yönetiliyo. açılışta sistemi kontrol edip ona göre çiziyo.
 
 import { androidModePage, androidPage, handleAndroidAction, syncAndroidDeviceSelection } from "./tools/android/index.js";
 import { iosPage, handleIosAction, syncIosBackupPathInput } from "./tools/ios/index.js";

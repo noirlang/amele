@@ -1,6 +1,4 @@
-//! Uzak hedef adli yönetim modülü.
-//! Ağ üzerindeki Linux/Windows sunuculara uzaktan adli müdahale yapmak için
-//! ortak arayüz ve oturum yönetimi sunar.
+//! uzak sunuculara adli müdahale oturumlarını yöneten kısım.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
 use crate::output_format::AcquisitionOutputFormat;

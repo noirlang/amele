@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
-# Bütün testleri tek komutla koşturan ana test betiğimiz.
-# Cargo unit testleri, Node.js API rota testleri ve dil (i18n) sözlük doğrulamasını
-# sırayla çalıştırıp herhangi bir hata varsa terminalde anında gösteriyor.
+# bütün testleri tek seferde çalıştıran test scripti. cargo testlerini, rota testlerini ve sözlüğü sırayla koşturuyo.
 
-# ==============================================================================
-# Amele Forensic Tool - Premium Test Runner
-# ==============================================================================
-
-# Set styling colors
 BOLD="\033[1m"
 GREEN="\033[38;5;46m"
 BLUE="\033[38;5;39m"

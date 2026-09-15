@@ -1,5 +1,4 @@
-//! Bellek dökümü (RAM) başlatma API uç noktası.
-//! Canlı sistem belleğini alma komutunu alır ve ram edinim modülünü tetikler.
+//! canlı bellek dökümü başlatma api rotası.
 
 use chrono::Local;
 use serde::Deserialize;

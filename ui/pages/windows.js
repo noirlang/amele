@@ -1,5 +1,3 @@
-// Windows sistemleri için adli edinim sayfası.
-// Fiziksel sürücüler, WinPmem bellek dökümü ve BitLocker durum kontrollerini
-// kullanıcıya sunan arayüz modülü.
+// windows sistemler için fiziksel disk ve ram alma ekranı.
 
 export * from "../tools/windows/index.js";
