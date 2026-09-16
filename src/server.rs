@@ -142,7 +142,13 @@ pub fn run_browser() -> Result<(), String> {
 
     let url = start_background()?;
     println!("Amele UI backend: {url}");
-    open_window(&url);
+    let no_browser = std::env::var("AMELE_NO_BROWSER")
+        .map(|v| v == "1" || v == "true")
+        .unwrap_or(false)
+        || (std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err());
+    if !no_browser {
+        open_window(&url);
+    }
     loop {
         thread::park();
     }
@@ -151,18 +157,19 @@ pub fn run_browser() -> Result<(), String> {
 /// Rastgele boş localhost portunda UI backend thread'ini başlatır.
 fn start_background() -> Result<String, String> {
     validate_ui_assets()?;
+    let host = std::env::var("AMELE_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let listener = if let Ok(port_str) = std::env::var("AMELE_PORT") {
         let addr = match port_str.trim().parse::<u16>() {
-            Ok(port) => format!("127.0.0.1:{port}"),
-            Err(_) => "127.0.0.1:0".to_string(),
+            Ok(port) => format!("{host}:{port}"),
+            Err(_) => format!("{host}:0"),
         };
         TcpListener::bind(&addr).map_err(|err| {
             crate::diagnostics::startup_error("Yerel UI backend portu acilamadi.", &err.to_string())
         })?
     } else {
-        let default_addr = format!("127.0.0.1:{}", crate::settings::DEFAULT_PORT);
+        let default_addr = format!("{host}:{}", crate::settings::DEFAULT_PORT);
         TcpListener::bind(&default_addr)
-            .or_else(|_| TcpListener::bind("127.0.0.1:0"))
+            .or_else(|_| TcpListener::bind(format!("{host}:0")))
             .map_err(|err| {
                 crate::diagnostics::startup_error(
                     "Yerel UI backend portu acilamadi.",
@@ -329,8 +336,15 @@ fn open_window(url: &str) {
 
 /// Ham TCP stream'den HTTP isteğini okur, router'a verir ve cevabı yazar.
 fn handle_stream(stream: TcpStream) -> Result<(), String> {
+    let allow_remote = std::env::var("AMELE_ALLOW_REMOTE")
+        .map(|v| v == "1" || v == "true")
+        .unwrap_or_else(|_| {
+            std::env::var("AMELE_HOST")
+                .map(|h| h == "0.0.0.0")
+                .unwrap_or(false)
+        });
     let peer = stream.peer_addr().ok();
-    if peer.map(|addr| !addr.ip().is_loopback()).unwrap_or(true) {
+    if !allow_remote && peer.map(|addr| !addr.ip().is_loopback()).unwrap_or(true) {
         return Err("non-loopback request rejected".to_string());
     }
 
@@ -447,7 +461,7 @@ fn write_response(mut stream: TcpStream, response: Response) -> Result<(), Strin
         _ => "OK",
     };
     let headers = format!(
-        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: http://127.0.0.1\r\nAccess-Control-Allow-Headers: content-type\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nConnection: close\r\n\r\n",
+        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Headers: content-type\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nConnection: close\r\n\r\n",
         response.status,
         reason,
         response.content_type,

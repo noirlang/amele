@@ -1,0 +1,9 @@
+target/
+.git/
+dist/
+node_modules/
+tests/output/
+*.log
+amele.gif
+.cargo/
+packaging/
