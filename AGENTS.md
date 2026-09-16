@@ -72,3 +72,40 @@ node --test tests/routes.test.js
 - Linux: `libgtk-3-dev libwebkit2gtk-4.1-dev`
 - Windows: WebView2 Runtime, WiX 3.14 for MSI
 - Rust stable with `rustfmt` component
+
+## Agent, Commit & PR Kuralları (Kesin Kurallar)
+
+Bu projede çalışan tüm yapay zeka ajanları ve geliştiriciler aşağıdaki kurallara uymak zorundadır:
+
+### 1. Commit Mesajları
+- **Dil**: Türkçe.
+- **Biçim**: Basit, kısa ve net. Gereksiz yapay zeka süslemesi, akademik ağız veya kurumsal gevezelik kesinlikle yasaktır.
+- Tercihen `feat:`, `fix:`, `refactor:`, `chore:` gibi standart önekler kullanın.
+- Örnek: `feat: docker ve prettier eklendi`, `fix: baglanti kopma sorunu duzeltildi`.
+- ❌ Yasak: `✨ feat(docker): add highly resilient enterprise grade containerization`
+
+### 2. PR (Pull Request) Başlık ve Açıklamaları
+- **PR Başlığı**: Basit, ne yapıldığını doğrudan anlatan kısa başlık.
+- **PR Açıklaması**: Düz, samimi ve sade Türkçe.
+- **KESİNLİKLE YASAK**:
+  - Robotik AI şablonları (`## 🛠️ Çözülen Sorunlar`, `## 📝 Özet`, `## 🧪 Test Planı` vb.).
+  - Emojiler (`🚀`, `✨`, `🎉`, `🔥` vb.).
+  - Uzun uzadıya yapay zeka özetleri.
+- Ne yapıldıysa maddeler halinde veya birkaç düz cümleyle, bir yazılımcının ekip arkadaşına yazdığı gibi yazılmalıdır.
+
+### 3. Kod İçi Yorum Satırları
+- **Dil**: Türkçe.
+- **Biçim**: Samimi, küçük harf ağırlıklı, mantığı düz ve basit anlatan geliştirici tarzı.
+- Küfür olmadan, ama aşırı bürokratik/resmi olmadan doğrudan mantığı açıklayın.
+- Örnek: `// docker icinde browser acilmasin diye kontrol ediyoruz`
+
+### 4. Git Push Kuralı (ÖNEMLİ)
+- Kullanıcı açıkça onay vermeden ASLA remote repoya push yapılmaz (`git push`).
+- Tüm değişiklikler lokal branch'te tutulur ve kullanıcının kontrolüne bırakılır.
+
+### 5. Kod Formatı ve Testler
+- **JavaScript / CSS / JSON**: Prettier (`.prettierrc`, `.prettierignore`).
+- **Rust**: `cargo fmt` ve `cargo test --lib`.
+- **Frontend testleri**: `node --check ui/app.js` ve `node --test tests/routes.test.js`.
+- **Entegrasyon testleri**: `bash tests/run_tests.sh`.
+

@@ -233,7 +233,7 @@ fn main() {
             Ok(())
         }
         Some("ui") => server::run_native(),
-        Some("ui-browser") => server::run_browser(),
+        Some("ui-browser") | Some("server") | Some("web") => server::run_browser(),
         Some("help") | Some("--help") | Some("-h") => {
             print_help();
             Ok(())
@@ -423,7 +423,9 @@ fn is_silent_or_helper_command(cmd: Option<&str>, raw_args: &[String]) -> bool {
         | Some("disk-size")
         | Some("remote-tool-check")
         | Some("ui")
-        | Some("ui-browser") => true,
+        | Some("ui-browser")
+        | Some("server")
+        | Some("web") => true,
         Some("update-check") | Some("check-update") | Some("update") => {
             raw_args.iter().any(|a| a == "--json")
         }
@@ -473,6 +475,8 @@ fn is_profile_exempt_command(cmd: Option<&str>, raw_args: &[String]) -> bool {
         | Some("check-update")
         | Some("ui")
         | Some("ui-browser")
+        | Some("server")
+        | Some("web")
         | Some("settings-default")
         | Some("disk-list")
         | Some("ram-status")
@@ -1371,6 +1375,7 @@ MANAGEMENT & EVIDENCE:
 USER INTERFACE:
   ui                      Launch native desktop application
   ui-browser              Launch developer browser UI for debugging
+  server, web             Launch headless web UI / API server (Docker/remote)
 
 GLOBAL OPTIONS:
   -h, --help              Show help information
@@ -1413,6 +1418,7 @@ YONETIM VE DELIL ISLEMLERI:
 ARAYUZ:
   ui                      Masaustu yerel penceresini ac
   ui-browser              Tarayici gelistirici/debug modunda ac
+  server, web             Web UI / API sunucusunu baslat (Docker/headless)
 
 GENEL SECENEKLER:
   -h, --help              Yardim bilgisini goster

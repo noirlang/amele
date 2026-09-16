@@ -1,0 +1,10 @@
+target
+dist
+dist-*
+*.lock
+*.gif
+*.png
+*.ico
+*.ttf
+amele.gif
+.cargo
