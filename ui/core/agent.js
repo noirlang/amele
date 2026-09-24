@@ -169,6 +169,25 @@ function scrollChatToBottom() {
   } catch {}
 }
 
+// aktif vaka yoksa varsayilan kullanicinin uzerinde vaka ac
+async function ensureAgentCase(state) {
+  if (state.activeCase?.case_name) return state.activeCase.case_name;
+  const now = new Date();
+  const pad = (v) => String(v).padStart(2, "0");
+  const name = `Case_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  try {
+    const created = await apiRequest("/api/evidence-create", {
+      method: "POST",
+      body: JSON.stringify({ case_name: name })
+    });
+    if (created) {
+      state.activeCase = created;
+      return created.case_name || name;
+    }
+  } catch {}
+  return "varsayilan_vaka";
+}
+
 export async function submitAgentPrompt(promptText, state, render, showToast, t) {
   if (!promptText || !promptText.trim()) return;
   const cleanPrompt = promptText.trim();
@@ -198,11 +217,12 @@ export async function submitAgentPrompt(promptText, state, render, showToast, t)
     const prof = state.activeProfile || null;
     const profUser = prof?.username || "";
     const profName = prof?.fullName || "";
+    const caseName = await ensureAgentCase(state);
     const payload = {
       prompt: cleanPrompt,
       agent: state.agent.selectedAgent || "agy",
       model: state.agent.selectedModel || null,
-      case_name: state.activeCase?.case_name || "varsayilan_vaka",
+      case_name: caseName,
       target_scope: state.agent.selectedScope || "all",
       profile_name: profName && profUser ? `${profName} (${profUser})` : (profName || profUser || null)
     };
@@ -269,8 +289,13 @@ export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, m
     };
 
     const prof = state.activeProfile || null;
+    const caseName = await ensureAgentCase(state);
+    // yer tutucu vaka adini gercek vakayla degistir
+    const finalCmd = caseName && caseName !== "varsayilan_vaka"
+      ? cmd.trim().replaceAll("varsayilan_vaka", caseName)
+      : cmd.trim();
     let res = await sendCmd({
-      command: cmd.trim(),
+      command: finalCmd,
       sudo_password: sudoPassword || null,
       windows_confirmed: windowsConfirmed ? true : null,
       linux_confirmed: linuxConfirmed ? true : null,
@@ -281,7 +306,7 @@ export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, m
     // yetki gerekirse kullanıcıya sormadan devam et, sistem penceresi kendisi çıkar
     if (res && res.needs_elevation) {
       res = await sendCmd({
-        command: cmd.trim(),
+        command: finalCmd,
         sudo_password: null,
         windows_confirmed: res.os === "windows" ? true : null,
         linux_confirmed: res.os === "linux" ? true : null,
@@ -294,7 +319,7 @@ export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, m
       state.agent.elevationModal = {
         isOpen: true,
         os: res.os,
-        command: cmd.trim(),
+        command: finalCmd,
         messageId: messageId,
         reason: res.reason
       };
@@ -329,7 +354,7 @@ export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, m
       const errOut = String(targetMsg.execResult.stderr || "");
       const combined = `${out}${errOut ? `\n[STDERR]\n${errOut}` : ""}`.slice(0, 3000);
       await submitAgentPrompt(
-        `Komut çalıştı ve bitti, sonuca göre devam et:\n${cmd.trim()}\n${combined}`,
+        `Komut çalıştı ve bitti, sonuca göre devam et:\n${finalCmd}\n${combined}`,
         state,
         render,
         showToast,

@@ -1,5 +1,15 @@
 /* Amele Yapay Zeka Adli Ajan & Yatay Haber Menüsü Stilleri */
 
+/* Ana sayfa tamamı ortalı tek kolon */
+.page-home {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
 .agent-container {
   display: flex;
   flex-direction: column;

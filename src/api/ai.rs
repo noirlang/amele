@@ -126,6 +126,21 @@ fn run_cli_with_timeout(
     }
 }
 
+/// Komuta --quiet bayragi ekler, temiz cikti icin.
+// ajan komutlari sessiz calissin diye eklendi.
+fn with_quiet(cmd: &str) -> String {
+    if cmd.contains("--quiet") || cmd.contains("--no-logo") {
+        return cmd.to_string();
+    }
+    if let Some(rest) = cmd.strip_prefix("sudo amele") {
+        format!("sudo amele --quiet{rest}")
+    } else if let Some(rest) = cmd.strip_prefix("amele") {
+        format!("amele --quiet{rest}")
+    } else {
+        cmd.to_string()
+    }
+}
+
 /// Arayuzde secili analist profilini CLI tarafinda aktif yapar.
 /// CLI profilsiz komut calistirmadigi icin ajan komutlari Profile bulunamadi
 /// hatasiyla dusuyordu, bunu onlemek icin eklendi. en fazla ~20sn surer.
@@ -604,6 +619,10 @@ pub fn execute_command_endpoint(body: &[u8]) -> Response {
         req.profile_fullname.as_deref(),
     );
 
+    // ajan komutlari sessiz calissin
+    let cmd_owned = with_quiet(cmd_str);
+    let cmd_str = cmd_owned.as_str();
+
     let is_root_required = cmd_str.contains("sudo")
         || cmd_str.contains("disk")
         || cmd_str.contains("ram")
@@ -761,11 +780,11 @@ fn run_amele_rule_engine(prompt: &str, case_name: &str) -> String {
             Amele kurallarına göre canlı sistem RAM edinimi **AVML** (Linux) veya **WinPMEM** (Windows) ile gerçekleştirilir.\n\n\
             **Önerilen Amele CLI Komutu:**\n\
             ```bash\n\
-            sudo amele linux ram --case \"{}\" --hash sha256\n\
+            sudo amele --quiet linux ram --case \"{}\" --hash sha256\n\
             ```\n\n\
             **Uzak Sunucu Üzerinden (SSH - Agentsız):**\n\
             ```bash\n\
-            amele linux ram --ssh root@192.168.1.50 --case \"{}\"\n\
+            amele --quiet linux ram --ssh root@192.168.1.50 --case \"{}\"\n\
             ```\n\n\
             > Not: RAM edinimi çekirdek bellek sayfalarına doğrudan eriştiği için root yetkisi gerektirir.",
             case_name, case_name
@@ -782,11 +801,11 @@ fn run_amele_rule_engine(prompt: &str, case_name: &str) -> String {
             Amele, hedef diskleri bit-bit raw imaj veya AFF4 adli formatında paketleyerek hash bütünlüğünü anında doğrular.\n\n\
             **Yerel Disk Edinimi:**\n\
             ```bash\n\
-            sudo amele linux disk /dev/nvme0n1 --case \"{}\" --format raw --hash sha256\n\
+            sudo amele --quiet linux disk /dev/nvme0n1 --case \"{}\" --format raw --hash sha256\n\
             ```\n\n\
             **Uzak Agent Üzerinden TCP Akışı:**\n\
             ```bash\n\
-            amele linux disk /dev/sda --agent 10.0.0.15:9000 --token \"GIZLI_TOKEN\" --case \"{}\"\n\
+            amele --quiet linux disk /dev/sda --agent 10.0.0.15:9000 --token \"GIZLI_TOKEN\" --case \"{}\"\n\
             ```\n\n\
             *Edinim tamamlandığında SHA-256 ve MD5 hash değerleri otomatik hesaplanıp vaka loguna kaydedilir.*",
             case_name, case_name
@@ -799,11 +818,11 @@ fn run_amele_rule_engine(prompt: &str, case_name: &str) -> String {
             Amele Android modülü, ADB veya Wi-Fi üzerinden mantıksal veri, APK dökümleri, çağrı kayıtları ve MFT benzeri dosya sistemini paketler.\n\n\
             **Android Cihaz Taraması:**\n\
             ```bash\n\
-            amele android scan\n\
+            amele --quiet android scan\n\
             ```\n\n\
             **Tam Mantıksal Edinim:**\n\
             ```bash\n\
-            amele android acquire --case \"{}\" --all\n\
+            amele --quiet android acquire --case \"{}\" --all\n\
             ```",
             case_name
         );
@@ -815,7 +834,7 @@ fn run_amele_rule_engine(prompt: &str, case_name: &str) -> String {
             Çalışan veya durdurulmuş Docker konteynerlerinden katman diff, ortam değişkenleri (secret scan) ve bellek dökümü alır.\n\n\
             **Konteyner Adli Analizi:**\n\
             ```bash\n\
-            sudo amele docker inspect amele-web --case \"{}\" --scan-secrets\n\
+            sudo amele --quiet docker inspect amele-web --case \"{}\" --scan-secrets\n\
             ```\n\n\
             *Gizli anahtarlar, API tokenları ve veri tabanı parolaları otomatik olarak tespit edilir.*",
             case_name
@@ -828,11 +847,11 @@ fn run_amele_rule_engine(prompt: &str, case_name: &str) -> String {
             **Aktif Vaka:** `{}`\n\n\
             **Vaka Bütünlüğünü Doğrulama:**\n\
             ```bash\n\
-            amele case verify --case \"{}\"\n\
+            amele --quiet case verify --case \"{}\"\n\
             ```\n\n\
             **Vakayı Şifreli Arşiv Olarak Paketleme:**\n\
             ```bash\n\
-            amele case pack --case \"{}\" --output \"{}.tar.gz\" --encrypt\n\
+            amele --quiet case pack --case \"{}\" --output \"{}.tar.gz\" --encrypt\n\
             ```",
             case_name, case_name, case_name, case_name
         );
@@ -843,10 +862,10 @@ fn run_amele_rule_engine(prompt: &str, case_name: &str) -> String {
         Aktif Vaka: **{}**\n\n\
         Amele platformunda disk edinimi, canlı RAM analizi, Android/iOS mobil edinim, Docker konteyner adli bilişimi ve SSH üzerinden disksiz edinim gerçekleştirebilirsiniz.\n\n\
         **Örnek Hızlı Komutlar:**\n\
-        - `sudo amele linux disk /dev/nvme0n1 --case \"{}\"`\n\
-        - `sudo amele linux ram --case \"{}\"`\n\
-        - `amele android scan`\n\
-        - `amele case list`\n\n\
+        - `sudo amele --quiet linux disk /dev/nvme0n1 --case \"{}\"`\n\
+        - `sudo amele --quiet linux ram --case \"{}\"`\n\
+        - `amele --quiet android scan`\n\
+        - `amele --quiet case list`\n\n\
         Herhangi bir soru sorabilir veya doğrudan komut ürettirebilirsiniz.",
         case_name, case_name, case_name
     )
@@ -896,7 +915,7 @@ mod tests {
         assert!(resp_text.contains("RAM"));
         assert_eq!(
             val["suggested_command"].as_str().unwrap(),
-            "sudo amele linux ram --case \"test_case\" --hash sha256"
+            "sudo amele --quiet linux ram --case \"test_case\" --hash sha256"
         );
     }
 

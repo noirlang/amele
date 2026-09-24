@@ -43,7 +43,6 @@ export function homePage({ t, icon, assetPath, theme, state }) {
               <div class="agent-msg assistant">
                 <div class="agent-msg-header">
                   <span class="agent-msg-author"><span class="agent-msg-avatar">${getAgentOfficialSvg(selectedAgentId)}</span> ${escapeHtml(selectedAgent?.name || "Agent")}</span>
-                  <span class="agent-badge badge-user">${t("copilot.generating")}</span>
                 </div>
                 <div class="agent-msg-body">
                   <div class="loading-row"><span class="spinner" aria-hidden="true"></span><span>${t("copilot.generating")}</span></div>
@@ -108,8 +107,22 @@ export function homePage({ t, icon, assetPath, theme, state }) {
     : "";
 
   return `
-    <section class="page">
-      <!-- Yapay Zeka Ajan Bölümü -->
+    <section class="page page-home">
+      <!-- Yatay Haber Menüsü (Fotoğrafsız, en üstte) -->
+      <div class="home-news-horizontal-section">
+        <div class="news-horizontal-header">
+          <div class="news-horizontal-title">
+            <span class="news-header-icon">${icon ? icon("globe") : ""}</span>
+            <h3>${t("news.latestUpdates")}</h3>
+          </div>
+        </div>
+
+        <div class="news-horizontal-scroll-container" id="news-horizontal-track">
+          ${newsCardsHtml}
+        </div>
+      </div>
+
+      <!-- Yapay Zeka Ajan Bölümü (haberlerin altında, ortalı) -->
       <div class="agent-container">
         <!-- Karşılama Çubuğu (Preview ve geri bildirim kaldırıldı, yalın karşılama) -->
         <div class="agent-greeting-bar">
@@ -248,20 +261,6 @@ export function homePage({ t, icon, assetPath, theme, state }) {
               </button>
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- Yatay Haber Menüsü (Fotoğrafsız) -->
-      <div class="home-news-horizontal-section">
-        <div class="news-horizontal-header">
-          <div class="news-horizontal-title">
-            <span class="news-header-icon">${icon ? icon("globe") : ""}</span>
-            <h3>${t("news.latestUpdates")}</h3>
-          </div>
-        </div>
-
-        <div class="news-horizontal-scroll-container" id="news-horizontal-track">
-          ${newsCardsHtml}
         </div>
       </div>
 
