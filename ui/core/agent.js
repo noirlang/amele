@@ -44,7 +44,7 @@ export function initAgent(state, render) {
     state.agent = {
       agents: [...DEFAULT_AGENTS],
       selectedAgent: "agy",
-      selectedModel: "gemini-3.8-flash-high",
+      selectedModel: "",
       selectedScope: "all",
       selectedMode: "ask",
       selectedOpt: "balance",
@@ -61,6 +61,19 @@ export function initAgent(state, render) {
   loadAgents(state, render);
 }
 
+// varsayılan modelde yavas high/thinking yerine hizli modeli sec
+// agy listesi high ile basladigi icin ilk sira yavas kaliyordu
+function preferFastModel(models) {
+  if (!Array.isArray(models) || models.length === 0) return null;
+  const low = models.find((m) => String(m.id || "").toLowerCase().includes("low"));
+  if (low) return low;
+  const fast = models.find((m) => {
+    const id = String(m.id || "").toLowerCase();
+    return !id.includes("high") && !id.includes("thinking") && !id.includes("opus");
+  });
+  return fast || models[0];
+}
+
 export async function loadAgents(state, render) {
   try {
     const res = await apiRequest("/api/ai/agents");
@@ -75,7 +88,7 @@ export async function loadAgents(state, render) {
       if (chosen) {
         state.agent.selectedAgent = chosen.id;
         if (chosen.models && chosen.models.length > 0) {
-          state.agent.selectedModel = chosen.models[0].id;
+          state.agent.selectedModel = preferFastModel(chosen.models).id;
         }
         // Canlı modelleri arka planda sorgula
         fetchAgentModels(chosen.id, state, render);
@@ -101,7 +114,7 @@ export async function fetchAgentModels(agentId, state, render) {
       if (state.agent.selectedAgent === agentId) {
         const hasCurrent = res.models.some((m) => m.id === state.agent.selectedModel);
         if (!hasCurrent) {
-          state.agent.selectedModel = res.models[0].id;
+          state.agent.selectedModel = preferFastModel(res.models).id;
         }
         if (render) render();
       }
@@ -123,7 +136,7 @@ export function handleAgentChange(agentId, state, render) {
 
   state.agent.selectedAgent = agentId;
   if (targetAgent && targetAgent.models && targetAgent.models.length > 0) {
-    state.agent.selectedModel = targetAgent.models[0].id;
+    state.agent.selectedModel = preferFastModel(targetAgent.models).id;
   } else {
     state.agent.selectedModel = "";
   }

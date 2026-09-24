@@ -383,7 +383,7 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
     let target_scope = req.target_scope.as_deref().unwrap_or("all");
 
     // cli çalıştır, boş/takılma durumunda kural motoruna düş
-    // timeout 90sn, takılırsa öldürüp fallback dönüyoruz
+    // timeout 60sn, takılırsa öldürüp fallback dönüyoruz
     fn run_or_fallback(
         agent_label: &str,
         bin: &str,
@@ -392,7 +392,7 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
         case_name: &str,
         model_id: &str,
     ) -> Response {
-        if let Some(output) = run_cli_with_timeout(bin, args, 90) {
+        if let Some(output) = run_cli_with_timeout(bin, args, 60) {
             let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
             if output.status.success() && !text.is_empty() {
                 let suggested_command = extract_suggested_command(&text);
@@ -444,10 +444,17 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
                 prompt
             );
             if model_id.is_empty() {
-                let args = ["--print", combined.as_str()];
+                let args = ["--print", "--print-timeout", "50s", combined.as_str()];
                 run_or_fallback("agy", &bin, &args, prompt, case_name, model_id)
             } else {
-                let args = ["--print", combined.as_str(), "--model", model_id];
+                let args = [
+                    "--print",
+                    "--print-timeout",
+                    "50s",
+                    combined.as_str(),
+                    "--model",
+                    model_id,
+                ];
                 run_or_fallback("agy", &bin, &args, prompt, case_name, model_id)
             }
         }
