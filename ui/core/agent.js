@@ -1,4 +1,4 @@
-// Copilot AI Asistan, model seçici, Amele kural motoru ve yetki yükseltme yönetimi.
+// Yapay Zeka Adli Ajan, model seçici, Amele kural motoru ve yetki yükseltme yönetimi.
 
 import { createApiRequest } from "./api.js";
 
@@ -6,9 +6,9 @@ const apiRequest = createApiRequest({
   backendAvailable: typeof location !== "undefined" && (location.protocol === "http:" || location.protocol === "https:")
 });
 
-export function initCopilot(state, render) {
-  if (!state.copilot) {
-    state.copilot = {
+export function initAgent(state, render) {
+  if (!state.agent) {
+    state.agent = {
       agents: [],
       selectedAgent: "agy",
       selectedModel: "",
@@ -22,16 +22,18 @@ export function initCopilot(state, render) {
       elevationModal: null
     };
   }
+  state.copilot = state.agent; // Geriye dönük uyumluluk
 
   // Ajanları ve modelleri backend'den çek
-  loadCopilotAgents(state, render);
+  loadAgents(state, render);
 }
 
-export async function loadCopilotAgents(state, render) {
+export async function loadAgents(state, render) {
   try {
     const res = await apiRequest("/api/ai/agents");
     if (res && res.agents && Array.isArray(res.agents)) {
-      state.copilot.agents = res.agents;
+      if (!state.agent) initAgent(state, render);
+      state.agent.agents = res.agents;
 
       // Tercih edilen ilk kurulu ajanı seç: agy > pi > claude > codex > opencode > amele-expert
       const installedOrder = ["agy", "pi", "claude", "codex", "opencode", "amele-expert"];
@@ -45,9 +47,9 @@ export async function loadCopilotAgents(state, render) {
       }
 
       if (chosen) {
-        state.copilot.selectedAgent = chosen.id;
+        state.agent.selectedAgent = chosen.id;
         if (chosen.models && chosen.models.length > 0) {
-          state.copilot.selectedModel = chosen.models[0].id;
+          state.agent.selectedModel = chosen.models[0].id;
         }
       }
 
@@ -59,51 +61,51 @@ export async function loadCopilotAgents(state, render) {
 }
 
 export function handleAgentChange(agentId, state, render) {
-  if (!state.copilot) return;
-  state.copilot.selectedAgent = agentId;
-  const agent = state.copilot.agents.find((a) => a.id === agentId);
+  if (!state.agent) return;
+  state.agent.selectedAgent = agentId;
+  const agent = state.agent.agents.find((a) => a.id === agentId);
   if (agent && agent.models && agent.models.length > 0) {
-    state.copilot.selectedModel = agent.models[0].id;
+    state.agent.selectedModel = agent.models[0].id;
   } else {
-    state.copilot.selectedModel = "";
+    state.agent.selectedModel = "";
   }
   if (render) render();
 }
 
 export function handleModelChange(modelId, state) {
-  if (!state.copilot) return;
-  state.copilot.selectedModel = modelId;
+  if (!state.agent) return;
+  state.agent.selectedModel = modelId;
 }
 
 export function handleScopeChange(scopeId, state) {
-  if (!state.copilot) return;
-  state.copilot.selectedScope = scopeId;
+  if (!state.agent) return;
+  state.agent.selectedScope = scopeId;
 }
 
-export async function submitCopilotPrompt(promptText, state, render, showToast, t) {
+export async function submitAgentPrompt(promptText, state, render, showToast, t) {
   if (!promptText || !promptText.trim()) return;
   const cleanPrompt = promptText.trim();
 
-  if (!state.copilot) initCopilot(state, render);
+  if (!state.agent) initAgent(state, render);
 
-  state.copilot.messages.push({
+  state.agent.messages.push({
     id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     role: "user",
     content: cleanPrompt,
     timestamp: Date.now()
   });
 
-  state.copilot.promptDraft = "";
-  state.copilot.isGenerating = true;
+  state.agent.promptDraft = "";
+  state.agent.isGenerating = true;
   render();
 
   try {
     const payload = {
       prompt: cleanPrompt,
-      agent: state.copilot.selectedAgent || "amele-expert",
-      model: state.copilot.selectedModel || null,
+      agent: state.agent.selectedAgent || "amele-expert",
+      model: state.agent.selectedModel || null,
       case_name: state.activeCase?.case_name || "varsayilan_vaka",
-      target_scope: state.copilot.selectedScope || "all"
+      target_scope: state.agent.selectedScope || "all"
     };
 
     const res = await apiRequest("/api/ai/chat", {
@@ -112,7 +114,7 @@ export async function submitCopilotPrompt(promptText, state, render, showToast, 
     });
 
     if (res && res.ok) {
-      state.copilot.messages.push({
+      state.agent.messages.push({
         id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         role: "assistant",
         content: res.response || "",
@@ -122,7 +124,7 @@ export async function submitCopilotPrompt(promptText, state, render, showToast, 
         timestamp: Date.now()
       });
     } else {
-      state.copilot.messages.push({
+      state.agent.messages.push({
         id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         role: "assistant",
         content: "⚠️ Ajan sorgusu tamamlanamadı veya bir hata oluştu.",
@@ -130,14 +132,14 @@ export async function submitCopilotPrompt(promptText, state, render, showToast, 
       });
     }
   } catch (err) {
-    state.copilot.messages.push({
+    state.agent.messages.push({
       id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       role: "assistant",
       content: `❌ Bağlantı hatası: ${err?.message || err}`,
       timestamp: Date.now()
     });
   } finally {
-    state.copilot.isGenerating = false;
+    state.agent.isGenerating = false;
     render();
   }
 }
@@ -145,7 +147,8 @@ export async function submitCopilotPrompt(promptText, state, render, showToast, 
 export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, messageId, state, render, showToast, t) {
   if (!cmd || !cmd.trim()) return;
 
-  state.copilot.isExecuting = true;
+  if (!state.agent) initAgent(state, render);
+  state.agent.isExecuting = true;
   render();
 
   try {
@@ -161,23 +164,23 @@ export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, m
     });
 
     if (res && res.needs_elevation) {
-      state.copilot.elevationModal = {
+      state.agent.elevationModal = {
         isOpen: true,
         os: res.os,
         command: cmd.trim(),
         messageId: messageId,
         reason: res.reason
       };
-      state.copilot.isExecuting = false;
+      state.agent.isExecuting = false;
       render();
       return;
     }
 
     // Modal açıksa kapat
-    state.copilot.elevationModal = null;
+    state.agent.elevationModal = null;
 
     // Mesaja çalıştırma sonucunu iliştir
-    const targetMsg = state.copilot.messages.find((m) => m.id === messageId) || state.copilot.messages[state.copilot.messages.length - 1];
+    const targetMsg = state.agent.messages.find((m) => m.id === messageId) || state.agent.messages[state.agent.messages.length - 1];
     if (targetMsg) {
       targetMsg.execResult = {
         ok: Boolean(res?.ok),
@@ -195,7 +198,7 @@ export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, m
   } catch (err) {
     showToast?.(`Hata: ${err?.message || err}`);
   } finally {
-    state.copilot.isExecuting = false;
+    state.agent.isExecuting = false;
     render();
   }
 }

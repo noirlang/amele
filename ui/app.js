@@ -21,15 +21,15 @@ import { workflowPage, pickerField, field, pageTitle, casePanel } from "./pages/
 import { initDeveloperMode, devLog } from "./developer.js";
 import { initJobWidget } from "./core/jobs.js";
 import {
-  initCopilot,
-  loadCopilotAgents,
+  initAgent,
+  loadAgents,
   handleAgentChange,
   handleModelChange,
   handleScopeChange,
-  submitCopilotPrompt,
+  submitAgentPrompt,
   executeAmeleCommand,
   getQuickChipPrompt
-} from "./core/copilot.js";
+} from "./core/agent.js";
 
 const APP_VERSION = "v0.0.20";
 const assetPath = "./assets";
@@ -124,7 +124,7 @@ const state = {
   },
   jobs: {},
   cachedDefaultCaseName: "",
-  copilot: {
+  agent: {
     agents: [],
     selectedAgent: "agy",
     selectedModel: "",
@@ -137,8 +137,10 @@ const state = {
     isExecuting: false,
     elevationModal: null
   },
+  copilot: null,
   lastLog: initialLogMessages(preferredLanguage)
 };
+state.copilot = state.agent;
 
 function t(key, vars = {}) {
   return translate(state.language, key, vars);
@@ -1538,38 +1540,40 @@ window.addEventListener("focus", clearChromeArtifacts);
 clearChromeArtifacts();
 
 document.addEventListener("click", async (event) => {
-  const copilotSend = event.target.closest("[data-copilot-action='send']");
-  if (copilotSend) {
+  const agentSend = event.target.closest("[data-agent-action='send'], [data-copilot-action='send']");
+  if (agentSend) {
     event.preventDefault();
-    const input = document.querySelector("#copilot-prompt-input");
-    const prompt = input ? input.value : (state.copilot?.promptDraft || "");
-    submitCopilotPrompt(prompt, state, render, showToast, t);
+    const input = document.querySelector("#agent-prompt-input, #copilot-prompt-input");
+    const prompt = input ? input.value : (state.agent?.promptDraft || state.copilot?.promptDraft || "");
+    submitAgentPrompt(prompt, state, render, showToast, t);
     return;
   }
 
-  const copilotChip = event.target.closest("[data-copilot-chip]");
-  if (copilotChip) {
+  const agentChip = event.target.closest("[data-agent-chip], [data-copilot-chip]");
+  if (agentChip) {
     event.preventDefault();
-    const chipType = copilotChip.dataset.copilotChip;
+    const chipType = agentChip.dataset.agentChip || agentChip.dataset.copilotChip;
     const promptText = getQuickChipPrompt(chipType, state.language === "en");
-    const input = document.querySelector("#copilot-prompt-input");
+    const input = document.querySelector("#agent-prompt-input, #copilot-prompt-input");
     if (input) {
       input.value = promptText;
       input.focus();
     }
+    if (state.agent) state.agent.promptDraft = promptText;
     if (state.copilot) state.copilot.promptDraft = promptText;
     return;
   }
 
-  const addCtx = event.target.closest("[data-copilot-action='add-context']");
+  const addCtx = event.target.closest("[data-agent-action='add-context'], [data-copilot-action='add-context']");
   if (addCtx) {
     event.preventDefault();
     const caseName = state.activeCase?.case_name || "varsayilan_vaka";
     const platform = state.platform;
     const ctxSnippet = ` [@vaka: ${caseName}, @platform: ${platform}] `;
-    const input = document.querySelector("#copilot-prompt-input");
+    const input = document.querySelector("#agent-prompt-input, #copilot-prompt-input");
     if (input) {
       input.value = (input.value ? input.value + " " : "") + ctxSnippet;
+      if (state.agent) state.agent.promptDraft = input.value;
       if (state.copilot) state.copilot.promptDraft = input.value;
       input.focus();
     }
@@ -1577,7 +1581,7 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const copyCmd = event.target.closest("[data-copilot-action='copy-cmd']");
+  const copyCmd = event.target.closest("[data-agent-action='copy-cmd'], [data-copilot-action='copy-cmd']");
   if (copyCmd) {
     event.preventDefault();
     const cmd = copyCmd.dataset.cmd;
@@ -1589,7 +1593,7 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const runCmd = event.target.closest("[data-copilot-action='run-cmd']");
+  const runCmd = event.target.closest("[data-agent-action='run-cmd'], [data-copilot-action='run-cmd']");
   if (runCmd) {
     event.preventDefault();
     const cmd = runCmd.dataset.cmd;
@@ -1610,6 +1614,7 @@ document.addEventListener("click", async (event) => {
   const elevCancel = event.target.closest("[data-elevation-action='cancel']");
   if (elevCancel) {
     event.preventDefault();
+    if (state.agent) state.agent.elevationModal = null;
     if (state.copilot) state.copilot.elevationModal = null;
     render();
     return;
@@ -1831,26 +1836,27 @@ document.addEventListener("click", async (event) => {
 });
 
 document.addEventListener("change", async (event) => {
-  const agentSelect = event.target.closest("[data-copilot-action='change-agent']");
+  const agentSelect = event.target.closest("[data-agent-action='change-agent'], [data-copilot-action='change-agent']");
   if (agentSelect) {
     handleAgentChange(agentSelect.value, state, render);
     return;
   }
 
-  const modelSelect = event.target.closest("[data-copilot-action='change-model']");
+  const modelSelect = event.target.closest("[data-agent-action='change-model'], [data-copilot-action='change-model']");
   if (modelSelect) {
     handleModelChange(modelSelect.value, state);
     return;
   }
 
-  const scopeSelect = event.target.closest("[data-copilot-action='change-scope']");
+  const scopeSelect = event.target.closest("[data-agent-action='change-scope'], [data-copilot-action='change-scope']");
   if (scopeSelect) {
     handleScopeChange(scopeSelect.value, state);
     return;
   }
 
-  const optSelect = event.target.closest("[data-copilot-action='change-opt']");
+  const optSelect = event.target.closest("[data-agent-action='change-opt'], [data-copilot-action='change-opt']");
   if (optSelect) {
+    if (state.agent) state.agent.selectedOpt = optSelect.value;
     if (state.copilot) state.copilot.selectedOpt = optSelect.value;
     return;
   }
@@ -1960,18 +1966,19 @@ document.addEventListener("change", async (event) => {
 });
 
 document.addEventListener("input", (event) => {
-  const input = event.target.closest("[data-copilot-input]");
-  if (input && state.copilot) {
-    state.copilot.promptDraft = input.value;
+  const input = event.target.closest("[data-agent-input], [data-copilot-input]");
+  if (input) {
+    if (state.agent) state.agent.promptDraft = input.value;
+    if (state.copilot) state.copilot.promptDraft = input.value;
   }
 });
 
 document.addEventListener("keydown", (event) => {
-  const input = event.target.closest("[data-copilot-input]");
+  const input = event.target.closest("[data-agent-input], [data-copilot-input]");
   if (input && event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
     const prompt = input.value;
-    submitCopilotPrompt(prompt, state, render, showToast, t);
+    submitAgentPrompt(prompt, state, render, showToast, t);
   }
 });
 
@@ -4663,7 +4670,7 @@ async function bootApp() {
   if (state.profileGateVisible) renderProfileGate();
 
   // Yapay zeka ajanlarını ve modellerini arka planda yükle
-  loadCopilotAgents(state, render).catch(() => {});
+  loadAgents(state, render).catch(() => {});
 
   // Background network tasks and timers (only in real browser / webview, not during Node unit tests)
   const isNodeTest = typeof process !== "undefined" && Boolean(process.versions?.node);

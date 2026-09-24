@@ -1,4 +1,4 @@
-// Ana Dashboard: GitHub Copilot tarzı AI Asistanı, Yatay Haber Menüsü ve Adli Araçlar.
+// Ana Dashboard: Yapay Zeka Adli Ajanı, Yatay Haber Menüsü ve Adli Araçlar.
 
 import { escapeHtml } from "../core/utils.js";
 
@@ -11,17 +11,16 @@ export function homePage({ t, icon, assetPath, theme, state }) {
   const userName = state?.activeProfile?.fullName || state?.activeProfile?.username || "melihemik";
   const greetingText = t(greetingKey, { name: userName });
 
-  // 2. Copilot AI durumu
-  const copilotState = state?.copilot || {};
-  const agents = copilotState.agents || [];
-  const selectedAgentId = copilotState.selectedAgent || "agy";
+  // 2. Yapay Zeka Ajan durumu
+  const agentState = state?.agent || state?.copilot || {};
+  const agents = agentState.agents || [];
+  const selectedAgentId = agentState.selectedAgent || "agy";
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) || agents[0];
   const models = selectedAgent?.models || [];
-  const selectedModelId = copilotState.selectedModel || (models[0]?.id || "");
-  const selectedScope = copilotState.selectedScope || "all";
-  const isGenerating = Boolean(copilotState.isGenerating);
-  const isExecuting = Boolean(copilotState.isExecuting);
-  const messages = copilotState.messages || [];
+  const selectedModelId = agentState.selectedModel || (models[0]?.id || "");
+  const selectedScope = agentState.selectedScope || "all";
+  const isGenerating = Boolean(agentState.isGenerating);
+  const messages = agentState.messages || [];
 
   // Ajan seçenekleri HTML
   const agentOptionsHtml = agents.length > 0
@@ -51,17 +50,17 @@ export function homePage({ t, icon, assetPath, theme, state }) {
   // Sohbet geçmişi HTML
   const chatHistoryHtml = messages.length > 0 || isGenerating
     ? `
-      <div class="copilot-chat-history">
+      <div class="agent-chat-history">
         ${messages.map((msg) => renderChatMessage(msg, state, t, escapeHtml)).join("")}
         ${
           isGenerating
             ? `
-              <div class="copilot-msg assistant">
-                <div class="copilot-msg-header">
-                  <span class="copilot-msg-author">🤖 ${selectedAgent?.name || "Agent"}</span>
-                  <span class="copilot-badge badge-user">${t("copilot.generating")}</span>
+              <div class="agent-msg assistant">
+                <div class="agent-msg-header">
+                  <span class="agent-msg-author">🤖 ${selectedAgent?.name || "Agent"}</span>
+                  <span class="agent-badge badge-user">${t("copilot.generating")}</span>
                 </div>
-                <div class="copilot-msg-body">
+                <div class="agent-msg-body">
                   <div class="loading-dots"><span>.</span><span>.</span><span>.</span></div>
                 </div>
               </div>
@@ -117,59 +116,59 @@ export function homePage({ t, icon, assetPath, theme, state }) {
   }).join("");
 
   // 4. Yetki Yükseltme Modalı (Linux Sudo veya Windows Admin)
-  const elevationModal = copilotState.elevationModal;
+  const elevationModal = agentState.elevationModal;
   const elevationModalHtml = elevationModal && elevationModal.isOpen
     ? renderElevationModal(elevationModal, t, escapeHtml)
     : "";
 
   return `
     <section class="page">
-      <!-- Copilot AI Bölümü -->
-      <div class="copilot-container">
+      <!-- Yapay Zeka Ajan Bölümü -->
+      <div class="agent-container">
         <!-- Karşılama Çubuğu -->
-        <div class="copilot-greeting-bar">
-          <div class="copilot-greeting-left">
-            <div class="copilot-mascot">
+        <div class="agent-greeting-bar">
+          <div class="agent-greeting-left">
+            <div class="agent-mascot">
               <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
                 <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A2.5 2.5 0 0 0 5 15.5 2.5 2.5 0 0 0 7.5 18a2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 7.5 13m9 0a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5"/>
               </svg>
             </div>
-            <h1 class="copilot-greeting-title">${escapeHtml(greetingText)}</h1>
+            <h1 class="agent-greeting-title">${escapeHtml(greetingText)}</h1>
           </div>
-          <div class="copilot-greeting-right">
-            <span class="copilot-badge-preview">Preview</span>
-            <span class="copilot-separator">·</span>
-            <a href="https://github.com/noirlang/amele/issues" target="_blank" rel="noopener noreferrer" class="copilot-feedback-link">
+          <div class="agent-greeting-right">
+            <span class="agent-badge-preview">Preview</span>
+            <span class="agent-separator">·</span>
+            <a href="https://github.com/noirlang/amele/issues" target="_blank" rel="noopener noreferrer" class="agent-feedback-link">
               ${t("copilot.giveFeedback")}
             </a>
           </div>
         </div>
 
-        <!-- Copilot Giriş Kutusu -->
-        <div class="copilot-box">
-          <div class="copilot-input-wrapper">
+        <!-- Ajan Giriş Kutusu -->
+        <div class="agent-box">
+          <div class="agent-input-wrapper">
             <textarea
-              id="copilot-prompt-input"
-              class="copilot-textarea"
+              id="agent-prompt-input"
+              class="agent-textarea"
               placeholder="${t("copilot.placeholder")}"
               rows="2"
-              data-copilot-input
-            >${escapeHtml(copilotState.promptDraft || "")}</textarea>
+              data-agent-input
+            >${escapeHtml(agentState.promptDraft || "")}</textarea>
           </div>
 
-          <div class="copilot-toolbar">
-            <div class="copilot-toolbar-left">
-              <!-- Sor (Ask) butonu -->
-              <div class="copilot-btn-dropdown">
-                <button type="button" class="copilot-tool-btn" data-copilot-action="toggle-mode">
+          <div class="agent-toolbar">
+            <div class="agent-toolbar-left">
+              <!-- Sor butonu -->
+              <div class="agent-btn-dropdown">
+                <button type="button" class="agent-tool-btn" data-agent-action="toggle-mode">
                   <span>💬 ${t("copilot.modeAsk")}</span>
                   <span class="dropdown-caret">▾</span>
                 </button>
               </div>
 
-              <!-- Kapsam (Scope / Repositories) -->
-              <div class="copilot-btn-dropdown">
-                <select class="copilot-select" data-copilot-action="change-scope" title="${t("copilot.scopeTitle")}">
+              <!-- Kapsam -->
+              <div class="agent-btn-dropdown">
+                <select class="agent-select" data-agent-action="change-scope" title="${t("copilot.scopeTitle")}">
                   <option value="all" ${selectedScope === "all" ? "selected" : ""}>🔖 ${t("copilot.scopeAll")}</option>
                   <option value="ram" ${selectedScope === "ram" ? "selected" : ""}>🧠 ${t("copilot.scopeRam")}</option>
                   <option value="disk" ${selectedScope === "disk" ? "selected" : ""}>🛠️ ${t("copilot.scopeDisk")}</option>
@@ -180,55 +179,55 @@ export function homePage({ t, icon, assetPath, theme, state }) {
               </div>
 
               <!-- [+] Bağlam Ekleme Butonu -->
-              <button type="button" class="copilot-icon-btn" data-copilot-action="add-context" title="${t("copilot.addContext")}">
+              <button type="button" class="agent-icon-btn" data-agent-action="add-context" title="${t("copilot.addContext")}">
                 +
               </button>
 
               <!-- Ajan Seçici Dropdown -->
-              <div class="copilot-btn-dropdown">
-                <select class="copilot-select copilot-agent-select" data-copilot-action="change-agent" title="${t("copilot.selectAgent")}">
+              <div class="agent-btn-dropdown">
+                <select class="agent-select agent-select-highlight" data-agent-action="change-agent" title="${t("copilot.selectAgent")}">
                   ${agentOptionsHtml}
                 </select>
               </div>
 
               <!-- Model Seçici Dropdown (Ajan seçildiğinde dinamik güncellenir) -->
-              <div class="copilot-btn-dropdown">
-                <select class="copilot-select copilot-model-select" data-copilot-action="change-model" title="${t("copilot.selectModel")}">
+              <div class="agent-btn-dropdown">
+                <select class="agent-select agent-model-select" data-agent-action="change-model" title="${t("copilot.selectModel")}">
                   ${modelOptionsHtml}
                 </select>
               </div>
             </div>
 
-            <div class="copilot-toolbar-right">
+            <div class="agent-toolbar-right">
               <!-- Auto Dropdown -->
-              <div class="copilot-btn-dropdown">
-                <select class="copilot-select copilot-pill-select" data-copilot-action="change-auto">
+              <div class="agent-btn-dropdown">
+                <select class="agent-select agent-pill-select" data-agent-action="change-auto">
                   <option value="auto">🔀 ${t("copilot.auto")}</option>
                   <option value="manual">⚙️ ${t("copilot.manual")}</option>
                 </select>
               </div>
 
               <!-- Optimized for: Balance Dropdown -->
-              <div class="copilot-btn-dropdown">
-                <select class="copilot-select copilot-pill-select" data-copilot-action="change-opt">
-                  <option value="balance" ${copilotState.selectedOpt === "balance" ? "selected" : ""}>${t("copilot.optBalance")}</option>
-                  <option value="speed" ${copilotState.selectedOpt === "speed" ? "selected" : ""}>${t("copilot.optSpeed")}</option>
-                  <option value="reasoning" ${copilotState.selectedOpt === "reasoning" ? "selected" : ""}>${t("copilot.optReasoning")}</option>
+              <div class="agent-btn-dropdown">
+                <select class="agent-select agent-pill-select" data-agent-action="change-opt">
+                  <option value="balance" ${agentState.selectedOpt === "balance" ? "selected" : ""}>${t("copilot.optBalance")}</option>
+                  <option value="speed" ${agentState.selectedOpt === "speed" ? "selected" : ""}>${t("copilot.optSpeed")}</option>
+                  <option value="reasoning" ${agentState.selectedOpt === "reasoning" ? "selected" : ""}>${t("copilot.optReasoning")}</option>
                 </select>
               </div>
 
               <!-- Hız / Optimizasyon İkonu -->
-              <button type="button" class="copilot-icon-btn" data-copilot-action="toggle-opt" title="${t("copilot.sparkleTitle")}">
+              <button type="button" class="agent-icon-btn" data-agent-action="toggle-opt" title="${t("copilot.sparkleTitle")}">
                 ✨
               </button>
 
-              <span class="copilot-v-divider"></span>
+              <span class="agent-v-divider"></span>
 
               <!-- Gönder Butonu -->
               <button
                 type="button"
-                class="copilot-send-btn"
-                data-copilot-action="send"
+                class="agent-send-btn"
+                data-agent-action="send"
                 title="${t("copilot.send")}"
                 ${isGenerating ? "disabled" : ""}
               >
@@ -241,33 +240,33 @@ export function homePage({ t, icon, assetPath, theme, state }) {
         </div>
 
         <!-- Hızlı Eylem Çipleri (Action Chips) -->
-        <div class="copilot-chips-container">
-          <div class="copilot-chips-row">
-            <button type="button" class="copilot-chip" data-copilot-chip="debug">
+        <div class="agent-chips-container">
+          <div class="agent-chips-row">
+            <button type="button" class="agent-chip" data-agent-chip="debug">
               <span class="chip-icon">🐞</span>
               <span>${t("copilot.chipDebug")}</span>
             </button>
-            <button type="button" class="copilot-chip" data-copilot-chip="agent">
+            <button type="button" class="agent-chip" data-agent-chip="agent">
               <span class="chip-icon">☁️</span>
               <span>${t("copilot.chipAgent")}</span>
             </button>
-            <button type="button" class="copilot-chip" data-copilot-chip="issue">
+            <button type="button" class="agent-chip" data-agent-chip="issue">
               <span class="chip-icon">◌</span>
               <span>${t("copilot.chipIssue")}</span>
             </button>
-            <button type="button" class="copilot-chip" data-copilot-chip="code">
+            <button type="button" class="agent-chip" data-agent-chip="code">
               <span class="chip-icon">📄</span>
               <span>${t("copilot.chipCode")}</span>
               <span class="dropdown-caret">▾</span>
             </button>
-            <button type="button" class="copilot-chip" data-copilot-chip="git">
+            <button type="button" class="agent-chip" data-agent-chip="git">
               <span class="chip-icon">⑂</span>
               <span>${t("copilot.chipGit")}</span>
               <span class="dropdown-caret">▾</span>
             </button>
           </div>
-          <div class="copilot-chips-row">
-            <button type="button" class="copilot-chip" data-copilot-chip="pr">
+          <div class="agent-chips-row">
+            <button type="button" class="agent-chip" data-agent-chip="pr">
               <span class="chip-icon">⇅</span>
               <span>${t("copilot.chipPr")}</span>
               <span class="dropdown-caret">▾</span>
@@ -318,7 +317,7 @@ function renderChatMessage(msg, state, t, escapeHtml) {
   const isUser = msg.role === "user";
   const authorName = isUser
     ? (state?.activeProfile?.fullName || state?.activeProfile?.username || "melihemik")
-    : (msg.agent ? `${msg.agent.toUpperCase()} (${msg.model || "Expert"})` : "Amele Copilot");
+    : (msg.agent ? `${msg.agent.toUpperCase()} (${msg.model || "Expert"})` : "Amele Ajanı");
 
   const formattedContent = formatSimpleMarkdown(msg.content);
 
@@ -328,12 +327,12 @@ function renderChatMessage(msg, state, t, escapeHtml) {
     : "";
 
   return `
-    <div class="copilot-msg ${isUser ? "user" : "assistant"}" data-msg-id="${msg.id}">
-      <div class="copilot-msg-header">
-        <span class="copilot-msg-author">${isUser ? "👤" : "🤖"} ${escapeHtml(authorName)}</span>
-        <span class="copilot-msg-time">${new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+    <div class="agent-msg ${isUser ? "user" : "assistant"}" data-msg-id="${msg.id}">
+      <div class="agent-msg-header">
+        <span class="agent-msg-author">${isUser ? "👤" : "🤖"} ${escapeHtml(authorName)}</span>
+        <span class="agent-msg-time">${new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
       </div>
-      <div class="copilot-msg-body">
+      <div class="agent-msg-body">
         ${formattedContent}
       </div>
       ${commandCardHtml}
@@ -355,7 +354,7 @@ function renderCommandCard(cmd, messageId, execResult, state, t, escapeHtml) {
     const isSuccess = execResult.ok;
     const outputText = (execResult.stdout || "") + (execResult.stderr ? `\n[STDERR]\n${execResult.stderr}` : "");
     execHtml = `
-      <div class="copilot-exec-output ${isSuccess ? "success" : "error"}">
+      <div class="agent-exec-output ${isSuccess ? "success" : "error"}">
         <strong>${isSuccess ? t("copilot.exitSuccess") : t("copilot.exitFailed", { code: execResult.exit_code })}</strong>
         <div>${escapeHtml(outputText.trim() || "(Çıktı yok)")}</div>
       </div>
@@ -363,19 +362,19 @@ function renderCommandCard(cmd, messageId, execResult, state, t, escapeHtml) {
   }
 
   return `
-    <div class="copilot-command-card">
-      <div class="copilot-command-header">
-        <span class="copilot-badge ${badgeClass}">🔒 ${badgeLabel}</span>
-        <button type="button" class="copilot-copy-btn" data-copilot-action="copy-cmd" data-cmd="${escapeHtml(cmd)}">
+    <div class="agent-command-card">
+      <div class="agent-command-header">
+        <span class="agent-badge ${badgeClass}">🔒 ${badgeLabel}</span>
+        <button type="button" class="agent-copy-btn" data-agent-action="copy-cmd" data-cmd="${escapeHtml(cmd)}">
           📋 ${t("copilot.copy")}
         </button>
       </div>
-      <pre class="copilot-command-code"><code>${escapeHtml(cmd)}</code></pre>
-      <div class="copilot-command-actions">
+      <pre class="agent-command-code"><code>${escapeHtml(cmd)}</code></pre>
+      <div class="agent-command-actions">
         <button
           type="button"
-          class="copilot-run-btn"
-          data-copilot-action="run-cmd"
+          class="agent-run-btn"
+          data-agent-action="run-cmd"
           data-cmd="${escapeHtml(cmd)}"
           data-msg-id="${messageId}"
         >
@@ -512,5 +511,14 @@ function homeTile(title, desc, iconName, route, accent, icon, state) {
       </span>
       <span class="tile-arrow">→</span>
     </button>
+  `;
+}
+
+export function metric(label, value, iconName, accent, icon) {
+  return `
+    <div class="metric" style="--accent:${accent}">
+      <span class="metric-icon">${icon(iconName)}</span>
+      <span><small>${label}</small><strong>${value}</strong></span>
+    </div>
   `;
 }

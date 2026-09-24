@@ -1,6 +1,6 @@
-/* GitHub Copilot tarzı AI Asistan & Yatay Haber Menüsü Stilleri */
+/* Yapay Zeka Adli Ajan Arayüzü & Yatay Haber Menüsü Stilleri */
 
-.copilot-container {
+.agent-container {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -9,7 +9,7 @@
 }
 
 /* Üst Karşılama Çubuğu */
-.copilot-greeting-bar {
+.agent-greeting-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -17,13 +17,13 @@
   padding: 4px 8px;
 }
 
-.copilot-greeting-left {
+.agent-greeting-left {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.copilot-mascot {
+.agent-mascot {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -34,12 +34,12 @@
   color: var(--text);
 }
 
-.copilot-mascot svg {
+.agent-mascot svg {
   width: 20px;
   height: 20px;
 }
 
-.copilot-greeting-title {
+.agent-greeting-title {
   font-size: 20px;
   font-weight: 700;
   color: var(--text);
@@ -47,14 +47,14 @@
   letter-spacing: -0.3px;
 }
 
-.copilot-greeting-right {
+.agent-greeting-right {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
 }
 
-.copilot-badge-preview {
+.agent-badge-preview {
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
@@ -67,24 +67,24 @@
   letter-spacing: 0.2px;
 }
 
-.copilot-separator {
+.agent-separator {
   color: var(--dim);
 }
 
-.copilot-feedback-link {
+.agent-feedback-link {
   color: #58a6ff;
   text-decoration: none;
   font-weight: 500;
   transition: color 0.15s ease;
 }
 
-.copilot-feedback-link:hover {
+.agent-feedback-link:hover {
   text-decoration: underline;
   color: #79c0ff;
 }
 
-/* Ana Giriş Kutusu (Copilot Box) */
-.copilot-box {
+/* Ana Giriş Kutusu (Agent Box) */
+.agent-box {
   position: relative;
   width: 100%;
   background: #0d1117;
@@ -97,22 +97,22 @@
   overflow: hidden;
 }
 
-.theme-light .copilot-box {
+.theme-light .agent-box {
   background: #ffffff;
   border-color: rgba(0, 0, 0, 0.15);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
-.copilot-box:focus-within {
+.agent-box:focus-within {
   border-color: #58a6ff;
   box-shadow: 0 0 0 1px #58a6ff, 0 8px 28px rgba(0, 0, 0, 0.35);
 }
 
-.copilot-input-wrapper {
+.agent-input-wrapper {
   padding: 14px 16px 8px;
 }
 
-.copilot-textarea {
+.agent-textarea {
   width: 100%;
   min-height: 48px;
   max-height: 200px;
@@ -126,16 +126,16 @@
   line-height: 1.5;
 }
 
-.copilot-textarea::placeholder {
+.agent-textarea::placeholder {
   color: #7d8590;
 }
 
-.theme-light .copilot-textarea::placeholder {
+.theme-light .agent-textarea::placeholder {
   color: #8c959f;
 }
 
 /* Alt Araç Çubuğu (Toolbar) */
-.copilot-toolbar {
+.agent-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -144,8 +144,8 @@
   flex-wrap: wrap;
 }
 
-.copilot-toolbar-left,
-.copilot-toolbar-right {
+.agent-toolbar-left,
+.agent-toolbar-right {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -153,14 +153,14 @@
 }
 
 /* Buton ve Dropdown Tasarımları */
-.copilot-btn-dropdown {
+.agent-btn-dropdown {
   position: relative;
   display: inline-flex;
   align-items: center;
 }
 
-.copilot-tool-btn,
-.copilot-select {
+.agent-tool-btn,
+.agent-select {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -177,53 +177,53 @@
   font-family: inherit;
 }
 
-.theme-light .copilot-tool-btn,
-.theme-light .copilot-select {
+.theme-light .agent-tool-btn,
+.theme-light .agent-select {
   background: rgba(0, 0, 0, 0.04);
   border-color: rgba(0, 0, 0, 0.15);
 }
 
-.copilot-tool-btn:hover,
-.copilot-select:hover {
+.agent-tool-btn:hover,
+.agent-select:hover {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.28);
 }
 
-.theme-light .copilot-tool-btn:hover,
-.theme-light .copilot-select:hover {
+.theme-light .agent-tool-btn:hover,
+.theme-light .agent-select:hover {
   background: rgba(0, 0, 0, 0.08);
   border-color: rgba(0, 0, 0, 0.24);
 }
 
-.copilot-select option {
+.agent-select option {
   background: #161b22;
   color: #e6edf3;
   padding: 6px;
 }
 
-.theme-light .copilot-select option {
+.theme-light .agent-select option {
   background: #ffffff;
   color: #1f2328;
 }
 
-.copilot-agent-select {
+.agent-select-highlight {
   font-weight: 600;
   border-color: rgba(88, 166, 255, 0.4);
   color: #79c0ff;
 }
 
-.copilot-model-select {
+.agent-model-select {
   max-width: 170px;
   text-overflow: ellipsis;
 }
 
-.copilot-pill-select {
+.agent-pill-select {
   border-radius: 999px;
   font-size: 11.5px;
   padding: 4px 10px;
 }
 
-.copilot-icon-btn {
+.agent-icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -239,18 +239,18 @@
   transition: all 0.15s ease;
 }
 
-.copilot-icon-btn:hover {
+.agent-icon-btn:hover {
   background: rgba(255, 255, 255, 0.14);
 }
 
-.copilot-v-divider {
+.agent-v-divider {
   width: 1px;
   height: 18px;
   background: rgba(255, 255, 255, 0.16);
   margin: 0 4px;
 }
 
-.copilot-send-btn {
+.agent-send-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -264,22 +264,22 @@
   transition: background-color 0.15s ease, transform 0.1s ease;
 }
 
-.copilot-send-btn:hover {
+.agent-send-btn:hover {
   background: #2ea043;
 }
 
-.copilot-send-btn:active {
+.agent-send-btn:active {
   transform: scale(0.96);
 }
 
-.copilot-send-btn:disabled {
+.agent-send-btn:disabled {
   background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.4);
   cursor: not-allowed;
 }
 
 /* Hızlı Eylem Çipleri (Action Chips) */
-.copilot-chips-container {
+.agent-chips-container {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -287,7 +287,7 @@
   width: 100%;
 }
 
-.copilot-chips-row {
+.agent-chips-row {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -295,7 +295,7 @@
   flex-wrap: wrap;
 }
 
-.copilot-chip {
+.agent-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -310,33 +310,33 @@
   transition: all 0.15s ease;
 }
 
-.theme-light .copilot-chip {
+.theme-light .agent-chip {
   background: rgba(0, 0, 0, 0.03);
   border-color: rgba(0, 0, 0, 0.12);
 }
 
-.copilot-chip:hover {
+.agent-chip:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.25);
   transform: translateY(-1px);
 }
 
-.theme-light .copilot-chip:hover {
+.theme-light .agent-chip:hover {
   background: rgba(0, 0, 0, 0.06);
   border-color: rgba(0, 0, 0, 0.2);
 }
 
-.copilot-chip .chip-icon {
+.agent-chip .chip-icon {
   font-size: 14px;
 }
 
-.copilot-chip .dropdown-caret {
+.agent-chip .dropdown-caret {
   font-size: 10px;
   opacity: 0.6;
 }
 
 /* Sohbet Geçmişi & Çıktı Alanı */
-.copilot-chat-history {
+.agent-chat-history {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -344,7 +344,7 @@
   margin-top: 12px;
 }
 
-.copilot-msg {
+.agent-msg {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -362,12 +362,12 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-.copilot-msg.user {
+.agent-msg.user {
   background: rgba(88, 166, 255, 0.08);
   border-color: rgba(88, 166, 255, 0.25);
 }
 
-.copilot-msg-header {
+.agent-msg-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -377,7 +377,7 @@
   padding-bottom: 6px;
 }
 
-.copilot-msg-author {
+.agent-msg-author {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -385,13 +385,13 @@
   color: var(--text);
 }
 
-.copilot-msg-body {
+.agent-msg-body {
   font-size: 14px;
   line-height: 1.6;
   color: var(--text);
 }
 
-.copilot-msg-body pre {
+.agent-msg-body pre {
   background: #090d13;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
@@ -403,7 +403,7 @@
 }
 
 /* Önerilen Komut Kartı */
-.copilot-command-card {
+.agent-command-card {
   margin-top: 10px;
   border: 1px solid rgba(88, 166, 255, 0.35);
   border-radius: 10px;
@@ -414,13 +414,13 @@
   gap: 10px;
 }
 
-.copilot-command-header {
+.agent-command-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.copilot-badge {
+.agent-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -442,7 +442,7 @@
   border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
-.copilot-command-code {
+.agent-command-code {
   margin: 0;
   padding: 8px 12px;
   background: rgba(0, 0, 0, 0.5);
@@ -453,13 +453,13 @@
   overflow-x: auto;
 }
 
-.copilot-command-actions {
+.agent-command-actions {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.copilot-run-btn {
+.agent-run-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -474,11 +474,11 @@
   transition: background-color 0.15s ease;
 }
 
-.copilot-run-btn:hover {
+.agent-run-btn:hover {
   background: #2ea043;
 }
 
-.copilot-copy-btn {
+.agent-copy-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -492,11 +492,11 @@
   transition: all 0.15s ease;
 }
 
-.copilot-copy-btn:hover {
+.agent-copy-btn:hover {
   background: rgba(255, 255, 255, 0.16);
 }
 
-.copilot-exec-output {
+.agent-exec-output {
   margin-top: 8px;
   padding: 10px 12px;
   border-radius: 6px;
@@ -510,12 +510,12 @@
   word-break: break-all;
 }
 
-.copilot-exec-output.success {
+.agent-exec-output.success {
   border-left: 3px solid #3fb950;
   color: #e6edf3;
 }
 
-.copilot-exec-output.error {
+.agent-exec-output.error {
   border-left: 3px solid #f85149;
   color: #ff7b72;
 }
