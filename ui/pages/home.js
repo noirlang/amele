@@ -1,121 +1,303 @@
-// ana dashboard ekranı. sistem durumu, haberler ve hızlı edinim butonları burda.
+// Ana Dashboard: GitHub Copilot tarzı AI Asistanı, Yatay Haber Menüsü ve Adli Araçlar.
+
+import { escapeHtml } from "../core/utils.js";
 
 export function homePage({ t, icon, assetPath, theme, state }) {
-  const logoFile = "amele.png";
-  const defaultFallbackImage = `${assetPath}/logo/${logoFile}`;
-
-  const hasNews = Array.isArray(state?.news) && state.news.length > 0;
-  const newsItems = hasNews
-    ? state.news.slice(0, 5)
-    : [
-        {
-          id: "default",
-          imageUrl: defaultFallbackImage,
-        },
-      ];
-
-  const activeIndex = Math.min(
-    Math.max(0, Number(state?.activeNewsIndex) || 0),
-    newsItems.length - 1
-  );
-
   const isEn = state?.language === "en";
-  const slidesHtml = newsItems
-    .map((item, idx) => {
-      const isActive = idx === activeIndex;
-      let rawImg = item.imageUrl || item.image;
-      if (rawImg && typeof rawImg === "string") {
-        rawImg = rawImg.trim();
-        if (rawImg.startsWith("/")) {
-          rawImg = `https://amele.noirlang.tr${rawImg}`;
-        }
-      }
-      const imgUrl = rawImg || defaultFallbackImage;
-      const title = isEn
-        ? (item.titleEn || item.title || item.titleTr || "")
-        : (item.titleTr || item.title || item.titleEn || "");
-      const summary = isEn
-        ? (item.summaryEn || item.summary || item.summaryTr || (item.contentEn || item.content ? (item.contentEn || item.content).slice(0, 160) + "..." : ""))
-        : (item.summaryTr || item.summary || item.summaryEn || (item.contentTr || item.content ? (item.contentTr || item.content).slice(0, 160) + "..." : ""));
-      const hasText = Boolean(title || summary);
 
-      let targetUrl = "";
-      if (item.link && typeof item.link === "string" && item.link.trim()) {
-        targetUrl = item.link.trim();
-      } else if (item.url && typeof item.url === "string" && item.url.trim()) {
-        targetUrl = item.url.trim();
-      } else if (item.slug && typeof item.slug === "string" && item.slug.trim()) {
-        targetUrl = `https://amele.noirlang.tr/news/${encodeURIComponent(item.slug.trim())}`;
-      } else if (item.id && item.id !== "default" && typeof item.id === "string" && item.id.trim()) {
-        targetUrl = `https://amele.noirlang.tr/news/${encodeURIComponent(item.id.trim())}`;
-      } else if (hasNews) {
-        targetUrl = "https://amele.noirlang.tr/news";
-      } else {
-        targetUrl = "https://amele.noirlang.tr";
-      }
-      if (targetUrl.startsWith("/")) {
-        targetUrl = `https://amele.noirlang.tr${targetUrl}`;
-      }
-      targetUrl = targetUrl.replace("/announcements/", "/news/");
-      if (targetUrl.endsWith("/announcements")) {
-        targetUrl = targetUrl.replace(/\/announcements$/, "/news");
-      }
+  // 1. Karşılama başlığı
+  const hour = new Date().getHours();
+  const greetingKey = hour < 12 ? "copilot.greeting.morning" : hour < 18 ? "copilot.greeting.afternoon" : "copilot.greeting.evening";
+  const userName = state?.activeProfile?.fullName || state?.activeProfile?.username || "melihemik";
+  const greetingText = t(greetingKey, { name: userName });
 
-      const openTooltip = isEn ? "Open announcement in browser" : "Duyuruyu tarayıcıda aç";
-      const openAria = isEn ? "Open announcement" : "Duyuruyu aç";
+  // 2. Copilot AI durumu
+  const copilotState = state?.copilot || {};
+  const agents = copilotState.agents || [];
+  const selectedAgentId = copilotState.selectedAgent || "agy";
+  const selectedAgent = agents.find((a) => a.id === selectedAgentId) || agents[0];
+  const models = selectedAgent?.models || [];
+  const selectedModelId = copilotState.selectedModel || (models[0]?.id || "");
+  const selectedScope = copilotState.selectedScope || "all";
+  const isGenerating = Boolean(copilotState.isGenerating);
+  const isExecuting = Boolean(copilotState.isExecuting);
+  const messages = copilotState.messages || [];
 
-      const linkBtnHtml = targetUrl
-        ? ` <a href="${targetUrl}" data-news-link="${targetUrl}" class="news-link-btn" target="_blank" rel="noopener noreferrer" title="${openTooltip}" aria-label="${openAria}">${icon("external-link")}</a>`
-        : "";
-
-      return `
-        <div class="news-slide ${isActive ? "is-active" : ""}" data-index="${idx}">
-          <div class="news-media">
-            <img src="${imgUrl}" onerror="this.src='${defaultFallbackImage}'" alt="${title || "Amele"}" />
-          </div>
-          ${
-            hasText
-              ? `
-            <div class="news-overlay">
-              ${title ? `<h3 class="news-title"><span>${title}</span>${linkBtnHtml}</h3>` : ""}
-              ${summary ? `<p class="news-summary">${summary}</p>` : ""}
-            </div>
-          `
-              : ""
-          }
-        </div>
+  // Ajan seçenekleri HTML
+  const agentOptionsHtml = agents.length > 0
+    ? agents.map((a) => {
+        const isSel = a.id === selectedAgentId;
+        const iconPrefix = a.id === "pi" ? "🥧" : a.id === "agy" ? "🌌" : a.id === "claude" ? "🎭" : a.id === "codex" ? "🧠" : a.id === "opencode" ? "🌐" : "🛡️";
+        const statusSuffix = a.installed ? "" : " (Kurulu Değil)";
+        return `<option value="${a.id}" ${isSel ? "selected" : ""}>${iconPrefix} ${escapeHtml(a.name)}${statusSuffix}</option>`;
+      }).join("")
+    : `
+        <option value="agy">🌌 Antigravity (AGY)</option>
+        <option value="pi">🥧 Pi Coding Agent</option>
+        <option value="claude">🎭 Claude Code</option>
+        <option value="codex">🧠 Codex / OpenAI</option>
+        <option value="opencode">🌐 OpenCode</option>
+        <option value="amele-expert" selected>🛡️ Amele Adli Uzman</option>
       `;
-    })
-    .join("");
 
-  const dotsHtml = newsItems.length > 1
-    ? `<div class="news-dots">
-        ${newsItems
-          .map(
-            (_, idx) =>
-              `<button type="button" class="news-dot ${idx === activeIndex ? "is-active" : ""}" data-news-dot="${idx}" aria-label="Haber ${idx + 1}"></button>`
-          )
-          .join("")}
-      </div>`
+  // Model seçenekleri HTML
+  const modelOptionsHtml = models.length > 0
+    ? models.map((m) => {
+        const isSel = m.id === selectedModelId;
+        return `<option value="${m.id}" ${isSel ? "selected" : ""} title="${escapeHtml(m.description)}">${escapeHtml(m.name)}</option>`;
+      }).join("")
+    : `<option value="default">${t("copilot.selectModel")}</option>`;
+
+  // Sohbet geçmişi HTML
+  const chatHistoryHtml = messages.length > 0 || isGenerating
+    ? `
+      <div class="copilot-chat-history">
+        ${messages.map((msg) => renderChatMessage(msg, state, t, escapeHtml)).join("")}
+        ${
+          isGenerating
+            ? `
+              <div class="copilot-msg assistant">
+                <div class="copilot-msg-header">
+                  <span class="copilot-msg-author">🤖 ${selectedAgent?.name || "Agent"}</span>
+                  <span class="copilot-badge badge-user">${t("copilot.generating")}</span>
+                </div>
+                <div class="copilot-msg-body">
+                  <div class="loading-dots"><span>.</span><span>.</span><span>.</span></div>
+                </div>
+              </div>
+            `
+            : ""
+        }
+      </div>
+    `
     : "";
 
-  const navButtonsHtml = newsItems.length > 1
-    ? `
-        <button type="button" class="news-nav-btn prev" data-news-action="prev" aria-label="Önceki haber">‹</button>
-        <button type="button" class="news-nav-btn next" data-news-action="next" aria-label="Sonraki haber">›</button>
-      `
+  // 3. Yatay Haber Menüsü (Fotoğrafsız)
+  const newsList = Array.isArray(state?.news) && state.news.length > 0
+    ? state.news.slice(0, 8)
+    : [
+        {
+          id: "default-news-1",
+          titleTr: "Amele v0.0.20 Adli Bilişim Güncellemesi Yayınlandı",
+          titleEn: "Amele v0.0.20 Digital Forensics Release",
+          summaryTr: "Konteyner adli bilişimi, bellek ve disk edinim motoru, bağımsız 120 FPS Chromium motoru sisteme entegre edildi.",
+          summaryEn: "Container forensics, memory and disk acquisition engine, and standalone 120 FPS Chromium engine integrated.",
+          createdBy: "melihemik",
+          createdAt: new Date().toISOString(),
+          link: "https://amele.noirlang.tr"
+        }
+      ];
+
+  const newsCardsHtml = newsList.map((item) => {
+    const title = isEn
+      ? (item.titleEn || item.title || item.titleTr || "")
+      : (item.titleTr || item.title || item.titleEn || "");
+    const summary = isEn
+      ? (item.summaryEn || item.summary || item.summaryTr || (item.contentEn || item.content ? (item.contentEn || item.content).slice(0, 160) + "..." : ""))
+      : (item.summaryTr || item.summary || item.summaryEn || (item.contentTr || item.content ? (item.contentTr || item.content).slice(0, 160) + "..." : ""));
+    const author = item.createdBy || item.author || "NOIRLANG Ekibi";
+    const dateFormatted = formatNewsDate(item.createdAt || item.date, isEn);
+
+    let targetUrl = item.link || item.url || (item.slug ? `https://amele.noirlang.tr/news/${encodeURIComponent(item.slug)}` : "https://amele.noirlang.tr");
+    if (targetUrl.startsWith("/")) targetUrl = `https://amele.noirlang.tr${targetUrl}`;
+
+    return `
+      <div class="news-h-card" data-news-link="${targetUrl}">
+        <div class="news-h-card-top">
+          <span class="news-h-author">✍️ @${escapeHtml(author)}</span>
+          <span class="news-h-datetime">🕒 ${dateFormatted}</span>
+        </div>
+        <h4 class="news-h-title">${escapeHtml(title)}</h4>
+        <p class="news-h-subtitle">${escapeHtml(summary)}</p>
+        <div class="news-h-card-footer">
+          <span class="news-h-readmore">${t("news.readMore")} →</span>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  // 4. Yetki Yükseltme Modalı (Linux Sudo veya Windows Admin)
+  const elevationModal = copilotState.elevationModal;
+  const elevationModalHtml = elevationModal && elevationModal.isOpen
+    ? renderElevationModal(elevationModal, t, escapeHtml)
     : "";
 
   return `
     <section class="page">
-      <div class="hero home-hero news-hero-container" id="news-carousel" data-total-slides="${newsItems.length}">
-        <div class="news-slides-container">
-          ${slidesHtml}
+      <!-- Copilot AI Bölümü -->
+      <div class="copilot-container">
+        <!-- Karşılama Çubuğu -->
+        <div class="copilot-greeting-bar">
+          <div class="copilot-greeting-left">
+            <div class="copilot-mascot">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A2.5 2.5 0 0 0 5 15.5 2.5 2.5 0 0 0 7.5 18a2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 7.5 13m9 0a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5"/>
+              </svg>
+            </div>
+            <h1 class="copilot-greeting-title">${escapeHtml(greetingText)}</h1>
+          </div>
+          <div class="copilot-greeting-right">
+            <span class="copilot-badge-preview">Preview</span>
+            <span class="copilot-separator">·</span>
+            <a href="https://github.com/noirlang/amele/issues" target="_blank" rel="noopener noreferrer" class="copilot-feedback-link">
+              ${t("copilot.giveFeedback")}
+            </a>
+          </div>
         </div>
-        ${navButtonsHtml}
-        ${dotsHtml}
+
+        <!-- Copilot Giriş Kutusu -->
+        <div class="copilot-box">
+          <div class="copilot-input-wrapper">
+            <textarea
+              id="copilot-prompt-input"
+              class="copilot-textarea"
+              placeholder="${t("copilot.placeholder")}"
+              rows="2"
+              data-copilot-input
+            >${escapeHtml(copilotState.promptDraft || "")}</textarea>
+          </div>
+
+          <div class="copilot-toolbar">
+            <div class="copilot-toolbar-left">
+              <!-- Sor (Ask) butonu -->
+              <div class="copilot-btn-dropdown">
+                <button type="button" class="copilot-tool-btn" data-copilot-action="toggle-mode">
+                  <span>💬 ${t("copilot.modeAsk")}</span>
+                  <span class="dropdown-caret">▾</span>
+                </button>
+              </div>
+
+              <!-- Kapsam (Scope / Repositories) -->
+              <div class="copilot-btn-dropdown">
+                <select class="copilot-select" data-copilot-action="change-scope" title="${t("copilot.scopeTitle")}">
+                  <option value="all" ${selectedScope === "all" ? "selected" : ""}>🔖 ${t("copilot.scopeAll")}</option>
+                  <option value="ram" ${selectedScope === "ram" ? "selected" : ""}>🧠 ${t("copilot.scopeRam")}</option>
+                  <option value="disk" ${selectedScope === "disk" ? "selected" : ""}>🛠️ ${t("copilot.scopeDisk")}</option>
+                  <option value="case" ${selectedScope === "case" ? "selected" : ""}>📋 ${t("copilot.scopeCase")}</option>
+                  <option value="docker" ${selectedScope === "docker" ? "selected" : ""}>🐳 ${t("copilot.scopeDocker")}</option>
+                  <option value="android" ${selectedScope === "android" ? "selected" : ""}>📱 ${t("copilot.scopeAndroid")}</option>
+                </select>
+              </div>
+
+              <!-- [+] Bağlam Ekleme Butonu -->
+              <button type="button" class="copilot-icon-btn" data-copilot-action="add-context" title="${t("copilot.addContext")}">
+                +
+              </button>
+
+              <!-- Ajan Seçici Dropdown -->
+              <div class="copilot-btn-dropdown">
+                <select class="copilot-select copilot-agent-select" data-copilot-action="change-agent" title="${t("copilot.selectAgent")}">
+                  ${agentOptionsHtml}
+                </select>
+              </div>
+
+              <!-- Model Seçici Dropdown (Ajan seçildiğinde dinamik güncellenir) -->
+              <div class="copilot-btn-dropdown">
+                <select class="copilot-select copilot-model-select" data-copilot-action="change-model" title="${t("copilot.selectModel")}">
+                  ${modelOptionsHtml}
+                </select>
+              </div>
+            </div>
+
+            <div class="copilot-toolbar-right">
+              <!-- Auto Dropdown -->
+              <div class="copilot-btn-dropdown">
+                <select class="copilot-select copilot-pill-select" data-copilot-action="change-auto">
+                  <option value="auto">🔀 ${t("copilot.auto")}</option>
+                  <option value="manual">⚙️ ${t("copilot.manual")}</option>
+                </select>
+              </div>
+
+              <!-- Optimized for: Balance Dropdown -->
+              <div class="copilot-btn-dropdown">
+                <select class="copilot-select copilot-pill-select" data-copilot-action="change-opt">
+                  <option value="balance" ${copilotState.selectedOpt === "balance" ? "selected" : ""}>${t("copilot.optBalance")}</option>
+                  <option value="speed" ${copilotState.selectedOpt === "speed" ? "selected" : ""}>${t("copilot.optSpeed")}</option>
+                  <option value="reasoning" ${copilotState.selectedOpt === "reasoning" ? "selected" : ""}>${t("copilot.optReasoning")}</option>
+                </select>
+              </div>
+
+              <!-- Hız / Optimizasyon İkonu -->
+              <button type="button" class="copilot-icon-btn" data-copilot-action="toggle-opt" title="${t("copilot.sparkleTitle")}">
+                ✨
+              </button>
+
+              <span class="copilot-v-divider"></span>
+
+              <!-- Gönder Butonu -->
+              <button
+                type="button"
+                class="copilot-send-btn"
+                data-copilot-action="send"
+                title="${t("copilot.send")}"
+                ${isGenerating ? "disabled" : ""}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hızlı Eylem Çipleri (Action Chips) -->
+        <div class="copilot-chips-container">
+          <div class="copilot-chips-row">
+            <button type="button" class="copilot-chip" data-copilot-chip="debug">
+              <span class="chip-icon">🐞</span>
+              <span>${t("copilot.chipDebug")}</span>
+            </button>
+            <button type="button" class="copilot-chip" data-copilot-chip="agent">
+              <span class="chip-icon">☁️</span>
+              <span>${t("copilot.chipAgent")}</span>
+            </button>
+            <button type="button" class="copilot-chip" data-copilot-chip="issue">
+              <span class="chip-icon">◌</span>
+              <span>${t("copilot.chipIssue")}</span>
+            </button>
+            <button type="button" class="copilot-chip" data-copilot-chip="code">
+              <span class="chip-icon">📄</span>
+              <span>${t("copilot.chipCode")}</span>
+              <span class="dropdown-caret">▾</span>
+            </button>
+            <button type="button" class="copilot-chip" data-copilot-chip="git">
+              <span class="chip-icon">⑂</span>
+              <span>${t("copilot.chipGit")}</span>
+              <span class="dropdown-caret">▾</span>
+            </button>
+          </div>
+          <div class="copilot-chips-row">
+            <button type="button" class="copilot-chip" data-copilot-chip="pr">
+              <span class="chip-icon">⇅</span>
+              <span>${t("copilot.chipPr")}</span>
+              <span class="dropdown-caret">▾</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Sohbet Geçmişi & Komut Çalıştırma Sonuçları -->
+        ${chatHistoryHtml}
       </div>
 
+      <!-- Yatay Haber Menüsü (Fotoğrafsız) -->
+      <div class="home-news-horizontal-section">
+        <div class="news-horizontal-header">
+          <div class="news-horizontal-title">
+            <span class="news-header-icon">📢</span>
+            <h3>${t("news.latestUpdates")}</h3>
+          </div>
+          <div class="news-horizontal-nav">
+            <button type="button" class="news-h-btn" data-news-h-scroll="left" aria-label="Geri">‹</button>
+            <button type="button" class="news-h-btn" data-news-h-scroll="right" aria-label="İleri">›</button>
+          </div>
+        </div>
+
+        <div class="news-horizontal-scroll-container" id="news-horizontal-track">
+          ${newsCardsHtml}
+        </div>
+      </div>
+
+      <!-- Standart Adli Araç Kartları Grid -->
       <div class="home-grid">
         ${homeTile(t("home.windows.title"), t("home.windows.desc"), "windows", "windows", "var(--text)", icon, state)}
         ${homeTile(t("home.linux.title"), t("home.linux.desc"), "linux", "linux", "var(--text)", icon, state)}
@@ -125,8 +307,195 @@ export function homePage({ t, icon, assetPath, theme, state }) {
         ${homeTile(t("home.remote.title"), t("home.remote.desc"), "key", "remote-acq", "var(--text)", icon, state)}
         ${homeTile(t("home.other.title"), t("home.other.desc"), "tiles", "other", "var(--text)", icon, state)}
       </div>
+
+      <!-- Yetki Yükseltme Modalı -->
+      ${elevationModalHtml}
     </section>
   `;
+}
+
+function renderChatMessage(msg, state, t, escapeHtml) {
+  const isUser = msg.role === "user";
+  const authorName = isUser
+    ? (state?.activeProfile?.fullName || state?.activeProfile?.username || "melihemik")
+    : (msg.agent ? `${msg.agent.toUpperCase()} (${msg.model || "Expert"})` : "Amele Copilot");
+
+  const formattedContent = formatSimpleMarkdown(msg.content);
+
+  // Önerilen CLI komutu varsa kart olarak çiz
+  const commandCardHtml = msg.suggested_command
+    ? renderCommandCard(msg.suggested_command, msg.id, msg.execResult, state, t, escapeHtml)
+    : "";
+
+  return `
+    <div class="copilot-msg ${isUser ? "user" : "assistant"}" data-msg-id="${msg.id}">
+      <div class="copilot-msg-header">
+        <span class="copilot-msg-author">${isUser ? "👤" : "🤖"} ${escapeHtml(authorName)}</span>
+        <span class="copilot-msg-time">${new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+      </div>
+      <div class="copilot-msg-body">
+        ${formattedContent}
+      </div>
+      ${commandCardHtml}
+    </div>
+  `;
+}
+
+function renderCommandCard(cmd, messageId, execResult, state, t, escapeHtml) {
+  const isLinux = state?.platform === "linux";
+  const isRootReq = cmd.includes("sudo") || cmd.includes("ram") || cmd.includes("disk") || cmd.includes("/dev/");
+
+  const badgeClass = isRootReq ? "badge-root" : "badge-user";
+  const badgeLabel = isRootReq
+    ? (isLinux ? t("copilot.badgeRoot") : t("copilot.badgeAdmin"))
+    : t("copilot.badgeUser");
+
+  let execHtml = "";
+  if (execResult) {
+    const isSuccess = execResult.ok;
+    const outputText = (execResult.stdout || "") + (execResult.stderr ? `\n[STDERR]\n${execResult.stderr}` : "");
+    execHtml = `
+      <div class="copilot-exec-output ${isSuccess ? "success" : "error"}">
+        <strong>${isSuccess ? t("copilot.exitSuccess") : t("copilot.exitFailed", { code: execResult.exit_code })}</strong>
+        <div>${escapeHtml(outputText.trim() || "(Çıktı yok)")}</div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="copilot-command-card">
+      <div class="copilot-command-header">
+        <span class="copilot-badge ${badgeClass}">🔒 ${badgeLabel}</span>
+        <button type="button" class="copilot-copy-btn" data-copilot-action="copy-cmd" data-cmd="${escapeHtml(cmd)}">
+          📋 ${t("copilot.copy")}
+        </button>
+      </div>
+      <pre class="copilot-command-code"><code>${escapeHtml(cmd)}</code></pre>
+      <div class="copilot-command-actions">
+        <button
+          type="button"
+          class="copilot-run-btn"
+          data-copilot-action="run-cmd"
+          data-cmd="${escapeHtml(cmd)}"
+          data-msg-id="${messageId}"
+        >
+          ▶ ${t("copilot.runCommand")}
+        </button>
+      </div>
+      ${execHtml}
+    </div>
+  `;
+}
+
+function renderElevationModal(modal, t, escapeHtml) {
+  const isLinux = modal.os === "linux";
+
+  if (isLinux) {
+    return `
+      <div class="elevation-modal-overlay" id="sudo-elevation-modal">
+        <div class="elevation-modal-card">
+          <div class="elevation-modal-icon linux">🔒</div>
+          <h3 class="elevation-modal-title">${t("elevation.linuxTitle")}</h3>
+          <p class="elevation-modal-desc">${escapeHtml(modal.reason || t("elevation.linuxDesc"))}</p>
+          <div class="elevation-modal-cmd">
+            <code>${escapeHtml(modal.command)}</code>
+          </div>
+          <form class="elevation-modal-form" data-elevation-form="linux" data-cmd="${escapeHtml(modal.command)}" data-msg-id="${modal.messageId || ""}">
+            <label for="sudo-pass-input">${t("elevation.passwordLabel")}</label>
+            <input
+              type="password"
+              id="sudo-pass-input"
+              placeholder="${t("elevation.passwordPlaceholder")}"
+              required
+              autofocus
+            />
+            <div class="elevation-modal-actions">
+              <button type="button" class="btn btn-secondary" data-elevation-action="cancel">
+                ${t("common.cancel") || "İptal"}
+              </button>
+              <button type="submit" class="btn btn-danger">
+                ${t("elevation.authenticateAndRun")}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+  }
+
+  // Windows Yönetici İzni Modalı
+  return `
+    <div class="elevation-modal-overlay" id="windows-elevation-modal">
+      <div class="elevation-modal-card">
+        <div class="elevation-modal-icon windows">🛡️</div>
+        <h3 class="elevation-modal-title">${t("elevation.windowsTitle")}</h3>
+        <p class="elevation-modal-desc">${escapeHtml(modal.reason || t("elevation.windowsDesc"))}</p>
+        <div class="elevation-modal-cmd">
+          <code>${escapeHtml(modal.command)}</code>
+        </div>
+        <div class="elevation-modal-actions">
+          <button type="button" class="btn btn-secondary" data-elevation-action="cancel">
+            ${t("elevation.no")}
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            data-elevation-action="confirm-windows"
+            data-cmd="${escapeHtml(modal.command)}"
+            data-msg-id="${modal.messageId || ""}"
+          >
+            ${t("elevation.yesRunAdmin")}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function formatSimpleMarkdown(text) {
+  if (!text) return "";
+
+  // 1. Kod blokları
+  let escaped = text.replace(/```([a-zA-Z0-9_]*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    return `<pre><code>${escapeHtml(code.trim())}</code></pre>`;
+  });
+
+  // 2. Satır içi kod
+  escaped = escaped.replace(/`([^`]+)`/g, "<code>$1</code>");
+
+  // 3. Kalın yazı
+  escaped = escaped.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+
+  // 4. Başlıklar
+  escaped = escaped.replace(/^### (.*$)/gim, "<h4>$1</h4>");
+  escaped = escaped.replace(/^## (.*$)/gim, "<h3>$1</h3>");
+  escaped = escaped.replace(/^# (.*$)/gim, "<h2>$1</h2>");
+
+  // 5. Madde işaretleri
+  escaped = escaped.replace(/^\s*[-*]\s+(.*$)/gim, "<li>$1</li>");
+
+  // 6. Satır sonları
+  escaped = escaped.replace(/\n/g, "<br/>");
+
+  return escaped;
+}
+
+function formatNewsDate(isoStr, isEn) {
+  if (!isoStr) return "";
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return isoStr;
+    const day = String(d.getDate()).padStart(2, "0");
+    const monthTr = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
+    const monthEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const month = (isEn ? monthEn : monthTr)[d.getMonth()];
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, "0");
+    const mins = String(d.getMinutes()).padStart(2, "0");
+    return `${day} ${month} ${year} · ${hours}:${mins}`;
+  } catch {
+    return isoStr;
+  }
 }
 
 function homeTile(title, desc, iconName, route, accent, icon, state) {
@@ -143,14 +512,5 @@ function homeTile(title, desc, iconName, route, accent, icon, state) {
       </span>
       <span class="tile-arrow">→</span>
     </button>
-  `;
-}
-
-export function metric(label, value, iconName, accent, icon) {
-  return `
-    <div class="metric" style="--accent:${accent}">
-      <span class="metric-icon">${icon(iconName)}</span>
-      <span><small>${label}</small><strong>${value}</strong></span>
-    </div>
   `;
 }

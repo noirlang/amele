@@ -3,7 +3,7 @@
 use crate::server::{Response, json_error, json_ok};
 
 use super::{
-    acquisition_control, android, desktop, developer, docker, evidence, hash_api, ios, profile,
+    acquisition_control, ai, android, desktop, developer, docker, evidence, hash_api, ios, profile,
     ram, settings, ssh, storage, system, update, wireguard,
 };
 
@@ -60,6 +60,9 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
         ("POST", "/api/profiles/online-sync") => profile::profile_online_sync_endpoint(),
         ("POST", "/api/profiles/online-logout") => profile::profile_online_logout_endpoint(),
         ("GET", "/api/profiles/mobile-access") => profile::profile_mobile_access_endpoint(),
+        ("GET", "/api/ai/agents") => ai::get_agents_endpoint(),
+        ("POST", "/api/ai/chat") => ai::chat_endpoint(body),
+        ("POST", "/api/ai/execute-command") => ai::execute_command_endpoint(body),
         ("GET", "/api/settings-default") => {
             crate::logging::runtime_log(
                 crate::logging::LogLevel::Debug,

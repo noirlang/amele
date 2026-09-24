@@ -20,6 +20,16 @@ import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel, KNOWN_CONTR
 import { workflowPage, pickerField, field, pageTitle, casePanel } from "./pages/workflow.js";
 import { initDeveloperMode, devLog } from "./developer.js";
 import { initJobWidget } from "./core/jobs.js";
+import {
+  initCopilot,
+  loadCopilotAgents,
+  handleAgentChange,
+  handleModelChange,
+  handleScopeChange,
+  submitCopilotPrompt,
+  executeAmeleCommand,
+  getQuickChipPrompt
+} from "./core/copilot.js";
 
 const APP_VERSION = "v0.0.20";
 const assetPath = "./assets";
@@ -114,6 +124,19 @@ const state = {
   },
   jobs: {},
   cachedDefaultCaseName: "",
+  copilot: {
+    agents: [],
+    selectedAgent: "agy",
+    selectedModel: "",
+    selectedScope: "all",
+    selectedMode: "ask",
+    selectedOpt: "balance",
+    promptDraft: "",
+    messages: [],
+    isGenerating: false,
+    isExecuting: false,
+    elevationModal: null
+  },
   lastLog: initialLogMessages(preferredLanguage)
 };
 
@@ -1515,6 +1538,95 @@ window.addEventListener("focus", clearChromeArtifacts);
 clearChromeArtifacts();
 
 document.addEventListener("click", async (event) => {
+  const copilotSend = event.target.closest("[data-copilot-action='send']");
+  if (copilotSend) {
+    event.preventDefault();
+    const input = document.querySelector("#copilot-prompt-input");
+    const prompt = input ? input.value : (state.copilot?.promptDraft || "");
+    submitCopilotPrompt(prompt, state, render, showToast, t);
+    return;
+  }
+
+  const copilotChip = event.target.closest("[data-copilot-chip]");
+  if (copilotChip) {
+    event.preventDefault();
+    const chipType = copilotChip.dataset.copilotChip;
+    const promptText = getQuickChipPrompt(chipType, state.language === "en");
+    const input = document.querySelector("#copilot-prompt-input");
+    if (input) {
+      input.value = promptText;
+      input.focus();
+    }
+    if (state.copilot) state.copilot.promptDraft = promptText;
+    return;
+  }
+
+  const addCtx = event.target.closest("[data-copilot-action='add-context']");
+  if (addCtx) {
+    event.preventDefault();
+    const caseName = state.activeCase?.case_name || "varsayilan_vaka";
+    const platform = state.platform;
+    const ctxSnippet = ` [@vaka: ${caseName}, @platform: ${platform}] `;
+    const input = document.querySelector("#copilot-prompt-input");
+    if (input) {
+      input.value = (input.value ? input.value + " " : "") + ctxSnippet;
+      if (state.copilot) state.copilot.promptDraft = input.value;
+      input.focus();
+    }
+    showToast(t("copilot.contextAdded"));
+    return;
+  }
+
+  const copyCmd = event.target.closest("[data-copilot-action='copy-cmd']");
+  if (copyCmd) {
+    event.preventDefault();
+    const cmd = copyCmd.dataset.cmd;
+    if (cmd && navigator.clipboard) {
+      navigator.clipboard.writeText(cmd);
+      copyCmd.textContent = `📋 ${t("copilot.copied")}`;
+      setTimeout(() => { copyCmd.textContent = `📋 ${t("copilot.copy")}`; }, 1800);
+    }
+    return;
+  }
+
+  const runCmd = event.target.closest("[data-copilot-action='run-cmd']");
+  if (runCmd) {
+    event.preventDefault();
+    const cmd = runCmd.dataset.cmd;
+    const msgId = runCmd.dataset.msgId;
+    executeAmeleCommand(cmd, null, null, msgId, state, render, showToast, t);
+    return;
+  }
+
+  const winConfirm = event.target.closest("[data-elevation-action='confirm-windows']");
+  if (winConfirm) {
+    event.preventDefault();
+    const cmd = winConfirm.dataset.cmd;
+    const msgId = winConfirm.dataset.msgId;
+    executeAmeleCommand(cmd, null, true, msgId, state, render, showToast, t);
+    return;
+  }
+
+  const elevCancel = event.target.closest("[data-elevation-action='cancel']");
+  if (elevCancel) {
+    event.preventDefault();
+    if (state.copilot) state.copilot.elevationModal = null;
+    render();
+    return;
+  }
+
+  const newsHScroll = event.target.closest("[data-news-h-scroll]");
+  if (newsHScroll) {
+    event.preventDefault();
+    const dir = newsHScroll.dataset.newsHScroll;
+    const track = document.querySelector("#news-horizontal-track");
+    if (track) {
+      const scrollAmount = 320;
+      track.scrollBy({ left: dir === "left" ? -scrollAmount : scrollAmount, behavior: "smooth" });
+    }
+    return;
+  }
+
   const tocBtn = event.target.closest("[data-action='help-toc']");
   if (tocBtn) {
     event.preventDefault();
@@ -1719,6 +1831,30 @@ document.addEventListener("click", async (event) => {
 });
 
 document.addEventListener("change", async (event) => {
+  const agentSelect = event.target.closest("[data-copilot-action='change-agent']");
+  if (agentSelect) {
+    handleAgentChange(agentSelect.value, state, render);
+    return;
+  }
+
+  const modelSelect = event.target.closest("[data-copilot-action='change-model']");
+  if (modelSelect) {
+    handleModelChange(modelSelect.value, state);
+    return;
+  }
+
+  const scopeSelect = event.target.closest("[data-copilot-action='change-scope']");
+  if (scopeSelect) {
+    handleScopeChange(scopeSelect.value, state);
+    return;
+  }
+
+  const optSelect = event.target.closest("[data-copilot-action='change-opt']");
+  if (optSelect) {
+    if (state.copilot) state.copilot.selectedOpt = optSelect.value;
+    return;
+  }
+
   const profileLanguage = event.target.closest("#profile-language");
   if (profileLanguage) {
     captureProfileDraft();
@@ -1820,6 +1956,34 @@ document.addEventListener("change", async (event) => {
   const ramSymbolDir = event.target.closest("#ram-symbol-dir");
   if (ramSymbolDir) {
     state.ramSymbolDirInput = ramSymbolDir.value.trim();
+  }
+});
+
+document.addEventListener("input", (event) => {
+  const input = event.target.closest("[data-copilot-input]");
+  if (input && state.copilot) {
+    state.copilot.promptDraft = input.value;
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  const input = event.target.closest("[data-copilot-input]");
+  if (input && event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    const prompt = input.value;
+    submitCopilotPrompt(prompt, state, render, showToast, t);
+  }
+});
+
+document.addEventListener("submit", (event) => {
+  const linuxForm = event.target.closest("[data-elevation-form='linux']");
+  if (linuxForm) {
+    event.preventDefault();
+    const passInput = linuxForm.querySelector("#sudo-pass-input");
+    const password = passInput ? passInput.value : "";
+    const cmd = linuxForm.dataset.cmd;
+    const msgId = linuxForm.dataset.msgId;
+    executeAmeleCommand(cmd, password, null, msgId, state, render, showToast, t);
   }
 });
 
@@ -4497,6 +4661,9 @@ async function bootApp() {
   }
   render();
   if (state.profileGateVisible) renderProfileGate();
+
+  // Yapay zeka ajanlarını ve modellerini arka planda yükle
+  loadCopilotAgents(state, render).catch(() => {});
 
   // Background network tasks and timers (only in real browser / webview, not during Node unit tests)
   const isNodeTest = typeof process !== "undefined" && Boolean(process.versions?.node);

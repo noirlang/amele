@@ -1,6 +1,7 @@
 //! bütün api modüllerini toplayıp dışa aktaran kütük.
 
 pub mod acquisition_control;
+pub mod ai;
 pub mod android;
 pub mod case_transfer;
 pub mod desktop;
