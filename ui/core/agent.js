@@ -11,54 +11,31 @@ export const DEFAULT_AGENTS = [
     id: "agy",
     name: "Antigravity (AGY)",
     installed: true,
-    models: [
-      { id: "gemini-3.8-flash-high", name: "Gemini 3.8 Flash (High)", description: "En yeni yüksek hızlı akıl yürütme modeli" },
-      { id: "gemini-3.1-pro-high", name: "Gemini 3.1 Pro (High)", description: "Karmaşık adli bilişim analizi ve derin akıl yürütme" },
-      { id: "gemini-3.7-flash-high", name: "Gemini 3.7 Flash", description: "Hızlı genel adli bilişim sorguları" },
-      { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6 (Thinking)", description: "Gelişmiş analitik akıl yürütme" },
-      { id: "claude-opus-4-6-thinking", name: "Claude Opus 4.6 (Thinking)", description: "Üst seviye stratejik analiz modeli" }
-    ]
+    models: []
   },
   {
     id: "claude",
     name: "Claude Code",
     installed: true,
-    models: [
-      { id: "claude-3-7-sonnet", name: "Claude 3.7 Sonnet", description: "Hibrit akıl yürütme ve adli kodlama" },
-      { id: "claude-3-5-sonnet", name: "Claude 3.5 Sonnet v2", description: "Yüksek doğrulukta komut üretimi" },
-      { id: "claude-3-5-haiku", name: "Claude 3.5 Haiku", description: "Hafif ve ultra hızlı yanıt süresi" }
-    ]
+    models: []
   },
   {
     id: "codex",
-    name: "Codex / OpenAI",
+    name: "Codex",
     installed: true,
-    models: [
-      { id: "gpt-4o", name: "GPT-4o", description: "En yetenekli amiral gemisi model" },
-      { id: "o3-mini", name: "o3-mini", description: "Gelişmiş mantık ve akıl yürütme" },
-      { id: "gpt-4o-mini", name: "GPT-4o Mini", description: "Hızlı ve ekonomik model" }
-    ]
+    models: []
   },
   {
     id: "pi",
     name: "Pi Coding Agent",
     installed: true,
-    models: [
-      { id: "claude-sonnet", name: "Claude Sonnet (Pi)", description: "Dengeli ve güçlü adli analiz" },
-      { id: "gpt-4o", name: "GPT-4o (Pi)", description: "Çok modlu ve kapsamlı yanıtlar" },
-      { id: "claude-haiku", name: "Claude Haiku (Pi)", description: "Ultra hızlı yanıt süresi" },
-      { id: "deepseek-r1", name: "DeepSeek R1 (Pi)", description: "Yerel ve derin akıl yürütme" }
-    ]
+    models: []
   },
   {
     id: "opencode",
     name: "OpenCode",
     installed: true,
-    models: [
-      { id: "opencode/big-pickle", name: "Big Pickle", description: "OpenCode genel amaçlı model" },
-      { id: "opencode/ling-3.0-flash-fin-free", name: "Ling 3.0 Flash", description: "Hızlı ve ücretsiz model" },
-      { id: "opencode/mimo-v2.6-flash-free", name: "Mimo v2.6 Flash", description: "Hafif analiz modeli" }
-    ]
+    models: []
   }
 ];
 

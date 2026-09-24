@@ -1540,6 +1540,62 @@ window.addEventListener("focus", clearChromeArtifacts);
 clearChromeArtifacts();
 
 document.addEventListener("click", async (event) => {
+  // Özel Agent ve Model Dropdown Açma / Kapama / Seçme
+  const toggleAgentMenu = event.target.closest("[data-agent-action='toggle-agent-menu']");
+  if (toggleAgentMenu) {
+    event.preventDefault();
+    event.stopPropagation();
+    const menu = document.getElementById("agent-dropdown-menu");
+    const modelMenu = document.getElementById("model-dropdown-menu");
+    if (modelMenu) modelMenu.style.display = "none";
+    if (menu) {
+      menu.style.display = menu.style.display === "none" ? "flex" : "none";
+    }
+    return;
+  }
+
+  const toggleModelMenu = event.target.closest("[data-agent-action='toggle-model-menu']");
+  if (toggleModelMenu) {
+    event.preventDefault();
+    event.stopPropagation();
+    const menu = document.getElementById("model-dropdown-menu");
+    const agentMenu = document.getElementById("agent-dropdown-menu");
+    if (agentMenu) agentMenu.style.display = "none";
+    if (menu) {
+      menu.style.display = menu.style.display === "none" ? "flex" : "none";
+    }
+    return;
+  }
+
+  const selectAgentItem = event.target.closest("[data-agent-action='select-agent-item']");
+  if (selectAgentItem) {
+    event.preventDefault();
+    if (selectAgentItem.classList.contains("disabled")) return;
+    const agentId = selectAgentItem.dataset.agentId;
+    if (agentId) {
+      handleAgentChange(agentId, state, render);
+    }
+    return;
+  }
+
+  const selectModelItem = event.target.closest("[data-agent-action='select-model-item']");
+  if (selectModelItem) {
+    event.preventDefault();
+    const modelId = selectModelItem.dataset.modelId;
+    if (modelId) {
+      handleModelChange(modelId, state);
+      render();
+    }
+    return;
+  }
+
+  if (!event.target.closest(".agent-custom-dropdown")) {
+    const agentMenu = document.getElementById("agent-dropdown-menu");
+    const modelMenu = document.getElementById("model-dropdown-menu");
+    if (agentMenu) agentMenu.style.display = "none";
+    if (modelMenu) modelMenu.style.display = "none";
+  }
+
   const agentSend = event.target.closest("[data-agent-action='send'], [data-copilot-action='send']");
   if (agentSend) {
     event.preventDefault();

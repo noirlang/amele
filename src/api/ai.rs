@@ -112,7 +112,7 @@ fn fetch_agy_models(binary_path: &str) -> Vec<AgentModel> {
                     models.push(AgentModel {
                         id: id.to_string(),
                         name: display_name.clone(),
-                        description: format!("AGY {} modeli", display_name),
+                        description: format!("AGY {display_name} modeli"),
                     });
                 }
             }
@@ -121,13 +121,7 @@ fn fetch_agy_models(binary_path: &str) -> Vec<AgentModel> {
             }
         }
     }
-    vec![
-        AgentModel { id: "gemini-3.8-flash-high".into(), name: "Gemini 3.8 Flash (High)".into(), description: "En yeni yüksek hızlı akıl yürütme modeli".into() },
-        AgentModel { id: "gemini-3.1-pro-high".into(), name: "Gemini 3.1 Pro (High)".into(), description: "Karmaşık adli bilişim analizi ve derin akıl yürütme".into() },
-        AgentModel { id: "gemini-3.7-flash-high".into(), name: "Gemini 3.7 Flash".into(), description: "Hızlı genel adli bilişim sorguları".into() },
-        AgentModel { id: "claude-sonnet-4-6".into(), name: "Claude Sonnet 4.6 (Thinking)".into(), description: "Gelişmiş analitik akıl yürütme".into() },
-        AgentModel { id: "claude-opus-4-6-thinking".into(), name: "Claude Opus 4.6 (Thinking)".into(), description: "Üst seviye stratejik analiz modeli".into() },
-    ]
+    vec![]
 }
 
 fn fetch_opencode_models(binary_path: &str) -> Vec<AgentModel> {
@@ -148,7 +142,7 @@ fn fetch_opencode_models(binary_path: &str) -> Vec<AgentModel> {
                 models.push(AgentModel {
                     id: trimmed.to_string(),
                     name: trimmed.to_string(),
-                    description: format!("OpenCode {} modeli", trimmed),
+                    description: format!("OpenCode {trimmed} modeli"),
                 });
             }
             if !models.is_empty() {
@@ -156,42 +150,69 @@ fn fetch_opencode_models(binary_path: &str) -> Vec<AgentModel> {
             }
         }
     }
+    vec![]
+}
+
+fn fetch_codex_models(binary_path: &str) -> Vec<AgentModel> {
+    use std::process::Stdio;
+    // OpenAI / Codex oturum durumunu kontrol et
+    if let Ok(output) = Command::new(binary_path)
+        .args(["login", "status"])
+        .stdin(Stdio::null())
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let combined = format!("{stdout} {stderr}");
+        // Giriş yapılmamışsa sahte model listeleme
+        if combined.contains("Not logged in") || !output.status.success() {
+            return vec![];
+        }
+    } else {
+        return vec![];
+    }
+
     vec![
-        AgentModel { id: "opencode/big-pickle".into(), name: "Big Pickle".into(), description: "OpenCode genel amaçlı model".into() },
-        AgentModel { id: "opencode/ling-3.0-flash-fin-free".into(), name: "Ling 3.0 Flash".into(), description: "Hızlı ve ücretsiz OpenCode modeli".into() },
-        AgentModel { id: "opencode/mimo-v2.6-flash-free".into(), name: "Mimo v2.6 Flash".into(), description: "Hafif analiz modeli".into() },
+        AgentModel { id: "gpt-4o".into(), name: "GPT-4o".into(), description: "OpenAI GPT-4o".into() },
+        AgentModel { id: "o3-mini".into(), name: "o3-mini".into(), description: "OpenAI o3-mini".into() },
     ]
 }
 
-fn fetch_pi_models() -> Vec<AgentModel> {
-    // Pi'nin bundled model kataloğundan gerçek model ID'leri (v0.87.x)
-    vec![
-        AgentModel { id: "claude-sonnet-4-6".into(), name: "Claude Sonnet 4.6".into(), description: "Anthropic Claude Sonnet 4.6 via Pi".into() },
-        AgentModel { id: "claude-opus-4-1".into(), name: "Claude Opus 4.1".into(), description: "Anthropic Claude Opus 4.1 via Pi".into() },
-        AgentModel { id: "claude-haiku-4-5".into(), name: "Claude Haiku 4.5".into(), description: "Hızlı ve hafif Claude modeli via Pi".into() },
-        AgentModel { id: "gemini-3.7-flash".into(), name: "Gemini 3.7 Flash".into(), description: "Google Gemini 3.7 Flash via Pi".into() },
-        AgentModel { id: "gemini-3.1-pro".into(), name: "Gemini 3.1 Pro".into(), description: "Google Gemini 3.1 Pro via Pi".into() },
-        AgentModel { id: "gpt-4.1".into(), name: "GPT-4.1".into(), description: "OpenAI GPT-4.1 via Pi".into() },
-        AgentModel { id: "gpt-4.1-mini".into(), name: "GPT-4.1 Mini".into(), description: "Hızlı ve ekonomik GPT-4.1 via Pi".into() },
-    ]
+fn fetch_pi_models(binary_path: &str) -> Vec<AgentModel> {
+    use std::process::Stdio;
+    // Pi sağlayıcı auth durumunu sorgula
+    if let Ok(output) = Command::new(binary_path)
+        .args(["auth", "check"])
+        .stdin(Stdio::null())
+        .output()
+    {
+        let combined = format!("{} {}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+        if combined.contains("not_ready") || !output.status.success() {
+            return vec![];
+        }
+    } else {
+        return vec![];
+    }
+    vec![]
 }
 
-fn get_claude_models() -> Vec<AgentModel> {
-    vec![
-        AgentModel { id: "claude-3-7-sonnet".into(), name: "Claude 3.7 Sonnet".into(), description: "Hibrit akıl yürütme ve adli kodlama".into() },
-        AgentModel { id: "claude-3-5-sonnet".into(), name: "Claude 3.5 Sonnet v2".into(), description: "Yüksek doğrulukta komut üretimi".into() },
-        AgentModel { id: "claude-3-5-haiku".into(), name: "Claude 3.5 Haiku".into(), description: "Hafif ve ultra hızlı yanıt süresi".into() },
-        AgentModel { id: "claude-3-opus".into(), name: "Claude 3 Opus".into(), description: "Kapsamlı raporlama ve analiz".into() },
-    ]
-}
-
-fn get_codex_models() -> Vec<AgentModel> {
-    vec![
-        AgentModel { id: "gpt-4o".into(), name: "GPT-4o".into(), description: "Çok modlu ve hızlı adli asistan".into() },
-        AgentModel { id: "o3-mini".into(), name: "o3-mini".into(), description: "Derin teknik akıl yürütme".into() },
-        AgentModel { id: "o1".into(), name: "o1".into(), description: "Karmaşık tersine mühendislik ve protokol analizi".into() },
-        AgentModel { id: "gpt-4o-mini".into(), name: "GPT-4o Mini".into(), description: "Hafif ve hızlı sorgular".into() },
-    ]
+fn fetch_claude_models(binary_path: &str) -> Vec<AgentModel> {
+    use std::process::Stdio;
+    if let Ok(output) = Command::new(binary_path)
+        .args(["auth", "status"])
+        .stdin(Stdio::null())
+        .output()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if stdout.contains("\"loggedIn\":true") {
+            return vec![
+                AgentModel { id: "claude-3-7-sonnet".into(), name: "Claude 3.7 Sonnet".into(), description: "Anthropic Claude 3.7 Sonnet".into() },
+                AgentModel { id: "claude-3-5-sonnet".into(), name: "Claude 3.5 Sonnet".into(), description: "Anthropic Claude 3.5 Sonnet".into() },
+                AgentModel { id: "claude-3-5-haiku".into(), name: "Claude 3.5 Haiku".into(), description: "Anthropic Claude 3.5 Haiku".into() },
+            ];
+        }
+    }
+    vec![]
 }
 
 pub fn fetch_live_models_for_agent(agent_id: &str) -> Vec<AgentModel> {
@@ -204,9 +225,18 @@ pub fn fetch_live_models_for_agent(agent_id: &str) -> Vec<AgentModel> {
             let bin = check_binary("opencode").unwrap_or_else(|| "opencode".to_string());
             fetch_opencode_models(&bin)
         }
-        "claude" => get_claude_models(),
-        "codex" => get_codex_models(),
-        "pi" => fetch_pi_models(),
+        "claude" => {
+            let bin = check_binary("claude").unwrap_or_else(|| "claude".to_string());
+            fetch_claude_models(&bin)
+        }
+        "codex" => {
+            let bin = check_binary("codex").unwrap_or_else(|| "codex".to_string());
+            fetch_codex_models(&bin)
+        }
+        "pi" => {
+            let bin = check_binary("pi").unwrap_or_else(|| "pi".to_string());
+            fetch_pi_models(&bin)
+        }
         _ => vec![],
     }
 }
@@ -225,14 +255,8 @@ pub fn get_agents_endpoint() -> Response {
             name: "Antigravity (AGY)".to_string(),
             installed: agy_path.is_some(),
             binary_path: agy_path,
-            description: "Google DeepMind Advanced Agentic Coding CLI".to_string(),
-            models: vec![
-                AgentModel { id: "gemini-3.8-flash-high".into(), name: "Gemini 3.8 Flash (High)".into(), description: "En yeni yüksek hızlı akıl yürütme modeli".into() },
-                AgentModel { id: "gemini-3.1-pro-high".into(), name: "Gemini 3.1 Pro (High)".into(), description: "Karmaşık adli bilişim analizi ve derin akıl yürütme".into() },
-                AgentModel { id: "gemini-3.7-flash-high".into(), name: "Gemini 3.7 Flash".into(), description: "Hızlı genel adli bilişim sorguları".into() },
-                AgentModel { id: "claude-sonnet-4-6".into(), name: "Claude Sonnet 4.6 (Thinking)".into(), description: "Gelişmiş analitik akıl yürütme".into() },
-                AgentModel { id: "claude-opus-4-6-thinking".into(), name: "Claude Opus 4.6 (Thinking)".into(), description: "Üst seviye stratejik analiz modeli".into() },
-            ],
+            description: "Google Antigravity Agentic Coding CLI".to_string(),
+            models: fetch_live_models_for_agent("agy"),
         },
         DiscoveredAgent {
             id: "claude".to_string(),
@@ -240,15 +264,15 @@ pub fn get_agents_endpoint() -> Response {
             installed: claude_path.is_some(),
             binary_path: claude_path,
             description: "Anthropic Claude Code CLI Asistanı".to_string(),
-            models: get_claude_models(),
+            models: fetch_live_models_for_agent("claude"),
         },
         DiscoveredAgent {
             id: "codex".to_string(),
-            name: "Codex / OpenAI".to_string(),
+            name: "Codex".to_string(),
             installed: codex_path.is_some(),
             binary_path: codex_path,
             description: "OpenAI Codex CLI Ajanı".to_string(),
-            models: get_codex_models(),
+            models: fetch_live_models_for_agent("codex"),
         },
         DiscoveredAgent {
             id: "pi".to_string(),
@@ -256,7 +280,7 @@ pub fn get_agents_endpoint() -> Response {
             installed: pi_path.is_some(),
             binary_path: pi_path,
             description: "Earendil Works çok sağlayıcılı terminal ajanı".to_string(),
-            models: fetch_pi_models(),
+            models: fetch_live_models_for_agent("pi"),
         },
         DiscoveredAgent {
             id: "opencode".to_string(),
@@ -264,11 +288,7 @@ pub fn get_agents_endpoint() -> Response {
             installed: opencode_path.is_some(),
             binary_path: opencode_path,
             description: "Açık kaynak çoklu sağlayıcı CLI ajanı".to_string(),
-            models: vec![
-                AgentModel { id: "opencode/big-pickle".into(), name: "Big Pickle".into(), description: "OpenCode genel amaçlı model".into() },
-                AgentModel { id: "opencode/ling-3.0-flash-fin-free".into(), name: "Ling 3.0 Flash".into(), description: "Hızlı ve ücretsiz OpenCode modeli".into() },
-                AgentModel { id: "opencode/mimo-v2.6-flash-free".into(), name: "Mimo v2.6 Flash".into(), description: "Hafif analiz modeli".into() },
-            ],
+            models: fetch_live_models_for_agent("opencode"),
         },
     ];
 
@@ -850,9 +870,9 @@ mod tests {
         let agents = val["agents"].as_array().unwrap();
         assert!(!agents.is_empty());
         let pi = agents.iter().find(|a| a["id"] == "pi").unwrap();
-        assert!(!pi["models"].as_array().unwrap().is_empty());
+        assert!(pi["models"].is_array());
         let agy = agents.iter().find(|a| a["id"] == "agy").unwrap();
-        assert!(!agy["models"].as_array().unwrap().is_empty());
+        assert!(agy["models"].is_array());
     }
 
     #[test]
