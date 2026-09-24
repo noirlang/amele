@@ -164,12 +164,15 @@ fn fetch_opencode_models(binary_path: &str) -> Vec<AgentModel> {
 }
 
 fn fetch_pi_models() -> Vec<AgentModel> {
+    // Pi'nin bundled model kataloğundan gerçek model ID'leri (v0.87.x)
     vec![
-        AgentModel { id: "claude-3-7-sonnet".into(), name: "Claude 3.7 Sonnet (Pi)".into(), description: "Dengeli ve güçlü adli analiz".into() },
-        AgentModel { id: "claude-3-5-sonnet".into(), name: "Claude 3.5 Sonnet (Pi)".into(), description: "Yüksek doğrulukta komut üretimi".into() },
-        AgentModel { id: "gpt-4o".into(), name: "GPT-4o (Pi)".into(), description: "Çok modlu ve kapsamlı yanıtlar".into() },
-        AgentModel { id: "claude-3-5-haiku".into(), name: "Claude 3.5 Haiku (Pi)".into(), description: "Ultra hızlı yanıt süresi".into() },
-        AgentModel { id: "deepseek-r1".into(), name: "DeepSeek R1 (Pi)".into(), description: "Yerel ve derin akıl yürütme".into() },
+        AgentModel { id: "claude-sonnet-4-6".into(), name: "Claude Sonnet 4.6".into(), description: "Anthropic Claude Sonnet 4.6 via Pi".into() },
+        AgentModel { id: "claude-opus-4-1".into(), name: "Claude Opus 4.1".into(), description: "Anthropic Claude Opus 4.1 via Pi".into() },
+        AgentModel { id: "claude-haiku-4-5".into(), name: "Claude Haiku 4.5".into(), description: "Hızlı ve hafif Claude modeli via Pi".into() },
+        AgentModel { id: "gemini-3.7-flash".into(), name: "Gemini 3.7 Flash".into(), description: "Google Gemini 3.7 Flash via Pi".into() },
+        AgentModel { id: "gemini-3.1-pro".into(), name: "Gemini 3.1 Pro".into(), description: "Google Gemini 3.1 Pro via Pi".into() },
+        AgentModel { id: "gpt-4.1".into(), name: "GPT-4.1".into(), description: "OpenAI GPT-4.1 via Pi".into() },
+        AgentModel { id: "gpt-4.1-mini".into(), name: "GPT-4.1 Mini".into(), description: "Hızlı ve ekonomik GPT-4.1 via Pi".into() },
     ]
 }
 
@@ -252,7 +255,7 @@ pub fn get_agents_endpoint() -> Response {
             name: "Pi Coding Agent".to_string(),
             installed: pi_path.is_some(),
             binary_path: pi_path,
-            description: "Hızlı terminal ve adli betik aracı".to_string(),
+            description: "Earendil Works çok sağlayıcılı terminal ajanı".to_string(),
             models: fetch_pi_models(),
         },
         DiscoveredAgent {
