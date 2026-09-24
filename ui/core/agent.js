@@ -100,12 +100,37 @@ export async function loadAgents(state, render) {
         if (chosen.models && chosen.models.length > 0) {
           state.agent.selectedModel = chosen.models[0].id;
         }
+        // Canlı modelleri arka planda sorgula
+        fetchAgentModels(chosen.id, state, render);
       }
 
       if (render) render();
     }
   } catch (err) {
     console.warn("Yapay zeka ajanları yüklenemedi:", err);
+  }
+}
+
+export async function fetchAgentModels(agentId, state, render) {
+  if (!agentId) return;
+  try {
+    const res = await apiRequest(`/api/ai/models?agent=${encodeURIComponent(agentId)}`);
+    if (res && res.ok && Array.isArray(res.models) && res.models.length > 0) {
+      if (!state.agent) initAgent(state, render);
+      const target = state.agent.agents.find((a) => a.id === agentId);
+      if (target) {
+        target.models = res.models;
+      }
+      if (state.agent.selectedAgent === agentId) {
+        const hasCurrent = res.models.some((m) => m.id === state.agent.selectedModel);
+        if (!hasCurrent) {
+          state.agent.selectedModel = res.models[0].id;
+        }
+        if (render) render();
+      }
+    }
+  } catch (err) {
+    console.warn(`Model listesi çekilemedi (${agentId}):`, err);
   }
 }
 
@@ -126,6 +151,9 @@ export function handleAgentChange(agentId, state, render) {
     state.agent.selectedModel = "";
   }
   if (render) render();
+
+  // Seçilen ajanın CLI komutunu arkada çalıştırıp modellerini canlı güncelle
+  fetchAgentModels(agentId, state, render);
 }
 
 export function handleModelChange(modelId, state) {

@@ -38,6 +38,7 @@
 .profile-cases-section,
 .profile-action-bar,
 .profile-gate-card,
+.agent-box,
 .help-sidebar,
 .help-main-content {
   background: var(--panel) !important;
@@ -313,6 +314,7 @@ code:not(.help-code-block code) {
 .help-table-container,
 .home-hero,
 .news-hero-container,
+.agent-box,
 .primary-button,
 .secondary-button,
 .danger-button,
@@ -364,7 +366,8 @@ code:not(.help-code-block code) {
 .help-code-block::before,
 .help-table-container::before,
 .home-hero::before,
-.news-hero-container::before {
+.news-hero-container::before,
+.agent-box::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -398,7 +401,8 @@ code:not(.help-code-block code) {
 }
 
 .home-hero::before,
-.news-hero-container::before {
+.news-hero-container::before,
+.agent-box::before {
   z-index: 4;
 }
 
@@ -472,7 +476,8 @@ code:not(.help-code-block code) {
 .help-code-block::after,
 .help-table-container::after,
 .home-hero::after,
-.news-hero-container::after {
+.news-hero-container::after,
+.agent-box::after {
   display: none !important;
 }
 
@@ -506,7 +511,8 @@ code:not(.help-code-block code) {
 .help-main-content > *,
 .help-nav-btn > *,
 .help-code-block > *,
-.help-table-container > * {
+.help-table-container > *,
+.agent-box > * {
   position: relative;
   z-index: 3;
 }
@@ -554,7 +560,8 @@ code:not(.help-code-block code) {
 .help-code-block:hover::before,
 .help-table-container:hover::before,
 .home-hero:hover::before,
-.news-hero-container:hover::before {
+.news-hero-container:hover::before,
+.agent-box:hover::before {
   background: 
     conic-gradient(
       from var(--glow-angle),
@@ -603,7 +610,8 @@ code:not(.help-code-block code) {
 .help-code-block:hover,
 .help-table-container:hover,
 .home-hero:hover,
-.news-hero-container:hover {
+.news-hero-container:hover,
+.agent-box:hover {
   box-shadow: 0 0 24px var(--glow-hover-glow) !important;
 }
 
@@ -695,6 +703,7 @@ code:not(.help-code-block code) {
 .native-linux .help-table-container,
 .native-linux .home-hero,
 .native-linux .news-hero-container,
+.native-linux .agent-box,
 .native-linux .primary-button,
 .native-linux .secondary-button,
 .native-linux .danger-button,
@@ -737,6 +746,7 @@ code:not(.help-code-block code) {
 .native-linux .help-table-container::before,
 .native-linux .home-hero::before,
 .native-linux .news-hero-container::before,
+.native-linux .agent-box::before,
 .native-linux .primary-button::before,
 .native-linux .secondary-button::before,
 .native-linux .danger-button::before,
@@ -780,6 +790,7 @@ code:not(.help-code-block code) {
 .native-linux .help-table-container:hover::before,
 .native-linux .home-hero:hover::before,
 .native-linux .news-hero-container:hover::before,
+.native-linux .agent-box:hover::before,
 .native-linux .primary-button:hover::before,
 .native-linux .secondary-button:hover::before,
 .native-linux .danger-button:hover::before,

@@ -32,7 +32,12 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
         );
     }
 
-    let response = match (method, path) {
+    let (base_path, _query) = match path.split_once('?') {
+        Some((b, q)) => (b, Some(q)),
+        None => (path, None),
+    };
+
+    let response = match (method, base_path) {
         ("GET", "/api/health") => json_ok(serde_json::json!({
             "ok": true,
             "version": env!("CARGO_PKG_VERSION"),
@@ -61,6 +66,7 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
         ("POST", "/api/profiles/online-logout") => profile::profile_online_logout_endpoint(),
         ("GET", "/api/profiles/mobile-access") => profile::profile_mobile_access_endpoint(),
         ("GET", "/api/ai/agents") => ai::get_agents_endpoint(),
+        ("GET", "/api/ai/models") => ai::get_models_endpoint(path),
         ("POST", "/api/ai/chat") => ai::chat_endpoint(body),
         ("POST", "/api/ai/execute-command") => ai::execute_command_endpoint(body),
         ("GET", "/api/settings-default") => {

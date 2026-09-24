@@ -54,14 +54,35 @@ fn check_binary(binary_name: &str) -> Option<String> {
         let fallbacks = [
             format!("{home}/.local/bin/{binary_name}"),
             format!("{home}/.local/share/mise/shims/{binary_name}"),
-            format!("{home}/.local/share/mise/installs/{binary_name}/latest/{binary_name}"),
-            format!("{home}/.local/share/mise/installs/{binary_name}/latest/bin/{binary_name}"),
+            format!("{home}/.cargo/bin/{binary_name}"),
             format!("/usr/bin/{binary_name}"),
             format!("/usr/local/bin/{binary_name}"),
+            format!("{home}/.local/share/mise/installs/{binary_name}/latest/{binary_name}"),
+            format!("{home}/.local/share/mise/installs/{binary_name}/latest/bin/{binary_name}"),
         ];
         for fb in fallbacks {
             if std::path::Path::new(&fb).exists() {
                 return Some(fb);
+            }
+        }
+
+        // Mise versiyonlu dizinlerini tara (~/.local/share/mise/installs/<binary>/<versiyon>/...)
+        let mise_dir = format!("{home}/.local/share/mise/installs/{binary_name}");
+        if let Ok(entries) = std::fs::read_dir(mise_dir) {
+            for entry in entries.flatten() {
+                let dir_path = entry.path();
+                if dir_path.is_dir() {
+                    let candidates = [
+                        dir_path.join(binary_name),
+                        dir_path.join("bin").join(binary_name),
+                        dir_path.join(binary_name).join(binary_name),
+                    ];
+                    for c in candidates {
+                        if c.exists() {
+                            return Some(c.to_string_lossy().to_string());
+                        }
+                    }
+                }
             }
         }
     }
@@ -70,7 +91,12 @@ fn check_binary(binary_name: &str) -> Option<String> {
 }
 
 fn fetch_agy_models(binary_path: &str) -> Vec<AgentModel> {
-    if let Ok(output) = Command::new(binary_path).arg("models").output() {
+    use std::process::Stdio;
+    if let Ok(output) = Command::new(binary_path)
+        .arg("models")
+        .stdin(Stdio::null())
+        .output()
+    {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let mut models = Vec::new();
@@ -105,7 +131,12 @@ fn fetch_agy_models(binary_path: &str) -> Vec<AgentModel> {
 }
 
 fn fetch_opencode_models(binary_path: &str) -> Vec<AgentModel> {
-    if let Ok(output) = Command::new(binary_path).arg("models").output() {
+    use std::process::Stdio;
+    if let Ok(output) = Command::new(binary_path)
+        .arg("models")
+        .stdin(Stdio::null())
+        .output()
+    {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let mut models = Vec::new();
@@ -132,31 +163,12 @@ fn fetch_opencode_models(binary_path: &str) -> Vec<AgentModel> {
     ]
 }
 
-fn fetch_pi_models(binary_path: &str) -> Vec<AgentModel> {
-    if let Ok(output) = Command::new(binary_path).arg("models").output() {
-        if output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let mut models = Vec::new();
-            for line in stdout.lines() {
-                let trimmed = line.trim();
-                if trimmed.is_empty() || trimmed.contains("No models") || trimmed.contains("Use /login") {
-                    continue;
-                }
-                models.push(AgentModel {
-                    id: trimmed.to_string(),
-                    name: trimmed.to_string(),
-                    description: format!("Pi {} modeli", trimmed),
-                });
-            }
-            if !models.is_empty() {
-                return models;
-            }
-        }
-    }
+fn fetch_pi_models() -> Vec<AgentModel> {
     vec![
-        AgentModel { id: "claude-sonnet".into(), name: "Claude Sonnet (Pi)".into(), description: "Dengeli ve güçlü adli analiz".into() },
+        AgentModel { id: "claude-3-7-sonnet".into(), name: "Claude 3.7 Sonnet (Pi)".into(), description: "Dengeli ve güçlü adli analiz".into() },
+        AgentModel { id: "claude-3-5-sonnet".into(), name: "Claude 3.5 Sonnet (Pi)".into(), description: "Yüksek doğrulukta komut üretimi".into() },
         AgentModel { id: "gpt-4o".into(), name: "GPT-4o (Pi)".into(), description: "Çok modlu ve kapsamlı yanıtlar".into() },
-        AgentModel { id: "claude-haiku".into(), name: "Claude Haiku (Pi)".into(), description: "Ultra hızlı yanıt süresi".into() },
+        AgentModel { id: "claude-3-5-haiku".into(), name: "Claude 3.5 Haiku (Pi)".into(), description: "Ultra hızlı yanıt süresi".into() },
         AgentModel { id: "deepseek-r1".into(), name: "DeepSeek R1 (Pi)".into(), description: "Yerel ve derin akıl yürütme".into() },
     ]
 }
@@ -179,31 +191,30 @@ fn get_codex_models() -> Vec<AgentModel> {
     ]
 }
 
-/// Tüm desteklenen gerçek CLI agent'larını ve modellerini tarayıp listeler.
+pub fn fetch_live_models_for_agent(agent_id: &str) -> Vec<AgentModel> {
+    match agent_id {
+        "agy" => {
+            let bin = check_binary("agy").unwrap_or_else(|| "agy".to_string());
+            fetch_agy_models(&bin)
+        }
+        "opencode" => {
+            let bin = check_binary("opencode").unwrap_or_else(|| "opencode".to_string());
+            fetch_opencode_models(&bin)
+        }
+        "claude" => get_claude_models(),
+        "codex" => get_codex_models(),
+        "pi" => fetch_pi_models(),
+        _ => vec![],
+    }
+}
+
+/// Tüm desteklenen gerçek CLI agent'larını anında listeler.
 pub fn get_agents_endpoint() -> Response {
     let pi_path = check_binary("pi");
     let agy_path = check_binary("agy");
     let claude_path = check_binary("claude");
     let codex_path = check_binary("codex");
     let opencode_path = check_binary("opencode");
-
-    let agy_models = if let Some(ref p) = agy_path {
-        fetch_agy_models(p)
-    } else {
-        fetch_agy_models("agy")
-    };
-
-    let opencode_models = if let Some(ref p) = opencode_path {
-        fetch_opencode_models(p)
-    } else {
-        fetch_opencode_models("opencode")
-    };
-
-    let pi_models = if let Some(ref p) = pi_path {
-        fetch_pi_models(p)
-    } else {
-        fetch_pi_models("pi")
-    };
 
     let agents = vec![
         DiscoveredAgent {
@@ -212,7 +223,13 @@ pub fn get_agents_endpoint() -> Response {
             installed: agy_path.is_some(),
             binary_path: agy_path,
             description: "Google DeepMind Advanced Agentic Coding CLI".to_string(),
-            models: agy_models,
+            models: vec![
+                AgentModel { id: "gemini-3.8-flash-high".into(), name: "Gemini 3.8 Flash (High)".into(), description: "En yeni yüksek hızlı akıl yürütme modeli".into() },
+                AgentModel { id: "gemini-3.1-pro-high".into(), name: "Gemini 3.1 Pro (High)".into(), description: "Karmaşık adli bilişim analizi ve derin akıl yürütme".into() },
+                AgentModel { id: "gemini-3.7-flash-high".into(), name: "Gemini 3.7 Flash".into(), description: "Hızlı genel adli bilişim sorguları".into() },
+                AgentModel { id: "claude-sonnet-4-6".into(), name: "Claude Sonnet 4.6 (Thinking)".into(), description: "Gelişmiş analitik akıl yürütme".into() },
+                AgentModel { id: "claude-opus-4-6-thinking".into(), name: "Claude Opus 4.6 (Thinking)".into(), description: "Üst seviye stratejik analiz modeli".into() },
+            ],
         },
         DiscoveredAgent {
             id: "claude".to_string(),
@@ -236,7 +253,7 @@ pub fn get_agents_endpoint() -> Response {
             installed: pi_path.is_some(),
             binary_path: pi_path,
             description: "Hızlı terminal ve adli betik aracı".to_string(),
-            models: pi_models,
+            models: fetch_pi_models(),
         },
         DiscoveredAgent {
             id: "opencode".to_string(),
@@ -244,13 +261,40 @@ pub fn get_agents_endpoint() -> Response {
             installed: opencode_path.is_some(),
             binary_path: opencode_path,
             description: "Açık kaynak çoklu sağlayıcı CLI ajanı".to_string(),
-            models: opencode_models,
+            models: vec![
+                AgentModel { id: "opencode/big-pickle".into(), name: "Big Pickle".into(), description: "OpenCode genel amaçlı model".into() },
+                AgentModel { id: "opencode/ling-3.0-flash-fin-free".into(), name: "Ling 3.0 Flash".into(), description: "Hızlı ve ücretsiz OpenCode modeli".into() },
+                AgentModel { id: "opencode/mimo-v2.6-flash-free".into(), name: "Mimo v2.6 Flash".into(), description: "Hafif analiz modeli".into() },
+            ],
         },
     ];
 
     json_ok(json!({
         "ok": true,
         "agents": agents
+    }))
+}
+
+/// Seçili agent için canlı modelleri CLI'dan sorgulayan endpoint
+pub fn get_models_endpoint(path: &str) -> Response {
+    let agent_id = if let Some(query) = path.split('?').nth(1) {
+        query.split('&').find_map(|pair| {
+            let mut parts = pair.split('=');
+            if parts.next() == Some("agent") {
+                parts.next()
+            } else {
+                None
+            }
+        }).unwrap_or("agy")
+    } else {
+        "agy"
+    };
+
+    let models = fetch_live_models_for_agent(agent_id);
+    json_ok(json!({
+        "ok": true,
+        "agent": agent_id,
+        "models": models
     }))
 }
 

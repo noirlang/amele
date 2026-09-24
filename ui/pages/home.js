@@ -144,20 +144,24 @@ export function homePage({ t, icon, assetPath, theme, state }) {
           <!-- Yalnızca Ajan Seçme, Model Seçme ve Gönderme -->
           <div class="agent-toolbar">
             <div class="agent-toolbar-left">
-              <!-- Seçili Ajanın Resmi Vektör Logosu -->
-              <span class="agent-active-icon" title="${escapeHtml(selectedAgent?.name || 'Ajan')}">
-                ${getAgentOfficialSvg(selectedAgentId)}
-              </span>
+              <!-- Ajan Seçici Dropdown (İkon combobox'ın içinde) -->
+              <div class="agent-combobox-wrapper" title="${t("copilot.selectAgent")}">
+                <span class="agent-combobox-icon">
+                  ${getAgentOfficialSvg(selectedAgentId)}
+                </span>
+                <select class="agent-select agent-combobox-select" data-agent-action="change-agent">
+                  ${agentOptionsHtml}
+                </select>
+                <span class="agent-combobox-chevron">▾</span>
+              </div>
 
-              <!-- Ajan Seçici Dropdown -->
-              <select class="agent-select" data-agent-action="change-agent" title="${t("copilot.selectAgent")}">
-                ${agentOptionsHtml}
-              </select>
-
-              <!-- Model Seçici Dropdown (Ajan seçildiğinde dinamik güncellenir) -->
-              <select class="agent-select agent-model-select" data-agent-action="change-model" title="${t("copilot.selectModel")}">
-                ${modelOptionsHtml}
-              </select>
+              <!-- Model Seçici Dropdown (Combobox içinde) -->
+              <div class="agent-combobox-wrapper" title="${t("copilot.selectModel")}">
+                <select class="agent-select agent-combobox-select agent-model-select" data-agent-action="change-model">
+                  ${modelOptionsHtml}
+                </select>
+                <span class="agent-combobox-chevron">▾</span>
+              </div>
             </div>
 
             <div class="agent-toolbar-right">

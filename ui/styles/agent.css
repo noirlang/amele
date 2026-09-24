@@ -124,15 +124,45 @@
   gap: 8px;
 }
 
-.agent-active-icon {
+/* Entegre Combobox Bileşenleri (İkon ve Chevron Dahili) */
+.agent-combobox-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-2, #0c0c0c);
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.15));
+  border-radius: 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  min-height: 32px;
+}
+
+.theme-light .agent-combobox-wrapper {
+  background: #f5f5f5;
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.agent-combobox-wrapper:hover,
+.agent-combobox-wrapper:focus-within {
+  border-color: var(--text);
+  box-shadow: 0 0 0 1px var(--line-strong, rgba(255, 255, 255, 0.25));
+}
+
+.agent-combobox-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--line);
+  width: 20px;
+  height: 20px;
+  margin-left: 8px;
+  margin-right: -2px;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.agent-combobox-icon svg {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
 }
 
 .agent-select {
@@ -151,14 +181,34 @@
   transition: all 0.15s ease;
 }
 
-.theme-light .agent-select {
-  background: #f5f5f5;
-  border-color: rgba(0, 0, 0, 0.15);
+.agent-combobox-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 8px;
+  outline: none !important;
+  padding: 6px 26px 6px 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  min-height: 32px;
 }
 
-.agent-select:hover,
-.agent-select:focus {
-  border-color: var(--text);
+.agent-combobox-icon + .agent-combobox-select {
+  padding-left: 6px;
+}
+
+.agent-combobox-chevron {
+  position: absolute;
+  right: 8px;
+  pointer-events: none;
+  font-size: 10px;
+  color: var(--muted, #a3a3a3);
+  line-height: 1;
 }
 
 .agent-select option {
@@ -183,7 +233,7 @@
 }
 
 .agent-model-select {
-  max-width: 220px;
+  max-width: 240px;
   text-overflow: ellipsis;
 }
 
