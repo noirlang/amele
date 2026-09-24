@@ -1,6 +1,7 @@
 // Ana Dashboard: Yapay Zeka Adli Ajanı, Yatay Haber Menüsü ve Adli Araçlar.
 
 import { escapeHtml } from "../core/utils.js";
+import { DEFAULT_AGENTS } from "../core/agent.js";
 
 export function homePage({ t, icon, assetPath, theme, state }) {
   const isEn = state?.language === "en";
@@ -13,31 +14,21 @@ export function homePage({ t, icon, assetPath, theme, state }) {
 
   // 2. Yapay Zeka Ajan durumu
   const agentState = state?.agent || state?.copilot || {};
-  const agents = agentState.agents || [];
+  const rawAgents = agentState.agents || [];
+  const agents = rawAgents.length > 0 ? rawAgents : DEFAULT_AGENTS;
   const selectedAgentId = agentState.selectedAgent || "agy";
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) || agents[0];
   const models = selectedAgent?.models || [];
   const selectedModelId = agentState.selectedModel || (models[0]?.id || "");
-  const selectedScope = agentState.selectedScope || "all";
   const isGenerating = Boolean(agentState.isGenerating);
   const messages = agentState.messages || [];
 
-  // Ajan seçenekleri HTML
-  const agentOptionsHtml = agents.length > 0
-    ? agents.map((a) => {
-        const isSel = a.id === selectedAgentId;
-        const iconPrefix = a.id === "pi" ? "🥧" : a.id === "agy" ? "🌌" : a.id === "claude" ? "🎭" : a.id === "codex" ? "🧠" : a.id === "opencode" ? "🌐" : "🛡️";
-        const statusSuffix = a.installed ? "" : " (Kurulu Değil)";
-        return `<option value="${a.id}" ${isSel ? "selected" : ""}>${iconPrefix} ${escapeHtml(a.name)}${statusSuffix}</option>`;
-      }).join("")
-    : `
-        <option value="agy">🌌 Antigravity (AGY)</option>
-        <option value="pi">🥧 Pi Coding Agent</option>
-        <option value="claude">🎭 Claude Code</option>
-        <option value="codex">🧠 Codex / OpenAI</option>
-        <option value="opencode">🌐 OpenCode</option>
-        <option value="amele-expert" selected>🛡️ Amele Adli Uzman</option>
-      `;
+  // Ajan seçenekleri HTML (Ajan adları)
+  const agentOptionsHtml = agents.map((a) => {
+    const isSel = a.id === selectedAgentId;
+    const statusSuffix = a.installed ? "" : " (Kurulu Değil)";
+    return `<option value="${a.id}" ${isSel ? "selected" : ""}>${escapeHtml(a.name)}${statusSuffix}</option>`;
+  }).join("");
 
   // Model seçenekleri HTML
   const modelOptionsHtml = models.length > 0
@@ -125,22 +116,15 @@ export function homePage({ t, icon, assetPath, theme, state }) {
     <section class="page">
       <!-- Yapay Zeka Ajan Bölümü -->
       <div class="agent-container">
-        <!-- Karşılama Çubuğu -->
+        <!-- Karşılama Çubuğu (Preview ve geri bildirim kaldırıldı, yalın karşılama) -->
         <div class="agent-greeting-bar">
           <div class="agent-greeting-left">
             <div class="agent-mascot">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                 <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 13A2.5 2.5 0 0 0 5 15.5 2.5 2.5 0 0 0 7.5 18a2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 7.5 13m9 0a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5"/>
               </svg>
             </div>
             <h1 class="agent-greeting-title">${escapeHtml(greetingText)}</h1>
-          </div>
-          <div class="agent-greeting-right">
-            <span class="agent-badge-preview">Preview</span>
-            <span class="agent-separator">·</span>
-            <a href="https://github.com/noirlang/amele/issues" target="_blank" rel="noopener noreferrer" class="agent-feedback-link">
-              ${t("copilot.giveFeedback")}
-            </a>
           </div>
         </div>
 
@@ -150,79 +134,32 @@ export function homePage({ t, icon, assetPath, theme, state }) {
             <textarea
               id="agent-prompt-input"
               class="agent-textarea"
-              placeholder="${t("copilot.placeholder")}"
+              placeholder="${escapeHtml(t("copilot.placeholder"))}"
               rows="2"
               data-agent-input
             >${escapeHtml(agentState.promptDraft || "")}</textarea>
           </div>
 
+          <!-- Yalnızca Ajan Seçme, Model Seçme ve Gönderme -->
           <div class="agent-toolbar">
             <div class="agent-toolbar-left">
-              <!-- Sor butonu -->
-              <div class="agent-btn-dropdown">
-                <button type="button" class="agent-tool-btn" data-agent-action="toggle-mode">
-                  <span>💬 ${t("copilot.modeAsk")}</span>
-                  <span class="dropdown-caret">▾</span>
-                </button>
-              </div>
-
-              <!-- Kapsam -->
-              <div class="agent-btn-dropdown">
-                <select class="agent-select" data-agent-action="change-scope" title="${t("copilot.scopeTitle")}">
-                  <option value="all" ${selectedScope === "all" ? "selected" : ""}>🔖 ${t("copilot.scopeAll")}</option>
-                  <option value="ram" ${selectedScope === "ram" ? "selected" : ""}>🧠 ${t("copilot.scopeRam")}</option>
-                  <option value="disk" ${selectedScope === "disk" ? "selected" : ""}>🛠️ ${t("copilot.scopeDisk")}</option>
-                  <option value="case" ${selectedScope === "case" ? "selected" : ""}>📋 ${t("copilot.scopeCase")}</option>
-                  <option value="docker" ${selectedScope === "docker" ? "selected" : ""}>🐳 ${t("copilot.scopeDocker")}</option>
-                  <option value="android" ${selectedScope === "android" ? "selected" : ""}>📱 ${t("copilot.scopeAndroid")}</option>
-                </select>
-              </div>
-
-              <!-- [+] Bağlam Ekleme Butonu -->
-              <button type="button" class="agent-icon-btn" data-agent-action="add-context" title="${t("copilot.addContext")}">
-                +
-              </button>
+              <!-- Seçili Ajanın Resmi Vektör Logosu -->
+              <span class="agent-active-icon" title="${escapeHtml(selectedAgent?.name || 'Ajan')}">
+                ${getAgentOfficialSvg(selectedAgentId)}
+              </span>
 
               <!-- Ajan Seçici Dropdown -->
-              <div class="agent-btn-dropdown">
-                <select class="agent-select agent-select-highlight" data-agent-action="change-agent" title="${t("copilot.selectAgent")}">
-                  ${agentOptionsHtml}
-                </select>
-              </div>
+              <select class="agent-select" data-agent-action="change-agent" title="${t("copilot.selectAgent")}">
+                ${agentOptionsHtml}
+              </select>
 
               <!-- Model Seçici Dropdown (Ajan seçildiğinde dinamik güncellenir) -->
-              <div class="agent-btn-dropdown">
-                <select class="agent-select agent-model-select" data-agent-action="change-model" title="${t("copilot.selectModel")}">
-                  ${modelOptionsHtml}
-                </select>
-              </div>
+              <select class="agent-select agent-model-select" data-agent-action="change-model" title="${t("copilot.selectModel")}">
+                ${modelOptionsHtml}
+              </select>
             </div>
 
             <div class="agent-toolbar-right">
-              <!-- Auto Dropdown -->
-              <div class="agent-btn-dropdown">
-                <select class="agent-select agent-pill-select" data-agent-action="change-auto">
-                  <option value="auto">🔀 ${t("copilot.auto")}</option>
-                  <option value="manual">⚙️ ${t("copilot.manual")}</option>
-                </select>
-              </div>
-
-              <!-- Optimized for: Balance Dropdown -->
-              <div class="agent-btn-dropdown">
-                <select class="agent-select agent-pill-select" data-agent-action="change-opt">
-                  <option value="balance" ${agentState.selectedOpt === "balance" ? "selected" : ""}>${t("copilot.optBalance")}</option>
-                  <option value="speed" ${agentState.selectedOpt === "speed" ? "selected" : ""}>${t("copilot.optSpeed")}</option>
-                  <option value="reasoning" ${agentState.selectedOpt === "reasoning" ? "selected" : ""}>${t("copilot.optReasoning")}</option>
-                </select>
-              </div>
-
-              <!-- Hız / Optimizasyon İkonu -->
-              <button type="button" class="agent-icon-btn" data-agent-action="toggle-opt" title="${t("copilot.sparkleTitle")}">
-                ✨
-              </button>
-
-              <span class="agent-v-divider"></span>
-
               <!-- Gönder Butonu -->
               <button
                 type="button"
@@ -236,41 +173,6 @@ export function homePage({ t, icon, assetPath, theme, state }) {
                 </svg>
               </button>
             </div>
-          </div>
-        </div>
-
-        <!-- Hızlı Eylem Çipleri (Action Chips) -->
-        <div class="agent-chips-container">
-          <div class="agent-chips-row">
-            <button type="button" class="agent-chip" data-agent-chip="debug">
-              <span class="chip-icon">🐞</span>
-              <span>${t("copilot.chipDebug")}</span>
-            </button>
-            <button type="button" class="agent-chip" data-agent-chip="agent">
-              <span class="chip-icon">☁️</span>
-              <span>${t("copilot.chipAgent")}</span>
-            </button>
-            <button type="button" class="agent-chip" data-agent-chip="issue">
-              <span class="chip-icon">◌</span>
-              <span>${t("copilot.chipIssue")}</span>
-            </button>
-            <button type="button" class="agent-chip" data-agent-chip="code">
-              <span class="chip-icon">📄</span>
-              <span>${t("copilot.chipCode")}</span>
-              <span class="dropdown-caret">▾</span>
-            </button>
-            <button type="button" class="agent-chip" data-agent-chip="git">
-              <span class="chip-icon">⑂</span>
-              <span>${t("copilot.chipGit")}</span>
-              <span class="dropdown-caret">▾</span>
-            </button>
-          </div>
-          <div class="agent-chips-row">
-            <button type="button" class="agent-chip" data-agent-chip="pr">
-              <span class="chip-icon">⇅</span>
-              <span>${t("copilot.chipPr")}</span>
-              <span class="dropdown-caret">▾</span>
-            </button>
           </div>
         </div>
 
@@ -296,7 +198,7 @@ export function homePage({ t, icon, assetPath, theme, state }) {
         </div>
       </div>
 
-      <!-- Standart Adli Araç Kartları Grid -->
+      <!-- Standart Adli Araç Kartları Grid (Uygulamanın ana araçları) -->
       <div class="home-grid">
         ${homeTile(t("home.windows.title"), t("home.windows.desc"), "windows", "windows", "var(--text)", icon, state)}
         ${homeTile(t("home.linux.title"), t("home.linux.desc"), "linux", "linux", "var(--text)", icon, state)}
@@ -311,6 +213,54 @@ export function homePage({ t, icon, assetPath, theme, state }) {
       ${elevationModalHtml}
     </section>
   `;
+}
+
+/// Ajanlara ait resmi SVG logoları
+function getAgentOfficialSvg(agentId) {
+  switch (agentId) {
+    case "claude":
+      // Anthropic Claude resmi asterisk / sunburst logosu
+      return `
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#d97706">
+          <path d="M4.7 12c0-.5.4-.9.9-.9h3.6l-2.6-2.6c-.4-.4-.4-1 0-1.4.4-.4 1-.4 1.4 0l2.6 2.6V6.1c0-.5.4-.9.9-.9s.9.4.9.9v3.6l2.6-2.6c.4-.4 1-.4 1.4 0 .4.4.4 1 0 1.4l-2.6 2.6h3.6c.5 0 .9.4.9.9s-.4.9-.9.9h-3.6l2.6 2.6c.4.4.4 1 0 1.4-.4.4-1 .4-1.4 0l-2.6-2.6v3.6c0 .5-.4.9-.9.9s-.9-.4-.9-.9v-3.6l-2.6 2.6c-.4.4-1 .4-1.4 0-.4-.4-.4-1 0-1.4l2.6-2.6H5.6c-.5 0-.9-.4-.9-.9z"/>
+        </svg>
+      `;
+    case "codex":
+      // OpenAI / Codex resmi spiral vortex logosu
+      return `
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#10a37f">
+          <path d="M22.28 9.61a5.98 5.98 0 0 0-.52-4.93 6.05 6.05 0 0 0-6.51-2.9A6.07 6.07 0 0 0 10.7.27a6.03 6.03 0 0 0-5.78 4.2 6.04 6.04 0 0 0-4.04 2.92 6.02 6.02 0 0 0 .74 7.12 5.99 5.99 0 0 0 .52 4.93 6.05 6.05 0 0 0 6.51 2.9A6.05 6.05 0 0 0 13.3 23.73a6.03 6.03 0 0 0 5.78-4.2 6.04 6.04 0 0 0 4.04-2.92 6.02 6.02 0 0 0-.74-7.12zm-8.98 12.62a4.5 4.5 0 0 1-2.9-1.07l.14-.08 4.8-2.77a.8.8 0 0 0 .4-.68v-6.78l2.03 1.17a.08.08 0 0 1 .04.06v5.62a4.52 4.52 0 0 1-4.51 4.53zM3.44 18.06a4.48 4.48 0 0 1-.58-3.05l.14.09 4.8 2.77a.78.78 0 0 0 .79 0l5.88-3.39v2.35a.08.08 0 0 1-.03.07L9.6 19.66a4.52 4.52 0 0 1-6.16-1.6zm-1.39-9.5a4.5 4.5 0 0 1 2.32-1.98v5.71a.78.78 0 0 0 .39.68l5.87 3.39-2.03 1.18a.08.08 0 0 1-.08 0L3.65 14.8a4.52 4.52 0 0 1-1.6-6.24zm14.86 2.3l-5.88-3.4 2.03-1.17a.08.08 0 0 1 .08 0l4.87 2.82a4.52 4.52 0 0 1 1.29 6.32 4.5 4.5 0 0 1-2.39 1.9v-5.7a.79.79 0 0 0-.4-.7zm3.03-3.87l-.14-.09-4.8-2.77a.78.78 0 0 0-.79 0L8.35 10.33V7.98a.08.08 0 0 1 .04-.07l4.87-2.82a4.52 4.52 0 0 1 6.16 1.6 4.47 4.47 0 0 1 .52 2.3zm-10.74 5.37l-2.03-1.17a.08.08 0 0 1-.04-.07V4.3a4.52 4.52 0 0 1 7.42-3.46l-.14.08-4.8 2.77a.8.8 0 0 0-.41.68v6.78zm1.08-2.42l2.63-1.52 2.63 1.52v3.04l-2.63 1.52-2.63-1.52z"/>
+        </svg>
+      `;
+    case "agy":
+      // Google DeepMind / Antigravity sparkle diamond star logosu
+      return `
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#60a5fa">
+          <path d="M12 2C12 7.52 7.52 12 2 12C7.52 12 12 16.48 12 22C12 16.48 16.48 12 22 12C16.48 12 12 7.52 12 2Z"/>
+        </svg>
+      `;
+    case "pi":
+      // Pi coding agent logosu
+      return `
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#22c55e">
+          <path d="M4 6h16v2.5h-2.5v10H14V8.5h-4V18c0 .83-.67 1.5-1.5 1.5H6V8.5H4V6z"/>
+        </svg>
+      `;
+    case "opencode":
+      // OpenCode terminal brackets logosu
+      return `
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#a855f7">
+          <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+        </svg>
+      `;
+    default:
+      // Amele Expert kalkan / adli rozet logosu
+      return `
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#ef4444">
+          <path d="M12 2L3 6v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V6l-9-4zm-1 15l-4-4 1.41-1.41L11 14.17l5.59-5.59L18 10l-7 7z"/>
+        </svg>
+      `;
+  }
 }
 
 function renderChatMessage(msg, state, t, escapeHtml) {

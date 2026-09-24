@@ -6,12 +6,76 @@ const apiRequest = createApiRequest({
   backendAvailable: typeof location !== "undefined" && (location.protocol === "http:" || location.protocol === "https:")
 });
 
+export const DEFAULT_AGENTS = [
+  {
+    id: "agy",
+    name: "Antigravity (AGY)",
+    installed: true,
+    models: [
+      { id: "gemini-3.8-flash-high", name: "Gemini 3.8 Flash (High)", description: "En yeni yüksek hızlı akıl yürütme modeli" },
+      { id: "gemini-3.1-pro-high", name: "Gemini 3.1 Pro (High)", description: "Karmaşık adli bilişim analizi ve derin akıl yürütme" },
+      { id: "gemini-3.7-flash-high", name: "Gemini 3.7 Flash", description: "Hızlı genel adli bilişim sorguları" },
+      { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6 (Thinking)", description: "Gelişmiş analitik akıl yürütme" },
+      { id: "claude-opus-4-6-thinking", name: "Claude Opus 4.6 (Thinking)", description: "Üst seviye stratejik analiz modeli" }
+    ]
+  },
+  {
+    id: "claude",
+    name: "Claude Code",
+    installed: true,
+    models: [
+      { id: "claude-3-7-sonnet", name: "Claude 3.7 Sonnet", description: "Hibrit akıl yürütme ve adli kodlama" },
+      { id: "claude-3-5-sonnet", name: "Claude 3.5 Sonnet v2", description: "Yüksek doğrulukta komut üretimi" },
+      { id: "claude-3-5-haiku", name: "Claude 3.5 Haiku", description: "Hafif ve ultra hızlı yanıt süresi" }
+    ]
+  },
+  {
+    id: "codex",
+    name: "Codex / OpenAI",
+    installed: true,
+    models: [
+      { id: "gpt-4o", name: "GPT-4o", description: "En yetenekli amiral gemisi model" },
+      { id: "o3-mini", name: "o3-mini", description: "Gelişmiş mantık ve akıl yürütme" },
+      { id: "gpt-4o-mini", name: "GPT-4o Mini", description: "Hızlı ve ekonomik model" }
+    ]
+  },
+  {
+    id: "pi",
+    name: "Pi Coding Agent",
+    installed: true,
+    models: [
+      { id: "claude-sonnet", name: "Claude Sonnet (Pi)", description: "Dengeli ve güçlü adli analiz" },
+      { id: "gpt-4o", name: "GPT-4o (Pi)", description: "Çok modlu ve kapsamlı yanıtlar" },
+      { id: "claude-haiku", name: "Claude Haiku (Pi)", description: "Ultra hızlı yanıt süresi" },
+      { id: "deepseek-r1", name: "DeepSeek R1 (Pi)", description: "Yerel ve derin akıl yürütme" }
+    ]
+  },
+  {
+    id: "opencode",
+    name: "OpenCode",
+    installed: true,
+    models: [
+      { id: "deepseek-coder", name: "DeepSeek Coder V2", description: "Açık kaynaklı derin kodlama modeli" },
+      { id: "qwen-coder", name: "Qwen 2.5 Coder 32B", description: "Gelişmiş yerel mantık ve betik motoru" },
+      { id: "llama-code", name: "Llama 3 Code", description: "Meta açık ağırlıklı yerel model" }
+    ]
+  },
+  {
+    id: "amele-expert",
+    name: "Amele Adli Uzman",
+    installed: true,
+    models: [
+      { id: "amele-forensic-v1", name: "Amele Forensic Kuralları v1", description: "Yerel kural tabanlı çevrimdışı adli uzman" }
+    ]
+  }
+];
+
 export function initAgent(state, render) {
   if (!state.agent) {
     state.agent = {
-      agents: [],
+      agents: [...DEFAULT_AGENTS],
       selectedAgent: "agy",
-      selectedModel: "",
+      selectedModel: "gemini-3.8-flash-high",
       selectedScope: "all",
       selectedMode: "ask",
       selectedOpt: "balance",
@@ -63,7 +127,8 @@ export async function loadAgents(state, render) {
 export function handleAgentChange(agentId, state, render) {
   if (!state.agent) return;
   state.agent.selectedAgent = agentId;
-  const agent = state.agent.agents.find((a) => a.id === agentId);
+  const agents = (state.agent.agents && state.agent.agents.length > 0) ? state.agent.agents : DEFAULT_AGENTS;
+  const agent = agents.find((a) => a.id === agentId);
   if (agent && agent.models && agent.models.length > 0) {
     state.agent.selectedModel = agent.models[0].id;
   } else {
