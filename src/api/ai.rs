@@ -37,6 +37,7 @@ pub struct ExecuteCommandRequest {
     pub command: String,
     pub sudo_password: Option<String>,
     pub windows_confirmed: Option<bool>,
+    pub linux_confirmed: Option<bool>,
 }
 
 /// Sistemde kurulu olan yapay zeka CLI araçlarını tespit eder.
@@ -535,8 +536,8 @@ fn extract_suggested_command(text: &str) -> Option<String> {
 }
 
 /// Kullanıcının onayladığı CLI komutunu çalıştırır.
-/// Eğer komut sudo/root gerektiriyorsa ve parola verilmişse sudo ile,
-/// Windows'ta ise yönetici onayıyla yürütür.
+/// Linux'ta onay sonrası once sudo yetkisi denenir, yoksa pkexec sistem
+/// penceresi acilir. Windows'ta ise yönetici onayıyla yürütür.
 pub fn execute_command_endpoint(body: &[u8]) -> Response {
     let req: ExecuteCommandRequest = match serde_json::from_slice(body) {
         Ok(r) => r,
@@ -566,68 +567,104 @@ pub fn execute_command_endpoint(body: &[u8]) -> Response {
     {
         let is_root = unsafe { libc::geteuid() == 0 };
 
-        if is_root_required && !is_root {
-            let Some(password) = req.sudo_password.as_deref().filter(|p| !p.is_empty()) else {
-                return json_ok(json!({
-                    "ok": false,
-                    "needs_elevation": true,
-                    "os": "linux",
-                    "reason": "Bu adli edinim komutu blok aygıtlara veya belleğe erişim için root (sudo) yetkisi gerektirir."
-                }));
-            };
+        // sonuc jsonu kuran kisa yardimci
+        fn cmd_result(output: std::process::Output) -> Response {
+            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            let success = output.status.success();
+            json_ok(json!({
+                "ok": success,
+                "stdout": stdout,
+                "stderr": stderr,
+                "exit_code": output.status.code().unwrap_or(-1)
+            }))
+        }
 
-            // sudo -S ile komutu çalıştır
+        if is_root_required && !is_root {
             let clean_cmd = if cmd_str.starts_with("sudo ") {
                 cmd_str.strip_prefix("sudo ").unwrap()
             } else {
                 cmd_str
             };
 
-            let mut child = match Command::new("sudo")
-                .arg("-S")
+            // eski arayuzden parola geldiyse uyumluluk icin sudo -S ile calistir
+            if let Some(password) = req.sudo_password.as_deref().filter(|p| !p.is_empty()) {
+                let mut child = match Command::new("sudo")
+                    .arg("-S")
+                    .arg("sh")
+                    .arg("-c")
+                    .arg(clean_cmd)
+                    .stdin(Stdio::piped())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .spawn()
+                {
+                    Ok(c) => c,
+                    Err(err) => return json_error(500, format!("Süreç başlatılamadı: {err}")),
+                };
+
+                if let Some(mut stdin) = child.stdin.take() {
+                    let _ = stdin.write_all(format!("{password}\n").as_bytes());
+                }
+
+                return match child.wait_with_output() {
+                    Ok(output) => cmd_result(output),
+                    Err(err) => json_error(500, format!("Komut tamamlanamadı: {err}")),
+                };
+            }
+
+            // onay yoksa windowstaki gibi evet/hayir penceresini ac
+            if req.linux_confirmed != Some(true) {
+                return json_ok(json!({
+                    "ok": false,
+                    "needs_elevation": true,
+                    "os": "linux",
+                    "reason": "Bu adli edinim komutu blok aygıtlara veya belleğe erişim için root (sudo) yetkisi gerektirir."
+                }));
+            }
+
+            // onay var: once sudo yetkisi onbellekte mi diye sormadan dene
+            if let Ok(output) = Command::new("sudo")
+                .arg("-n")
                 .arg("sh")
                 .arg("-c")
                 .arg(clean_cmd)
-                .stdin(Stdio::piped())
+                .stdin(Stdio::null())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
-                .spawn()
+                .output()
             {
-                Ok(c) => c,
-                Err(err) => return json_error(500, format!("Süreç başlatılamadı: {err}")),
-            };
-
-            if let Some(mut stdin) = child.stdin.take() {
-                let _ = stdin.write_all(format!("{password}\n").as_bytes());
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                let needs_pass = stderr.contains("a password is required")
+                    || stderr.contains("no tty present")
+                    || stderr.contains("a terminal is required");
+                if !needs_pass {
+                    return cmd_result(output);
+                }
             }
 
-            match child.wait_with_output() {
-                Ok(output) => {
-                    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-                    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-                    let success = output.status.success();
-                    json_ok(json!({
-                        "ok": success,
-                        "stdout": stdout,
-                        "stderr": stderr,
-                        "exit_code": output.status.code().unwrap_or(-1)
-                    }))
-                }
-                Err(err) => json_error(500, format!("Komut tamamlanamadı: {err}")),
+            // onbellek yoksa sistem penceresini ac (polkit)
+            match Command::new("pkexec")
+                .arg("sh")
+                .arg("-c")
+                .arg(clean_cmd)
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .output()
+            {
+                Ok(output) => cmd_result(output),
+                Err(err) => json_error(
+                    500,
+                    format!(
+                        "pkexec başlatılamadı: {err}. Sistem yetki penceresi için polkit kurulu olmalı ya da uygulamayı root ile çalıştırın."
+                    ),
+                ),
             }
         } else {
             // Normal çalıştırma
             match Command::new("sh").arg("-c").arg(cmd_str).output() {
-                Ok(output) => {
-                    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-                    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-                    json_ok(json!({
-                        "ok": output.status.success(),
-                        "stdout": stdout,
-                        "stderr": stderr,
-                        "exit_code": output.status.code().unwrap_or(-1)
-                    }))
-                }
+                Ok(output) => cmd_result(output),
                 Err(err) => json_error(500, format!("Komut çalıştırılamadı: {err}")),
             }
         }

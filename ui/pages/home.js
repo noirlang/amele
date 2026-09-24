@@ -414,24 +414,20 @@ function renderElevationModal(modal, t, escapeHtml, iconFn) {
           <div class="elevation-modal-cmd">
             <code>${escapeHtml(modal.command)}</code>
           </div>
-          <form class="elevation-modal-form" data-elevation-form="linux" data-cmd="${escapeHtml(modal.command)}" data-msg-id="${modal.messageId || ""}">
-            <label for="sudo-pass-input">${t("elevation.passwordLabel")}</label>
-            <input
-              type="password"
-              id="sudo-pass-input"
-              placeholder="${t("elevation.passwordPlaceholder")}"
-              required
-              autofocus
-            />
-            <div class="elevation-modal-actions">
-              <button type="button" class="btn btn-secondary" data-elevation-action="cancel">
-                ${t("common.cancel") || "İptal"}
-              </button>
-              <button type="submit" class="btn btn-danger">
-                ${t("elevation.authenticateAndRun")}
-              </button>
-            </div>
-          </form>
+          <div class="elevation-modal-actions">
+            <button type="button" class="btn btn-secondary" data-elevation-action="cancel">
+              ${t("common.cancel")}
+            </button>
+            <button
+              type="button"
+              class="btn btn-danger"
+              data-elevation-action="confirm-linux"
+              data-cmd="${escapeHtml(modal.command)}"
+              data-msg-id="${modal.messageId || ""}"
+            >
+              ${t("elevation.authenticateAndRun")}
+            </button>
+          </div>
         </div>
       </div>
     `;

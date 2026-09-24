@@ -1663,6 +1663,15 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const linuxConfirm = event.target.closest("[data-elevation-action='confirm-linux']");
+  if (linuxConfirm) {
+    event.preventDefault();
+    const cmd = linuxConfirm.dataset.cmd;
+    const msgId = linuxConfirm.dataset.msgId;
+    executeAmeleCommand(cmd, null, null, msgId, state, render, showToast, t, true);
+    return;
+  }
+
   const winConfirm = event.target.closest("[data-elevation-action='confirm-windows']");
   if (winConfirm) {
     event.preventDefault();
@@ -2040,18 +2049,6 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     const prompt = input.value;
     submitAgentPrompt(prompt, state, render, showToast, t);
-  }
-});
-
-document.addEventListener("submit", (event) => {
-  const linuxForm = event.target.closest("[data-elevation-form='linux']");
-  if (linuxForm) {
-    event.preventDefault();
-    const passInput = linuxForm.querySelector("#sudo-pass-input");
-    const password = passInput ? passInput.value : "";
-    const cmd = linuxForm.dataset.cmd;
-    const msgId = linuxForm.dataset.msgId;
-    executeAmeleCommand(cmd, password, null, msgId, state, render, showToast, t);
   }
 });
 

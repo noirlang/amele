@@ -234,7 +234,7 @@ export async function submitAgentPrompt(promptText, state, render, showToast, t)
   }
 }
 
-export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, messageId, state, render, showToast, t) {
+export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, messageId, state, render, showToast, t, linuxConfirmed) {
   if (!cmd || !cmd.trim()) return;
 
   if (!state.agent) initAgent(state, render);
@@ -245,7 +245,8 @@ export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, m
     const payload = {
       command: cmd.trim(),
       sudo_password: sudoPassword || null,
-      windows_confirmed: windowsConfirmed ? true : null
+      windows_confirmed: windowsConfirmed ? true : null,
+      linux_confirmed: linuxConfirmed ? true : null
     };
 
     const res = await apiRequest("/api/ai/execute-command", {
