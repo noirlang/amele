@@ -6,9 +6,17 @@ import { DEFAULT_AGENTS } from "../core/agent.js";
 export function homePage({ t, icon, assetPath, theme, state }) {
   const isEn = state?.language === "en";
 
-  // 1. Karşılama başlığı
+  // 1. Karşılama başlığı (saate göre: sabah, gün, akşam, gece)
   const hour = new Date().getHours();
-  const greetingKey = hour < 12 ? "copilot.greeting.morning" : hour < 18 ? "copilot.greeting.afternoon" : "copilot.greeting.evening";
+  const greetingKey = hour < 5
+    ? "agent.greeting.night"
+    : hour < 12
+      ? "agent.greeting.morning"
+      : hour < 18
+        ? "agent.greeting.afternoon"
+        : hour < 23
+          ? "agent.greeting.evening"
+          : "agent.greeting.night";
   const userName = state?.activeProfile?.fullName || state?.activeProfile?.username || "melihemik";
   const greetingText = t(greetingKey, { name: userName });
 
@@ -38,7 +46,7 @@ export function homePage({ t, icon, assetPath, theme, state }) {
                   <span class="agent-badge badge-user">${t("copilot.generating")}</span>
                 </div>
                 <div class="agent-msg-body">
-                  <div class="loading-dots"><span>.</span><span>.</span><span>.</span></div>
+                  <div class="loading-row"><span class="spinner" aria-hidden="true"></span><span>${t("copilot.generating")}</span></div>
                 </div>
               </div>
             `

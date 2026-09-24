@@ -1659,7 +1659,7 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     const cmd = runCmd.dataset.cmd;
     const msgId = runCmd.dataset.msgId;
-    executeAmeleCommand(cmd, null, null, msgId, state, render, showToast, t);
+    executeAmeleCommand(cmd, null, null, msgId, state, render, showToast, t, null, true);
     return;
   }
 

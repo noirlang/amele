@@ -30,6 +30,7 @@ pub struct ChatRequest {
     pub model: Option<String>,
     pub case_name: Option<String>,
     pub target_scope: Option<String>,
+    pub profile_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,6 +39,8 @@ pub struct ExecuteCommandRequest {
     pub sudo_password: Option<String>,
     pub windows_confirmed: Option<bool>,
     pub linux_confirmed: Option<bool>,
+    pub profile_username: Option<String>,
+    pub profile_fullname: Option<String>,
 }
 
 /// Sistemde kurulu olan yapay zeka CLI araçlarını tespit eder.
@@ -119,6 +122,40 @@ fn run_cli_with_timeout(
                 std::thread::sleep(std::time::Duration::from_millis(100));
             }
             Err(_) => return None,
+        }
+    }
+}
+
+/// Arayuzde secili analist profilini CLI tarafinda aktif yapar.
+/// CLI profilsiz komut calistirmadigi icin ajan komutlari Profile bulunamadi
+/// hatasiyla dusuyordu, bunu onlemek icin eklendi. en fazla ~20sn surer.
+fn ensure_cli_profile(username: Option<&str>, full_name: Option<&str>) {
+    let u = match username {
+        Some(s) if !s.trim().is_empty() => s.trim(),
+        _ => return,
+    };
+    if !u
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '.')
+    {
+        return;
+    }
+    if let Some(out) = run_cli_with_timeout("amele", &["profile", "use", u, "--direct"], 10) {
+        if out.status.success() {
+            return;
+        }
+    }
+    if let Some(name) = full_name {
+        let name = name.trim();
+        if !name.is_empty() {
+            if let Some(out) =
+                run_cli_with_timeout("amele", &["profile", "create", name, u, "--direct"], 10)
+            {
+                if out.status.success() {
+                    return;
+                }
+            }
+            let _ = run_cli_with_timeout("amele", &["profile", "use", u, "--direct"], 10);
         }
     }
 }
@@ -382,6 +419,7 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
     let model_id = req.model.as_deref().unwrap_or("");
     let case_name = req.case_name.as_deref().unwrap_or("varsayilan_vaka");
     let target_scope = req.target_scope.as_deref().unwrap_or("all");
+    let profile_name = req.profile_name.as_deref().unwrap_or("-");
 
     // cli çalıştır, boş/takılma durumunda kural motoruna düş
     // timeout 60sn, takılırsa öldürüp fallback dönüyoruz
@@ -421,10 +459,11 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
         "pi" => {
             let bin = check_binary("pi").unwrap_or_else(|| "pi".to_string());
             let combined = format!(
-                "Amele Adli Bilişim Kuralları:\n{}\nAktif Vaka: {}\nKapsam: {}\nKullanıcı Sorusu: {}",
+                "Amele Adli Bilişim Kuralları:\n{}\nAktif Vaka: {}\nKapsam: {}\nAktif Profil: {}\nKullanıcı Sorusu: {}",
                 load_amele_skill_text(),
                 case_name,
                 target_scope,
+                profile_name,
                 prompt
             );
             if model_id.is_empty() {
@@ -438,10 +477,11 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
         "agy" => {
             let bin = check_binary("agy").unwrap_or_else(|| "agy".to_string());
             let combined = format!(
-                "You are the Amele Digital Forensics Agent. Amele CLI Skill and Rules:\n{}\n\nActive Case: {}\nScope: {}\n\nUser Question: {}",
+                "You are the Amele Digital Forensics Agent. Amele CLI Skill and Rules:\n{}\n\nActive Case: {}\nScope: {}\nActive Profile: {}\n\nUser Question: {}",
                 load_amele_skill_text(),
                 case_name,
                 target_scope,
+                profile_name,
                 prompt
             );
             if model_id.is_empty() {
@@ -462,10 +502,11 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
         "claude" => {
             let bin = check_binary("claude").unwrap_or_else(|| "claude".to_string());
             let combined = format!(
-                "Amele Adli Bilişim Kuralları:\n{}\nAktif Vaka: {}\nKapsam: {}\nKullanıcı Sorusu: {}",
+                "Amele Adli Bilişim Kuralları:\n{}\nAktif Vaka: {}\nKapsam: {}\nAktif Profil: {}\nKullanıcı Sorusu: {}",
                 load_amele_skill_text(),
                 case_name,
                 target_scope,
+                profile_name,
                 prompt
             );
             if model_id.is_empty() {
@@ -479,10 +520,11 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
         "codex" => {
             let bin = check_binary("codex").unwrap_or_else(|| "codex".to_string());
             let combined = format!(
-                "Amele Adli Bilişim Kuralları:\n{}\nAktif Vaka: {}\nKapsam: {}\nKullanıcı Sorusu: {}",
+                "Amele Adli Bilişim Kuralları:\n{}\nAktif Vaka: {}\nKapsam: {}\nAktif Profil: {}\nKullanıcı Sorusu: {}",
                 load_amele_skill_text(),
                 case_name,
                 target_scope,
+                profile_name,
                 prompt
             );
             if model_id.is_empty() {
@@ -496,10 +538,11 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
         "opencode" => {
             let bin = check_binary("opencode").unwrap_or_else(|| "opencode".to_string());
             let combined = format!(
-                "Amele Adli Bilişim Kuralları:\n{}\nAktif Vaka: {}\nKapsam: {}\nKullanıcı Sorusu: {}",
+                "Amele Adli Bilişim Kuralları:\n{}\nAktif Vaka: {}\nKapsam: {}\nAktif Profil: {}\nKullanıcı Sorusu: {}",
                 load_amele_skill_text(),
                 case_name,
                 target_scope,
+                profile_name,
                 prompt
             );
             if model_id.is_empty() {
@@ -554,6 +597,12 @@ pub fn execute_command_endpoint(body: &[u8]) -> Response {
     if !is_amele {
         return json_error(403, "Yalnızca resmi Amele CLI komutları çalıştırılabilir.");
     }
+
+    // arayuzdeki aktif profili CLI tarafinda da aktif yap
+    ensure_cli_profile(
+        req.profile_username.as_deref(),
+        req.profile_fullname.as_deref(),
+    );
 
     let is_root_required = cmd_str.contains("sudo")
         || cmd_str.contains("disk")

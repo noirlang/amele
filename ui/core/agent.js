@@ -195,12 +195,16 @@ export async function submitAgentPrompt(promptText, state, render, showToast, t)
   const timeoutId = controller ? setTimeout(() => controller.abort(), 120000) : null;
 
   try {
+    const prof = state.activeProfile || null;
+    const profUser = prof?.username || "";
+    const profName = prof?.fullName || "";
     const payload = {
       prompt: cleanPrompt,
       agent: state.agent.selectedAgent || "agy",
       model: state.agent.selectedModel || null,
       case_name: state.activeCase?.case_name || "varsayilan_vaka",
-      target_scope: state.agent.selectedScope || "all"
+      target_scope: state.agent.selectedScope || "all",
+      profile_name: profName && profUser ? `${profName} (${profUser})` : (profName || profUser || null)
     };
 
     const reqOptions = {
@@ -249,7 +253,7 @@ export async function submitAgentPrompt(promptText, state, render, showToast, t)
   }
 }
 
-export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, messageId, state, render, showToast, t, linuxConfirmed) {
+export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, messageId, state, render, showToast, t, linuxConfirmed, autoFollowUp) {
   if (!cmd || !cmd.trim()) return;
 
   if (!state.agent) initAgent(state, render);
@@ -264,11 +268,14 @@ export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, m
       });
     };
 
+    const prof = state.activeProfile || null;
     let res = await sendCmd({
       command: cmd.trim(),
       sudo_password: sudoPassword || null,
       windows_confirmed: windowsConfirmed ? true : null,
-      linux_confirmed: linuxConfirmed ? true : null
+      linux_confirmed: linuxConfirmed ? true : null,
+      profile_username: prof?.username || null,
+      profile_fullname: prof?.fullName || null
     });
 
     // yetki gerekirse kullanıcıya sormadan devam et, sistem penceresi kendisi çıkar
@@ -277,7 +284,9 @@ export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, m
         command: cmd.trim(),
         sudo_password: null,
         windows_confirmed: res.os === "windows" ? true : null,
-        linux_confirmed: res.os === "linux" ? true : null
+        linux_confirmed: res.os === "linux" ? true : null,
+        profile_username: prof?.username || null,
+        profile_fullname: prof?.fullName || null
       });
     }
 
@@ -312,6 +321,20 @@ export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, m
       showToast?.(t?.("copilot.exitSuccess") || "Komut başarıyla çalıştırıldı.");
     } else {
       showToast?.(t?.("copilot.exitFailed", { code: res?.exit_code ?? -1 }) || "Komut hata ile sonuçlandı.");
+    }
+
+    // komut bitince durmadan ajana geri ver, ajan kaldigi yerden devam etsin
+    if (autoFollowUp && targetMsg?.execResult) {
+      const out = String(targetMsg.execResult.stdout || "");
+      const errOut = String(targetMsg.execResult.stderr || "");
+      const combined = `${out}${errOut ? `\n[STDERR]\n${errOut}` : ""}`.slice(0, 3000);
+      await submitAgentPrompt(
+        `Komut çalıştı ve bitti, sonuca göre devam et:\n${cmd.trim()}\n${combined}`,
+        state,
+        render,
+        showToast,
+        t
+      );
     }
   } catch (err) {
     showToast?.(`Hata: ${err?.message || err}`);
