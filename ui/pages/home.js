@@ -28,13 +28,13 @@ export function homePage({ t, icon, assetPath, theme, state }) {
   const chatHistoryHtml = messages.length > 0 || isGenerating
     ? `
       <div class="agent-chat-history">
-        ${messages.map((msg) => renderChatMessage(msg, state, t, escapeHtml)).join("")}
+        ${messages.map((msg) => renderChatMessage(msg, state, t, escapeHtml, icon)).join("")}
         ${
           isGenerating
             ? `
               <div class="agent-msg assistant">
                 <div class="agent-msg-header">
-                  <span class="agent-msg-author">🤖 ${selectedAgent?.name || "Agent"}</span>
+                  <span class="agent-msg-author"><span class="agent-msg-avatar">${getAgentOfficialSvg(selectedAgentId)}</span> ${escapeHtml(selectedAgent?.name || "Agent")}</span>
                   <span class="agent-badge badge-user">${t("copilot.generating")}</span>
                 </div>
                 <div class="agent-msg-body">
@@ -81,8 +81,8 @@ export function homePage({ t, icon, assetPath, theme, state }) {
     return `
       <div class="news-h-card" data-news-link="${targetUrl}">
         <div class="news-h-card-top">
-          <span class="news-h-author">✍️ @${escapeHtml(author)}</span>
-          <span class="news-h-datetime">🕒 ${dateFormatted}</span>
+          <span class="news-h-author"><span class="inline-ico">${icon ? icon("user") : ""}</span> @${escapeHtml(author)}</span>
+          <span class="news-h-datetime"><span class="inline-ico">${icon ? icon("clock") : ""}</span> ${dateFormatted}</span>
         </div>
         <h4 class="news-h-title">${escapeHtml(title)}</h4>
         <p class="news-h-subtitle">${escapeHtml(summary)}</p>
@@ -96,7 +96,7 @@ export function homePage({ t, icon, assetPath, theme, state }) {
   // 4. Yetki Yükseltme Modalı (Linux Sudo veya Windows Admin)
   const elevationModal = agentState.elevationModal;
   const elevationModalHtml = elevationModal && elevationModal.isOpen
-    ? renderElevationModal(elevationModal, t, escapeHtml)
+    ? renderElevationModal(elevationModal, t, escapeHtml, icon)
     : "";
 
   return `
@@ -247,12 +247,8 @@ export function homePage({ t, icon, assetPath, theme, state }) {
       <div class="home-news-horizontal-section">
         <div class="news-horizontal-header">
           <div class="news-horizontal-title">
-            <span class="news-header-icon">📢</span>
+            <span class="news-header-icon">${icon ? icon("globe") : ""}</span>
             <h3>${t("news.latestUpdates")}</h3>
-          </div>
-          <div class="news-horizontal-nav">
-            <button type="button" class="news-h-btn" data-news-h-scroll="left" aria-label="Geri">‹</button>
-            <button type="button" class="news-h-btn" data-news-h-scroll="right" aria-label="İleri">›</button>
           </div>
         </div>
 
@@ -278,45 +274,53 @@ export function homePage({ t, icon, assetPath, theme, state }) {
   `;
 }
 
-/// Ajanlara ait resmi SVG logoları
+/// Ajanlara ait resmi SVG ve vektör logoları
 function getAgentOfficialSvg(agentId) {
-  switch (agentId) {
+  const id = String(agentId || "agy").toLowerCase();
+  switch (id) {
     case "agy":
-      // Google Antigravity (AGY) – resmi Antigravity vektör logosu
-      return `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style="color:#60a5fa">
-        <path d="M21.751 22.607c1.34 1.005 3.35.335 1.508-1.508C17.73 15.74 18.904 1 12.037 1 5.17 1 6.342 15.74.815 21.1c-2.01 2.009.167 2.511 1.507 1.506 5.192-3.517 4.857-9.714 9.715-9.714 4.857 0 4.522 6.197 9.714 9.715z"/>
-      </svg>`;
+    case "antigravity":
+      // Google Antigravity (AGY) – sistemdeki resmi Antigravity uygulama logosu
+      return `<img src="./assets/icons/antigravity.png" width="18" height="18" alt="AGY" style="border-radius:4px;display:block;object-fit:contain;" />`;
+
     case "claude":
-      // Anthropic Claude Code – resmi güneş ışını (sunburst) logosu, turuncu (#D97757)
-      return `<svg viewBox="0 0 248 248" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M52.4 162.9L98.8 136.9l.8-2.3-.8-1.3h-2.3l-7.8-.5-26.5-.7-22.9-.9L17 130l-5.6-1.2-5.2-7 .5-3.4 4.7-3.2 6.8.6 14.9 1.1 22.4 1.5 16.2.9 24 2.5h3.8l.5-1.5-1.3-.9-1-.9L74.6 102.7 49.5 86.2l-13.1-9.6-7-4.8-3.6-4.5-1.5-9.9 6.4-7.1 8.7.6 2.2.6 8.8 6.7 18.7 14.5 24.5 18 3.6 3 1.4-1 .2-.7-1.7-2.7-13.2-24-14.1-24.5-6.4-10.2-1.7-6c-.6-2.5-1-4.6-1-7.2L67.8 7.5l4.1-1.3 9.8 1.3 4.1 3.5 6.1 14 9.8 21.9 15.3 29.8 4.5 8.9 2.4 8.2.9 2.5h1.5v-1.4l1.3-16.8 2.3-20.6 2.3-26.5.8-7.4 3.7-9 7.4-4.8 5.7 2.7 4.7 6.7-.6 4.4-2.8 18.2-5.5 28.5-3.6 19.1h2l2.4-2.5 9.7-12.8 16.2-20.3 7.1-8 8.4-8.9 5.3-4.3h10.2l7.4 11.1-3.3 11.5-10.4 13.2-8.7 11.2-12.4 16.6-7.7 13.4.7 1.1 1.9-.2 28-6 15.2-2.7 18.1-3.1 8.1 3.8.9 3.9-3.2 7.9-19.4 4.7-22.7 4.6-33.8 7.9-.4.3.4.7 15.2 1.4 6.5.4h15.9l29.7 2.2 7.8 5.1 4.6 6.3-.8 4.8-12 6-16-3.8-37.6-9-12.9-3.2h-1.8v1.1l10.7 10.5 19.7 17.7 24.6 22.9 1.3 5.7-3.2 4.5-3.3-.5-21.7-16.3-8.4-7.3-18.8-16h-1.3v1.7l4.3 6.4 23.1 34.6 1.1 10.6-1.7 3.4-6 2.1-6.5-1.2-13.6-19-13.9-21.3-11.2-19.1-1.4.9-6.7 71.2-3.1 3.7-7.1 2.7-6-4.5-3.2-7.3 3.2-14.5 3.8-18.9 3.1-15 2.8-18.7 1.7-6.2-.2-.4-1.4.2-14.1 19.3-21.4 29-16.9 18.1-4.1 1.7-7-3.7.6-6.5 4-5.8 23.4-29.8 14.1-18.6 9.1-10.6-.1-1.5-.5 0L46.7 188.5l-11.1 1.4-4.8-4.5.6-7.3 2.3-2.4 18.7-12.9z" fill="#D97757"/>
+      // Anthropic Claude Code – resmi temiz Claude vektör logosu, turuncu (#D97757)
+      return `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style="color:#D97757">
+        <path fill="currentColor" d="m4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z"/>
       </svg>`;
+
     case "codex":
-      // OpenAI / Codex – resmi OpenAI spiral geometrik logosu, yeşil (#10a37f)
-      return `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style="color:#10a37f">
-        <path d="M9.205 8.658v-2.26c0-.19.072-.333.238-.428l4.543-2.616c.619-.357 1.356-.523 2.117-.523 2.854 0 4.662 2.212 4.662 4.566 0 .167 0 .357-.024.547l-4.71-2.759a.797.797 0 00-.856 0l-5.97 3.473zm10.609 8.8V12.06c0-.333-.143-.57-.429-.737l-5.97-3.473 1.95-1.118a.433.433 0 01.476 0l4.543 2.617c1.309.76 2.189 2.378 2.189 3.948 0 1.808-1.07 3.473-2.76 4.163zM7.802 12.703l-1.95-1.142c-.167-.095-.239-.238-.239-.428V5.899c0-2.545 1.95-4.472 4.591-4.472 1 0 1.927.333 2.712.928L8.23 5.067c-.285.166-.428.404-.428.737v6.898zM12 15.128l-2.795-1.57v-3.33L12 8.658l2.795 1.57v3.33L12 15.128zm1.796 7.23c-1 0-1.927-.332-2.712-.927l4.686-2.712c.285-.166.428-.404.428-.737v-6.898l1.974 1.142c.167.095.238.238.238.428v5.233c0 2.545-1.974 4.472-4.614 4.472zm-5.637-5.303l-4.544-2.617c-1.308-.761-2.188-2.378-2.188-3.948A4.482 4.482 0 014.21 6.327v5.423c0 .333.143.571.428.738l5.947 3.449-1.95 1.118a.432.432 0 01-.476 0zm-.262 3.9c-2.688 0-4.662-2.021-4.662-4.519 0-.19.024-.38.047-.57l4.686 2.71c.286.167.571.167.856 0l5.97-3.448v2.26c0 .19-.07.333-.237.428l-4.543 2.616c-.619.357-1.356.523-2.117.523zm5.899 2.83a5.947 5.947 0 005.827-4.756C22.287 18.339 24 15.84 24 13.296c0-1.665-.713-3.282-1.998-4.448.119-.5.19-.999.19-1.498 0-3.401-2.759-5.947-5.946-5.947-.642 0-1.26.095-1.88.31A5.962 5.962 0 0010.205 0a5.947 5.947 0 00-5.827 4.757C1.713 5.447 0 7.945 0 10.49c0 1.666.713 3.283 1.998 4.448-.119.5-.19 1-.19 1.499 0 3.401 2.759 5.946 5.946 5.946.642 0 1.26-.095 1.88-.309a5.96 5.96 0 004.162 1.713z"/>
+    case "openai":
+      // OpenAI Codex – resmi OpenAI spiral vektör logosu, yeşil (#10a37f)
+      return `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style="color:#10a37f">
+        <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
       </svg>`;
+
     case "pi":
-      // Pi Coding Agent – earendil-works resmi üç renk piksel logosu
-      return `<svg viewBox="0 0 800 800" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
+      // Pi – earendil-works resmi geometrik üç renk piksel logosu
+      return `<svg viewBox="165 165 470 470" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
         <path fill="#F09082" d="M165.29 165.29H517.36V400H400V282.65H165.29Z"/>
         <path fill="#4D9ABF" d="M165.29 282.65H282.65V400H400V517.36H282.65V634.72H165.29Z"/>
         <path fill="#F1BE58" d="M517.36 400H634.72V634.72H517.36Z"/>
       </svg>`;
+
     case "opencode":
-      // OpenCode – resmi terminal kutusu logosu (beyaz kontur)
-      return `<svg viewBox="0 0 512 512" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path fill-rule="evenodd" clip-rule="evenodd" d="M384 416H128V96H384V416ZM320 160H192V352H320V160Z" fill="white"/>
-        <path d="M320 224V352H192V224H320Z" fill="#5A5858"/>
+      // OpenCode – resmi opencode.ai kare marka logosu
+      return `<svg viewBox="0 0 300 300" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g transform="translate(30, 0)">
+          <path d="M180 240H60V120H180V240Z" fill="#CFCECD"/>
+          <path d="M180 60H60V240H180V60ZM240 300H0V0H240V300Z" fill="white"/>
+        </g>
       </svg>`;
+
     default:
-      return `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="color:#60a5fa">
+      return `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="color:#60a5fa">
         <path d="M12 2C12 7.52 7.52 12 2 12C7.52 12 12 16.48 12 22C12 16.48 16.48 12 22 12C16.48 12 12 7.52 12 2Z"/>
       </svg>`;
   }
 }
 
-function renderChatMessage(msg, state, t, escapeHtml) {
+function renderChatMessage(msg, state, t, escapeHtml, iconFn) {
   const isUser = msg.role === "user";
   const authorName = isUser
     ? (state?.activeProfile?.fullName || state?.activeProfile?.username || "melihemik")
@@ -324,15 +328,23 @@ function renderChatMessage(msg, state, t, escapeHtml) {
 
   const formattedContent = formatSimpleMarkdown(msg.content);
 
+  // avatar: kullanıcıda kişi ikonu, ajanda seçili ajan logosu
+  const rawAgentId = String(msg.agent || msg.agentId || state?.agent?.selectedAgent || state?.copilot?.selectedAgent || "agy").toLowerCase();
+  const userAvatar = iconFn
+    ? iconFn("user")
+    : `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.8-4 4.4-6 8-6s6.2 2 8 6"/></svg>`;
+  const agentAvatar = getAgentOfficialSvg(rawAgentId);
+  const avatarHtml = isUser ? userAvatar : agentAvatar;
+
   // Önerilen CLI komutu varsa kart olarak çiz
   const commandCardHtml = msg.suggested_command
-    ? renderCommandCard(msg.suggested_command, msg.id, msg.execResult, state, t, escapeHtml)
+    ? renderCommandCard(msg.suggested_command, msg.id, msg.execResult, state, t, escapeHtml, iconFn)
     : "";
 
   return `
     <div class="agent-msg ${isUser ? "user" : "assistant"}" data-msg-id="${msg.id}">
       <div class="agent-msg-header">
-        <span class="agent-msg-author">${isUser ? "👤" : "🤖"} ${escapeHtml(authorName)}</span>
+        <span class="agent-msg-author"><span class="agent-msg-avatar">${avatarHtml}</span> ${escapeHtml(authorName)}</span>
         <span class="agent-msg-time">${new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
       </div>
       <div class="agent-msg-body">
@@ -343,7 +355,7 @@ function renderChatMessage(msg, state, t, escapeHtml) {
   `;
 }
 
-function renderCommandCard(cmd, messageId, execResult, state, t, escapeHtml) {
+function renderCommandCard(cmd, messageId, execResult, state, t, escapeHtml, iconFn) {
   const isLinux = state?.platform === "linux";
   const isRootReq = cmd.includes("sudo") || cmd.includes("ram") || cmd.includes("disk") || cmd.includes("/dev/");
 
@@ -367,9 +379,9 @@ function renderCommandCard(cmd, messageId, execResult, state, t, escapeHtml) {
   return `
     <div class="agent-command-card">
       <div class="agent-command-header">
-        <span class="agent-badge ${badgeClass}">🔒 ${badgeLabel}</span>
+        <span class="agent-badge ${badgeClass}"><span class="inline-ico"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span> ${badgeLabel}</span>
         <button type="button" class="agent-copy-btn" data-agent-action="copy-cmd" data-cmd="${escapeHtml(cmd)}">
-          📋 ${t("copilot.copy")}
+          <span class="inline-ico"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></span> ${t("copilot.copy")}
         </button>
       </div>
       <pre class="agent-command-code"><code>${escapeHtml(cmd)}</code></pre>
@@ -381,7 +393,7 @@ function renderCommandCard(cmd, messageId, execResult, state, t, escapeHtml) {
           data-cmd="${escapeHtml(cmd)}"
           data-msg-id="${messageId}"
         >
-          ▶ ${t("copilot.runCommand")}
+          <span class="inline-ico"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M8 5v14l11-7Z"/></svg></span> ${t("copilot.runCommand")}
         </button>
       </div>
       ${execHtml}
@@ -389,14 +401,14 @@ function renderCommandCard(cmd, messageId, execResult, state, t, escapeHtml) {
   `;
 }
 
-function renderElevationModal(modal, t, escapeHtml) {
+function renderElevationModal(modal, t, escapeHtml, iconFn) {
   const isLinux = modal.os === "linux";
 
   if (isLinux) {
     return `
       <div class="elevation-modal-overlay" id="sudo-elevation-modal">
         <div class="elevation-modal-card">
-          <div class="elevation-modal-icon linux">🔒</div>
+          <div class="elevation-modal-icon linux"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
           <h3 class="elevation-modal-title">${t("elevation.linuxTitle")}</h3>
           <p class="elevation-modal-desc">${escapeHtml(modal.reason || t("elevation.linuxDesc"))}</p>
           <div class="elevation-modal-cmd">
@@ -429,7 +441,7 @@ function renderElevationModal(modal, t, escapeHtml) {
   return `
     <div class="elevation-modal-overlay" id="windows-elevation-modal">
       <div class="elevation-modal-card">
-        <div class="elevation-modal-icon windows">🛡️</div>
+        <div class="elevation-modal-icon windows"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3Z"/><path d="m9 12 2 2 4-5"/></svg></div>
         <h3 class="elevation-modal-title">${t("elevation.windowsTitle")}</h3>
         <p class="elevation-modal-desc">${escapeHtml(modal.reason || t("elevation.windowsDesc"))}</p>
         <div class="elevation-modal-cmd">

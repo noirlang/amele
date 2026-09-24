@@ -90,25 +90,57 @@ fn check_binary(binary_name: &str) -> Option<String> {
     None
 }
 
-fn fetch_agy_models(binary_path: &str) -> Vec<AgentModel> {
-    use std::process::Stdio;
-    if let Ok(output) = Command::new(binary_path)
-        .arg("models")
+/// CLI komutunu timeout ile çalıştırır, takılırsa öldürüp None döner.
+// ajan cli takılıp backendi kilitlemesin diye eklendi.
+fn run_cli_with_timeout(
+    program: &str,
+    args: &[&str],
+    timeout_secs: u64,
+) -> Option<std::process::Output> {
+    let mut child = Command::new(program)
+        .args(args)
         .stdin(Stdio::null())
-        .output()
-    {
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .ok()?;
+    let timeout = std::time::Duration::from_secs(timeout_secs);
+    let start = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => return child.wait_with_output().ok(),
+            Ok(None) => {
+                if start.elapsed() >= timeout {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return None;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+            Err(_) => return None,
+        }
+    }
+}
+
+fn fetch_agy_models(binary_path: &str) -> Vec<AgentModel> {
+    if let Some(output) = run_cli_with_timeout(binary_path, &["models"], 10) {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let mut models = Vec::new();
             for line in stdout.lines() {
                 let trimmed = line.trim();
-                if trimmed.is_empty() || trimmed.starts_with("Fetching") || trimmed.contains("...") {
+                if trimmed.is_empty() || trimmed.starts_with("Fetching") || trimmed.contains("...")
+                {
                     continue;
                 }
                 let mut parts = trimmed.split_whitespace();
                 if let Some(id) = parts.next() {
                     let name = parts.collect::<Vec<_>>().join(" ");
-                    let display_name = if name.is_empty() { id.to_string() } else { name };
+                    let display_name = if name.is_empty() {
+                        id.to_string()
+                    } else {
+                        name
+                    };
                     models.push(AgentModel {
                         id: id.to_string(),
                         name: display_name.clone(),
@@ -125,12 +157,7 @@ fn fetch_agy_models(binary_path: &str) -> Vec<AgentModel> {
 }
 
 fn fetch_opencode_models(binary_path: &str) -> Vec<AgentModel> {
-    use std::process::Stdio;
-    if let Ok(output) = Command::new(binary_path)
-        .arg("models")
-        .stdin(Stdio::null())
-        .output()
-    {
+    if let Some(output) = run_cli_with_timeout(binary_path, &["models"], 10) {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let mut models = Vec::new();
@@ -154,13 +181,8 @@ fn fetch_opencode_models(binary_path: &str) -> Vec<AgentModel> {
 }
 
 fn fetch_codex_models(binary_path: &str) -> Vec<AgentModel> {
-    use std::process::Stdio;
     // OpenAI / Codex oturum durumunu kontrol et
-    if let Ok(output) = Command::new(binary_path)
-        .args(["login", "status"])
-        .stdin(Stdio::null())
-        .output()
-    {
+    if let Some(output) = run_cli_with_timeout(binary_path, &["login", "status"], 10) {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
         let combined = format!("{stdout} {stderr}");
@@ -173,20 +195,27 @@ fn fetch_codex_models(binary_path: &str) -> Vec<AgentModel> {
     }
 
     vec![
-        AgentModel { id: "gpt-4o".into(), name: "GPT-4o".into(), description: "OpenAI GPT-4o".into() },
-        AgentModel { id: "o3-mini".into(), name: "o3-mini".into(), description: "OpenAI o3-mini".into() },
+        AgentModel {
+            id: "gpt-4o".into(),
+            name: "GPT-4o".into(),
+            description: "OpenAI GPT-4o".into(),
+        },
+        AgentModel {
+            id: "o3-mini".into(),
+            name: "o3-mini".into(),
+            description: "OpenAI o3-mini".into(),
+        },
     ]
 }
 
 fn fetch_pi_models(binary_path: &str) -> Vec<AgentModel> {
-    use std::process::Stdio;
     // Pi sağlayıcı auth durumunu sorgula
-    if let Ok(output) = Command::new(binary_path)
-        .args(["auth", "check"])
-        .stdin(Stdio::null())
-        .output()
-    {
-        let combined = format!("{} {}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+    if let Some(output) = run_cli_with_timeout(binary_path, &["auth", "check"], 10) {
+        let combined = format!(
+            "{} {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
         if combined.contains("not_ready") || !output.status.success() {
             return vec![];
         }
@@ -197,18 +226,25 @@ fn fetch_pi_models(binary_path: &str) -> Vec<AgentModel> {
 }
 
 fn fetch_claude_models(binary_path: &str) -> Vec<AgentModel> {
-    use std::process::Stdio;
-    if let Ok(output) = Command::new(binary_path)
-        .args(["auth", "status"])
-        .stdin(Stdio::null())
-        .output()
-    {
+    if let Some(output) = run_cli_with_timeout(binary_path, &["auth", "status"], 10) {
         let stdout = String::from_utf8_lossy(&output.stdout);
         if stdout.contains("\"loggedIn\":true") {
             return vec![
-                AgentModel { id: "claude-3-7-sonnet".into(), name: "Claude 3.7 Sonnet".into(), description: "Anthropic Claude 3.7 Sonnet".into() },
-                AgentModel { id: "claude-3-5-sonnet".into(), name: "Claude 3.5 Sonnet".into(), description: "Anthropic Claude 3.5 Sonnet".into() },
-                AgentModel { id: "claude-3-5-haiku".into(), name: "Claude 3.5 Haiku".into(), description: "Anthropic Claude 3.5 Haiku".into() },
+                AgentModel {
+                    id: "claude-3-7-sonnet".into(),
+                    name: "Claude 3.7 Sonnet".into(),
+                    description: "Anthropic Claude 3.7 Sonnet".into(),
+                },
+                AgentModel {
+                    id: "claude-3-5-sonnet".into(),
+                    name: "Claude 3.5 Sonnet".into(),
+                    description: "Anthropic Claude 3.5 Sonnet".into(),
+                },
+                AgentModel {
+                    id: "claude-3-5-haiku".into(),
+                    name: "Claude 3.5 Haiku".into(),
+                    description: "Anthropic Claude 3.5 Haiku".into(),
+                },
             ];
         }
     }
@@ -301,14 +337,17 @@ pub fn get_agents_endpoint() -> Response {
 /// Seçili agent için canlı modelleri CLI'dan sorgulayan endpoint
 pub fn get_models_endpoint(path: &str) -> Response {
     let agent_id = if let Some(query) = path.split('?').nth(1) {
-        query.split('&').find_map(|pair| {
-            let mut parts = pair.split('=');
-            if parts.next() == Some("agent") {
-                parts.next()
-            } else {
-                None
-            }
-        }).unwrap_or("agy")
+        query
+            .split('&')
+            .find_map(|pair| {
+                let mut parts = pair.split('=');
+                if parts.next() == Some("agent") {
+                    parts.next()
+                } else {
+                    None
+                }
+            })
+            .unwrap_or("agy")
     } else {
         "agy"
     };
@@ -343,11 +382,43 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
     let case_name = req.case_name.as_deref().unwrap_or("varsayilan_vaka");
     let target_scope = req.target_scope.as_deref().unwrap_or("all");
 
+    // cli çalıştır, boş/takılma durumunda kural motoruna düş
+    // timeout 90sn, takılırsa öldürüp fallback dönüyoruz
+    fn run_or_fallback(
+        agent_label: &str,
+        bin: &str,
+        args: &[&str],
+        prompt: &str,
+        case_name: &str,
+        model_id: &str,
+    ) -> Response {
+        if let Some(output) = run_cli_with_timeout(bin, args, 90) {
+            let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if output.status.success() && !text.is_empty() {
+                let suggested_command = extract_suggested_command(&text);
+                return json_ok(json!({
+                    "ok": true,
+                    "agent": agent_label,
+                    "model": model_id,
+                    "response": text,
+                    "suggested_command": suggested_command
+                }));
+            }
+        }
+        let fallback = run_amele_rule_engine(prompt, case_name);
+        let suggested_command = extract_suggested_command(&fallback);
+        json_ok(json!({
+            "ok": true,
+            "agent": agent_label,
+            "model": model_id,
+            "response": fallback,
+            "suggested_command": suggested_command
+        }))
+    }
+
     match agent_id {
         "pi" => {
             let bin = check_binary("pi").unwrap_or_else(|| "pi".to_string());
-            let mut cmd = Command::new(bin);
-            cmd.arg("-p");
             let combined = format!(
                 "Amele Adli Bilişim Kuralları:\n{}\nAktif Vaka: {}\nKapsam: {}\nKullanıcı Sorusu: {}",
                 load_amele_skill_text(),
@@ -355,51 +426,16 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
                 target_scope,
                 prompt
             );
-            cmd.arg(combined);
-            if !model_id.is_empty() {
-                cmd.arg("--model").arg(model_id);
-            }
-            match cmd.output() {
-                Ok(output) => {
-                    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                    if output.status.success() && !text.is_empty() {
-                        let suggested_command = extract_suggested_command(&text);
-                        json_ok(json!({
-                            "ok": true,
-                            "agent": "pi",
-                            "model": model_id,
-                            "response": text,
-                            "suggested_command": suggested_command
-                        }))
-                    } else {
-                        let fallback = run_amele_rule_engine(prompt, case_name);
-                        let suggested_command = extract_suggested_command(&fallback);
-                        json_ok(json!({
-                            "ok": true,
-                            "agent": "pi",
-                            "model": model_id,
-                            "response": fallback,
-                            "suggested_command": suggested_command
-                        }))
-                    }
-                }
-                Err(_) => {
-                    let fallback = run_amele_rule_engine(prompt, case_name);
-                    let suggested_command = extract_suggested_command(&fallback);
-                    json_ok(json!({
-                        "ok": true,
-                        "agent": "pi",
-                        "model": model_id,
-                        "response": fallback,
-                        "suggested_command": suggested_command
-                    }))
-                }
+            if model_id.is_empty() {
+                let args = ["-p", combined.as_str()];
+                run_or_fallback("pi", &bin, &args, prompt, case_name, model_id)
+            } else {
+                let args = ["-p", combined.as_str(), "--model", model_id];
+                run_or_fallback("pi", &bin, &args, prompt, case_name, model_id)
             }
         }
         "agy" => {
             let bin = check_binary("agy").unwrap_or_else(|| "agy".to_string());
-            let mut cmd = Command::new(bin);
-            cmd.arg("--print");
             let combined = format!(
                 "You are the Amele Digital Forensics Agent. Amele CLI Skill and Rules:\n{}\n\nActive Case: {}\nScope: {}\n\nUser Question: {}",
                 load_amele_skill_text(),
@@ -407,51 +443,16 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
                 target_scope,
                 prompt
             );
-            cmd.arg(combined);
-            if !model_id.is_empty() {
-                cmd.arg("--model").arg(model_id);
-            }
-            match cmd.output() {
-                Ok(output) => {
-                    let response_text = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                    if output.status.success() && !response_text.is_empty() {
-                        let suggested_command = extract_suggested_command(&response_text);
-                        json_ok(json!({
-                            "ok": true,
-                            "agent": "agy",
-                            "model": model_id,
-                            "response": response_text,
-                            "suggested_command": suggested_command
-                        }))
-                    } else {
-                        let fallback = run_amele_rule_engine(prompt, case_name);
-                        let suggested_command = extract_suggested_command(&fallback);
-                        json_ok(json!({
-                            "ok": true,
-                            "agent": "agy",
-                            "model": model_id,
-                            "response": fallback,
-                            "suggested_command": suggested_command
-                        }))
-                    }
-                }
-                Err(_) => {
-                    let fallback = run_amele_rule_engine(prompt, case_name);
-                    let suggested_command = extract_suggested_command(&fallback);
-                    json_ok(json!({
-                        "ok": true,
-                        "agent": "agy",
-                        "model": model_id,
-                        "response": fallback,
-                        "suggested_command": suggested_command
-                    }))
-                }
+            if model_id.is_empty() {
+                let args = ["--print", combined.as_str()];
+                run_or_fallback("agy", &bin, &args, prompt, case_name, model_id)
+            } else {
+                let args = ["--print", combined.as_str(), "--model", model_id];
+                run_or_fallback("agy", &bin, &args, prompt, case_name, model_id)
             }
         }
         "claude" => {
             let bin = check_binary("claude").unwrap_or_else(|| "claude".to_string());
-            let mut cmd = Command::new(bin);
-            cmd.arg("-p");
             let combined = format!(
                 "Amele Adli Bilişim Kuralları:\n{}\nAktif Vaka: {}\nKapsam: {}\nKullanıcı Sorusu: {}",
                 load_amele_skill_text(),
@@ -459,51 +460,16 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
                 target_scope,
                 prompt
             );
-            cmd.arg(combined);
-            if !model_id.is_empty() {
-                cmd.arg("--model").arg(model_id);
-            }
-            match cmd.output() {
-                Ok(output) => {
-                    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                    if output.status.success() && !text.is_empty() {
-                        let suggested_command = extract_suggested_command(&text);
-                        json_ok(json!({
-                            "ok": true,
-                            "agent": "claude",
-                            "model": model_id,
-                            "response": text,
-                            "suggested_command": suggested_command
-                        }))
-                    } else {
-                        let fallback = run_amele_rule_engine(prompt, case_name);
-                        let suggested_command = extract_suggested_command(&fallback);
-                        json_ok(json!({
-                            "ok": true,
-                            "agent": "claude",
-                            "model": model_id,
-                            "response": fallback,
-                            "suggested_command": suggested_command
-                        }))
-                    }
-                }
-                Err(_) => {
-                    let fallback = run_amele_rule_engine(prompt, case_name);
-                    let suggested_command = extract_suggested_command(&fallback);
-                    json_ok(json!({
-                        "ok": true,
-                        "agent": "claude",
-                        "model": model_id,
-                        "response": fallback,
-                        "suggested_command": suggested_command
-                    }))
-                }
+            if model_id.is_empty() {
+                let args = ["-p", combined.as_str()];
+                run_or_fallback("claude", &bin, &args, prompt, case_name, model_id)
+            } else {
+                let args = ["-p", combined.as_str(), "--model", model_id];
+                run_or_fallback("claude", &bin, &args, prompt, case_name, model_id)
             }
         }
         "codex" => {
             let bin = check_binary("codex").unwrap_or_else(|| "codex".to_string());
-            let mut cmd = Command::new(bin);
-            cmd.arg("exec");
             let combined = format!(
                 "Amele Adli Bilişim Kuralları:\n{}\nAktif Vaka: {}\nKapsam: {}\nKullanıcı Sorusu: {}",
                 load_amele_skill_text(),
@@ -511,51 +477,16 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
                 target_scope,
                 prompt
             );
-            cmd.arg(combined);
-            if !model_id.is_empty() {
-                cmd.arg("-m").arg(model_id);
-            }
-            match cmd.output() {
-                Ok(output) => {
-                    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                    if output.status.success() && !text.is_empty() {
-                        let suggested_command = extract_suggested_command(&text);
-                        json_ok(json!({
-                            "ok": true,
-                            "agent": "codex",
-                            "model": model_id,
-                            "response": text,
-                            "suggested_command": suggested_command
-                        }))
-                    } else {
-                        let fallback = run_amele_rule_engine(prompt, case_name);
-                        let suggested_command = extract_suggested_command(&fallback);
-                        json_ok(json!({
-                            "ok": true,
-                            "agent": "codex",
-                            "model": model_id,
-                            "response": fallback,
-                            "suggested_command": suggested_command
-                        }))
-                    }
-                }
-                Err(_) => {
-                    let fallback = run_amele_rule_engine(prompt, case_name);
-                    let suggested_command = extract_suggested_command(&fallback);
-                    json_ok(json!({
-                        "ok": true,
-                        "agent": "codex",
-                        "model": model_id,
-                        "response": fallback,
-                        "suggested_command": suggested_command
-                    }))
-                }
+            if model_id.is_empty() {
+                let args = ["exec", combined.as_str()];
+                run_or_fallback("codex", &bin, &args, prompt, case_name, model_id)
+            } else {
+                let args = ["exec", combined.as_str(), "-m", model_id];
+                run_or_fallback("codex", &bin, &args, prompt, case_name, model_id)
             }
         }
         "opencode" => {
             let bin = check_binary("opencode").unwrap_or_else(|| "opencode".to_string());
-            let mut cmd = Command::new(bin);
-            cmd.arg("run");
             let combined = format!(
                 "Amele Adli Bilişim Kuralları:\n{}\nAktif Vaka: {}\nKapsam: {}\nKullanıcı Sorusu: {}",
                 load_amele_skill_text(),
@@ -563,45 +494,12 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
                 target_scope,
                 prompt
             );
-            cmd.arg(combined);
-            if !model_id.is_empty() {
-                cmd.arg("-m").arg(model_id);
-            }
-            match cmd.output() {
-                Ok(output) => {
-                    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                    if output.status.success() && !text.is_empty() {
-                        let suggested_command = extract_suggested_command(&text);
-                        json_ok(json!({
-                            "ok": true,
-                            "agent": "opencode",
-                            "model": model_id,
-                            "response": text,
-                            "suggested_command": suggested_command
-                        }))
-                    } else {
-                        let fallback = run_amele_rule_engine(prompt, case_name);
-                        let suggested_command = extract_suggested_command(&fallback);
-                        json_ok(json!({
-                            "ok": true,
-                            "agent": "opencode",
-                            "model": model_id,
-                            "response": fallback,
-                            "suggested_command": suggested_command
-                        }))
-                    }
-                }
-                Err(_) => {
-                    let fallback = run_amele_rule_engine(prompt, case_name);
-                    let suggested_command = extract_suggested_command(&fallback);
-                    json_ok(json!({
-                        "ok": true,
-                        "agent": "opencode",
-                        "model": model_id,
-                        "response": fallback,
-                        "suggested_command": suggested_command
-                    }))
-                }
+            if model_id.is_empty() {
+                let args = ["run", combined.as_str()];
+                run_or_fallback("opencode", &bin, &args, prompt, case_name, model_id)
+            } else {
+                let args = ["run", combined.as_str(), "-m", model_id];
+                run_or_fallback("opencode", &bin, &args, prompt, case_name, model_id)
             }
         }
         _ => {
@@ -766,7 +664,7 @@ fn run_amele_rule_engine(prompt: &str, case_name: &str) -> String {
 
     if lower.contains("ram") || lower.contains("bellek") || lower.contains("memory") {
         return format!(
-            "### 🧠 Fiziksel RAM Adli Edinimi\n\n\
+            "### Fiziksel RAM Adli Edinimi\n\n\
             Amele kurallarına göre canlı sistem RAM edinimi **AVML** (Linux) veya **WinPMEM** (Windows) ile gerçekleştirilir.\n\n\
             **Önerilen Amele CLI Komutu:**\n\
             ```bash\n\
@@ -776,14 +674,18 @@ fn run_amele_rule_engine(prompt: &str, case_name: &str) -> String {
             ```bash\n\
             amele linux ram --ssh root@192.168.1.50 --case \"{}\"\n\
             ```\n\n\
-            > ℹ️ *Not: RAM edinimi çekirdek bellek sayfalarına doğrudan eriştiği için root yetkisi gerektirir.*",
+            > Not: RAM edinimi çekirdek bellek sayfalarına doğrudan eriştiği için root yetkisi gerektirir.",
             case_name, case_name
         );
     }
 
-    if lower.contains("disk") || lower.contains("dd") || lower.contains("imaj") || lower.contains("raw") {
+    if lower.contains("disk")
+        || lower.contains("dd")
+        || lower.contains("imaj")
+        || lower.contains("raw")
+    {
         return format!(
-            "### 🛠️ Fiziksel Blok Disk Edinimi\n\n\
+            "### Fiziksel Blok Disk Edinimi\n\n\
             Amele, hedef diskleri bit-bit raw imaj veya AFF4 adli formatında paketleyerek hash bütünlüğünü anında doğrular.\n\n\
             **Yerel Disk Edinimi:**\n\
             ```bash\n\
@@ -800,7 +702,7 @@ fn run_amele_rule_engine(prompt: &str, case_name: &str) -> String {
 
     if lower.contains("android") || lower.contains("adb") || lower.contains("telefon") {
         return format!(
-            "### 📱 Android Adli Bilişimi\n\n\
+            "### Android Adli Bilişimi\n\n\
             Amele Android modülü, ADB veya Wi-Fi üzerinden mantıksal veri, APK dökümleri, çağrı kayıtları ve MFT benzeri dosya sistemini paketler.\n\n\
             **Android Cihaz Taraması:**\n\
             ```bash\n\
@@ -816,7 +718,7 @@ fn run_amele_rule_engine(prompt: &str, case_name: &str) -> String {
 
     if lower.contains("docker") || lower.contains("konteyner") || lower.contains("container") {
         return format!(
-            "### 🐳 Docker Konteyner Adli Bilişimi\n\n\
+            "### Docker Konteyner Adli Bilişimi\n\n\
             Çalışan veya durdurulmuş Docker konteynerlerinden katman diff, ortam değişkenleri (secret scan) ve bellek dökümü alır.\n\n\
             **Konteyner Adli Analizi:**\n\
             ```bash\n\
@@ -829,7 +731,7 @@ fn run_amele_rule_engine(prompt: &str, case_name: &str) -> String {
 
     if lower.contains("vaka") || lower.contains("case") || lower.contains("paket") {
         return format!(
-            "### 📋 Vaka Yönetimi ve Bütünlük Doğrulama\n\n\
+            "### Vaka Yönetimi ve Bütünlük Doğrulama\n\n\
             **Aktif Vaka:** `{}`\n\n\
             **Vaka Bütünlüğünü Doğrulama:**\n\
             ```bash\n\
@@ -844,7 +746,7 @@ fn run_amele_rule_engine(prompt: &str, case_name: &str) -> String {
     }
 
     format!(
-        "### 🛡️ Amele Adli Bilişim Asistanı\n\n\
+        "### Amele Adli Bilişim Asistanı\n\n\
         Aktif Vaka: **{}**\n\n\
         Amele platformunda disk edinimi, canlı RAM analizi, Android/iOS mobil edinim, Docker konteyner adli bilişimi ve SSH üzerinden disksiz edinim gerçekleştirebilirsiniz.\n\n\
         **Örnek Hızlı Komutlar:**\n\

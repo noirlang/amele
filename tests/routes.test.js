@@ -98,7 +98,8 @@ test("Frontend Routing and Module Health", async (t) => {
         news: [{ id: "n1", slug: "amele-v0-0-19", title: "Test Announcement" }]
       }
     });
-    assert.ok(rendered.includes("news-link-btn"), "news-link-btn should be rendered beside news title");
+    assert.ok(rendered.includes("news-horizontal-title"), "news title should be rendered");
+    assert.ok(!rendered.includes("data-news-h-scroll"), "scroll buttons should not be rendered");
     assert.ok(rendered.includes("data-news-link"), "data-news-link attribute should be present");
     assert.ok(rendered.includes("amele.noirlang.tr/news/amele-v0-0-19"), "link should point to news url");
   });

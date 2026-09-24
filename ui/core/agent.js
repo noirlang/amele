@@ -149,6 +149,9 @@ export async function submitAgentPrompt(promptText, state, render, showToast, t)
 
   if (!state.agent) initAgent(state, render);
 
+  // üst üste gönderimde kitlenmesin diye kontrol
+  if (state.agent.isGenerating) return;
+
   state.agent.messages.push({
     id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     role: "user",
@@ -160,19 +163,28 @@ export async function submitAgentPrompt(promptText, state, render, showToast, t)
   state.agent.isGenerating = true;
   render();
 
+  // backend takılırsa sonsuz beklemesin diye 120sn timeout
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timeoutId = controller ? setTimeout(() => controller.abort(), 120000) : null;
+
   try {
     const payload = {
       prompt: cleanPrompt,
-      agent: state.agent.selectedAgent || "amele-expert",
+      agent: state.agent.selectedAgent || "agy",
       model: state.agent.selectedModel || null,
       case_name: state.activeCase?.case_name || "varsayilan_vaka",
       target_scope: state.agent.selectedScope || "all"
     };
 
-    const res = await apiRequest("/api/ai/chat", {
+    const reqOptions = {
       method: "POST",
       body: JSON.stringify(payload)
-    });
+    };
+    if (controller) reqOptions.signal = controller.signal;
+
+    const res = await apiRequest("/api/ai/chat", reqOptions);
+
+    if (timeoutId) clearTimeout(timeoutId);
 
     if (res && res.ok) {
       state.agent.messages.push({
@@ -188,15 +200,19 @@ export async function submitAgentPrompt(promptText, state, render, showToast, t)
       state.agent.messages.push({
         id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         role: "assistant",
-        content: "⚠️ Ajan sorgusu tamamlanamadı veya bir hata oluştu.",
+        content: "Ajan sorgusu tamamlanamadı veya bir hata oluştu.",
         timestamp: Date.now()
       });
     }
   } catch (err) {
+    if (timeoutId) clearTimeout(timeoutId);
+    const isTimeout = err?.name === "AbortError";
     state.agent.messages.push({
       id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       role: "assistant",
-      content: `❌ Bağlantı hatası: ${err?.message || err}`,
+      content: isTimeout
+        ? "Ajan zaman aşımına uğradı, lütfen tekrar deneyin."
+        : `Bağlantı hatası: ${err?.message || err}`,
       timestamp: Date.now()
     });
   } finally {

@@ -1648,8 +1648,8 @@ document.addEventListener("click", async (event) => {
     const cmd = copyCmd.dataset.cmd;
     if (cmd && navigator.clipboard) {
       navigator.clipboard.writeText(cmd);
-      copyCmd.textContent = `📋 ${t("copilot.copied")}`;
-      setTimeout(() => { copyCmd.textContent = `📋 ${t("copilot.copy")}`; }, 1800);
+      copyCmd.textContent = t("copilot.copied");
+      setTimeout(() => { copyCmd.textContent = t("copilot.copy"); }, 1800);
     }
     return;
   }
