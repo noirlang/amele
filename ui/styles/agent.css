@@ -5,22 +5,25 @@
   flex-direction: column;
   gap: 14px;
   width: 100%;
-  margin-bottom: 20px;
+  max-width: 760px;
+  margin: 0 auto 28px auto;
 }
 
-/* Üst Karşılama Çubuğu */
+/* Üst Karşılama Çubuğu - Ortalanmış */
 .agent-greeting-bar {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   width: 100%;
-  padding: 2px 4px;
+  padding: 4px 8px;
+  text-align: center;
 }
 
 .agent-greeting-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
+  gap: 10px;
 }
 
 .agent-mascot {
@@ -161,7 +164,12 @@
 .agent-select option {
   background: #161b22;
   color: #e6edf3;
-  padding: 6px;
+  padding: 4px;
+}
+
+.agent-select option:disabled {
+  color: #6e7681;
+  background-color: rgba(255, 255, 255, 0.04);
 }
 
 .theme-light .agent-select option {
@@ -169,37 +177,60 @@
   color: #1f2328;
 }
 
+.theme-light .agent-select option:disabled {
+  color: #8c959f;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
 .agent-model-select {
   max-width: 220px;
   text-overflow: ellipsis;
 }
 
+/* Gönderme Butonu - Beyaz, yukarı bakan ok, yeşil değil */
 .agent-send-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: #238636;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #ffffff;
   border: none;
-  color: #ffffff;
+  color: #0d1117;
   cursor: pointer;
-  transition: background-color 0.15s ease, transform 0.1s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transition: all 0.15s ease;
 }
 
-.agent-send-btn:hover {
-  background: #2ea043;
+.theme-light .agent-send-btn {
+  background: #0d1117;
+  color: #ffffff;
 }
 
-.agent-send-btn:active {
+.agent-send-btn:hover:not(:disabled) {
+  transform: scale(1.06);
+  background: #f0f0f0;
+}
+
+.theme-light .agent-send-btn:hover:not(:disabled) {
+  background: #1f2328;
+}
+
+.agent-send-btn:active:not(:disabled) {
   transform: scale(0.96);
 }
 
 .agent-send-btn:disabled {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.35);
   cursor: not-allowed;
+  box-shadow: none;
+}
+
+.theme-light .agent-send-btn:disabled {
+  background: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.3);
 }
 
 /* Sohbet Geçmişi & Çıktı Alanı */

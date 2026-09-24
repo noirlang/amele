@@ -55,17 +55,9 @@ export const DEFAULT_AGENTS = [
     name: "OpenCode",
     installed: true,
     models: [
-      { id: "deepseek-coder", name: "DeepSeek Coder V2", description: "Açık kaynaklı derin kodlama modeli" },
-      { id: "qwen-coder", name: "Qwen 2.5 Coder 32B", description: "Gelişmiş yerel mantık ve betik motoru" },
-      { id: "llama-code", name: "Llama 3 Code", description: "Meta açık ağırlıklı yerel model" }
-    ]
-  },
-  {
-    id: "amele-expert",
-    name: "Amele Adli Uzman",
-    installed: true,
-    models: [
-      { id: "amele-forensic-v1", name: "Amele Forensic Kuralları v1", description: "Yerel kural tabanlı çevrimdışı adli uzman" }
+      { id: "opencode/big-pickle", name: "Big Pickle", description: "OpenCode genel amaçlı model" },
+      { id: "opencode/ling-3.0-flash-fin-free", name: "Ling 3.0 Flash", description: "Hızlı ve ücretsiz model" },
+      { id: "opencode/mimo-v2.6-flash-free", name: "Mimo v2.6 Flash", description: "Hafif analiz modeli" }
     ]
   }
 ];
@@ -99,16 +91,9 @@ export async function loadAgents(state, render) {
       if (!state.agent) initAgent(state, render);
       state.agent.agents = res.agents;
 
-      // Tercih edilen ilk kurulu ajanı seç: agy > pi > claude > codex > opencode > amele-expert
-      const installedOrder = ["agy", "pi", "claude", "codex", "opencode", "amele-expert"];
-      let chosen = null;
-      for (const id of installedOrder) {
-        const found = res.agents.find((a) => a.id === id && (a.installed || a.id === "amele-expert"));
-        if (found) {
-          chosen = found;
-          break;
-        }
-      }
+      // Sistemde kurulu olan ilk ajanı seç
+      const installedAgent = res.agents.find((a) => a.installed);
+      const chosen = installedAgent || res.agents[0];
 
       if (chosen) {
         state.agent.selectedAgent = chosen.id;
@@ -126,11 +111,17 @@ export async function loadAgents(state, render) {
 
 export function handleAgentChange(agentId, state, render) {
   if (!state.agent) return;
-  state.agent.selectedAgent = agentId;
   const agents = (state.agent.agents && state.agent.agents.length > 0) ? state.agent.agents : DEFAULT_AGENTS;
-  const agent = agents.find((a) => a.id === agentId);
-  if (agent && agent.models && agent.models.length > 0) {
-    state.agent.selectedModel = agent.models[0].id;
+  const targetAgent = agents.find((a) => a.id === agentId);
+  
+  // Kurulu olmayan agent seçilemez
+  if (targetAgent && targetAgent.installed === false) {
+    return;
+  }
+
+  state.agent.selectedAgent = agentId;
+  if (targetAgent && targetAgent.models && targetAgent.models.length > 0) {
+    state.agent.selectedModel = targetAgent.models[0].id;
   } else {
     state.agent.selectedModel = "";
   }

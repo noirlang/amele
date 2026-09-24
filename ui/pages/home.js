@@ -26,8 +26,9 @@ export function homePage({ t, icon, assetPath, theme, state }) {
   // Ajan seçenekleri HTML (Ajan adları)
   const agentOptionsHtml = agents.map((a) => {
     const isSel = a.id === selectedAgentId;
-    const statusSuffix = a.installed ? "" : " (Kurulu Değil)";
-    return `<option value="${a.id}" ${isSel ? "selected" : ""}>${escapeHtml(a.name)}${statusSuffix}</option>`;
+    const isInstalled = a.installed !== false;
+    const statusSuffix = isInstalled ? "" : " (Kurulu Değil / Kullanılamaz)";
+    return `<option value="${a.id}" ${isSel ? "selected" : ""} ${!isInstalled ? "disabled" : ""}>${escapeHtml(a.name)}${statusSuffix}</option>`;
   }).join("");
 
   // Model seçenekleri HTML
@@ -160,7 +161,7 @@ export function homePage({ t, icon, assetPath, theme, state }) {
             </div>
 
             <div class="agent-toolbar-right">
-              <!-- Gönder Butonu -->
+              <!-- Gönder Butonu (Beyaz buton, yukarı bakan ok) -->
               <button
                 type="button"
                 class="agent-send-btn"
@@ -169,7 +170,7 @@ export function homePage({ t, icon, assetPath, theme, state }) {
                 ${isGenerating ? "disabled" : ""}
               >
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                  <path d="M12 4l-6.5 6.5 1.41 1.41L11 7.83V20h2V7.83l4.09 4.08 1.41-1.41L12 4z"/>
                 </svg>
               </button>
             </div>
@@ -219,45 +220,44 @@ export function homePage({ t, icon, assetPath, theme, state }) {
 function getAgentOfficialSvg(agentId) {
   switch (agentId) {
     case "claude":
-      // Anthropic Claude resmi asterisk / sunburst logosu
+      // Anthropic Claude resmi sunburst logosu
       return `
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#d97706">
-          <path d="M4.7 12c0-.5.4-.9.9-.9h3.6l-2.6-2.6c-.4-.4-.4-1 0-1.4.4-.4 1-.4 1.4 0l2.6 2.6V6.1c0-.5.4-.9.9-.9s.9.4.9.9v3.6l2.6-2.6c.4-.4 1-.4 1.4 0 .4.4.4 1 0 1.4l-2.6 2.6h3.6c.5 0 .9.4.9.9s-.4.9-.9.9h-3.6l2.6 2.6c.4.4.4 1 0 1.4-.4.4-1 .4-1.4 0l-2.6-2.6v3.6c0 .5-.4.9-.9.9s-.9-.4-.9-.9v-3.6l-2.6 2.6c-.4.4-1 .4-1.4 0-.4-.4-.4-1 0-1.4l2.6-2.6H5.6c-.5 0-.9-.4-.9-.9z"/>
+        <svg viewBox="0 0 248 248" width="18" height="18" fill="none">
+          <path d="M52.4 162.9L98.8 136.9l.8-2.3-.8-1.3h-2.3l-7.8-.5-26.5-.7-22.9-.9L17 130l-5.6-1.2-5.2-7 .5-3.4 4.7-3.2 6.8.6 14.9 1.1 22.4 1.5 16.2.9 24 2.5h3.8l.5-1.5-1.3-.9-1-.9L74.6 102.7 49.5 86.2l-13.1-9.6-7-4.8-3.6-4.5-1.5-9.9 6.4-7.1 8.7.6 2.2.6 8.8 6.7 18.7 14.5 24.5 18 3.6 3 1.4-1 .2-.7-1.7-2.7-13.2-24-14.1-24.5-6.4-10.2-1.7-6c-.6-2.5-1-4.6-1-7.2L67.8 7.5l4.1-1.3 9.8 1.3 4.1 3.5 6.1 14 9.8 21.9 15.3 29.8 4.5 8.9 2.4 8.2.9 2.5h1.5v-1.4l1.3-16.8 2.3-20.6 2.3-26.5.8-7.4 3.7-9 7.4-4.8 5.7 2.7 4.7 6.7-.6 4.4-2.8 18.2-5.5 28.5-3.6 19.1h2l2.4-2.5 9.7-12.8 16.2-20.3 7.1-8 8.4-8.9 5.3-4.3h10.2l7.4 11.1-3.3 11.5-10.4 13.2-8.7 11.2-12.4 16.6-7.7 13.4.7 1.1 1.9-.2 28-6 15.2-2.7 18.1-3.1 8.1 3.8.9 3.9-3.2 7.9-19.4 4.7-22.7 4.6-33.8 7.9-.4.3.4.7 15.2 1.4 6.5.4h15.9l29.7 2.2 7.8 5.1 4.6 6.3-.8 4.8-12 6-16-3.8-37.6-9-12.9-3.2h-1.8v1.1l10.7 10.5 19.7 17.7 24.6 22.9 1.3 5.7-3.2 4.5-3.3-.5-21.7-16.3-8.4-7.3-18.8-16h-1.3v1.7l4.3 6.4 23.1 34.6 1.1 10.6-1.7 3.4-6 2.1-6.5-1.2-13.6-19-13.9-21.3-11.2-19.1-1.4.9-6.7 71.2-3.1 3.7-7.1 2.7-6-4.5-3.2-7.3 3.2-14.5 3.8-18.9 3.1-15 2.8-18.7 1.7-6.2-.2-.4-1.4.2-14.1 19.3-21.4 29-16.9 18.1-4.1 1.7-7-3.7.6-6.5 4-5.8 23.4-29.8 14.1-18.6 9.1-10.6-.1-1.5-.5 0L46.7 188.5l-11.1 1.4-4.8-4.5.6-7.3 2.3-2.4 18.7-12.9z" fill="#D97757"/>
         </svg>
       `;
     case "codex":
       // OpenAI / Codex resmi spiral vortex logosu
       return `
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#10a37f">
-          <path d="M22.28 9.61a5.98 5.98 0 0 0-.52-4.93 6.05 6.05 0 0 0-6.51-2.9A6.07 6.07 0 0 0 10.7.27a6.03 6.03 0 0 0-5.78 4.2 6.04 6.04 0 0 0-4.04 2.92 6.02 6.02 0 0 0 .74 7.12 5.99 5.99 0 0 0 .52 4.93 6.05 6.05 0 0 0 6.51 2.9A6.05 6.05 0 0 0 13.3 23.73a6.03 6.03 0 0 0 5.78-4.2 6.04 6.04 0 0 0 4.04-2.92 6.02 6.02 0 0 0-.74-7.12zm-8.98 12.62a4.5 4.5 0 0 1-2.9-1.07l.14-.08 4.8-2.77a.8.8 0 0 0 .4-.68v-6.78l2.03 1.17a.08.08 0 0 1 .04.06v5.62a4.52 4.52 0 0 1-4.51 4.53zM3.44 18.06a4.48 4.48 0 0 1-.58-3.05l.14.09 4.8 2.77a.78.78 0 0 0 .79 0l5.88-3.39v2.35a.08.08 0 0 1-.03.07L9.6 19.66a4.52 4.52 0 0 1-6.16-1.6zm-1.39-9.5a4.5 4.5 0 0 1 2.32-1.98v5.71a.78.78 0 0 0 .39.68l5.87 3.39-2.03 1.18a.08.08 0 0 1-.08 0L3.65 14.8a4.52 4.52 0 0 1-1.6-6.24zm14.86 2.3l-5.88-3.4 2.03-1.17a.08.08 0 0 1 .08 0l4.87 2.82a4.52 4.52 0 0 1 1.29 6.32 4.5 4.5 0 0 1-2.39 1.9v-5.7a.79.79 0 0 0-.4-.7zm3.03-3.87l-.14-.09-4.8-2.77a.78.78 0 0 0-.79 0L8.35 10.33V7.98a.08.08 0 0 1 .04-.07l4.87-2.82a4.52 4.52 0 0 1 6.16 1.6 4.47 4.47 0 0 1 .52 2.3zm-10.74 5.37l-2.03-1.17a.08.08 0 0 1-.04-.07V4.3a4.52 4.52 0 0 1 7.42-3.46l-.14.08-4.8 2.77a.8.8 0 0 0-.41.68v6.78zm1.08-2.42l2.63-1.52 2.63 1.52v3.04l-2.63 1.52-2.63-1.52z"/>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="color:#10a37f">
+          <path d="M22.282 9.821a6 6 0 0 0-.516-4.91 6.05 6.05 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a6 6 0 0 0-3.998 2.9 6.05 6.05 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.05 6.05 0 0 0 6.515 2.9A6 6 0 0 0 13.26 24a6.06 6.06 0 0 0 5.772-4.206 6 6 0 0 0 3.997-2.9 6.06 6.06 0 0 0-.747-7.073M13.26 22.43a4.48 4.48 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.8.8 0 0 0 .392-.681v-6.737l2.02 1.168a.07.07 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494M3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.77.77 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646M2.34 7.896a4.5 4.5 0 0 1 2.366-1.973V11.6a.77.77 0 0 0 .388.677l5.815 3.354-2.02 1.168a.08.08 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855-5.833-3.387L15.119 7.2a.08.08 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667m2.01-3.023-.141-.085-4.774-2.782a.78.78 0 0 0-.785 0L9.409 9.23V6.897a.07.07 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08L8.704 5.46a.8.8 0 0 0-.393.681zm1.097-2.365 2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5Z"/>
         </svg>
       `;
     case "agy":
       // Google DeepMind / Antigravity sparkle diamond star logosu
       return `
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#60a5fa">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="color:#60a5fa">
           <path d="M12 2C12 7.52 7.52 12 2 12C7.52 12 12 16.48 12 22C12 16.48 16.48 12 22 12C16.48 12 12 7.52 12 2Z"/>
         </svg>
       `;
     case "pi":
-      // Pi coding agent logosu
+      // Pi coding agent resmi Yunan Pi (π) logosu
       return `
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#22c55e">
-          <path d="M4 6h16v2.5h-2.5v10H14V8.5h-4V18c0 .83-.67 1.5-1.5 1.5H6V8.5H4V6z"/>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="color:#22c55e">
+          <path d="M4 6.5C4 5.67 4.67 5 5.5 5h13c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5H16v9.5c0 1.38 1.12 2.5 2.5 2.5.55 0 1 .45 1 1s-.45 1-1 1c-2.48 0-4.5-2.02-4.5-4.5V8H10v10.5c0 .83-.67 1.5-1.5 1.5S7 19.33 7 18.5V8H5.5C4.67 8 4 7.33 4 6.5z"/>
         </svg>
       `;
     case "opencode":
       // OpenCode terminal brackets logosu
       return `
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#a855f7">
-          <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="color:#06b6d4">
+          <path d="M8.7 15.3L4.4 11 8.7 6.7 7.3 5.3 1.6 11l5.7 5.7 1.4-1.4zm6.6 0l4.3-4.3-4.3-4.3 1.4-1.4 5.7 5.7-5.7 5.7-1.4-1.4z"/>
         </svg>
       `;
     default:
-      // Amele Expert kalkan / adli rozet logosu
       return `
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color:#ef4444">
-          <path d="M12 2L3 6v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V6l-9-4zm-1 15l-4-4 1.41-1.41L11 14.17l5.59-5.59L18 10l-7 7z"/>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="color:#60a5fa">
+          <path d="M12 2C12 7.52 7.52 12 2 12C7.52 12 12 16.48 12 22C12 16.48 16.48 12 22 12C16.48 12 12 7.52 12 2Z"/>
         </svg>
       `;
   }

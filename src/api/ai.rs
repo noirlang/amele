@@ -69,7 +69,117 @@ fn check_binary(binary_name: &str) -> Option<String> {
     None
 }
 
-/// Tüm desteklenen agent'ları ve modellerini listeler.
+fn fetch_agy_models(binary_path: &str) -> Vec<AgentModel> {
+    if let Ok(output) = Command::new(binary_path).arg("models").output() {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let mut models = Vec::new();
+            for line in stdout.lines() {
+                let trimmed = line.trim();
+                if trimmed.is_empty() || trimmed.starts_with("Fetching") || trimmed.contains("...") {
+                    continue;
+                }
+                let mut parts = trimmed.split_whitespace();
+                if let Some(id) = parts.next() {
+                    let name = parts.collect::<Vec<_>>().join(" ");
+                    let display_name = if name.is_empty() { id.to_string() } else { name };
+                    models.push(AgentModel {
+                        id: id.to_string(),
+                        name: display_name.clone(),
+                        description: format!("AGY {} modeli", display_name),
+                    });
+                }
+            }
+            if !models.is_empty() {
+                return models;
+            }
+        }
+    }
+    vec![
+        AgentModel { id: "gemini-3.8-flash-high".into(), name: "Gemini 3.8 Flash (High)".into(), description: "En yeni yüksek hızlı akıl yürütme modeli".into() },
+        AgentModel { id: "gemini-3.1-pro-high".into(), name: "Gemini 3.1 Pro (High)".into(), description: "Karmaşık adli bilişim analizi ve derin akıl yürütme".into() },
+        AgentModel { id: "gemini-3.7-flash-high".into(), name: "Gemini 3.7 Flash".into(), description: "Hızlı genel adli bilişim sorguları".into() },
+        AgentModel { id: "claude-sonnet-4-6".into(), name: "Claude Sonnet 4.6 (Thinking)".into(), description: "Gelişmiş analitik akıl yürütme".into() },
+        AgentModel { id: "claude-opus-4-6-thinking".into(), name: "Claude Opus 4.6 (Thinking)".into(), description: "Üst seviye stratejik analiz modeli".into() },
+    ]
+}
+
+fn fetch_opencode_models(binary_path: &str) -> Vec<AgentModel> {
+    if let Ok(output) = Command::new(binary_path).arg("models").output() {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let mut models = Vec::new();
+            for line in stdout.lines() {
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
+                models.push(AgentModel {
+                    id: trimmed.to_string(),
+                    name: trimmed.to_string(),
+                    description: format!("OpenCode {} modeli", trimmed),
+                });
+            }
+            if !models.is_empty() {
+                return models;
+            }
+        }
+    }
+    vec![
+        AgentModel { id: "opencode/big-pickle".into(), name: "Big Pickle".into(), description: "OpenCode genel amaçlı model".into() },
+        AgentModel { id: "opencode/ling-3.0-flash-fin-free".into(), name: "Ling 3.0 Flash".into(), description: "Hızlı ve ücretsiz OpenCode modeli".into() },
+        AgentModel { id: "opencode/mimo-v2.6-flash-free".into(), name: "Mimo v2.6 Flash".into(), description: "Hafif analiz modeli".into() },
+    ]
+}
+
+fn fetch_pi_models(binary_path: &str) -> Vec<AgentModel> {
+    if let Ok(output) = Command::new(binary_path).arg("models").output() {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let mut models = Vec::new();
+            for line in stdout.lines() {
+                let trimmed = line.trim();
+                if trimmed.is_empty() || trimmed.contains("No models") || trimmed.contains("Use /login") {
+                    continue;
+                }
+                models.push(AgentModel {
+                    id: trimmed.to_string(),
+                    name: trimmed.to_string(),
+                    description: format!("Pi {} modeli", trimmed),
+                });
+            }
+            if !models.is_empty() {
+                return models;
+            }
+        }
+    }
+    vec![
+        AgentModel { id: "claude-sonnet".into(), name: "Claude Sonnet (Pi)".into(), description: "Dengeli ve güçlü adli analiz".into() },
+        AgentModel { id: "gpt-4o".into(), name: "GPT-4o (Pi)".into(), description: "Çok modlu ve kapsamlı yanıtlar".into() },
+        AgentModel { id: "claude-haiku".into(), name: "Claude Haiku (Pi)".into(), description: "Ultra hızlı yanıt süresi".into() },
+        AgentModel { id: "deepseek-r1".into(), name: "DeepSeek R1 (Pi)".into(), description: "Yerel ve derin akıl yürütme".into() },
+    ]
+}
+
+fn get_claude_models() -> Vec<AgentModel> {
+    vec![
+        AgentModel { id: "claude-3-7-sonnet".into(), name: "Claude 3.7 Sonnet".into(), description: "Hibrit akıl yürütme ve adli kodlama".into() },
+        AgentModel { id: "claude-3-5-sonnet".into(), name: "Claude 3.5 Sonnet v2".into(), description: "Yüksek doğrulukta komut üretimi".into() },
+        AgentModel { id: "claude-3-5-haiku".into(), name: "Claude 3.5 Haiku".into(), description: "Hafif ve ultra hızlı yanıt süresi".into() },
+        AgentModel { id: "claude-3-opus".into(), name: "Claude 3 Opus".into(), description: "Kapsamlı raporlama ve analiz".into() },
+    ]
+}
+
+fn get_codex_models() -> Vec<AgentModel> {
+    vec![
+        AgentModel { id: "gpt-4o".into(), name: "GPT-4o".into(), description: "Çok modlu ve hızlı adli asistan".into() },
+        AgentModel { id: "o3-mini".into(), name: "o3-mini".into(), description: "Derin teknik akıl yürütme".into() },
+        AgentModel { id: "o1".into(), name: "o1".into(), description: "Karmaşık tersine mühendislik ve protokol analizi".into() },
+        AgentModel { id: "gpt-4o-mini".into(), name: "GPT-4o Mini".into(), description: "Hafif ve hızlı sorgular".into() },
+    ]
+}
+
+/// Tüm desteklenen gerçek CLI agent'larını ve modellerini tarayıp listeler.
 pub fn get_agents_endpoint() -> Response {
     let pi_path = check_binary("pi");
     let agy_path = check_binary("agy");
@@ -77,69 +187,32 @@ pub fn get_agents_endpoint() -> Response {
     let codex_path = check_binary("codex");
     let opencode_path = check_binary("opencode");
 
+    let agy_models = if let Some(ref p) = agy_path {
+        fetch_agy_models(p)
+    } else {
+        fetch_agy_models("agy")
+    };
+
+    let opencode_models = if let Some(ref p) = opencode_path {
+        fetch_opencode_models(p)
+    } else {
+        fetch_opencode_models("opencode")
+    };
+
+    let pi_models = if let Some(ref p) = pi_path {
+        fetch_pi_models(p)
+    } else {
+        fetch_pi_models("pi")
+    };
+
     let agents = vec![
-        DiscoveredAgent {
-            id: "pi".to_string(),
-            name: "Pi Coding Agent".to_string(),
-            installed: pi_path.is_some(),
-            binary_path: pi_path,
-            description: "Hızlı terminal ve adli betik aracı".to_string(),
-            models: vec![
-                AgentModel {
-                    id: "claude-sonnet".to_string(),
-                    name: "Claude Sonnet (Pi)".to_string(),
-                    description: "Dengeli ve güçlü adli analiz".to_string(),
-                },
-                AgentModel {
-                    id: "gpt-4o".to_string(),
-                    name: "GPT-4o (Pi)".to_string(),
-                    description: "Çok modlu ve kapsamlı yanıtlar".to_string(),
-                },
-                AgentModel {
-                    id: "claude-haiku".to_string(),
-                    name: "Claude Haiku (Pi)".to_string(),
-                    description: "Ultra hızlı yanıt süresi".to_string(),
-                },
-                AgentModel {
-                    id: "deepseek-r1".to_string(),
-                    name: "DeepSeek R1 (Pi)".to_string(),
-                    description: "Yerel ve derin akıl yürütme".to_string(),
-                },
-            ],
-        },
         DiscoveredAgent {
             id: "agy".to_string(),
             name: "Antigravity (AGY)".to_string(),
             installed: agy_path.is_some(),
             binary_path: agy_path,
             description: "Google DeepMind Advanced Agentic Coding CLI".to_string(),
-            models: vec![
-                AgentModel {
-                    id: "gemini-3.8-flash-high".to_string(),
-                    name: "Gemini 3.8 Flash (High)".to_string(),
-                    description: "En yeni yüksek hızlı akıl yürütme modeli".to_string(),
-                },
-                AgentModel {
-                    id: "gemini-3.1-pro-high".to_string(),
-                    name: "Gemini 3.1 Pro (High)".to_string(),
-                    description: "Karmaşık adli bilişim analizi ve derin akıl yürütme".to_string(),
-                },
-                AgentModel {
-                    id: "gemini-3.7-flash-high".to_string(),
-                    name: "Gemini 3.7 Flash".to_string(),
-                    description: "Hızlı genel adli bilişim sorguları".to_string(),
-                },
-                AgentModel {
-                    id: "claude-sonnet-4-6".to_string(),
-                    name: "Claude Sonnet 4.6 (Thinking)".to_string(),
-                    description: "Gelişmiş analitik akıl yürütme".to_string(),
-                },
-                AgentModel {
-                    id: "claude-opus-4-6-thinking".to_string(),
-                    name: "Claude Opus 4.6 (Thinking)".to_string(),
-                    description: "Üst seviye stratejik analiz modeli".to_string(),
-                },
-            ],
+            models: agy_models,
         },
         DiscoveredAgent {
             id: "claude".to_string(),
@@ -147,28 +220,7 @@ pub fn get_agents_endpoint() -> Response {
             installed: claude_path.is_some(),
             binary_path: claude_path,
             description: "Anthropic Claude Code CLI Asistanı".to_string(),
-            models: vec![
-                AgentModel {
-                    id: "claude-3-7-sonnet".to_string(),
-                    name: "Claude 3.7 Sonnet".to_string(),
-                    description: "Hibrit akıl yürütme ve adli kodlama".to_string(),
-                },
-                AgentModel {
-                    id: "claude-3-5-sonnet".to_string(),
-                    name: "Claude 3.5 Sonnet v2".to_string(),
-                    description: "Yüksek doğrulukta komut üretimi".to_string(),
-                },
-                AgentModel {
-                    id: "claude-3-5-haiku".to_string(),
-                    name: "Claude 3.5 Haiku".to_string(),
-                    description: "Hafif ve ultra hızlı yanıt süresi".to_string(),
-                },
-                AgentModel {
-                    id: "claude-3-opus".to_string(),
-                    name: "Claude 3 Opus".to_string(),
-                    description: "Kapsamlı raporlama ve analiz".to_string(),
-                },
-            ],
+            models: get_claude_models(),
         },
         DiscoveredAgent {
             id: "codex".to_string(),
@@ -176,28 +228,15 @@ pub fn get_agents_endpoint() -> Response {
             installed: codex_path.is_some(),
             binary_path: codex_path,
             description: "OpenAI Codex CLI Ajanı".to_string(),
-            models: vec![
-                AgentModel {
-                    id: "gpt-4o".to_string(),
-                    name: "GPT-4o".to_string(),
-                    description: "Çok modlu ve hızlı adli asistan".to_string(),
-                },
-                AgentModel {
-                    id: "o3-mini".to_string(),
-                    name: "o3-mini".to_string(),
-                    description: "Derin teknik akıl yürütme".to_string(),
-                },
-                AgentModel {
-                    id: "o1".to_string(),
-                    name: "o1".to_string(),
-                    description: "Karmaşık tersine mühendislik ve protokol analizi".to_string(),
-                },
-                AgentModel {
-                    id: "gpt-4o-mini".to_string(),
-                    name: "GPT-4o Mini".to_string(),
-                    description: "Hafif ve hızlı sorgular".to_string(),
-                },
-            ],
+            models: get_codex_models(),
+        },
+        DiscoveredAgent {
+            id: "pi".to_string(),
+            name: "Pi Coding Agent".to_string(),
+            installed: pi_path.is_some(),
+            binary_path: pi_path,
+            description: "Hızlı terminal ve adli betik aracı".to_string(),
+            models: pi_models,
         },
         DiscoveredAgent {
             id: "opencode".to_string(),
@@ -205,47 +244,7 @@ pub fn get_agents_endpoint() -> Response {
             installed: opencode_path.is_some(),
             binary_path: opencode_path,
             description: "Açık kaynak çoklu sağlayıcı CLI ajanı".to_string(),
-            models: vec![
-                AgentModel {
-                    id: "anthropic/claude-3-7-sonnet".to_string(),
-                    name: "Claude 3.7 Sonnet (OpenCode)".to_string(),
-                    description: "OpenCode üzerinden Anthropic".to_string(),
-                },
-                AgentModel {
-                    id: "openai/gpt-4o".to_string(),
-                    name: "GPT-4o (OpenCode)".to_string(),
-                    description: "OpenCode üzerinden OpenAI".to_string(),
-                },
-                AgentModel {
-                    id: "google/gemini-2.0-flash".to_string(),
-                    name: "Gemini 2.0 Flash (OpenCode)".to_string(),
-                    description: "OpenCode üzerinden Google Gemini".to_string(),
-                },
-                AgentModel {
-                    id: "ollama/deepseek-r1".to_string(),
-                    name: "DeepSeek R1 (Yerel OpenCode)".to_string(),
-                    description: "Yerel Ollama DeepSeek R1 modeli".to_string(),
-                },
-            ],
-        },
-        DiscoveredAgent {
-            id: "amele-expert".to_string(),
-            name: "Amele Adli Bilişim Uzmanı".to_string(),
-            installed: true,
-            binary_path: Some("builtin".to_string()),
-            description: "Yerel Amele SKILL.md kural motoru ve adli rehber".to_string(),
-            models: vec![
-                AgentModel {
-                    id: "amele-rule-engine".to_string(),
-                    name: "Amele Adli Kural & Komut Motoru".to_string(),
-                    description: "SKILL.md kurallarıyla doğrudan komut üretimi ve triyaj".to_string(),
-                },
-                AgentModel {
-                    id: "amele-triage-guide".to_string(),
-                    name: "Olay Müdahale & Triyaj Rehberi".to_string(),
-                    description: "İlk müdahale, delil zinciri ve hash doğrulama adımları".to_string(),
-                },
-            ],
+            models: opencode_models,
         },
     ];
 
@@ -272,7 +271,7 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
         return json_error(400, "Sorgu metni boş olamaz.");
     }
 
-    let agent_id = req.agent.as_deref().unwrap_or("amele-expert");
+    let agent_id = req.agent.as_deref().unwrap_or("agy");
     let model_id = req.model.as_deref().unwrap_or("");
     let case_name = req.case_name.as_deref().unwrap_or("varsayilan_vaka");
     let target_scope = req.target_scope.as_deref().unwrap_or("all");
@@ -543,7 +542,7 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
             let suggested_command = extract_suggested_command(&response_text);
             json_ok(json!({
                 "ok": true,
-                "agent": "amele-expert",
+                "agent": agent_id,
                 "model": model_id,
                 "response": response_text,
                 "suggested_command": suggested_command
@@ -805,8 +804,8 @@ mod tests {
         assert!(!agents.is_empty());
         let pi = agents.iter().find(|a| a["id"] == "pi").unwrap();
         assert!(!pi["models"].as_array().unwrap().is_empty());
-        let amele = agents.iter().find(|a| a["id"] == "amele-expert").unwrap();
-        assert!(amele["installed"].as_bool().unwrap());
+        let agy = agents.iter().find(|a| a["id"] == "agy").unwrap();
+        assert!(!agy["models"].as_array().unwrap().is_empty());
     }
 
     #[test]
@@ -820,10 +819,10 @@ mod tests {
     }
 
     #[test]
-    fn test_chat_endpoint_amele_expert_ram() {
+    fn test_chat_endpoint_ram() {
         let req = serde_json::json!({
             "prompt": "RAM edinimi nasıl yapılır?",
-            "agent": "amele-expert",
+            "agent": "test-mock",
             "case_name": "test_case"
         });
         let body = serde_json::to_vec(&req).unwrap();
