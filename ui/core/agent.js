@@ -156,6 +156,19 @@ export function handleScopeChange(scopeId, state) {
   state.agent.selectedScope = scopeId;
 }
 
+// yeni mesaj gelince sohbet kutusunu en alta kaydir
+function scrollChatToBottom() {
+  try {
+    if (typeof document === "undefined" || typeof requestAnimationFrame === "undefined") return;
+    requestAnimationFrame(() => {
+      try {
+        const list = document.querySelector(".agent-chat-history");
+        if (list) list.scrollTop = list.scrollHeight;
+      } catch {}
+    });
+  } catch {}
+}
+
 export async function submitAgentPrompt(promptText, state, render, showToast, t) {
   if (!promptText || !promptText.trim()) return;
   const cleanPrompt = promptText.trim();
@@ -175,6 +188,7 @@ export async function submitAgentPrompt(promptText, state, render, showToast, t)
   state.agent.promptDraft = "";
   state.agent.isGenerating = true;
   render();
+  scrollChatToBottom();
 
   // backend takılırsa sonsuz beklemesin diye 120sn timeout
   const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
@@ -231,6 +245,7 @@ export async function submitAgentPrompt(promptText, state, render, showToast, t)
   } finally {
     state.agent.isGenerating = false;
     render();
+    scrollChatToBottom();
   }
 }
 
@@ -242,17 +257,29 @@ export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, m
   render();
 
   try {
-    const payload = {
+    const sendCmd = async (payload) => {
+      return await apiRequest("/api/ai/execute-command", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+    };
+
+    let res = await sendCmd({
       command: cmd.trim(),
       sudo_password: sudoPassword || null,
       windows_confirmed: windowsConfirmed ? true : null,
       linux_confirmed: linuxConfirmed ? true : null
-    };
-
-    const res = await apiRequest("/api/ai/execute-command", {
-      method: "POST",
-      body: JSON.stringify(payload)
     });
+
+    // yetki gerekirse kullanıcıya sormadan devam et, sistem penceresi kendisi çıkar
+    if (res && res.needs_elevation) {
+      res = await sendCmd({
+        command: cmd.trim(),
+        sudo_password: null,
+        windows_confirmed: res.os === "windows" ? true : null,
+        linux_confirmed: res.os === "linux" ? true : null
+      });
+    }
 
     if (res && res.needs_elevation) {
       state.agent.elevationModal = {
@@ -291,6 +318,7 @@ export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, m
   } finally {
     state.agent.isExecuting = false;
     render();
+    scrollChatToBottom();
   }
 }
 

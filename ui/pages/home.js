@@ -115,6 +115,9 @@ export function homePage({ t, icon, assetPath, theme, state }) {
           </div>
         </div>
 
+        <!-- Sohbet Geçmişi & Komut Çalıştırma Sonuçları (yazma kutusu en altta) -->
+        ${chatHistoryHtml}
+
         <!-- Ajan Giriş Kutusu -->
         <div class="agent-box">
           <div class="agent-input-wrapper">
@@ -238,9 +241,6 @@ export function homePage({ t, icon, assetPath, theme, state }) {
             </div>
           </div>
         </div>
-
-        <!-- Sohbet Geçmişi & Komut Çalıştırma Sonuçları -->
-        ${chatHistoryHtml}
       </div>
 
       <!-- Yatay Haber Menüsü (Fotoğrafsız) -->
