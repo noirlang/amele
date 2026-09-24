@@ -27,7 +27,7 @@ export const DEFAULT_AGENTS = [
   },
   {
     id: "pi",
-    name: "Pi Coding Agent",
+    name: "Pi",
     installed: true,
     models: []
   },

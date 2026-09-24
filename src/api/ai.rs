@@ -276,7 +276,7 @@ pub fn get_agents_endpoint() -> Response {
         },
         DiscoveredAgent {
             id: "pi".to_string(),
-            name: "Pi Coding Agent".to_string(),
+            name: "Pi".to_string(),
             installed: pi_path.is_some(),
             binary_path: pi_path,
             description: "Earendil Works çok sağlayıcılı terminal ajanı".to_string(),

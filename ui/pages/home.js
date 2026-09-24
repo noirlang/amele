@@ -137,12 +137,18 @@ export function homePage({ t, icon, assetPath, theme, state }) {
                   class="agent-dropdown-trigger"
                   data-agent-action="toggle-agent-menu"
                   title="${t("copilot.selectAgent")}"
+                  aria-haspopup="listbox"
                 >
                   <span class="agent-dropdown-icon">${getAgentOfficialSvg(selectedAgentId)}</span>
                   <span class="agent-dropdown-label">${escapeHtml(selectedAgent?.name || "Agent")}</span>
-                  <span class="agent-dropdown-chevron">▾</span>
+                  <span class="agent-dropdown-chevron">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </span>
                 </button>
-                <div class="agent-dropdown-menu" id="agent-dropdown-menu" style="display: none;">
+                <div class="agent-dropdown-menu" id="agent-dropdown-menu" role="listbox">
+                  <div class="agent-dropdown-header">${t("copilot.selectAgent") || "Yapay Zeka Ajanı"}</div>
                   ${agents.map((a) => {
                     const isSel = a.id === selectedAgentId;
                     const isInst = a.installed !== false;
@@ -151,10 +157,19 @@ export function homePage({ t, icon, assetPath, theme, state }) {
                         class="agent-dropdown-item ${isSel ? "active" : ""} ${!isInst ? "disabled" : ""}"
                         data-agent-action="select-agent-item"
                         data-agent-id="${a.id}"
+                        role="option"
+                        aria-selected="${isSel}"
                       >
                         <span class="agent-item-icon">${getAgentOfficialSvg(a.id)}</span>
                         <span class="agent-item-name">${escapeHtml(a.name)}</span>
                         ${!isInst ? `<span class="agent-item-badge">Kurulu Değil</span>` : ""}
+                        ${isSel ? `
+                          <span class="agent-item-check">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                              <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                          </span>
+                        ` : ""}
                       </div>
                     `;
                   }).join("")}
@@ -169,11 +184,17 @@ export function homePage({ t, icon, assetPath, theme, state }) {
                   class="agent-dropdown-trigger"
                   data-agent-action="toggle-model-menu"
                   title="${t("copilot.selectModel")}"
+                  aria-haspopup="listbox"
                 >
                   <span class="agent-dropdown-label">${escapeHtml(selectedModel?.name || selectedModelId || t("copilot.selectModel"))}</span>
-                  <span class="agent-dropdown-chevron">▾</span>
+                  <span class="agent-dropdown-chevron">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </span>
                 </button>
-                <div class="agent-dropdown-menu" id="model-dropdown-menu" style="display: none;">
+                <div class="agent-dropdown-menu" id="model-dropdown-menu" role="listbox">
+                  <div class="agent-dropdown-header">${t("copilot.selectModel") || "Model Seçimi"}</div>
                   ${models.map((m) => {
                     const isSel = m.id === selectedModelId;
                     return `
@@ -182,8 +203,17 @@ export function homePage({ t, icon, assetPath, theme, state }) {
                         data-agent-action="select-model-item"
                         data-model-id="${m.id}"
                         title="${escapeHtml(m.description || "")}"
+                        role="option"
+                        aria-selected="${isSel}"
                       >
                         <span class="agent-item-name">${escapeHtml(m.name)}</span>
+                        ${isSel ? `
+                          <span class="agent-item-check">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                              <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                          </span>
+                        ` : ""}
                       </div>
                     `;
                   }).join("")}

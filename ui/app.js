@@ -1545,11 +1545,11 @@ document.addEventListener("click", async (event) => {
   if (toggleAgentMenu) {
     event.preventDefault();
     event.stopPropagation();
-    const menu = document.getElementById("agent-dropdown-menu");
-    const modelMenu = document.getElementById("model-dropdown-menu");
-    if (modelMenu) modelMenu.style.display = "none";
-    if (menu) {
-      menu.style.display = menu.style.display === "none" ? "flex" : "none";
+    const agentDropdown = document.getElementById("agent-custom-dropdown");
+    const modelDropdown = document.getElementById("model-custom-dropdown");
+    if (modelDropdown) modelDropdown.classList.remove("is-open");
+    if (agentDropdown) {
+      agentDropdown.classList.toggle("is-open");
     }
     return;
   }
@@ -1558,11 +1558,11 @@ document.addEventListener("click", async (event) => {
   if (toggleModelMenu) {
     event.preventDefault();
     event.stopPropagation();
-    const menu = document.getElementById("model-dropdown-menu");
-    const agentMenu = document.getElementById("agent-dropdown-menu");
-    if (agentMenu) agentMenu.style.display = "none";
-    if (menu) {
-      menu.style.display = menu.style.display === "none" ? "flex" : "none";
+    const agentDropdown = document.getElementById("agent-custom-dropdown");
+    const modelDropdown = document.getElementById("model-custom-dropdown");
+    if (agentDropdown) agentDropdown.classList.remove("is-open");
+    if (modelDropdown) {
+      modelDropdown.classList.toggle("is-open");
     }
     return;
   }
@@ -1570,7 +1570,10 @@ document.addEventListener("click", async (event) => {
   const selectAgentItem = event.target.closest("[data-agent-action='select-agent-item']");
   if (selectAgentItem) {
     event.preventDefault();
+    event.stopPropagation();
     if (selectAgentItem.classList.contains("disabled")) return;
+    const agentDropdown = document.getElementById("agent-custom-dropdown");
+    if (agentDropdown) agentDropdown.classList.remove("is-open");
     const agentId = selectAgentItem.dataset.agentId;
     if (agentId) {
       handleAgentChange(agentId, state, render);
@@ -1581,6 +1584,9 @@ document.addEventListener("click", async (event) => {
   const selectModelItem = event.target.closest("[data-agent-action='select-model-item']");
   if (selectModelItem) {
     event.preventDefault();
+    event.stopPropagation();
+    const modelDropdown = document.getElementById("model-custom-dropdown");
+    if (modelDropdown) modelDropdown.classList.remove("is-open");
     const modelId = selectModelItem.dataset.modelId;
     if (modelId) {
       handleModelChange(modelId, state);
@@ -1590,10 +1596,9 @@ document.addEventListener("click", async (event) => {
   }
 
   if (!event.target.closest(".agent-custom-dropdown")) {
-    const agentMenu = document.getElementById("agent-dropdown-menu");
-    const modelMenu = document.getElementById("model-dropdown-menu");
-    if (agentMenu) agentMenu.style.display = "none";
-    if (modelMenu) modelMenu.style.display = "none";
+    document.querySelectorAll(".agent-custom-dropdown.is-open").forEach((el) => {
+      el.classList.remove("is-open");
+    });
   }
 
   const agentSend = event.target.closest("[data-agent-action='send'], [data-copilot-action='send']");
