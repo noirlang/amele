@@ -108,21 +108,7 @@ export function homePage({ t, icon, assetPath, theme, state }) {
 
   return `
     <section class="page page-home">
-      <!-- Yatay Haber Menüsü (Fotoğrafsız, en üstte) -->
-      <div class="home-news-horizontal-section">
-        <div class="news-horizontal-header">
-          <div class="news-horizontal-title">
-            <span class="news-header-icon">${icon ? icon("globe") : ""}</span>
-            <h3>${t("news.latestUpdates")}</h3>
-          </div>
-        </div>
-
-        <div class="news-horizontal-scroll-container" id="news-horizontal-track">
-          ${newsCardsHtml}
-        </div>
-      </div>
-
-      <!-- Yapay Zeka Ajan Bölümü (haberlerin altında, ortalı) -->
+      <!-- Yapay Zeka Ajan Bölümü (en üstte, ortalı) -->
       <div class="agent-container">
         <!-- Karşılama Çubuğu (Preview ve geri bildirim kaldırıldı, yalın karşılama) -->
         <div class="agent-greeting-bar">
@@ -261,6 +247,20 @@ export function homePage({ t, icon, assetPath, theme, state }) {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Yatay Haber Menüsü (Fotoğrafsız, ajanın altında ortada) -->
+      <div class="home-news-horizontal-section">
+        <div class="news-horizontal-header">
+          <div class="news-horizontal-title">
+            <span class="news-header-icon">${icon ? icon("globe") : ""}</span>
+            <h3>${t("news.latestUpdates")}</h3>
+          </div>
+        </div>
+
+        <div class="news-horizontal-scroll-container" id="news-horizontal-track">
+          ${newsCardsHtml}
         </div>
       </div>
 
