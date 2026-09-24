@@ -920,7 +920,7 @@ export const translations = {
     "elevation.windowsDesc": "Bu adli edinim işlemi fiziksel disk ve bellek bloklarına erişim için Yönetici (Administrator) yetkisi gerektirmektedir. İzin verilsin mi?",
     "elevation.yesRunAdmin": "Evet, Yönetici Olarak Çalıştır",
     "elevation.no": "Hayır",
-    "news.latestUpdates": "News / Haberler",
+    "news.latestUpdates": "Haberler",
     "news.publisher": "Yayınlayan: {author}",
     "news.readMore": "Detayları Oku",
     "news.noNews": "Henüz duyuru bulunmuyor."
@@ -1844,7 +1844,7 @@ export const translations = {
     "elevation.windowsDesc": "This forensic acquisition operation requires Administrator privileges to access physical disk and memory blocks. Allow permission?",
     "elevation.yesRunAdmin": "Yes, Run as Administrator",
     "elevation.no": "No",
-    "news.latestUpdates": "News / Haberler",
+    "news.latestUpdates": "News",
     "news.publisher": "Published by: {author}",
     "news.readMore": "Read Details",
     "news.noNews": "No announcements found."
