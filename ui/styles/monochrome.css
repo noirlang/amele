@@ -40,7 +40,10 @@
 .profile-gate-card,
 .agent-box,
 .help-sidebar,
-.help-main-content {
+.help-main-content,
+.home-case-sidebar,
+.news-h-card,
+.home-news-horizontal-section {
   background: var(--panel) !important;
   background-image: none !important;
   border-color: var(--line) !important;
@@ -66,7 +69,9 @@
 .proc-row.active,
 .settings-meta span,
 .status-badge,
-.vpn-panel {
+.vpn-panel,
+.case-sidebar-card:hover,
+.news-h-card:hover {
   background: var(--panel-soft) !important;
   background-image: none !important;
   border-color: var(--line-strong) !important;
@@ -315,6 +320,17 @@ code:not(.help-code-block code) {
 .home-hero,
 .news-hero-container,
 .agent-box,
+.home-case-sidebar,
+.case-sidebar-card,
+.news-h-card,
+.home-news-horizontal-section,
+.case-sidebar-new-btn,
+.home-case-sidebar-toggle,
+.case-sidebar-header-btn,
+.case-sidebar-create-btn,
+.agent-dropdown-trigger,
+.agent-send-btn,
+.news-h-btn,
 .primary-button,
 .secondary-button,
 .danger-button,
@@ -367,7 +383,17 @@ code:not(.help-code-block code) {
 .help-table-container::before,
 .home-hero::before,
 .news-hero-container::before,
-.agent-box::before {
+.agent-box::before,
+.home-case-sidebar::before,
+.case-sidebar-card::before,
+.news-h-card::before,
+.home-news-horizontal-section::before,
+.case-sidebar-new-btn::before,
+.home-case-sidebar-toggle::before,
+.case-sidebar-header-btn::before,
+.case-sidebar-create-btn::before,
+.agent-dropdown-trigger::before,
+.news-h-btn::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -412,7 +438,8 @@ code:not(.help-code-block code) {
 .secondary-button::before,
 .danger-button::before,
 .icon-button::before,
-.top-action::before {
+.top-action::before,
+.agent-send-btn::before {
   content: "";
   position: absolute;
   inset: -1px;
@@ -512,7 +539,17 @@ code:not(.help-code-block code) {
 .help-nav-btn > *,
 .help-code-block > *,
 .help-table-container > *,
-.agent-box > * {
+.agent-box > *,
+.home-case-sidebar > *,
+.case-sidebar-card > *,
+.news-h-card > *,
+.home-news-horizontal-section > *,
+.case-sidebar-new-btn > *,
+.home-case-sidebar-toggle > *,
+.case-sidebar-header-btn > *,
+.case-sidebar-create-btn > *,
+.agent-dropdown-trigger > *,
+.news-h-btn > * {
   position: relative;
   z-index: 3;
 }
@@ -561,7 +598,18 @@ code:not(.help-code-block code) {
 .help-table-container:hover::before,
 .home-hero:hover::before,
 .news-hero-container:hover::before,
-.agent-box:hover::before {
+.agent-box:hover::before,
+.home-case-sidebar:hover::before,
+.case-sidebar-card:hover::before,
+.case-sidebar-card.active::before,
+.news-h-card:hover::before,
+.home-news-horizontal-section:hover::before,
+.case-sidebar-new-btn:hover::before,
+.home-case-sidebar-toggle:hover::before,
+.case-sidebar-header-btn:hover::before,
+.case-sidebar-create-btn:hover::before,
+.agent-dropdown-trigger:hover::before,
+.news-h-btn:hover::before {
   background: 
     conic-gradient(
       from var(--glow-angle),
@@ -611,7 +659,18 @@ code:not(.help-code-block code) {
 .help-table-container:hover,
 .home-hero:hover,
 .news-hero-container:hover,
-.agent-box:hover {
+.agent-box:hover,
+.home-case-sidebar:hover,
+.case-sidebar-card:hover,
+.case-sidebar-card.active,
+.news-h-card:hover,
+.home-news-horizontal-section:hover,
+.case-sidebar-new-btn:hover,
+.home-case-sidebar-toggle:hover,
+.case-sidebar-header-btn:hover,
+.case-sidebar-create-btn:hover,
+.agent-dropdown-trigger:hover,
+.news-h-btn:hover {
   box-shadow: 0 0 24px var(--glow-hover-glow) !important;
 }
 
@@ -621,7 +680,8 @@ code:not(.help-code-block code) {
 .secondary-button:hover::before,
 .danger-button:hover::before,
 .icon-button:hover::before,
-.top-action:hover::before {
+.top-action:hover::before,
+.agent-send-btn:hover:not(:disabled)::before {
   background: conic-gradient(
     from var(--glow-angle),
     transparent 0%,
@@ -639,9 +699,14 @@ code:not(.help-code-block code) {
 .secondary-button:hover,
 .danger-button:hover,
 .icon-button:hover,
-.top-action:hover {
+.top-action:hover,
+.agent-send-btn:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 0 14px var(--glow-hover-glow) !important;
+}
+
+.agent-send-btn:disabled::before {
+  display: none !important;
 }
 
 /* ── HOVER: cream LED glow (inputs) ────────────────────────────── */
@@ -704,6 +769,17 @@ code:not(.help-code-block code) {
 .native-linux .home-hero,
 .native-linux .news-hero-container,
 .native-linux .agent-box,
+.native-linux .home-case-sidebar,
+.native-linux .case-sidebar-card,
+.native-linux .news-h-card,
+.native-linux .home-news-horizontal-section,
+.native-linux .home-case-sidebar-toggle,
+.native-linux .case-sidebar-new-btn,
+.native-linux .case-sidebar-header-btn,
+.native-linux .case-sidebar-create-btn,
+.native-linux .agent-dropdown-trigger,
+.native-linux .agent-send-btn,
+.native-linux .news-h-btn,
 .native-linux .primary-button,
 .native-linux .secondary-button,
 .native-linux .danger-button,
@@ -747,6 +823,17 @@ code:not(.help-code-block code) {
 .native-linux .home-hero::before,
 .native-linux .news-hero-container::before,
 .native-linux .agent-box::before,
+.native-linux .home-case-sidebar::before,
+.native-linux .case-sidebar-card::before,
+.native-linux .news-h-card::before,
+.native-linux .home-news-horizontal-section::before,
+.native-linux .home-case-sidebar-toggle::before,
+.native-linux .case-sidebar-new-btn::before,
+.native-linux .case-sidebar-header-btn::before,
+.native-linux .case-sidebar-create-btn::before,
+.native-linux .agent-dropdown-trigger::before,
+.native-linux .agent-send-btn::before,
+.native-linux .news-h-btn::before,
 .native-linux .primary-button::before,
 .native-linux .secondary-button::before,
 .native-linux .danger-button::before,
@@ -791,6 +878,18 @@ code:not(.help-code-block code) {
 .native-linux .home-hero:hover::before,
 .native-linux .news-hero-container:hover::before,
 .native-linux .agent-box:hover::before,
+.native-linux .home-case-sidebar:hover::before,
+.native-linux .case-sidebar-card:hover::before,
+.native-linux .case-sidebar-card.active::before,
+.native-linux .news-h-card:hover::before,
+.native-linux .home-news-horizontal-section:hover::before,
+.native-linux .home-case-sidebar-toggle:hover::before,
+.native-linux .case-sidebar-new-btn:hover::before,
+.native-linux .case-sidebar-header-btn:hover::before,
+.native-linux .case-sidebar-create-btn:hover::before,
+.native-linux .agent-dropdown-trigger:hover::before,
+.native-linux .agent-send-btn:hover:not(:disabled)::before,
+.native-linux .news-h-btn:hover::before,
 .native-linux .primary-button:hover::before,
 .native-linux .secondary-button:hover::before,
 .native-linux .danger-button:hover::before,

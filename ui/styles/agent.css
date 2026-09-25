@@ -195,8 +195,8 @@
 }
 
 .agent-dropdown-trigger:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.28);
+  background: var(--panel-soft, #16161a);
+  transform: translateY(-1px);
 }
 
 .theme-light .agent-dropdown-trigger:hover {
@@ -1084,8 +1084,6 @@
 
 .news-h-card:hover {
   transform: translateY(-2px);
-  border-color: var(--text);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
 .news-h-card-top {

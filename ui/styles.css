@@ -2,9 +2,9 @@
 
 @import "./styles/base.css";
 @import "./styles/analysis.css";
-@import "./styles/monochrome.css";
 @import "./styles/developer.css";
 @import "./styles/docker.css";
 @import "./styles/agent.css";
 @import "./styles/radial-nav.css";
 @import "./styles/case-sidebar.css";
+@import "./styles/monochrome.css";
