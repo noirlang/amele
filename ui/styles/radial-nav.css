@@ -29,12 +29,12 @@
 }
 
 :root {
-  --nav-radial-radius: 88px;
+  --nav-radial-radius: 92px;
 }
 
 @media (max-width: 600px) {
   :root {
-    --nav-radial-radius: 76px;
+    --nav-radial-radius: 80px;
   }
 }
 
@@ -160,12 +160,12 @@
   --ty: calc(var(--nav-radial-radius) * var(--sin));
   transform: translate(var(--tx), var(--ty));
   animation: radialItemBurstIn 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: calc(var(--btn-index, 0) * 14ms);
+  animation-delay: calc(var(--btn-index, 0) * 12ms);
 }
 
 .nav-radial-wheel.is-closing .nav-radial-item {
   animation: radialItemBurstOut 190ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: calc((var(--total-btns, 11) - var(--btn-index, 0)) * 7ms);
+  animation-delay: calc((var(--total-btns, 12) - var(--btn-index, 0)) * 6.5ms);
 }
 
 @keyframes radialItemBurstIn {

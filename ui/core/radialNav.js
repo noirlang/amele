@@ -1,6 +1,6 @@
 // Dairesel saçılan gezinti menüsü (Radial Wheel Navigation).
-// Sol menü ve sağ üstteki 11 ana uygulama modülü (Home, Windows, Linux, Docker, Android, iOS, Diğer, Yardım, Ayarlar, Profil, Çıkış)
-// 360 derecelik dairesel çarkta toplanmıştır (About ve Dil ayarı Ayarlar içinde yer aldığından çarktan çıkarılmıştır).
+// Sol menü ve sağ üstteki 12 ana uygulama modülü (Home, Windows, Linux, Docker, Android, iOS, Diğer, Yardım, Hakkında, Ayarlar, Profil, Çıkış)
+// 360 derecelik dairesel çarkta toplanmıştır (Dil ayarı Ayarlar içinde yer aldığından çarktan çıkarılmıştır).
 
 export function renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl) {
   const isOpen = Boolean(state.navMenu?.isOpen);
@@ -139,6 +139,22 @@ export function renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl) {
           aria-label="${escapeHtml(t("top.help") || "Yardım")}"
         >
           ${icon("help")}
+        </button>
+      `
+    },
+    {
+      id: "about",
+      label: t("about.title") || "Hakkında",
+      tooltip: t("about.title") || "Hakkında & Geliştirici",
+      isActive: state.route === "about",
+      content: `
+        <button
+          type="button"
+          class="nav-circle-btn${state.route === "about" ? " is-active" : ""}"
+          data-route="about"
+          aria-label="${escapeHtml(t("about.title") || "Hakkında")}"
+        >
+          ${icon("info")}
         </button>
       `
     },
