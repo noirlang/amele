@@ -947,6 +947,9 @@
   margin-bottom: 24px;
   position: relative;
   z-index: 1;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .news-horizontal-header {

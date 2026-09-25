@@ -42,8 +42,7 @@
 .help-sidebar,
 .help-main-content,
 .home-case-sidebar,
-.news-h-card,
-.home-news-horizontal-section {
+.news-h-card {
   background: var(--panel) !important;
   background-image: none !important;
   border-color: var(--line) !important;
@@ -322,7 +321,6 @@ code:not(.help-code-block code) {
 .agent-box,
 .case-sidebar-card,
 .news-h-card,
-.home-news-horizontal-section,
 .case-sidebar-new-btn,
 .case-sidebar-header-btn,
 .case-sidebar-create-btn,
@@ -397,7 +395,6 @@ code:not(.help-code-block code) {
 .home-case-sidebar::before,
 .case-sidebar-card::before,
 .news-h-card::before,
-.home-news-horizontal-section::before,
 .case-sidebar-new-btn::before,
 .home-case-sidebar-toggle::before,
 .case-sidebar-header-btn::before,
@@ -553,7 +550,6 @@ code:not(.help-code-block code) {
 .home-case-sidebar > *,
 .case-sidebar-card > *,
 .news-h-card > *,
-.home-news-horizontal-section > *,
 .case-sidebar-new-btn > *,
 .home-case-sidebar-toggle > *,
 .case-sidebar-header-btn > *,
@@ -613,7 +609,6 @@ code:not(.help-code-block code) {
 .case-sidebar-card:hover::before,
 .case-sidebar-card.active::before,
 .news-h-card:hover::before,
-.home-news-horizontal-section:hover::before,
 .case-sidebar-new-btn:hover::before,
 .home-case-sidebar-toggle:hover::before,
 .case-sidebar-header-btn:hover::before,
@@ -674,7 +669,6 @@ code:not(.help-code-block code) {
 .case-sidebar-card:hover,
 .case-sidebar-card.active,
 .news-h-card:hover,
-.home-news-horizontal-section:hover,
 .case-sidebar-new-btn:hover,
 .home-case-sidebar-toggle:hover,
 .case-sidebar-header-btn:hover,
@@ -782,7 +776,6 @@ code:not(.help-code-block code) {
 .native-linux .home-case-sidebar,
 .native-linux .case-sidebar-card,
 .native-linux .news-h-card,
-.native-linux .home-news-horizontal-section,
 .native-linux .home-case-sidebar-toggle,
 .native-linux .case-sidebar-new-btn,
 .native-linux .case-sidebar-header-btn,
@@ -836,7 +829,6 @@ code:not(.help-code-block code) {
 .native-linux .home-case-sidebar::before,
 .native-linux .case-sidebar-card::before,
 .native-linux .news-h-card::before,
-.native-linux .home-news-horizontal-section::before,
 .native-linux .home-case-sidebar-toggle::before,
 .native-linux .case-sidebar-new-btn::before,
 .native-linux .case-sidebar-header-btn::before,
@@ -892,7 +884,6 @@ code:not(.help-code-block code) {
 .native-linux .case-sidebar-card:hover::before,
 .native-linux .case-sidebar-card.active::before,
 .native-linux .news-h-card:hover::before,
-.native-linux .home-news-horizontal-section:hover::before,
 .native-linux .home-case-sidebar-toggle:hover::before,
 .native-linux .case-sidebar-new-btn:hover::before,
 .native-linux .case-sidebar-header-btn:hover::before,
