@@ -901,34 +901,40 @@ function render() {
   renderRadialNavDOM();
 }
 
+let navCloseTimer = null;
+
 function renderRadialNavDOM() {
   const container = document.getElementById("radial-nav-container");
   if (!container) return;
+  // Kapanma animasyonu oynatılırken DOM'u tekrar oluşturup CSS animasyonunu sıfırlama
+  if (state.navMenu.isClosing && container.querySelector(".nav-radial-wheel.is-closing")) {
+    return;
+  }
   container.innerHTML = renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl);
   hydrateIcons(container);
 }
 
 function toggleNavMenu() {
+  if (state.navMenu.isClosing) return;
   if (state.navMenu.isOpen) {
     closeNavMenu();
   } else {
     state.navMenu.isOpen = true;
     state.navMenu.isClosing = false;
-    state.navMenu.activeSubmenu = null;
     renderRadialNavDOM();
   }
 }
 
 function closeNavMenu() {
   if (!state.navMenu.isOpen || state.navMenu.isClosing) return;
+  if (navCloseTimer) clearTimeout(navCloseTimer);
   state.navMenu.isClosing = true;
   renderRadialNavDOM();
-  setTimeout(() => {
+  navCloseTimer = setTimeout(() => {
     state.navMenu.isOpen = false;
     state.navMenu.isClosing = false;
-    state.navMenu.activeSubmenu = null;
     renderRadialNavDOM();
-  }, 220);
+  }, 280);
 }
 
 function routeGroup(route) {
@@ -1597,41 +1603,12 @@ document.addEventListener("click", async (event) => {
       closeNavMenu();
       return;
     }
-    if (action === "open-tools-sub") {
-      event.preventDefault();
-      event.stopPropagation();
-      state.navMenu.activeSubmenu = "tools";
-      renderRadialNavDOM();
-      return;
-    }
-    if (action === "back-to-main") {
-      event.preventDefault();
-      event.stopPropagation();
-      state.navMenu.activeSubmenu = null;
-      renderRadialNavDOM();
-      return;
-    }
     if (action === "toggle-language") {
       event.preventDefault();
       event.stopPropagation();
       closeNavMenu();
       const nextLang = state.language === "tr" ? "en" : "tr";
       setLanguage(nextLang);
-      return;
-    }
-    if (action === "scroll-to-news") {
-      event.preventDefault();
-      event.stopPropagation();
-      closeNavMenu();
-      if (state.route !== "home") {
-        setRoute("home");
-      }
-      setTimeout(() => {
-        const newsSection = document.querySelector(".home-news-horizontal-section");
-        if (newsSection) {
-          newsSection.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      }, 120);
       return;
     }
     if (action === "logout") {
