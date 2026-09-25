@@ -31,6 +31,10 @@ export function homePage({ t, icon, assetPath, theme, state }) {
   const selectedModel = models.find((m) => m.id === selectedModelId) || models[0];
   const isGenerating = Boolean(agentState.isGenerating);
   const messages = agentState.messages || [];
+  // kurulu ajan yoksa gonder butonu tiklanmasin
+  const hasInstalledAgent = agents.some((a) => a.installed !== false);
+  const selectedInstalled = selectedAgent ? selectedAgent.installed !== false : false;
+  const sendDisabled = isGenerating || !hasInstalledAgent || !selectedInstalled;
 
   // Sohbet geçmişi HTML
   const chatHistoryHtml = messages.length > 0 || isGenerating
@@ -242,8 +246,8 @@ export function homePage({ t, icon, assetPath, theme, state }) {
                 type="button"
                 class="agent-send-btn"
                 data-agent-action="send"
-                title="${t("copilot.send")}"
-                ${isGenerating ? "disabled" : ""}
+                title="${sendDisabled && !isGenerating ? t("copilot.noAgentInstalled") : t("copilot.send")}"
+                ${sendDisabled ? "disabled" : ""}
               >
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                   <path d="M12 4l-6.5 6.5 1.41 1.41L11 7.83V20h2V7.83l4.09 4.08 1.41-1.41L12 4z"/>

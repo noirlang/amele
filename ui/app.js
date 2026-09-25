@@ -1765,6 +1765,8 @@ document.addEventListener("click", async (event) => {
   const agentSend = event.target.closest("[data-agent-action='send'], [data-copilot-action='send']");
   if (agentSend) {
     event.preventDefault();
+    // buton kilitliyse tiklamayi yok say
+    if (agentSend.disabled || agentSend.hasAttribute("disabled")) return;
     const input = document.querySelector("#agent-prompt-input, #copilot-prompt-input");
     const prompt = input ? input.value : (state.agent?.promptDraft || state.copilot?.promptDraft || "");
     submitAgentPrompt(prompt, state, render, showToast, t);

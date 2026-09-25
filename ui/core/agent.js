@@ -213,6 +213,23 @@ export async function submitAgentPrompt(promptText, state, render, showToast, t)
 
   if (!state.agent) initAgent(state, render);
 
+  // hic kurulu ajan yoksa mesaji sohbete dusurmeden dur
+  const agents = state.agent.agents || [];
+  const hasInstalled = agents.some((a) => a.installed !== false);
+  const selId = state.agent.selectedAgent || "agy";
+  const selObj = agents.find((a) => a.id === selId);
+  const selOk = selObj ? selObj.installed !== false : hasInstalled;
+  if (!hasInstalled || !selOk) {
+    const warn = typeof t === "function" ? t("copilot.noAgentInstalled") : null;
+    const msg = warn && warn !== "copilot.noAgentInstalled"
+      ? warn
+      : (state?.language === "en"
+        ? "No AI agent installed. Install at least one agent to continue."
+        : "Kurulu yapay zeka ajanı yok. Devam etmek için en az bir ajanı kurun.");
+    if (showToast) showToast(msg);
+    return;
+  }
+
   // Girdi kutusunu anında temizle
   const inputEl = typeof document !== "undefined"
     ? document.querySelector("#agent-prompt-input, #copilot-prompt-input")
