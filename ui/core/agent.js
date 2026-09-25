@@ -10,31 +10,31 @@ export const DEFAULT_AGENTS = [
   {
     id: "agy",
     name: "Antigravity (AGY)",
-    installed: true,
+    installed: false,
     models: []
   },
   {
     id: "claude",
     name: "Claude Code",
-    installed: true,
+    installed: false,
     models: []
   },
   {
     id: "codex",
     name: "Codex",
-    installed: true,
+    installed: false,
     models: []
   },
   {
     id: "pi",
     name: "Pi",
-    installed: true,
+    installed: false,
     models: []
   },
   {
     id: "opencode",
     name: "OpenCode",
-    installed: true,
+    installed: false,
     models: []
   }
 ];
@@ -215,10 +215,10 @@ export async function submitAgentPrompt(promptText, state, render, showToast, t)
 
   // hic kurulu ajan yoksa mesaji sohbete dusurmeden dur
   const agents = state.agent.agents || [];
-  const hasInstalled = agents.some((a) => a.installed !== false);
+  const hasInstalled = agents.some((a) => a.installed === true);
   const selId = state.agent.selectedAgent || "agy";
   const selObj = agents.find((a) => a.id === selId);
-  const selOk = selObj ? selObj.installed !== false : hasInstalled;
+  const selOk = selObj ? selObj.installed === true : false;
   if (!hasInstalled || !selOk) {
     const warn = typeof t === "function" ? t("copilot.noAgentInstalled") : null;
     const msg = warn && warn !== "copilot.noAgentInstalled"
@@ -226,7 +226,7 @@ export async function submitAgentPrompt(promptText, state, render, showToast, t)
       : (state?.language === "en"
         ? "No AI agent installed. Install at least one agent to continue."
         : "Kurulu yapay zeka ajanı yok. Devam etmek için en az bir ajanı kurun.");
-    if (showToast) showToast(msg);
+    if (showToast) showToast(msg, "warning");
     return;
   }
 

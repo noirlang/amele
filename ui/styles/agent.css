@@ -118,6 +118,12 @@
   color: var(--muted, #a3a3a3);
 }
 
+.agent-textarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  user-select: none;
+}
+
 /* Alt Araç Çubuğu (Toolbar) */
 .agent-toolbar {
   display: flex;
@@ -591,15 +597,19 @@
 }
 
 .agent-send-btn:disabled {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.12);
   color: rgba(255, 255, 255, 0.35);
   cursor: not-allowed;
+  pointer-events: none;
   box-shadow: none;
+  opacity: 0.45;
 }
 
 .theme-light .agent-send-btn:disabled {
   background: rgba(0, 0, 0, 0.1);
   color: rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  opacity: 0.45;
 }
 
 /* Sohbet Geçmişi & Çıktı Alanı */

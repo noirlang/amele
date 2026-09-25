@@ -301,9 +301,115 @@ pub fn report_create_endpoint(body: &[u8]) -> Response {
     }
 }
 
+/// Vaka içindeki edinim türlerini platform ve türe göre gruplayıp sayar.
+fn case_artifacts_summary(case_dir: &Path) -> Value {
+    let mut linux_disk = 0usize;
+    let mut windows_disk = 0usize;
+    #[allow(unused_mut)]
+    let mut other_disk = 0usize;
+    let mut linux_ram = 0usize;
+    let mut windows_ram = 0usize;
+    #[allow(unused_mut)]
+    let mut other_ram = 0usize;
+
+    if let Ok(entries) = fs::read_dir(case_dir.join("ciktilar")) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                let name = path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                if name.ends_with(".sha256") || name.ends_with(".txt") || name.ends_with(".log") {
+                    continue;
+                }
+                if name.contains("linux")
+                    || name.starts_with("sd")
+                    || name.starts_with("nvme")
+                    || name.starts_with("mmc")
+                    || name.contains("loop")
+                {
+                    linux_disk += 1;
+                } else if name.contains("win") || name.contains("physicaldrive") {
+                    windows_disk += 1;
+                } else {
+                    #[cfg(unix)]
+                    {
+                        linux_disk += 1;
+                    }
+                    #[cfg(windows)]
+                    {
+                        windows_disk += 1;
+                    }
+                    #[cfg(not(any(unix, windows)))]
+                    {
+                        other_disk += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    if let Ok(entries) = fs::read_dir(case_dir.join("ram")) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                let name = path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                if name.ends_with(".sha256") || name.ends_with(".txt") || name.ends_with(".log") {
+                    continue;
+                }
+                if name.contains("win") || name.contains("pmem") {
+                    windows_ram += 1;
+                } else if name.contains("linux") || name.contains("avml") || name.contains("lime") {
+                    linux_ram += 1;
+                } else {
+                    #[cfg(unix)]
+                    {
+                        linux_ram += 1;
+                    }
+                    #[cfg(windows)]
+                    {
+                        windows_ram += 1;
+                    }
+                    #[cfg(not(any(unix, windows)))]
+                    {
+                        other_ram += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    let android_count = count_directory_entries(&case_dir.join("android"));
+    let ios_count = count_directory_entries(&case_dir.join("ios"));
+    let docker_count = count_directory_entries(&case_dir.join("docker"));
+    let hash_count = count_directory_entries(&case_dir.join("hash"));
+    let report_count = count_directory_entries(&case_dir.join("raporlar"));
+
+    json!({
+        "linux_disk": linux_disk,
+        "windows_disk": windows_disk,
+        "other_disk": other_disk,
+        "linux_ram": linux_ram,
+        "windows_ram": windows_ram,
+        "other_ram": other_ram,
+        "android": android_count,
+        "ios": ios_count,
+        "docker": docker_count,
+        "hash": hash_count,
+        "report": report_count,
+    })
+}
+
 /// Tek vaka klasörünü API listeleme JSON'una dönüştürür.
 fn case_listing_json(case_name: &str, case_dir: &Path) -> Value {
     let metadata = crate::evidence::read_case_metadata(case_dir);
+    let artifacts = case_artifacts_summary(case_dir);
     json!({
         "case_name": case_name,
         "case_dir": case_dir,
@@ -311,6 +417,7 @@ fn case_listing_json(case_name: &str, case_dir: &Path) -> Value {
         "ram_dir": case_dir.join("ram"),
         "android_dir": case_dir.join("android"),
         "ios_dir": case_dir.join("ios"),
+        "docker_dir": case_dir.join("docker"),
         "created_by": metadata.created_by,
         "created_by_name": metadata.created_by_name,
         "created_at": metadata.created_at,
@@ -318,9 +425,11 @@ fn case_listing_json(case_name: &str, case_dir: &Path) -> Value {
         "ram_count": count_directory_entries(&case_dir.join("ram")),
         "android_count": count_directory_entries(&case_dir.join("android")),
         "ios_count": count_directory_entries(&case_dir.join("ios")),
+        "docker_count": count_directory_entries(&case_dir.join("docker")),
         "hash_count": count_directory_entries(&case_dir.join("hash")),
         "report_count": count_directory_entries(&case_dir.join("raporlar")),
         "manifest_path": case_dir.join("case_manifest.json"),
+        "artifacts": artifacts,
     })
 }
 

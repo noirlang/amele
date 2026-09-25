@@ -45,7 +45,29 @@ pub struct ExecuteCommandRequest {
 
 /// Sistemde kurulu olan yapay zeka CLI araçlarını tespit eder.
 fn check_binary(binary_name: &str) -> Option<String> {
-    if let Ok(output) = Command::new("which").arg(binary_name).output() {
+    let clean = binary_name.trim();
+    if clean.is_empty() {
+        return None;
+    }
+
+    // 1. Doğrudan dosya yolu verilmişse kontrol et
+    let direct_path = std::path::Path::new(clean);
+    if direct_path.is_file() {
+        return Some(clean.to_string());
+    }
+
+    // 2. PATH ortam değişkeni üzerinden tara
+    if let Some(paths) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&paths) {
+            let candidate = dir.join(clean);
+            if candidate.is_file() {
+                return Some(candidate.to_string_lossy().to_string());
+            }
+        }
+    }
+
+    // 3. which komutu
+    if let Ok(output) = Command::new("which").arg(clean).output() {
         if output.status.success() {
             let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
             if !path.is_empty() && std::path::Path::new(&path).exists() {

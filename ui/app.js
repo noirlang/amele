@@ -15,7 +15,7 @@ import { canonicalRamFileName, compactLogLine, escapeHtml, formatBytes } from ".
 import { localText, toolCards, workflows } from "./core/workflows.js";
 import { icon, hydrateIcons, fontIcons } from "./icons.js";
 import { translate } from "./i18n.js";
-import { homePage, metric } from "./pages/home.js";
+import { homePage, metric, renderCaseSidebar } from "./pages/home.js";
 import { toolsPage } from "./pages/tools.js";
 import { renderRadialNav, renderRadialWheelHtml } from "./core/radialNav.js";
 import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel, KNOWN_CONTRIBUTORS } from "./pages/other.js";
@@ -885,6 +885,9 @@ function render() {
   }
 
   hydrateIcons(view);
+  if (state.route === "home" || !state.route) {
+    loadEvidenceCases();
+  }
   if (state.route === "other" && ["evidence", "reports", "history"].includes(state.activeTab)) {
     loadEvidenceCases();
   }
@@ -1393,6 +1396,32 @@ function updateCaseControls() {
     select.value = selected;
     toggleCaseCreateInput(select);
   });
+  updateCaseSidebarDOM();
+}
+
+function updateCaseSidebarDOM() {
+  const sidebar = document.getElementById("home-case-sidebar");
+  if (!sidebar) return;
+
+  const listEl = document.getElementById("case-sidebar-list");
+  if (listEl) {
+    const tempContainer = document.createElement("div");
+    tempContainer.innerHTML = renderCaseSidebar(state, t, icon, escapeHtml);
+    const newListEl = tempContainer.querySelector("#case-sidebar-list");
+    if (newListEl) {
+      listEl.innerHTML = newListEl.innerHTML;
+    }
+    const newCountBadge = tempContainer.querySelector(".case-sidebar-count-badge");
+    const countBadge = sidebar.querySelector(".case-sidebar-count-badge");
+    if (countBadge && newCountBadge) {
+      countBadge.textContent = newCountBadge.textContent;
+    }
+    const newToggleBadge = tempContainer.querySelector(".toggle-badge");
+    const toggleBadge = document.querySelector(".home-case-sidebar-toggle .toggle-badge");
+    if (toggleBadge && newToggleBadge) {
+      toggleBadge.textContent = newToggleBadge.textContent;
+    }
+  }
 }
 
 function caseSelectOptions(selected = "", { allowNew = false } = {}) {
@@ -1765,9 +1794,9 @@ document.addEventListener("click", async (event) => {
   const agentSend = event.target.closest("[data-agent-action='send'], [data-copilot-action='send']");
   if (agentSend) {
     event.preventDefault();
-    // buton kilitliyse tiklamayi yok say
     if (agentSend.disabled || agentSend.hasAttribute("disabled")) return;
     const input = document.querySelector("#agent-prompt-input, #copilot-prompt-input");
+    if (input && (input.disabled || input.hasAttribute("disabled"))) return;
     const prompt = input ? input.value : (state.agent?.promptDraft || state.copilot?.promptDraft || "");
     submitAgentPrompt(prompt, state, render, showToast, t);
     return;
@@ -2243,6 +2272,9 @@ document.addEventListener("keydown", (event) => {
   const input = event.target.closest("[data-agent-input], [data-copilot-input]");
   if (input && event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
+    if (input.disabled || input.hasAttribute("disabled")) return;
+    const sendBtn = document.querySelector("[data-agent-action='send'], [data-copilot-action='send']");
+    if (sendBtn && (sendBtn.disabled || sendBtn.hasAttribute("disabled"))) return;
     const prompt = input.value;
     submitAgentPrompt(prompt, state, render, showToast, t);
   }
@@ -2339,6 +2371,64 @@ async function handleAction(button) {
       showProfileGate();
     } catch (error) {
       showToast(t("profile.logoutFailed", { message: error.message }), "error");
+    }
+    return;
+  }
+
+  if (action === "select-case") {
+    const caseName = button.dataset.caseName;
+    if (caseName) {
+      const found = state.cases.find((c) => c.case_name === caseName);
+      if (found) {
+        state.activeCase = found;
+        state.pendingCaseName = "";
+      } else {
+        state.pendingCaseName = caseName;
+        state.activeCase = { case_name: caseName };
+      }
+      updateCaseControls();
+      showToast(t("case.selected", { name: caseName }) || `Varsayılan vaka: ${caseName}`);
+    }
+    return;
+  }
+
+  if (action === "toggle-case-sidebar") {
+    const sidebar = document.getElementById("home-case-sidebar");
+    const backdrop = document.querySelector(".home-case-sidebar-backdrop");
+    if (sidebar) sidebar.classList.toggle("is-open");
+    if (backdrop) backdrop.classList.toggle("is-open");
+    return;
+  }
+
+  if (action === "close-case-sidebar") {
+    const sidebar = document.getElementById("home-case-sidebar");
+    const backdrop = document.querySelector(".home-case-sidebar-backdrop");
+    if (sidebar) sidebar.classList.remove("is-open");
+    if (backdrop) backdrop.classList.remove("is-open");
+    return;
+  }
+
+  if (action === "refresh-cases") {
+    await loadEvidenceCases({ silent: false });
+    return;
+  }
+
+  if (action === "new-case-prompt") {
+    const defaultName = defaultCaseName();
+    const name = window.prompt(t("case.promptNewName") || "Lütfen oluşturmak istediğiniz yeni vaka adını girin:", defaultName);
+    if (!name || !name.trim()) return;
+    const cleanName = name.trim();
+    try {
+      const result = await apiRequest("/api/evidence-create", {
+        method: "POST",
+        body: JSON.stringify({ case_name: cleanName })
+      });
+      state.activeCase = result;
+      state.pendingCaseName = "";
+      await loadEvidenceCases();
+      showToast(t("case.created", { path: cleanName }));
+    } catch (error) {
+      showToast(t("case.createFailed", { message: error.message }), "error");
     }
     return;
   }

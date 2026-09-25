@@ -31,10 +31,10 @@ export function homePage({ t, icon, assetPath, theme, state }) {
   const selectedModel = models.find((m) => m.id === selectedModelId) || models[0];
   const isGenerating = Boolean(agentState.isGenerating);
   const messages = agentState.messages || [];
-  // kurulu ajan yoksa gonder butonu tiklanmasin
-  const hasInstalledAgent = agents.some((a) => a.installed !== false);
-  const selectedInstalled = selectedAgent ? selectedAgent.installed !== false : false;
-  const sendDisabled = isGenerating || !hasInstalledAgent || !selectedInstalled;
+  // kurulu ajan yoksa gonder butonu ve metin alani kilitlensin
+  const hasInstalledAgent = agents.some((a) => a.installed === true);
+  const selectedInstalled = selectedAgent ? selectedAgent.installed === true : false;
+  const isInputDisabled = isGenerating || !hasInstalledAgent || !selectedInstalled;
 
   // Sohbet geçmişi HTML
   const chatHistoryHtml = messages.length > 0 || isGenerating
@@ -110,7 +110,12 @@ export function homePage({ t, icon, assetPath, theme, state }) {
     ? renderElevationModal(elevationModal, t, escapeHtml, icon)
     : "";
 
+  const caseSidebarHtml = renderCaseSidebar(state, t, icon, escapeHtml);
+
   return `
+    <!-- Sol taraftaki bağımsız vaka seçim paneli (merkezi asla bozmaz) -->
+    ${caseSidebarHtml}
+
     <section class="page page-home">
       <!-- Yapay Zeka Ajan Bölümü (en üstte, ortalı) -->
       <div class="agent-container">
@@ -139,9 +144,16 @@ export function homePage({ t, icon, assetPath, theme, state }) {
             <textarea
               id="agent-prompt-input"
               class="agent-textarea"
-              placeholder="${escapeHtml(t("copilot.placeholder"))}"
+              placeholder="${escapeHtml(
+                !hasInstalledAgent
+                  ? (t("copilot.noAgentInstalled") || "Kurulu yapay zeka ajanı yok. En az bir ajanı kurun.")
+                  : (!selectedInstalled
+                    ? (t("copilot.agentNotInstalled") || "Seçilen ajan kurulu değil.")
+                    : t("copilot.placeholder"))
+              )}"
               rows="2"
               data-agent-input
+              ${isInputDisabled ? "disabled" : ""}
             >${escapeHtml(agentState.promptDraft || "")}</textarea>
           </div>
 
@@ -246,8 +258,14 @@ export function homePage({ t, icon, assetPath, theme, state }) {
                 type="button"
                 class="agent-send-btn"
                 data-agent-action="send"
-                title="${sendDisabled && !isGenerating ? t("copilot.noAgentInstalled") : t("copilot.send")}"
-                ${sendDisabled ? "disabled" : ""}
+                title="${escapeHtml(
+                  !hasInstalledAgent
+                    ? (t("copilot.noAgentInstalled") || "Kurulu yapay zeka ajanı yok")
+                    : (!selectedInstalled
+                      ? (t("copilot.agentNotInstalled") || "Seçilen ajan kurulu değil")
+                      : t("copilot.send"))
+                )}"
+                ${isInputDisabled ? "disabled" : ""}
               >
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                   <path d="M12 4l-6.5 6.5 1.41 1.41L11 7.83V20h2V7.83l4.09 4.08 1.41-1.41L12 4z"/>
@@ -623,3 +641,235 @@ export function metric(label, value, iconName, accent, icon) {
     </div>
   `;
 }
+
+/**
+ * Sol kenarda dikey listelenen vaka paneli.
+ * Ana sayfanın ortalı 880px tasarımını kesinlikle bozmaz.
+ */
+export function renderCaseSidebar(state, t, icon, esc) {
+  const cases = Array.isArray(state?.cases) ? state.cases : [];
+  const activeCaseName = state?.activeCase?.case_name || state?.pendingCaseName || "";
+
+  const casesHtml = cases.length > 0
+    ? cases.map((c) => {
+        const name = c.case_name || "";
+        const isActive = name === activeCaseName;
+        const a = c.artifacts || {};
+
+        // Platform ve araç rozetleri
+        const badges = [];
+
+        // Linux Disk
+        const linuxDiskCount = a.linux_disk || 0;
+        if (linuxDiskCount > 0) {
+          badges.push(`
+            <span class="case-badge badge-linux" title="Linux Disk İmajı: ${linuxDiskCount}">
+              <span class="badge-ico">${icon("linux")}</span>
+              <span class="badge-ico">${icon("disk")}</span>
+              <span class="badge-num">${linuxDiskCount}</span>
+            </span>
+          `);
+        } else if ((c.output_count || 0) > 0 && !(a.windows_disk > 0)) {
+          badges.push(`
+            <span class="case-badge badge-linux" title="Disk İmajı: ${c.output_count}">
+              <span class="badge-ico">${icon("linux")}</span>
+              <span class="badge-ico">${icon("disk")}</span>
+              <span class="badge-num">${c.output_count}</span>
+            </span>
+          `);
+        }
+
+        // Windows Disk
+        const winDiskCount = a.windows_disk || 0;
+        if (winDiskCount > 0) {
+          badges.push(`
+            <span class="case-badge badge-windows" title="Windows Disk İmajı: ${winDiskCount}">
+              <span class="badge-ico">${icon("windows")}</span>
+              <span class="badge-ico">${icon("disk")}</span>
+              <span class="badge-num">${winDiskCount}</span>
+            </span>
+          `);
+        }
+
+        // Linux RAM
+        const linuxRamCount = a.linux_ram || 0;
+        if (linuxRamCount > 0) {
+          badges.push(`
+            <span class="case-badge badge-ram" title="Linux RAM Dökümü: ${linuxRamCount}">
+              <span class="badge-ico">${icon("linux")}</span>
+              <span class="badge-ico">${icon("chip")}</span>
+              <span class="badge-num">${linuxRamCount}</span>
+            </span>
+          `);
+        } else if ((c.ram_count || 0) > 0 && !(a.windows_ram > 0)) {
+          badges.push(`
+            <span class="case-badge badge-ram" title="RAM Dökümü: ${c.ram_count}">
+              <span class="badge-ico">${icon("chip")}</span>
+              <span class="badge-num">${c.ram_count}</span>
+            </span>
+          `);
+        }
+
+        // Windows RAM
+        const winRamCount = a.windows_ram || 0;
+        if (winRamCount > 0) {
+          badges.push(`
+            <span class="case-badge badge-windows" title="Windows RAM Dökümü: ${winRamCount}">
+              <span class="badge-ico">${icon("windows")}</span>
+              <span class="badge-ico">${icon("chip")}</span>
+              <span class="badge-num">${winRamCount}</span>
+            </span>
+          `);
+        }
+
+        // Android
+        const androidCount = a.android || c.android_count || 0;
+        if (androidCount > 0) {
+          badges.push(`
+            <span class="case-badge badge-android" title="Android Edinim: ${androidCount}">
+              <span class="badge-ico">${icon("android")}</span>
+              <span class="badge-num">${androidCount}</span>
+            </span>
+          `);
+        }
+
+        // iOS
+        const iosCount = a.ios || c.ios_count || 0;
+        if (iosCount > 0) {
+          badges.push(`
+            <span class="case-badge badge-ios" title="iOS Yedek: ${iosCount}">
+              <span class="badge-ico">${icon("ios")}</span>
+              <span class="badge-num">${iosCount}</span>
+            </span>
+          `);
+        }
+
+        // Docker
+        const dockerCount = a.docker || c.docker_count || 0;
+        if (dockerCount > 0) {
+          badges.push(`
+            <span class="case-badge badge-docker" title="Docker Konteyner: ${dockerCount}">
+              <span class="badge-ico">${icon("docker")}</span>
+              <span class="badge-num">${dockerCount}</span>
+            </span>
+          `);
+        }
+
+        // Hash
+        const hashCount = a.hash || c.hash_count || 0;
+        if (hashCount > 0) {
+          badges.push(`
+            <span class="case-badge badge-hash" title="Hash Kayıtları: ${hashCount}">
+              <span class="badge-ico">${icon("check")}</span>
+              <span class="badge-num">${hashCount}</span>
+            </span>
+          `);
+        }
+
+        // Rapor
+        const reportCount = a.report || c.report_count || 0;
+        if (reportCount > 0) {
+          badges.push(`
+            <span class="case-badge badge-report" title="Raporlar: ${reportCount}">
+              <span class="badge-ico">${icon("report")}</span>
+              <span class="badge-num">${reportCount}</span>
+            </span>
+          `);
+        }
+
+        const dateStr = c.created_at ? c.created_at.slice(0, 10) : "";
+
+        return `
+          <div
+            class="case-sidebar-card ${isActive ? "active" : ""}"
+            data-action="select-case"
+            data-case-name="${esc(name)}"
+            title="${esc(name)}"
+            role="button"
+            tabindex="0"
+          >
+            <div class="case-sidebar-card-top">
+              <span class="case-sidebar-dot"></span>
+              <span class="case-sidebar-card-name">${esc(name)}</span>
+              ${isActive ? `<span class="case-sidebar-default-tag">${t("case.active") || "Varsayılan"}</span>` : ""}
+            </div>
+            <div class="case-sidebar-badges">
+              ${badges.length > 0 ? badges.join("") : `<span class="case-badge-empty">Henüz edinim yok</span>`}
+            </div>
+            ${dateStr ? `<div class="case-sidebar-date">${esc(dateStr)}</div>` : ""}
+          </div>
+        `;
+      }).join("")
+    : `
+      <div class="case-sidebar-empty">
+        <span class="case-sidebar-empty-icon">${icon("folder")}</span>
+        <p>${t("case.noCases") || "Kayıtlı vaka yok"}</p>
+        <button type="button" class="case-sidebar-create-btn" data-action="new-case-prompt">
+          ${icon("folder")} ${t("case.create") || "Yeni Vaka Oluştur"}
+        </button>
+      </div>
+    `;
+
+  return `
+    <button
+      type="button"
+      class="home-case-sidebar-toggle"
+      data-action="toggle-case-sidebar"
+      title="${t("case.sidebarTitle") || "Vakalar"}"
+      aria-label="Vaka Menüsü"
+    >
+      <span class="toggle-ico">${icon("folder")}</span>
+      <span class="toggle-txt">${t("case.sidebarTitle") || "Vakalar"}</span>
+      <span class="toggle-badge">${cases.length}</span>
+    </button>
+
+    <div class="home-case-sidebar-backdrop" data-action="close-case-sidebar"></div>
+
+    <aside class="home-case-sidebar" id="home-case-sidebar">
+      <div class="case-sidebar-header">
+        <div class="case-sidebar-header-left">
+          <span class="case-sidebar-header-icon">${icon("folder")}</span>
+          <span class="case-sidebar-header-title">${t("case.sidebarTitle") || "Vakalar"}</span>
+          <span class="case-sidebar-count-badge">${cases.length}</span>
+        </div>
+        <div class="case-sidebar-header-right">
+          <button
+            type="button"
+            class="case-sidebar-header-btn"
+            data-action="refresh-cases"
+            title="${t("case.refresh") || "Yenile"}"
+          >
+            ${icon("refresh")}
+          </button>
+          <button
+            type="button"
+            class="case-sidebar-header-btn case-sidebar-close-btn"
+            data-action="close-case-sidebar"
+            title="Kapat"
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="case-sidebar-list" id="case-sidebar-list">
+        ${casesHtml}
+      </div>
+
+      <div class="case-sidebar-footer">
+        <button
+          type="button"
+          class="case-sidebar-new-btn"
+          data-action="new-case-prompt"
+        >
+          <span class="plus-ico">+</span>
+          <span>${t("case.newCase") || "Yeni Vaka Oluştur"}</span>
+        </button>
+      </div>
+    </aside>
+  `;
+}
+
