@@ -142,7 +142,7 @@ export function buildRadialNavItems(state, t, icon, escapeHtml, getAvatarUrl) {
     {
       id: "about",
       label: t("about.title") || "Hakkında",
-      tooltip: t("about.tooltip") || "Hakkında & Geliştirici",
+      tooltip: t("about.tooltip") || t("about.title") || "Hakkında",
       isActive: state.route === "about",
       content: `
         <button
@@ -158,7 +158,7 @@ export function buildRadialNavItems(state, t, icon, escapeHtml, getAvatarUrl) {
     {
       id: "settings",
       label: t("settings.title") || "Ayarlar",
-      tooltip: t("settings.tooltip") || "Ayarlar & Bütünlük",
+      tooltip: t("settings.tooltip") || t("settings.title") || "Ayarlar",
       isActive: state.route === "settings",
       content: `
         <button
