@@ -1450,9 +1450,7 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(circle at 50% 6%, rgba(101, 229, 138, 0.08), transparent 30%),
-    radial-gradient(circle at 86% 38%, rgba(88, 166, 255, 0.06), transparent 32%);
+  background: radial-gradient(circle at 50% 6%, rgba(101, 229, 138, 0.08), transparent 30%);
 }
 
 .page {

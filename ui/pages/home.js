@@ -253,10 +253,8 @@ export function homePage({ t, icon, assetPath, theme, state }) {
       <!-- Yatay Haber Menüsü (Fotoğrafsız, ajanın altında ortada) -->
       <div class="home-news-horizontal-section">
         <div class="news-horizontal-header">
-          <div class="news-horizontal-title">
-            <span class="news-header-icon">${icon ? icon("globe") : ""}</span>
-            <h3>News / Haberler</h3>
-          </div>
+          <span class="news-header-icon">${icon ? icon("globe") : ""}</span>
+          <h3>News / Haberler</h3>
         </div>
 
         <div class="news-horizontal-scroll-container" id="news-horizontal-track">
