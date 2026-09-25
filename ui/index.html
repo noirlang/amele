@@ -56,73 +56,9 @@
           }
         } catch (e) {}
       </script>
-      <aside class="sidebar">
-        <div class="brand-row" onselectstart="return false;" ondragstart="return false;">
-          <div class="brand-mark" id="brand-logo" data-route="home" role="button" aria-label="Amele ana sayfa" tabindex="-1" onselectstart="return false;" ondragstart="return false;" draggable="false"><img id="brand-logo-img" src="./assets/logo/logo.png" alt="" draggable="false" style="pointer-events:none;-webkit-user-drag:none;user-select:none;" /></div>
-          <button class="sidebar-toggle sidebar-collapse-toggle" data-sidebar-toggle="collapse" aria-label="Menüyü daralt" aria-expanded="true">
-            <span data-icon="panel-left-close"></span>
-          </button>
-          <button class="sidebar-toggle sidebar-expand-toggle" data-sidebar-toggle="expand" aria-label="Menüyü genişlet" aria-expanded="false">
-            <span data-icon="panel-left-open"></span>
-          </button>
-        </div>
-
-        <nav class="side-nav" aria-label="Ana menü">
-          <button class="nav-item active" data-route="home">
-            <span data-icon="home"></span>
-            <span data-i18n="nav.home">Ana Sayfa</span>
-          </button>
-          <button class="nav-item" data-route="windows">
-            <span data-icon="windows"></span>
-            <span data-i18n="nav.windows">Windows Araçları</span>
-          </button>
-          <button class="nav-item" data-route="linux">
-            <span data-icon="linux"></span>
-            <span data-i18n="nav.linux">Linux Araçları</span>
-          </button>
-          <button class="nav-item" data-route="docker">
-            <span data-icon="docker"></span>
-            <span data-i18n="nav.docker">Docker Araçları</span>
-          </button>
-          <button class="nav-item" data-route="android">
-            <span data-icon="android"></span>
-            <span data-i18n="nav.android">Android Araçları</span>
-          </button>
-          <button class="nav-item" data-route="ios">
-            <span data-icon="ios"></span>
-            <span data-i18n="nav.ios">iOS Araçları</span>
-          </button>
-          <button class="nav-item" data-route="other">
-            <span data-icon="tiles"></span>
-            <span data-i18n="nav.other">Diğer</span>
-          </button>
-        </nav>
-
-        <div class="sidebar-footer">
-          <span class="version">v0.0.20</span>
-        </div>
-      </aside>
+      <div id="radial-nav-container"></div>
 
       <section class="workspace">
-        <header class="topbar">
-          <div class="topbar-spacer" aria-hidden="true"></div>
-          <div class="top-actions">
-            <button class="top-action profile-action" data-route="profile" aria-label="Profil">
-              <span data-icon="user"></span>
-              <small data-profile-label>Profil</small>
-            </button>
-            <button class="top-action" data-route="help" aria-label="Yardım" title="Yardım">
-              <span data-icon="help"></span>
-            </button>
-            <button class="top-action" data-route="about" aria-label="Hakkında">
-              <span data-icon="info"></span>
-            </button>
-            <button class="top-action" data-route="settings" aria-label="Ayarlar">
-              <span data-icon="settings"></span>
-            </button>
-          </div>
-        </header>
-
         <main id="view" class="view" tabindex="-1"></main>
       </section>
       <div id="profile-gate" class="profile-gate" hidden></div>

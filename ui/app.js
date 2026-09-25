@@ -16,6 +16,8 @@ import { localText, toolCards, workflows } from "./core/workflows.js";
 import { icon, hydrateIcons, fontIcons } from "./icons.js";
 import { translate } from "./i18n.js";
 import { homePage, metric } from "./pages/home.js";
+import { toolsPage } from "./pages/tools.js";
+import { renderRadialNav } from "./core/radialNav.js";
 import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel, KNOWN_CONTRIBUTORS } from "./pages/other.js";
 import { workflowPage, pickerField, field, pageTitle, casePanel } from "./pages/workflow.js";
 import { initDeveloperMode, devLog } from "./developer.js";
@@ -67,6 +69,7 @@ function initialLogMessages(language) {
 const state = {
   route: urlParams.get("route") || "home",
   isDevConsole,
+  navMenu: { isOpen: false, isClosing: false, activeSubmenu: null },
   theme: preferredTheme,
   language: preferredLanguage,
   sidebarCollapsed: preferredSidebarCollapsed,
@@ -895,6 +898,37 @@ function render() {
   if (state.route === "android:logical" || state.route === "android:filesystem" || state.route === "android:ram") loadEvidenceCases();
   if (state.route === "ios") loadEvidenceCases();
   view.focus({ preventScroll: true });
+  renderRadialNavDOM();
+}
+
+function renderRadialNavDOM() {
+  const container = document.getElementById("radial-nav-container");
+  if (!container) return;
+  container.innerHTML = renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl);
+  hydrateIcons(container);
+}
+
+function toggleNavMenu() {
+  if (state.navMenu.isOpen) {
+    closeNavMenu();
+  } else {
+    state.navMenu.isOpen = true;
+    state.navMenu.isClosing = false;
+    state.navMenu.activeSubmenu = null;
+    renderRadialNavDOM();
+  }
+}
+
+function closeNavMenu() {
+  if (!state.navMenu.isOpen || state.navMenu.isClosing) return;
+  state.navMenu.isClosing = true;
+  renderRadialNavDOM();
+  setTimeout(() => {
+    state.navMenu.isOpen = false;
+    state.navMenu.isClosing = false;
+    state.navMenu.activeSubmenu = null;
+    renderRadialNavDOM();
+  }, 220);
 }
 
 function routeGroup(route) {
@@ -973,6 +1007,7 @@ function socialLink(label, url) {
 
 const routes = {
   home: homePage,
+  tools: toolsPage,
   windows: () => toolHub("windows"),
   linux: () => toolHub("linux"),
   android: () => androidPage({ t, icon, pageTitle, state, escapeHtml, backendReady }),
@@ -1539,7 +1574,75 @@ document.addEventListener("mouseup", (event) => {
 window.addEventListener("focus", clearChromeArtifacts);
 clearChromeArtifacts();
 
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && state.navMenu?.isOpen) {
+    closeNavMenu();
+  }
+});
+
 document.addEventListener("click", async (event) => {
+  // Dairesel Gezinti Menüsü (Radial Wheel Nav) İşlemleri
+  const navAction = event.target.closest("[data-nav-action]");
+  if (navAction) {
+    const action = navAction.dataset.navAction;
+    if (action === "toggle-menu") {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleNavMenu();
+      return;
+    }
+    if (action === "close-menu") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeNavMenu();
+      return;
+    }
+    if (action === "open-tools-sub") {
+      event.preventDefault();
+      event.stopPropagation();
+      state.navMenu.activeSubmenu = "tools";
+      renderRadialNavDOM();
+      return;
+    }
+    if (action === "back-to-main") {
+      event.preventDefault();
+      event.stopPropagation();
+      state.navMenu.activeSubmenu = null;
+      renderRadialNavDOM();
+      return;
+    }
+    if (action === "toggle-language") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeNavMenu();
+      const nextLang = state.language === "tr" ? "en" : "tr";
+      setLanguage(nextLang);
+      return;
+    }
+    if (action === "scroll-to-news") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeNavMenu();
+      if (state.route !== "home") {
+        setRoute("home");
+      }
+      setTimeout(() => {
+        const newsSection = document.querySelector(".home-news-horizontal-section");
+        if (newsSection) {
+          newsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 120);
+      return;
+    }
+    if (action === "logout") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeNavMenu();
+      openProfileGate();
+      return;
+    }
+  }
+
   // Özel Agent ve Model Dropdown Açma / Kapama / Seçme
   const toggleAgentMenu = event.target.closest("[data-agent-action='toggle-agent-menu']");
   if (toggleAgentMenu) {
@@ -1840,6 +1943,7 @@ document.addEventListener("click", async (event) => {
 
   const routeButton = event.target.closest("[data-route]");
   if (routeButton) {
+    closeNavMenu();
     if (routeButton.dataset.tab) {
       state.activeTab = routeButton.dataset.tab;
     }

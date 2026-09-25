@@ -1,0 +1,428 @@
+/* ==========================================================================
+   AMELE RADIAL WHEEL NAVIGATION & FLOATING TOP TRIGGER
+   Ported directly from amele.noirlang.tr
+   ========================================================================== */
+
+.nav-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 980;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: navBackdropIn 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  cursor: pointer;
+}
+
+.nav-backdrop.is-closing {
+  animation: navBackdropOut 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes navBackdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes navBackdropOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+:root {
+  --nav-radial-radius: 88px;
+}
+
+@media (max-width: 600px) {
+  :root {
+    --nav-radial-radius: 76px;
+  }
+}
+
+.nav.centered-nav {
+  position: fixed;
+  top: 1.15rem;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  transform: translateX(-50%);
+  width: auto;
+  max-width: 96vw;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+  margin: 0;
+  mix-blend-mode: normal !important;
+  z-index: 990;
+  background: transparent !important;
+  pointer-events: none;
+  transition: top 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav.centered-nav.is-open {
+  top: clamp(120px, 15vh, 142px);
+}
+
+@media (max-width: 600px) {
+  .nav.centered-nav.is-open {
+    top: clamp(105px, 13vh, 122px);
+  }
+}
+
+.nav-center-island {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+/* Pure Logo Trigger with Open/Close Indicator */
+.nav-center-trigger {
+  position: relative;
+  z-index: 1010;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.68rem 0.35rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(18, 18, 20, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  cursor: pointer;
+  user-select: none;
+  transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+              background 220ms ease,
+              border-color 220ms ease,
+              box-shadow 220ms ease;
+}
+
+.nav-center-trigger:hover {
+  transform: scale(1.05);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.75);
+}
+
+.nav-center-trigger:active {
+  transform: scale(0.96);
+}
+
+.nav-center-logo {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.nav-trigger-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(242, 240, 234, 0.75);
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), color 200ms ease;
+}
+
+.nav-center-trigger.is-open .nav-trigger-chevron {
+  transform: rotate(180deg);
+  color: #fff;
+}
+
+/* 360-Degree Radial Wheel Container (Dairesel saçılma) */
+.nav-radial-wheel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.nav-radial-item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 42px;
+  height: 42px;
+  margin-top: -21px;
+  margin-left: -21px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  --tx: calc(var(--nav-radial-radius) * var(--cos));
+  --ty: calc(var(--nav-radial-radius) * var(--sin));
+  transform: translate(var(--tx), var(--ty));
+  animation: radialItemBurstIn 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--btn-index, 0) * 16ms);
+}
+
+.nav-radial-wheel.is-closing .nav-radial-item {
+  animation: radialItemBurstOut 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc((var(--total-btns, 11) - var(--btn-index, 0)) * 10ms);
+}
+
+@keyframes radialItemBurstIn {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.15) rotate(-220deg);
+  }
+  70% {
+    opacity: 1;
+    transform: translate(calc(var(--tx) * 1.08), calc(var(--ty) * 1.08)) scale(1.08) rotate(10deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(var(--tx), var(--ty)) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes radialItemBurstOut {
+  0% {
+    opacity: 1;
+    transform: translate(var(--tx), var(--ty)) scale(1) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.15) rotate(220deg);
+  }
+}
+
+/* Circle Button Wrap & Tooltip */
+.nav-circle-btn-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-circle-tooltip {
+  position: absolute;
+  background: rgba(20, 20, 24, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(242, 240, 234, 0.95);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: 0.32rem 0.68rem;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease;
+  z-index: 1020;
+}
+
+.nav-circle-tooltip.placement-bottom {
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+}
+.nav-circle-btn-wrap:hover .nav-circle-tooltip.placement-bottom {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.nav-circle-tooltip.placement-top {
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+}
+.nav-circle-btn-wrap:hover .nav-circle-tooltip.placement-top {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.nav-circle-tooltip.placement-right {
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+}
+.nav-circle-btn-wrap:hover .nav-circle-tooltip.placement-right {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+.nav-circle-tooltip.placement-left {
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%) translateX(4px);
+}
+.nav-circle-btn-wrap:hover .nav-circle-tooltip.placement-left {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* Round Buttons with Smooth Elevating Hover */
+.nav-circle-btn {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(22, 22, 26, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(242, 240, 234, 0.9);
+  text-decoration: none;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              background 180ms ease,
+              border-color 180ms ease,
+              color 180ms ease,
+              box-shadow 180ms ease;
+}
+
+.nav-circle-btn:hover {
+  transform: scale(1.14);
+  background: rgba(35, 36, 44, 0.98);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #fff;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.8), 0 0 14px rgba(255, 255, 255, 0.12);
+}
+
+.nav-circle-btn:active {
+  transform: scale(0.95);
+}
+
+.nav-circle-btn.is-active {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(45, 46, 56, 0.96);
+  color: #fff;
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.22);
+}
+
+.nav-circle-btn svg,
+.nav-circle-btn .ui-icon {
+  width: 1.08rem;
+  height: 1.08rem;
+  flex: 0 0 auto;
+}
+
+/* Flag inside circle button */
+.nav-circle-flag-btn {
+  padding: 0;
+}
+
+.nav-circle-flag {
+  width: 20px;
+  height: auto;
+  border-radius: 2px;
+  display: block;
+  pointer-events: none;
+}
+
+/* Profile photo inside circle button */
+.nav-circle-profile {
+  padding: 0;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.nav-circle-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
+/* Logout circle button */
+.nav-circle-logout:hover {
+  background: rgba(239, 68, 68, 0.2) !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  color: #fca5a5 !important;
+}
+
+/* Light theme overrides */
+.theme-light .nav-backdrop {
+  background: rgba(245, 242, 233, 0.72);
+}
+
+.theme-light .nav-center-trigger {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.14);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.theme-light .nav-center-trigger:hover {
+  border-color: rgba(0, 0, 0, 0.28);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.14);
+}
+
+.theme-light .nav-trigger-chevron {
+  color: rgba(30, 30, 30, 0.75);
+}
+
+.theme-light .nav-center-trigger.is-open .nav-trigger-chevron {
+  color: #111;
+}
+
+.theme-light .nav-circle-btn {
+  background: rgba(253, 251, 247, 0.96);
+  border-color: rgba(0, 0, 0, 0.14);
+  color: rgba(30, 30, 30, 0.88);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.theme-light .nav-circle-btn:hover {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.35);
+  color: #000;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+}
+
+.theme-light .nav-circle-btn.is-active {
+  border-color: rgba(0, 0, 0, 0.65);
+  background: #ffffff;
+  color: #000;
+  box-shadow: 0 0 14px rgba(0, 0, 0, 0.18);
+}
+
+.theme-light .nav-circle-tooltip {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(0, 0, 0, 0.14);
+  color: rgba(20, 20, 24, 0.95);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+@media (max-width: 600px) {
+  .nav-radial-item {
+    width: 38px;
+    height: 38px;
+    margin-top: -19px;
+    margin-left: -19px;
+  }
+  .nav-circle-btn {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    min-height: 38px;
+  }
+  .nav-circle-btn svg,
+  .nav-circle-btn .ui-icon {
+    width: 0.98rem;
+    height: 0.98rem;
+  }
+  .nav-circle-flag {
+    width: 17px;
+  }
+}
