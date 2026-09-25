@@ -1680,7 +1680,19 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     const cmd = linuxConfirm.dataset.cmd;
     const msgId = linuxConfirm.dataset.msgId;
-    executeAmeleCommand(cmd, null, null, msgId, state, render, showToast, t, true);
+    const pwdInput = document.querySelector("#sudo-password-input");
+    const sudoPassword = pwdInput ? pwdInput.value : null;
+    executeAmeleCommand(cmd, sudoPassword, null, msgId, state, render, showToast, t, true);
+    return;
+  }
+
+  const togglePwd = event.target.closest("[data-elevation-action='toggle-pwd']");
+  if (togglePwd) {
+    event.preventDefault();
+    const pwdInput = document.querySelector("#sudo-password-input");
+    if (pwdInput) {
+      pwdInput.type = pwdInput.type === "password" ? "text" : "password";
+    }
     return;
   }
 
@@ -1689,7 +1701,7 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     const cmd = winConfirm.dataset.cmd;
     const msgId = winConfirm.dataset.msgId;
-    executeAmeleCommand(cmd, null, true, msgId, state, render, showToast, t);
+    executeAmeleCommand(cmd, null, true, msgId, state, render, showToast, t, null, true);
     return;
   }
 
@@ -2056,6 +2068,14 @@ document.addEventListener("input", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  const elevInput = event.target.closest("[data-elevation-input='password']");
+  if (elevInput && event.key === "Enter") {
+    event.preventDefault();
+    const modalConfirmBtn = document.querySelector("[data-elevation-action='confirm-linux']");
+    if (modalConfirmBtn) modalConfirmBtn.click();
+    return;
+  }
+
   const input = event.target.closest("[data-agent-input], [data-copilot-input]");
   if (input && event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();

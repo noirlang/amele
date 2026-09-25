@@ -1036,6 +1036,8 @@ pub fn execute_command_endpoint(body: &[u8]) -> Response {
             if let Some(password) = req.sudo_password.as_deref().filter(|p| !p.is_empty()) {
                 let mut child = match Command::new("sudo")
                     .arg("-S")
+                    .arg("-p")
+                    .arg("")
                     .arg("sh")
                     .arg("-c")
                     .arg(clean_cmd)

@@ -311,7 +311,7 @@ export async function submitAgentPrompt(promptText, state, render, showToast, t)
   }
 }
 
-export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, messageId, state, render, showToast, t, linuxConfirmed, autoFollowUp) {
+export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, messageId, state, render, showToast, t, linuxConfirmed, autoFollowUp = true) {
   if (!cmd || !cmd.trim()) return;
 
   if (!state.agent) initAgent(state, render);
@@ -341,18 +341,6 @@ export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, m
       profile_fullname: prof?.fullName || null
     });
 
-    // yetki gerekirse kullanıcıya sormadan devam et, sistem penceresi kendisi çıkar
-    if (res && res.needs_elevation) {
-      res = await sendCmd({
-        command: finalCmd,
-        sudo_password: null,
-        windows_confirmed: res.os === "windows" ? true : null,
-        linux_confirmed: res.os === "linux" ? true : null,
-        profile_username: prof?.username || null,
-        profile_fullname: prof?.fullName || null
-      });
-    }
-
     if (res && res.needs_elevation) {
       state.agent.elevationModal = {
         isOpen: true,
@@ -363,6 +351,10 @@ export async function executeAmeleCommand(cmd, sudoPassword, windowsConfirmed, m
       };
       state.agent.isExecuting = false;
       render();
+      setTimeout(() => {
+        const inp = document.querySelector("#sudo-password-input");
+        if (inp) inp.focus();
+      }, 50);
       return;
     }
 

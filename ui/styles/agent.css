@@ -1178,24 +1178,73 @@
 .elevation-modal-form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  margin: 12px 0 6px;
 }
 
-.elevation-modal-form input[type="password"] {
+.elevation-modal-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text, #ffffff);
+}
+
+.elevation-input-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.elevation-password-input {
   width: 100%;
-  padding: 10px 14px;
-  background: #0d1117;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 10px 40px 10px 14px;
+  background: var(--bg-2, #0d1117);
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.2));
   border-radius: 8px;
-  color: var(--text);
-  font-size: 14px;
+  color: var(--text, #ffffff);
+  font-size: 13.5px;
   outline: none;
   font-family: inherit;
+  transition: all 0.15s ease;
 }
 
-.elevation-modal-form input[type="password"]:focus {
+.theme-light .elevation-password-input {
+  background: #f6f8fa;
+  border-color: rgba(0, 0, 0, 0.2);
+  color: #1f2328;
+}
+
+.elevation-password-input:focus {
   border-color: #58a6ff;
   box-shadow: 0 0 0 1px #58a6ff;
+}
+
+.elevation-pwd-toggle {
+  position: absolute;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #8b949e);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.15s ease;
+}
+
+.elevation-pwd-toggle:hover {
+  color: var(--text, #ffffff);
+}
+
+.elevation-hint {
+  font-size: 11px;
+  color: var(--text-muted, #8b949e);
+  margin-top: 2px;
 }
 
 .elevation-modal-actions {
