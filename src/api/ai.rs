@@ -418,6 +418,31 @@ fn load_amele_skill_text() -> &'static str {
     include_str!("../../SKILL.md")
 }
 
+/// Agent sorguları için standartlaştırılmış istem talimatı üretir.
+fn format_agent_instruction(
+    prompt: &str,
+    case_name: &str,
+    target_scope: &str,
+    profile_name: &str,
+) -> String {
+    format!(
+        "Sen Amele Adli Bilişim (Digital Forensics) platformunun yapay zeka asistanısın.\n\n\
+        Amele SKILL.md Kural ve Beceri Kılavuzu:\n{}\n\n\
+        Analist Profili / Kullanıcı: {}\n\
+        Aktif Vaka: {}\n\
+        İnceleme Kapsamı: {}\n\n\
+        📌 ZORUNLU YANIT KURALI:\n\
+        Yanıtına MUTLAKA analist profilini, aktif vakayı ve yetki durumunu özetleyen net bir 'Giriş & Durum Tespiti' (Giriş Kısmı) ile başla.\n\
+        Ardından doğrudan çalıştırılabilir Amele CLI komutunu tek satırlık kod bloğu olarak ver.\n\n\
+        Analistin İstemi / Kullanıcı Sorusu: {}",
+        load_amele_skill_text(),
+        profile_name,
+        case_name,
+        target_scope,
+        prompt
+    )
+}
+
 /// Agent ile sohbet sorgusunu çalıştırır.
 pub fn chat_endpoint(body: &[u8]) -> Response {
     let req: ChatRequest = match serde_json::from_slice(body) {
@@ -470,17 +495,11 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
         }))
     }
 
+    let combined = format_agent_instruction(prompt, case_name, target_scope, profile_name);
+
     match agent_id {
         "pi" => {
             let bin = check_binary("pi").unwrap_or_else(|| "pi".to_string());
-            let combined = format!(
-                "Amele Adli Bilişim Kuralları:\n{}\nAktif Vaka: {}\nKapsam: {}\nAktif Profil: {}\nKullanıcı Sorusu: {}",
-                load_amele_skill_text(),
-                case_name,
-                target_scope,
-                profile_name,
-                prompt
-            );
             if model_id.is_empty() {
                 let args = ["-p", combined.as_str()];
                 run_or_fallback("pi", &bin, &args, prompt, case_name, model_id)
@@ -491,14 +510,6 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
         }
         "agy" => {
             let bin = check_binary("agy").unwrap_or_else(|| "agy".to_string());
-            let combined = format!(
-                "You are the Amele Digital Forensics Agent. Amele CLI Skill and Rules:\n{}\n\nActive Case: {}\nScope: {}\nActive Profile: {}\n\nUser Question: {}",
-                load_amele_skill_text(),
-                case_name,
-                target_scope,
-                profile_name,
-                prompt
-            );
             if model_id.is_empty() {
                 let args = ["--print", "--print-timeout", "50s", combined.as_str()];
                 run_or_fallback("agy", &bin, &args, prompt, case_name, model_id)
@@ -516,14 +527,6 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
         }
         "claude" => {
             let bin = check_binary("claude").unwrap_or_else(|| "claude".to_string());
-            let combined = format!(
-                "Amele Adli Bilişim Kuralları:\n{}\nAktif Vaka: {}\nKapsam: {}\nAktif Profil: {}\nKullanıcı Sorusu: {}",
-                load_amele_skill_text(),
-                case_name,
-                target_scope,
-                profile_name,
-                prompt
-            );
             if model_id.is_empty() {
                 let args = ["-p", combined.as_str()];
                 run_or_fallback("claude", &bin, &args, prompt, case_name, model_id)
@@ -534,14 +537,6 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
         }
         "codex" => {
             let bin = check_binary("codex").unwrap_or_else(|| "codex".to_string());
-            let combined = format!(
-                "Amele Adli Bilişim Kuralları:\n{}\nAktif Vaka: {}\nKapsam: {}\nAktif Profil: {}\nKullanıcı Sorusu: {}",
-                load_amele_skill_text(),
-                case_name,
-                target_scope,
-                profile_name,
-                prompt
-            );
             if model_id.is_empty() {
                 let args = ["exec", combined.as_str()];
                 run_or_fallback("codex", &bin, &args, prompt, case_name, model_id)
@@ -552,14 +547,6 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
         }
         "opencode" => {
             let bin = check_binary("opencode").unwrap_or_else(|| "opencode".to_string());
-            let combined = format!(
-                "Amele Adli Bilişim Kuralları:\n{}\nAktif Vaka: {}\nKapsam: {}\nAktif Profil: {}\nKullanıcı Sorusu: {}",
-                load_amele_skill_text(),
-                case_name,
-                target_scope,
-                profile_name,
-                prompt
-            );
             if model_id.is_empty() {
                 let args = ["run", combined.as_str()];
                 run_or_fallback("opencode", &bin, &args, prompt, case_name, model_id)
@@ -641,6 +628,11 @@ Analiste adli bilişim incelemelerinde, disk/RAM/mobil/docker edinimlerinde ve A
 - ADB Durumu: {adb_path}
 - AVML / RAM Aracı: {avml_path}
 - Docker Durumu: {docker_path}
+
+## 📌 Yanıt Formatı ve Giriş Bölümü Zorunluluğu:
+1. Yanıtına MUTLAKA analist profilini ({profile_display}), aktif vakayı ({case_name}) ve inceleme amacını özetleyen net bir **Giriş & Durum Tespiti (Giriş Kısmı)** ile başla.
+2. Adli edinim gereksinimlerini (root/sudo ihtiyacı, vaka adı, hedef blok aygıt) açıkça belirt.
+3. Ardından doğrudan çalıştırılabilir Amele CLI komutunu ve delil bütünlüğü adımlarını ver.
 
 ## 📖 Amele Kural & Beceri Kılavuzu (SKILL.md)
 {skill_text}
@@ -1153,11 +1145,45 @@ pub fn execute_command_endpoint(body: &[u8]) -> Response {
 fn run_amele_rule_engine(prompt: &str, case_name: &str) -> String {
     let lower = prompt.to_lowercase();
 
+    if lower.contains("profil")
+        || lower.contains("profile")
+        || lower.contains("giriş")
+        || lower.contains("login")
+        || lower.contains("oturum")
+    {
+        return format!(
+            "### 1. Giriş & Profil Yönetimi (Oturum Açma)\n\n\
+            Amele adli bilişim incelemelerinde tüm delil zincirinin ve işlemlerin denetlenebilmesi için analist oturumu zorunludur.\n\n\
+            **Profil ile Giriş Yapma / Oturum Açma (Login):**\n\
+            ```bash\n\
+            amele profile use melih --direct\n\
+            ```\n\n\
+            **Yeni Profil Oluşturma & Anında Giriş:**\n\
+            ```bash\n\
+            amele profile create \"Melih Emik\" melih tr dark --direct\n\
+            ```\n\n\
+            **Aktif Oturum ve Profilleri Listeleme:**\n\
+            ```bash\n\
+            amele profile list\n\
+            ```\n\n\
+            **Çevrimiçi Lisans & Yetki Eşitleme:**\n\
+            ```bash\n\
+            amele profile sync\n\
+            ```\n\n\
+            **Oturumu Kapatma (Çıkış):**\n\
+            ```bash\n\
+            amele profile logout\n\
+            ```"
+        );
+    }
+
     if lower.contains("ram") || lower.contains("bellek") || lower.contains("memory") {
         return format!(
-            "### Fiziksel RAM Adli Edinimi\n\n\
-            Amele kurallarına göre canlı sistem RAM edinimi **AVML** (Linux) veya **WinPMEM** (Windows) ile gerçekleştirilir.\n\n\
-            **Önerilen Amele CLI Komutu:**\n\
+            "### 1. Giriş & Durum Tespiti\n\n\
+            - **Aktif Vaka:** `{}`\n\
+            - **İşlem:** Canlı Fiziksel RAM Edinimi (AVML / WinPMEM)\n\
+            - **Yetki Seviyesi:** Root / Sudo Yetkisi Gerekir (Çekirdek Bellek Sayfaları)\n\n\
+            ### 2. Önerilen Amele CLI Komutu\n\
             ```bash\n\
             sudo amele --quiet linux ram --case \"{}\" --hash sha256\n\
             ```\n\n\
@@ -1165,8 +1191,8 @@ fn run_amele_rule_engine(prompt: &str, case_name: &str) -> String {
             ```bash\n\
             amele --quiet linux ram --ssh root@192.168.1.50 --case \"{}\"\n\
             ```\n\n\
-            > Not: RAM edinimi çekirdek bellek sayfalarına doğrudan eriştiği için root yetkisi gerektirir.",
-            case_name, case_name
+            > Not: Canlı RAM edinimi tamamlandığında SHA-256 hash bütünlüğü otomatik hesaplanır.",
+            case_name, case_name, case_name
         );
     }
 
@@ -1176,9 +1202,11 @@ fn run_amele_rule_engine(prompt: &str, case_name: &str) -> String {
         || lower.contains("raw")
     {
         return format!(
-            "### Fiziksel Blok Disk Edinimi\n\n\
-            Amele, hedef diskleri bit-bit raw imaj veya AFF4 adli formatında paketleyerek hash bütünlüğünü anında doğrular.\n\n\
-            **Yerel Disk Edinimi:**\n\
+            "### 1. Giriş & Durum Tespiti\n\n\
+            - **Aktif Vaka:** `{}`\n\
+            - **İşlem:** Fiziksel Blok Disk Edinimi\n\
+            - **Yetki Seviyesi:** Root / Sudo Yetkisi Gerekir (Blok aygıt okuma)\n\n\
+            ### 2. Önerilen Amele CLI Komutu\n\
             ```bash\n\
             sudo amele --quiet linux disk /dev/nvme0n1 --case \"{}\" --format raw --hash sha256\n\
             ```\n\n\
@@ -1187,60 +1215,66 @@ fn run_amele_rule_engine(prompt: &str, case_name: &str) -> String {
             amele --quiet linux disk /dev/sda --agent 10.0.0.15:9000 --token \"GIZLI_TOKEN\" --case \"{}\"\n\
             ```\n\n\
             *Edinim tamamlandığında SHA-256 ve MD5 hash değerleri otomatik hesaplanıp vaka loguna kaydedilir.*",
-            case_name, case_name
+            case_name, case_name, case_name
         );
     }
 
     if lower.contains("android") || lower.contains("adb") || lower.contains("telefon") {
         return format!(
-            "### Android Adli Bilişimi\n\n\
-            Amele Android modülü, ADB veya Wi-Fi üzerinden mantıksal veri, APK dökümleri, çağrı kayıtları ve MFT benzeri dosya sistemini paketler.\n\n\
-            **Android Cihaz Taraması:**\n\
-            ```bash\n\
-            amele --quiet android scan\n\
-            ```\n\n\
-            **Tam Mantıksal Edinim:**\n\
+            "### 1. Giriş & Durum Tespiti\n\n\
+            - **Aktif Vaka:** `{}`\n\
+            - **İşlem:** Android Mobil Adli İnceleme\n\
+            - **Ön Gereksinim:** USB Hata Ayıklama (ADB) Açık Olmalı\n\n\
+            ### 2. Önerilen Amele CLI Komutu\n\
             ```bash\n\
             amele --quiet android acquire --case \"{}\" --all\n\
+            ```\n\n\
+            **Cihaz Taraması:**\n\
+            ```bash\n\
+            amele --quiet android scan\n\
             ```",
-            case_name
+            case_name, case_name
         );
     }
 
     if lower.contains("docker") || lower.contains("konteyner") || lower.contains("container") {
         return format!(
-            "### Docker Konteyner Adli Bilişimi\n\n\
-            Çalışan veya durdurulmuş Docker konteynerlerinden katman diff, ortam değişkenleri (secret scan) ve bellek dökümü alır.\n\n\
-            **Konteyner Adli Analizi:**\n\
+            "### 1. Giriş & Durum Tespiti\n\n\
+            - **Aktif Vaka:** `{}`\n\
+            - **İşlem:** Docker Konteyner Adli İncelemesi & Kaçış Riski\n\
+            - **Yetki Seviyesi:** Docker soket erişimi (sudo / docker grubu)\n\n\
+            ### 2. Önerilen Amele CLI Komutu\n\
             ```bash\n\
             sudo amele --quiet docker inspect amele-web --case \"{}\" --scan-secrets\n\
             ```\n\n\
             *Gizli anahtarlar, API tokenları ve veri tabanı parolaları otomatik olarak tespit edilir.*",
-            case_name
+            case_name, case_name
         );
     }
 
     if lower.contains("vaka") || lower.contains("case") || lower.contains("paket") {
         return format!(
-            "### Vaka Yönetimi ve Bütünlük Doğrulama\n\n\
-            **Aktif Vaka:** `{}`\n\n\
-            **Vaka Bütünlüğünü Doğrulama:**\n\
+            "### 1. Giriş & Durum Tespiti\n\n\
+            - **Aktif Vaka:** `{}`\n\
+            - **İşlem:** Vaka Yönetimi ve Bütünlük Doğrulama\n\n\
+            ### 2. Önerilen Amele CLI Komutu\n\
             ```bash\n\
             amele --quiet case verify --case \"{}\"\n\
             ```\n\n\
-            **Vakayı Şifreli Arşiv Olarak Paketleme:**\n\
+            **Vakayı Taşınabilir İmzalı Pakete Dönüştürme:**\n\
             ```bash\n\
-            amele --quiet case pack --case \"{}\" --output \"{}.tar.gz\" --encrypt\n\
+            amele --quiet case export \"{}\" \"/delil/{}.amelecase\"\n\
             ```",
             case_name, case_name, case_name, case_name
         );
     }
 
     format!(
-        "### Amele Adli Bilişim Asistanı\n\n\
-        Aktif Vaka: **{}**\n\n\
+        "### 1. Giriş & Durum Tespiti\n\n\
+        - **Aktif Vaka:** `{}`\n\
+        - **Platform:** Amele Adli Bilişim Asistanı\n\n\
         Amele platformunda disk edinimi, canlı RAM analizi, Android/iOS mobil edinim, Docker konteyner adli bilişimi ve SSH üzerinden disksiz edinim gerçekleştirebilirsiniz.\n\n\
-        **Örnek Hızlı Komutlar:**\n\
+        ### 2. Hızlı Komutlar:\n\
         - `sudo amele --quiet linux disk /dev/nvme0n1 --case \"{}\"`\n\
         - `sudo amele --quiet linux ram --case \"{}\"`\n\
         - `amele --quiet android scan`\n\
@@ -1296,6 +1330,23 @@ mod tests {
             val["suggested_command"].as_str().unwrap(),
             "sudo amele --quiet linux ram --case \"test_case\" --hash sha256"
         );
+    }
+
+    #[test]
+    fn test_chat_endpoint_profile_login() {
+        let req = serde_json::json!({
+            "prompt": "Giriş yapma ve profil oturumu komutları nelerdir?",
+            "agent": "test-mock",
+            "case_name": "test_case"
+        });
+        let body = serde_json::to_vec(&req).unwrap();
+        let resp = chat_endpoint(&body);
+        assert_eq!(resp.status, 200);
+        let val: serde_json::Value = serde_json::from_slice(&resp.body).unwrap();
+        assert!(val["ok"].as_bool().unwrap());
+        let resp_text = val["response"].as_str().unwrap();
+        assert!(resp_text.contains("Giriş"));
+        assert!(resp_text.contains("amele profile use"));
     }
 
     #[test]
