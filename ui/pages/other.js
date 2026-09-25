@@ -295,9 +295,9 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION, pageT
           </div>
         </article>
 
-        <!-- 3. En Altta Ayrı Div: Copyright & noirLang Linki -->
+        <!-- 3. En Altta Ayrı Div: Copyleft & noirLang Linki -->
         <div class="settings-copyright-bar">
-          <span>Copyright © 2026 <a href="https://noirlang.tr" target="_blank" rel="noopener noreferrer" class="noirlang-link">noirLang</a></span>
+          <span>Copyleft © 2026 <a href="https://noirlang.tr" target="_blank" rel="noopener noreferrer" class="noirlang-link">noirLang</a></span>
         </div>
       </div>
     </section>

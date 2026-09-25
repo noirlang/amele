@@ -915,20 +915,22 @@ button {
 }
 
 .shell {
-  display: grid;
-  grid-template-columns: 260px 1fr;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
   min-height: 100vh;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--bg);
   color: var(--text);
-  transition: grid-template-columns 220ms var(--ease),
-              background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+  transition: background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
               color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .shell.sidebar-collapsed,
 html.sidebar-collapsed .shell {
-  grid-template-columns: 84px 1fr;
+  display: flex;
+  flex-direction: column;
 }
 
 .shell.theme-light {
@@ -954,25 +956,7 @@ html.sidebar-collapsed .shell {
 }
 
 .sidebar {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  padding: 28px 18px;
-  border-right: 1px solid var(--line);
-  background: var(--bg);
-  overflow: hidden;
-  transition: padding 220ms var(--ease),
-              background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
-              border-color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.sidebar-collapsed .sidebar {
-  align-items: center;
-  padding: 22px 12px;
-}
-
-.theme-light .sidebar {
-  background: var(--bg);
+  display: none !important;
 }
 
 .native-webview body {
@@ -1398,25 +1382,14 @@ html.sidebar-collapsed .sidebar-expand-toggle,
 .workspace {
   min-width: 0;
   min-height: 100vh;
-  display: grid;
-  grid-template-rows: 88px 1fr;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .topbar {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  min-width: 0;
-  padding: 0 28px;
-  border-bottom: 1px solid var(--line);
-  background: rgba(6, 11, 16, 0.72);
-  backdrop-filter: blur(22px);
-  transition: background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
-              border-color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.theme-light .topbar {
-  background: rgba(245, 242, 233, 0.72);
+  display: none !important;
 }
 
 .window-title {
@@ -1457,8 +1430,13 @@ html.sidebar-collapsed .sidebar-expand-toggle,
 .view {
   position: relative;
   min-width: 0;
+  width: 100%;
+  flex: 1;
   overflow: auto;
-  padding: 28px;
+  padding: 68px 24px 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   transition: background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
               color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -1470,16 +1448,20 @@ html.sidebar-collapsed .sidebar-expand-toggle,
 .view::before {
   content: "";
   position: fixed;
-  inset: 88px 0 0 260px;
+  inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(circle at 56% 6%, rgba(101, 229, 138, 0.13), transparent 24%),
-    radial-gradient(circle at 86% 38%, rgba(88, 166, 255, 0.08), transparent 26%);
+  background: radial-gradient(circle at 50% 6%, rgba(101, 229, 138, 0.08), transparent 30%);
 }
 
 .page {
   position: relative;
   z-index: 1;
+  max-width: 880px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   animation: page-in 360ms var(--ease);
 }
 
@@ -2098,7 +2080,7 @@ html.sidebar-collapsed .sidebar-expand-toggle,
 }
 
 .tool-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
 .android-mode-grid {
@@ -4260,115 +4242,23 @@ svg.svg-fill path {
 
 @media (max-width: 780px) {
   .shell {
-    grid-template-columns: 1fr;
-  }
-
-  .shell.sidebar-collapsed,
-  html.sidebar-collapsed .shell {
-    grid-template-columns: 80px 1fr !important;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
   }
 
   .sidebar {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    min-height: auto;
-    padding: 12px;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .sidebar-collapsed .sidebar {
-    position: static !important;
-    min-height: 100vh !important;
-    width: 80px !important;
-    min-width: 80px !important;
-    max-width: 80px !important;
-    padding: 20px 8px !important;
-    align-items: center !important;
-    border-right: 1px solid var(--line) !important;
-    border-bottom: 0 !important;
-  }
-
-  .sidebar-collapsed .brand-row {
-    flex-direction: column !important;
-    justify-content: center !important;
-    align-items: center !important;
-    gap: 10px !important;
-    width: 100% !important;
-    padding: 0 !important;
-  }
-
-  .sidebar-collapsed .sidebar-collapse-toggle {
     display: none !important;
-  }
-
-  .sidebar-collapsed .sidebar-expand-toggle {
-    display: inline-grid !important;
-  }
-
-  .side-nav {
-    grid-template-columns: repeat(3, 1fr);
-    margin-top: 12px;
-  }
-
-  .sidebar-collapsed .side-nav {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    gap: 8px !important;
-    margin-top: 8px !important;
-    width: 100% !important;
-  }
-
-  .nav-item {
-    grid-template-columns: 1fr;
-    justify-items: center;
-    gap: 6px;
-    padding: 10px;
-    font-size: 12px;
-  }
-
-  .sidebar-collapsed .nav-item {
-    display: grid !important;
-    grid-template-columns: 1fr !important;
-    place-items: center !important;
-    width: 48px !important;
-    height: 48px !important;
-    min-height: 48px !important;
-    max-width: 48px !important;
-    padding: 0 !important;
-    gap: 0 !important;
-    margin: 0 auto !important;
-    border-radius: 14px !important;
-  }
-
-  .sidebar-collapsed .nav-item span[data-icon] {
-    grid-area: 1 / 1 !important;
-    width: 22px !important;
-    height: 22px !important;
-    min-width: 22px !important;
-    margin: 0 !important;
-  }
-
-  .sidebar-collapsed .nav-item span[data-i18n] {
-    display: none !important;
-    max-width: 0 !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-    transform: none !important;
-  }
-
-  .sidebar-footer {
-    display: none;
   }
 
   .workspace {
-    grid-template-rows: 72px 1fr;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
   }
 
   .topbar {
-    padding: 0 12px;
+    display: none !important;
   }
 
   .window-title {
@@ -4376,11 +4266,11 @@ svg.svg-fill path {
   }
 
   .view {
-    padding: 14px;
+    padding: 56px 14px 24px;
   }
 
   .view::before {
-    inset: 72px 0 0 0;
+    inset: 0;
   }
 
   .hero,

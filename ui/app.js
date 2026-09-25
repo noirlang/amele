@@ -16,10 +16,22 @@ import { localText, toolCards, workflows } from "./core/workflows.js";
 import { icon, hydrateIcons, fontIcons } from "./icons.js";
 import { translate } from "./i18n.js";
 import { homePage, metric } from "./pages/home.js";
+import { toolsPage } from "./pages/tools.js";
+import { renderRadialNav, renderRadialWheelHtml } from "./core/radialNav.js";
 import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel, KNOWN_CONTRIBUTORS } from "./pages/other.js";
 import { workflowPage, pickerField, field, pageTitle, casePanel } from "./pages/workflow.js";
 import { initDeveloperMode, devLog } from "./developer.js";
 import { initJobWidget } from "./core/jobs.js";
+import {
+  initAgent,
+  loadAgents,
+  handleAgentChange,
+  handleModelChange,
+  handleScopeChange,
+  submitAgentPrompt,
+  executeAmeleCommand,
+  getQuickChipPrompt
+} from "./core/agent.js";
 
 const APP_VERSION = "v0.0.20";
 const assetPath = "./assets";
@@ -57,6 +69,7 @@ function initialLogMessages(language) {
 const state = {
   route: urlParams.get("route") || "home",
   isDevConsole,
+  navMenu: { isOpen: false, isClosing: false, activeSubmenu: null },
   theme: preferredTheme,
   language: preferredLanguage,
   sidebarCollapsed: preferredSidebarCollapsed,
@@ -114,8 +127,23 @@ const state = {
   },
   jobs: {},
   cachedDefaultCaseName: "",
+  agent: {
+    agents: [],
+    selectedAgent: "agy",
+    selectedModel: "",
+    selectedScope: "all",
+    selectedMode: "ask",
+    selectedOpt: "balance",
+    promptDraft: "",
+    messages: [],
+    isGenerating: false,
+    isExecuting: false,
+    elevationModal: null
+  },
+  copilot: null,
   lastLog: initialLogMessages(preferredLanguage)
 };
+state.copilot = state.agent;
 
 function t(key, vars = {}) {
   return translate(state.language, key, vars);
@@ -196,6 +224,9 @@ function syncBrandLogo() {
   if (aboutLogo) {
     aboutLogo.src = logoPath;
   }
+  document.querySelectorAll(".nav-center-logo").forEach((img) => {
+    img.src = logoPath;
+  });
 }
 
 function syncSidebarState() {
@@ -870,6 +901,121 @@ function render() {
   if (state.route === "android:logical" || state.route === "android:filesystem" || state.route === "android:ram") loadEvidenceCases();
   if (state.route === "ios") loadEvidenceCases();
   view.focus({ preventScroll: true });
+  renderRadialNavDOM();
+}
+
+let navCloseTimer = null;
+
+function renderRadialNavDOM() {
+  const container = document.getElementById("radial-nav-container");
+  if (!container) return;
+
+  // Menü açıkken veya kapanma animasyonu sürerken dış render çağrılarının DOM'u ezmesini engelle
+  if (state.navMenu.isOpen || state.navMenu.isClosing) {
+    return;
+  }
+
+  container.innerHTML = renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl);
+  hydrateIcons(container);
+}
+
+function openNavMenu() {
+  if (state.navMenu.isClosing) return;
+  if (navCloseTimer) clearTimeout(navCloseTimer);
+  state.navMenu.isOpen = true;
+  state.navMenu.isClosing = false;
+
+  const container = document.getElementById("radial-nav-container");
+  if (!container) return;
+
+  const nav = container.querySelector(".nav.centered-nav");
+  const island = container.querySelector(".nav-center-island");
+  const trigger = container.querySelector(".nav-center-trigger");
+
+  if (nav && island && trigger) {
+    // Varsa eski backdrop ve wheel'i temizle
+    container.querySelector(".nav-backdrop")?.remove();
+    island.querySelector(".nav-radial-wheel")?.remove();
+
+    // Backdrop ekle
+    const backdrop = document.createElement("div");
+    backdrop.className = "nav-backdrop";
+    backdrop.dataset.navAction = "close-menu";
+    backdrop.setAttribute("aria-label", "Kapat");
+    container.insertBefore(backdrop, nav);
+
+    // Çark HTML'ini ekle
+    const wheelHtml = renderRadialWheelHtml(state, t, icon, escapeHtml, getAvatarUrl);
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = wheelHtml;
+    const wheelEl = tempDiv.firstElementChild;
+    if (wheelEl) {
+      island.appendChild(wheelEl);
+      hydrateIcons(wheelEl);
+    }
+
+    // Bir sonraki frame'de sınıfları ekleyerek CSS top ve transform transition'larını tetikle
+    requestAnimationFrame(() => {
+      nav.classList.remove("is-closing");
+      nav.classList.add("is-open");
+      trigger.classList.remove("is-closing");
+      trigger.classList.add("is-open");
+      trigger.setAttribute("aria-expanded", "true");
+      trigger.setAttribute("aria-label", t("nav.closeMenu") || "Menüyü Kapat");
+    });
+  } else {
+    container.innerHTML = renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl);
+    hydrateIcons(container);
+  }
+}
+
+function closeNavMenu() {
+  if (!state.navMenu.isOpen || state.navMenu.isClosing) return;
+  if (navCloseTimer) clearTimeout(navCloseTimer);
+  state.navMenu.isClosing = true;
+
+  const container = document.getElementById("radial-nav-container");
+  if (container) {
+    const backdrop = container.querySelector(".nav-backdrop");
+    const nav = container.querySelector(".nav.centered-nav");
+    const trigger = container.querySelector(".nav-center-trigger");
+    const wheel = container.querySelector(".nav-radial-wheel");
+
+    if (backdrop) backdrop.classList.add("is-closing");
+    if (wheel) wheel.classList.add("is-closing");
+    if (nav) {
+      nav.classList.add("is-closing");
+      nav.classList.remove("is-open");
+    }
+    if (trigger) {
+      trigger.classList.add("is-closing");
+      trigger.classList.remove("is-open");
+      trigger.setAttribute("aria-expanded", "false");
+      trigger.setAttribute("aria-label", t("nav.openMenu") || "Menüyü Aç");
+    }
+  }
+
+  navCloseTimer = setTimeout(() => {
+    state.navMenu.isOpen = false;
+    state.navMenu.isClosing = false;
+    if (container) {
+      container.querySelector(".nav-backdrop")?.remove();
+      container.querySelector(".nav-radial-wheel")?.remove();
+      const nav = container.querySelector(".nav.centered-nav");
+      const trigger = container.querySelector(".nav-center-trigger");
+      nav?.classList.remove("is-closing");
+      trigger?.classList.remove("is-closing");
+    }
+  }, 240);
+}
+
+function toggleNavMenu() {
+  if (state.navMenu.isClosing) return;
+  if (state.navMenu.isOpen) {
+    closeNavMenu();
+  } else {
+    openNavMenu();
+  }
 }
 
 function routeGroup(route) {
@@ -948,6 +1094,7 @@ function socialLink(label, url) {
 
 const routes = {
   home: homePage,
+  tools: toolsPage,
   windows: () => toolHub("windows"),
   linux: () => toolHub("linux"),
   android: () => androidPage({ t, icon, pageTitle, state, escapeHtml, backendReady }),
@@ -1514,7 +1661,232 @@ document.addEventListener("mouseup", (event) => {
 window.addEventListener("focus", clearChromeArtifacts);
 clearChromeArtifacts();
 
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && state.navMenu?.isOpen) {
+    closeNavMenu();
+  }
+});
+
 document.addEventListener("click", async (event) => {
+  // Dairesel Gezinti Menüsü (Radial Wheel Nav) İşlemleri
+  const navAction = event.target.closest("[data-nav-action]");
+  if (navAction) {
+    const action = navAction.dataset.navAction;
+    if (action === "toggle-menu") {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleNavMenu();
+      return;
+    }
+    if (action === "close-menu") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeNavMenu();
+      return;
+    }
+    if (action === "toggle-language") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeNavMenu();
+      const nextLang = state.language === "tr" ? "en" : "tr";
+      setLanguage(nextLang);
+      return;
+    }
+    if (action === "logout") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeNavMenu();
+      openProfileGate();
+      return;
+    }
+  }
+
+  // Özel Agent ve Model Dropdown Açma / Kapama / Seçme
+  const toggleAgentMenu = event.target.closest("[data-agent-action='toggle-agent-menu']");
+  if (toggleAgentMenu) {
+    event.preventDefault();
+    event.stopPropagation();
+    const agentDropdown = document.getElementById("agent-custom-dropdown");
+    const modelDropdown = document.getElementById("model-custom-dropdown");
+    if (modelDropdown) modelDropdown.classList.remove("is-open");
+    if (agentDropdown) {
+      agentDropdown.classList.toggle("is-open");
+    }
+    return;
+  }
+
+  const toggleModelMenu = event.target.closest("[data-agent-action='toggle-model-menu']");
+  if (toggleModelMenu) {
+    event.preventDefault();
+    event.stopPropagation();
+    const agentDropdown = document.getElementById("agent-custom-dropdown");
+    const modelDropdown = document.getElementById("model-custom-dropdown");
+    if (agentDropdown) agentDropdown.classList.remove("is-open");
+    if (modelDropdown) {
+      modelDropdown.classList.toggle("is-open");
+    }
+    return;
+  }
+
+  const selectAgentItem = event.target.closest("[data-agent-action='select-agent-item']");
+  if (selectAgentItem) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (selectAgentItem.classList.contains("disabled")) return;
+    const agentDropdown = document.getElementById("agent-custom-dropdown");
+    if (agentDropdown) agentDropdown.classList.remove("is-open");
+    const agentId = selectAgentItem.dataset.agentId;
+    if (agentId) {
+      handleAgentChange(agentId, state, render);
+    }
+    return;
+  }
+
+  const selectModelItem = event.target.closest("[data-agent-action='select-model-item']");
+  if (selectModelItem) {
+    event.preventDefault();
+    event.stopPropagation();
+    const modelDropdown = document.getElementById("model-custom-dropdown");
+    if (modelDropdown) modelDropdown.classList.remove("is-open");
+    const modelId = selectModelItem.dataset.modelId;
+    if (modelId) {
+      handleModelChange(modelId, state);
+      render();
+    }
+    return;
+  }
+
+  if (!event.target.closest(".agent-custom-dropdown")) {
+    document.querySelectorAll(".agent-custom-dropdown.is-open").forEach((el) => {
+      el.classList.remove("is-open");
+    });
+  }
+
+  const agentSend = event.target.closest("[data-agent-action='send'], [data-copilot-action='send']");
+  if (agentSend) {
+    event.preventDefault();
+    const input = document.querySelector("#agent-prompt-input, #copilot-prompt-input");
+    const prompt = input ? input.value : (state.agent?.promptDraft || state.copilot?.promptDraft || "");
+    submitAgentPrompt(prompt, state, render, showToast, t);
+    return;
+  }
+
+  const agentChip = event.target.closest("[data-agent-chip], [data-copilot-chip]");
+  if (agentChip) {
+    event.preventDefault();
+    const chipType = agentChip.dataset.agentChip || agentChip.dataset.copilotChip;
+    const promptText = getQuickChipPrompt(chipType, state.language === "en");
+    const input = document.querySelector("#agent-prompt-input, #copilot-prompt-input");
+    if (input) {
+      input.value = promptText;
+      input.focus();
+    }
+    if (state.agent) state.agent.promptDraft = promptText;
+    if (state.copilot) state.copilot.promptDraft = promptText;
+    return;
+  }
+
+  const addCtx = event.target.closest("[data-agent-action='add-context'], [data-copilot-action='add-context']");
+  if (addCtx) {
+    event.preventDefault();
+    const caseName = state.activeCase?.case_name || "varsayilan_vaka";
+    const platform = state.platform;
+    const ctxSnippet = ` [@vaka: ${caseName}, @platform: ${platform}] `;
+    const input = document.querySelector("#agent-prompt-input, #copilot-prompt-input");
+    if (input) {
+      input.value = (input.value ? input.value + " " : "") + ctxSnippet;
+      if (state.agent) state.agent.promptDraft = input.value;
+      if (state.copilot) state.copilot.promptDraft = input.value;
+      input.focus();
+    }
+    showToast(t("copilot.contextAdded"));
+    return;
+  }
+
+  const copyCmd = event.target.closest("[data-agent-action='copy-cmd'], [data-copilot-action='copy-cmd']");
+  if (copyCmd) {
+    event.preventDefault();
+    const cmd = copyCmd.dataset.cmd;
+    if (cmd && navigator.clipboard) {
+      navigator.clipboard.writeText(cmd);
+      copyCmd.textContent = t("copilot.copied");
+      setTimeout(() => { copyCmd.textContent = t("copilot.copy"); }, 1800);
+    }
+    return;
+  }
+
+  const runCmd = event.target.closest("[data-agent-action='run-cmd'], [data-copilot-action='run-cmd']");
+  if (runCmd) {
+    event.preventDefault();
+    const cmd = runCmd.dataset.cmd;
+    const msgId = runCmd.dataset.msgId;
+    executeAmeleCommand(cmd, null, null, msgId, state, render, showToast, t, null, true);
+    return;
+  }
+
+  const relaunchBtn = event.target.closest("[data-agent-action='relaunch-terminal']");
+  if (relaunchBtn) {
+    event.preventDefault();
+    const prompt = relaunchBtn.dataset.prompt;
+    const agentId = relaunchBtn.dataset.agentId;
+    const modelId = relaunchBtn.dataset.modelId;
+    if (agentId && state.agent) state.agent.selectedAgent = agentId;
+    if (modelId && state.agent) state.agent.selectedModel = modelId;
+    submitAgentPrompt(prompt, state, render, showToast, t);
+    return;
+  }
+
+  const linuxConfirm = event.target.closest("[data-elevation-action='confirm-linux']");
+  if (linuxConfirm) {
+    event.preventDefault();
+    const cmd = linuxConfirm.dataset.cmd;
+    const msgId = linuxConfirm.dataset.msgId;
+    const pwdInput = document.querySelector("#sudo-password-input");
+    const sudoPassword = pwdInput ? pwdInput.value : null;
+    executeAmeleCommand(cmd, sudoPassword, null, msgId, state, render, showToast, t, true);
+    return;
+  }
+
+  const togglePwd = event.target.closest("[data-elevation-action='toggle-pwd']");
+  if (togglePwd) {
+    event.preventDefault();
+    const pwdInput = document.querySelector("#sudo-password-input");
+    if (pwdInput) {
+      pwdInput.type = pwdInput.type === "password" ? "text" : "password";
+    }
+    return;
+  }
+
+  const winConfirm = event.target.closest("[data-elevation-action='confirm-windows']");
+  if (winConfirm) {
+    event.preventDefault();
+    const cmd = winConfirm.dataset.cmd;
+    const msgId = winConfirm.dataset.msgId;
+    executeAmeleCommand(cmd, null, true, msgId, state, render, showToast, t, null, true);
+    return;
+  }
+
+  const elevCancel = event.target.closest("[data-elevation-action='cancel']");
+  if (elevCancel) {
+    event.preventDefault();
+    if (state.agent) state.agent.elevationModal = null;
+    if (state.copilot) state.copilot.elevationModal = null;
+    render();
+    return;
+  }
+
+  const newsHScroll = event.target.closest("[data-news-h-scroll]");
+  if (newsHScroll) {
+    event.preventDefault();
+    const dir = newsHScroll.dataset.newsHScroll;
+    const track = document.querySelector("#news-horizontal-track");
+    if (track) {
+      const scrollAmount = 320;
+      track.scrollBy({ left: dir === "left" ? -scrollAmount : scrollAmount, behavior: "smooth" });
+    }
+    return;
+  }
+
   const tocBtn = event.target.closest("[data-action='help-toc']");
   if (tocBtn) {
     event.preventDefault();
@@ -1629,6 +2001,7 @@ document.addEventListener("click", async (event) => {
 
   const routeButton = event.target.closest("[data-route]");
   if (routeButton) {
+    closeNavMenu();
     if (routeButton.dataset.tab) {
       state.activeTab = routeButton.dataset.tab;
     }
@@ -1719,6 +2092,31 @@ document.addEventListener("click", async (event) => {
 });
 
 document.addEventListener("change", async (event) => {
+  const agentSelect = event.target.closest("[data-agent-action='change-agent'], [data-copilot-action='change-agent']");
+  if (agentSelect) {
+    handleAgentChange(agentSelect.value, state, render);
+    return;
+  }
+
+  const modelSelect = event.target.closest("[data-agent-action='change-model'], [data-copilot-action='change-model']");
+  if (modelSelect) {
+    handleModelChange(modelSelect.value, state);
+    return;
+  }
+
+  const scopeSelect = event.target.closest("[data-agent-action='change-scope'], [data-copilot-action='change-scope']");
+  if (scopeSelect) {
+    handleScopeChange(scopeSelect.value, state);
+    return;
+  }
+
+  const optSelect = event.target.closest("[data-agent-action='change-opt'], [data-copilot-action='change-opt']");
+  if (optSelect) {
+    if (state.agent) state.agent.selectedOpt = optSelect.value;
+    if (state.copilot) state.copilot.selectedOpt = optSelect.value;
+    return;
+  }
+
   const profileLanguage = event.target.closest("#profile-language");
   if (profileLanguage) {
     captureProfileDraft();
@@ -1820,6 +2218,31 @@ document.addEventListener("change", async (event) => {
   const ramSymbolDir = event.target.closest("#ram-symbol-dir");
   if (ramSymbolDir) {
     state.ramSymbolDirInput = ramSymbolDir.value.trim();
+  }
+});
+
+document.addEventListener("input", (event) => {
+  const input = event.target.closest("[data-agent-input], [data-copilot-input]");
+  if (input) {
+    if (state.agent) state.agent.promptDraft = input.value;
+    if (state.copilot) state.copilot.promptDraft = input.value;
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  const elevInput = event.target.closest("[data-elevation-input='password']");
+  if (elevInput && event.key === "Enter") {
+    event.preventDefault();
+    const modalConfirmBtn = document.querySelector("[data-elevation-action='confirm-linux']");
+    if (modalConfirmBtn) modalConfirmBtn.click();
+    return;
+  }
+
+  const input = event.target.closest("[data-agent-input], [data-copilot-input]");
+  if (input && event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    const prompt = input.value;
+    submitAgentPrompt(prompt, state, render, showToast, t);
   }
 });
 
@@ -4497,6 +4920,9 @@ async function bootApp() {
   }
   render();
   if (state.profileGateVisible) renderProfileGate();
+
+  // Yapay zeka ajanlarını ve modellerini arka planda yükle
+  loadAgents(state, render).catch(() => {});
 
   // Background network tasks and timers (only in real browser / webview, not during Node unit tests)
   const isNodeTest = typeof process !== "undefined" && Boolean(process.versions?.node);

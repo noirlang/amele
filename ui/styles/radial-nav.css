@@ -1,0 +1,445 @@
+/* ==========================================================================
+   AMELE RADIAL WHEEL NAVIGATION & FLOATING TOP TRIGGER
+   Ported directly from amele.noirlang.tr with complete native integration
+   ========================================================================== */
+
+.nav-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 980;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: navBackdropIn 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  cursor: pointer;
+}
+
+.nav-backdrop.is-closing {
+  animation: navBackdropOut 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes navBackdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes navBackdropOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+:root {
+  --nav-radial-radius: 92px;
+}
+
+@media (max-width: 600px) {
+  :root {
+    --nav-radial-radius: 80px;
+  }
+}
+
+.nav.centered-nav {
+  position: fixed;
+  top: 1.15rem;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  transform: translateX(-50%);
+  width: auto;
+  max-width: 96vw;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+  margin: 0;
+  mix-blend-mode: normal !important;
+  z-index: 990;
+  background: transparent !important;
+  pointer-events: none;
+  transition: top 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav.centered-nav.is-open {
+  top: clamp(120px, 15vh, 142px);
+}
+
+.nav.centered-nav.is-closing {
+  top: 1.15rem !important;
+  transition: top 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (max-width: 600px) {
+  .nav.centered-nav.is-open {
+    top: clamp(105px, 13vh, 122px);
+  }
+}
+
+.nav-center-island {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+/* Pure Logo Trigger with Open/Close Indicator */
+.nav-center-trigger {
+  position: relative;
+  z-index: 1010;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.68rem 0.35rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(18, 18, 20, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  cursor: pointer;
+  user-select: none;
+  transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+              background 220ms ease,
+              border-color 220ms ease,
+              box-shadow 220ms ease;
+}
+
+.nav-center-trigger:hover {
+  transform: scale(1.05);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.75);
+}
+
+.nav-center-trigger:active {
+  transform: scale(0.96);
+}
+
+.nav-center-logo {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.nav-trigger-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(242, 240, 234, 0.75);
+  transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1), color 200ms ease;
+}
+
+.nav-center-trigger.is-open .nav-trigger-chevron {
+  transform: rotate(180deg);
+  color: #fff;
+}
+
+.nav-center-trigger.is-closing .nav-trigger-chevron {
+  transform: rotate(0deg) !important;
+  color: rgba(242, 240, 234, 0.75) !important;
+}
+
+/* 360-Degree Radial Wheel Container */
+.nav-radial-wheel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.nav-radial-item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40px;
+  height: 40px;
+  margin-top: -20px;
+  margin-left: -20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  --tx: calc(var(--nav-radial-radius) * var(--cos));
+  --ty: calc(var(--nav-radial-radius) * var(--sin));
+  transform: translate(var(--tx), var(--ty));
+  animation: radialItemBurstIn 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--btn-index, 0) * 12ms);
+}
+
+.nav-radial-item:hover,
+.nav-radial-item:focus-within {
+  z-index: 1050;
+}
+
+.nav-radial-wheel.is-closing {
+  pointer-events: none;
+}
+
+.nav-radial-wheel.is-closing .nav-circle-tooltip {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.nav-radial-wheel.is-closing .nav-radial-item {
+  animation: radialItemBurstOut 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--btn-index, 0) * 3ms);
+}
+
+@keyframes radialItemBurstIn {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.15) rotate(-180deg);
+  }
+  75% {
+    opacity: 1;
+    transform: translate(calc(var(--tx) * 1.06), calc(var(--ty) * 1.06)) scale(1.06) rotate(6deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(var(--tx), var(--ty)) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes radialItemBurstOut {
+  0% {
+    opacity: 1;
+    transform: translate(var(--tx), var(--ty)) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--tx), var(--ty)) scale(0.25);
+  }
+}
+
+/* Circle Button Wrap & Tooltip */
+.nav-circle-btn-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-circle-tooltip {
+  position: absolute;
+  background: rgba(20, 20, 24, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(242, 240, 234, 0.95);
+  font-family: var(--font-sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  padding: 0.34rem 0.72rem;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+  z-index: 1060;
+}
+
+.nav-circle-tooltip.placement-bottom {
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+}
+.nav-circle-btn-wrap:hover .nav-circle-tooltip.placement-bottom {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.nav-circle-tooltip.placement-top {
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+}
+.nav-circle-btn-wrap:hover .nav-circle-tooltip.placement-top {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.nav-circle-tooltip.placement-right {
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+}
+.nav-circle-btn-wrap:hover .nav-circle-tooltip.placement-right {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+.nav-circle-tooltip.placement-left {
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%) translateX(4px);
+}
+.nav-circle-btn-wrap:hover .nav-circle-tooltip.placement-left {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* Round Buttons */
+.nav-circle-btn {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(22, 22, 26, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(242, 240, 234, 0.9);
+  text-decoration: none;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              background 180ms ease,
+              border-color 180ms ease,
+              color 180ms ease,
+              box-shadow 180ms ease;
+}
+
+.nav-circle-btn:hover {
+  transform: scale(1.14);
+  background: rgba(35, 36, 44, 0.98);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #fff;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.8), 0 0 14px rgba(255, 255, 255, 0.12);
+}
+
+.nav-circle-btn:active {
+  transform: scale(0.95);
+}
+
+.nav-circle-btn.is-active {
+  border-color: rgba(255, 255, 255, 0.7);
+  background: rgba(45, 46, 56, 0.98);
+  color: #fff;
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.25);
+}
+
+.nav-circle-btn.is-locked {
+  opacity: 0.6;
+}
+
+.nav-circle-btn svg,
+.nav-circle-btn .ui-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: 0 0 auto;
+}
+
+/* Profile photo inside circle button */
+.nav-circle-profile {
+  padding: 0;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.nav-circle-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
+/* Logout circle button */
+.nav-circle-logout:hover {
+  background: rgba(239, 68, 68, 0.2) !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  color: #fca5a5 !important;
+}
+
+/* Light theme overrides */
+.theme-light .nav-backdrop {
+  background: rgba(245, 242, 233, 0.72);
+}
+
+.theme-light .nav-center-trigger {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.14);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.theme-light .nav-center-trigger:hover {
+  border-color: rgba(0, 0, 0, 0.28);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.14);
+}
+
+.theme-light .nav-trigger-chevron {
+  color: rgba(30, 30, 30, 0.75);
+}
+
+.theme-light .nav-center-trigger.is-open .nav-trigger-chevron {
+  color: #111;
+}
+
+.theme-light .nav-center-trigger.is-closing .nav-trigger-chevron {
+  transform: rotate(0deg) !important;
+  color: rgba(30, 30, 30, 0.75) !important;
+}
+
+.theme-light .nav-circle-btn {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.16);
+  color: #1a1a1a;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.theme-light .nav-circle-btn:hover {
+  background: #fdfbf7;
+  border-color: rgba(0, 0, 0, 0.42);
+  color: #000000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+
+.theme-light .nav-circle-btn.is-active {
+  border-color: #111111;
+  background: #ffffff;
+  color: #000000;
+  box-shadow: 0 0 0 1px #111111, 0 6px 18px rgba(0, 0, 0, 0.14);
+}
+
+.theme-light .nav-circle-tooltip {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.2);
+  color: #111111;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+
+@media (max-width: 600px) {
+  .nav-radial-item {
+    width: 36px;
+    height: 36px;
+    margin-top: -18px;
+    margin-left: -18px;
+  }
+  .nav-circle-btn {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+  }
+  .nav-circle-btn svg,
+  .nav-circle-btn .ui-icon {
+    width: 0.92rem;
+    height: 0.92rem;
+  }
+}

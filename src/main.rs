@@ -166,8 +166,8 @@ fn main() {
         Some("settings-default") => print_default_settings(),
         Some("profiles") | Some("profile-list") => profile_list_command(),
         Some("profile-create") => profile_create_command(args.collect()),
-        Some("profile-use") | Some("profile-select") => profile_use_command(args.collect()),
-        Some("profile-logout") => profile_logout_command(),
+        Some("profile-use") | Some("profile-select") | Some("profile-login") | Some("login") => profile_use_command(args.collect()),
+        Some("profile-logout") | Some("logout") => profile_logout_command(),
         Some("profile-online-sync") | Some("online-sync") => profile_online_sync_command(),
         Some("hash") => hash_command(args.collect()),
         Some("disk-list") => disk_list_command_with_args(args.collect()),
@@ -467,7 +467,10 @@ fn is_profile_exempt_command(cmd: Option<&str>, raw_args: &[String]) -> bool {
         | Some("profile-create")
         | Some("profile-use")
         | Some("profile-select")
+        | Some("profile-login")
+        | Some("login")
         | Some("profile-logout")
+        | Some("logout")
         | Some("profile-online-sync")
         | Some("online-sync")
         | Some("update")
@@ -1213,6 +1216,7 @@ KOMUTLAR:
   list                            Yerel ve aktif profilleri listele
   create <isim> <kullanici> [tr|en] [dark|light] [--direct]  Yeni profil olustur
   use <kullanici> [--direct]      Aktif profili sec
+  login <kullanici> [--direct]    Aktif profile giris yap (use ile ayni)
   logout                          Otomatik profil oturumunu kapat
   sync                            Online lisans ve rolleri senkronize et"#,
                 r#"Amele Profile Management Commands
@@ -1224,6 +1228,7 @@ COMMANDS:
   list                            List local and active profiles
   create <name> <user> [tr|en] [dark|light] [--direct] Create new profile
   use <user> [--direct]           Select active profile
+  login <user> [--direct]         Login to profile (alias for use)
   logout                          Disable automatic login
   sync                            Synchronize online licenses and roles"#
             )
@@ -1235,7 +1240,7 @@ COMMANDS:
     match sub {
         "list" => profile_list_command(),
         "create" => profile_create_command(sub_args),
-        "use" | "select" => profile_use_command(sub_args),
+        "use" | "select" | "login" => profile_use_command(sub_args),
         "logout" => profile_logout_command(),
         "sync" | "online-sync" => profile_online_sync_command(),
         other => Err(format!(

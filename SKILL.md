@@ -22,7 +22,7 @@ Bu kılavuz; CLI komutlarının kullanımını, uzak sunucuya Linux/Windows agen
    - [2. Android Mobil Adli Bilişim (`android`)](#2-android-mobil-adli-bilişim)
    - [3. iOS Mobil Adli Bilişim (`ios`)](#3-ios-mobil-adli-bilişim)
    - [4. Docker Konteyner Adli Bilişimi (`docker`)](#4-docker-konteyner-adli-bilişimi)
-   - [5. Profil Yönetimi (`profile`)](#5-profil-yönetimi)
+   - [5. Profil Yönetimi, Oturum & Giriş (`profile`, `login`)](#5-profil-yönetimi-oturum--giriş-profile-login)
    - [6. Vaka Paketleme, Bilgi & Doğrulama (`case`)](#6-vaka-paketleme-bilgi--doğrulama)
    - [7. Bütünlük & İmaj Bağlama (`hash`, `verify`, `mount`)](#7-bütünlük--imaj-bağlama)
    - [8. Sistem & Güncelleme (`update`, `wireguard`, `ui`)](#8-sistem--güncelleme)
@@ -31,9 +31,10 @@ Bu kılavuz; CLI komutlarının kullanımını, uzak sunucuya Linux/Windows agen
    - [Linux Sunucuya Agent Kurulumu (`amele-linux`)](#linux-sunucuya-agent-kurulumu)
    - [Windows Sunucuya Agent Kurulumu (`amele-win`)](#windows-sunucuya-agent-kurulumu)
    - [SSH ile Agent'sız Doğrudan Edinim](#ssh-ile-agentsız-doğrudan-edinim)
-6. [Örnek Olay Müdahale & Edinim Senaryoları](#-örnek-olay-müdahale--edinim-senaryoları)
-7. [Güvenlik Mimarisi & Sertleştirme](#-güvenlik-mimarisi--sertleştirme)
-8. [Sorun Giderme İlkeleri](#-sorun-giderme-ilkeleri)
+6. [Yapay Zeka Asistanı Yanıt Standardı & Giriş Zorunluluğu](#-yapay-zeka-asistanı-yanıt-standardı--giriş-zorunluluğu)
+7. [Örnek Olay Müdahale & Edinim Senaryoları](#-örnek-olay-müdahale--edinim-senaryoları)
+8. [Güvenlik Mimarisi & Sertleştirme](#-güvenlik-mimarisi--sertleştirme)
+9. [Sorun Giderme İlkeleri](#-sorun-giderme-ilkeleri)
 
 ---
 
@@ -260,17 +261,35 @@ amele docker --agent 192.168.1.100 9000 acquire <konteyner_id> vaka1 token123
 
 ---
 
-### 5. Profil Yönetimi
+### 5. Profil Yönetimi, Oturum & Giriş (`profile`, `login`)
 
-Yerel analist profilleri ve `amele.noirlang.tr` lisans eşitlemesi:
+Amele'de delil zinciri (Chain of Custody) ve denetim kayıtları için adli işlemler bir analist profili oturumu altında yürütülür:
 
 ```bash
+# Aktif Oturum Açma / Giriş Yapma (Login)
+amele profile use <kullanici> --direct        # Belirtilen kullanıcı profili ile giriş yap ve aktif oturumu aç
+amele profile use <kullanici>                 # Profili seç
+amele login <kullanici>                       # 'profile use' aliası ile doğrudan profil girişi yap
+
+# Yeni Analist Profili Oluşturma & Anında Giriş
+amele profile create "Melih Emik" melih tr dark --direct  # Profil oluştur ve anında oturumu aç
+
+# Mevcut Profilleri ve Aktif Oturumu Listeleme
 amele profile list                            # Yerel ve aktif profilleri listele
-amele profile create "Melih Emik" melih tr dark --direct  # Yeni profil oluştur
-amele profile use melih --direct              # Aktif profili değiştir
-amele profile logout                          # Otomatik girişi kapat
-amele profile sync                            # Online lisans ve yetkileri senkronize et
+
+# Komut Bazlı Geçici Giriş / Profil Belirtme
+amele --profile <kullanici> <komut>          # Komutu geçici olarak belirtilen analist profili ile çalıştır
+
+# Çevrimiçi (Online) Hesap Girişi & Lisans Eşitleme
+amele profile sync                            # amele.noirlang.tr portal lisansını, rollerini ve mobil yetkilerini senkronize et
+
+# Oturumu Kapatma / Çıkış (Logout)
+amele profile logout                          # Aktif oturumu kapat ve otomatik girişi devre dışı bırak
 ```
+
+> **Önemli Kural:** Aktif bir profil seçilmeden adli edinim komutları çalıştırılamaz. CLI, profil bulunmadığında analistten etkileşimli olarak isim ve kullanıcı adı isteyerek profili oluşturur veya `amele profile use <kullanici>` ile girişi zorunlu tutar.
+> 
+> **Yetki Girişi (Root / Sudo / Administrator):** Blok disk ve canlı RAM erişimi çekirdek yetkisi gerektirir. Linux'ta `sudo amele ...` veya arayüzdeki parola modalı üzerinden sudo parolası tek seferlik verilir. Windows'ta Yönetici izinleri gerekir.
 
 ---
 
@@ -446,10 +465,25 @@ amele linux ram --ssh 192.168.1.100 22 vaka_sunucu root parola123
 
 ---
 
+## 🤖 Yapay Zeka Asistanı Yanıt Standardı & Giriş Zorunluluğu
+
+Yapay zeka asistanı analistten gelen her komut üretme veya adli analiz isteminde yanıtını **her zaman adli bağlamı içeren net bir Giriş bölümü** ile sunmalıdır:
+
+1. **Giriş ve Oturum Bilgisi (Giriş Kısmı):**
+   - **Analist Oturumu:** Aktif analist profili (`@{kullanici}`) ve oturum durumu (`amele profile use`).
+   - **Aktif Vaka ve Kapsam:** Vaka adı (`--case <vaka>`) ve hedef ortam (Linux, Windows, Android, Docker).
+   - **Yetki Seviyesi:** Komutun root (sudo) veya Yönetici yetkisi gerektirip gerektirmediği.
+2. **Doğrudan Çalıştırılabilir Amele CLI Komutu:**
+   - Adli delil kuralına göre tek satırda net, hatasız ve doğrudan çalıştırılabilir komut bloğu.
+3. **Bütünlük & Sonraki Adım:**
+   - Hash doğrulama (SHA-256) ve vaka paketleme adımları.
+
+---
+
 ## 🎯 Örnek Olay Müdahale & Edinim Senaryoları
 
 ### Senaryo 1: Ele Geçirilen Bir Linux Web Sunucusunun Tam Triage'ı
-1. **Adli Vakayı Başlatın:**
+1. **Giriş & Adli Oturumu Başlatın:**
    ```bash
    amele profile use melih --direct
    ```

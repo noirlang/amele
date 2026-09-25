@@ -12,7 +12,7 @@ pub fn route_request(method: &str, raw_path: &str, body: &[u8]) -> Response {
 
     let path = raw_path.split('?').next().unwrap_or("/");
     if path.starts_with("/api/") {
-        return api::route_api(method, path, body);
+        return api::route_api(method, raw_path, body);
     }
 
     if method != "GET" && method != "HEAD" {
