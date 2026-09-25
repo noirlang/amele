@@ -115,7 +115,7 @@ export function renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl) {
     {
       id: "other",
       label: t("nav.other") || "Diğer",
-      tooltip: t("nav.other") || "Diğer (Delil, Rapor, Hash)",
+      tooltip: t("nav.otherTooltip") || "Diğer (Delil, Rapor, Hash)",
       isActive: state.route === "other",
       content: `
         <button
@@ -147,7 +147,7 @@ export function renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl) {
     {
       id: "about",
       label: t("about.title") || "Hakkında",
-      tooltip: t("about.title") || "Hakkında & Geliştirici",
+      tooltip: t("about.tooltip") || "Hakkında & Geliştirici",
       isActive: state.route === "about",
       content: `
         <button
@@ -163,7 +163,7 @@ export function renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl) {
     {
       id: "settings",
       label: t("settings.title") || "Ayarlar",
-      tooltip: t("settings.title") || "Ayarlar & Bütünlük",
+      tooltip: t("settings.tooltip") || "Ayarlar & Bütünlük",
       isActive: state.route === "settings",
       content: `
         <button
@@ -199,7 +199,7 @@ export function renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl) {
     {
       id: "logout",
       label: t("nav.logout") || "Çıkış",
-      tooltip: t("nav.logout") || "Profili Değiştir / Çıkış",
+      tooltip: t("nav.logoutTooltip") || "Profili Değiştir / Çıkış",
       content: `
         <button
           type="button"
