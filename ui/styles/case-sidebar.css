@@ -59,10 +59,20 @@
   z-index: 85 !important;
 }
 
+/* Container pointer-events güvencesi */
+#case-sidebar-container {
+  position: static;
+  pointer-events: none;
+}
+
+#case-sidebar-container > * {
+  pointer-events: auto;
+}
+
 /* Ana sol panel container */
 .home-case-sidebar {
   position: fixed !important;
-  left: 20px !important;
+  left: max(20px, calc(50% - 440px - 250px - 24px)) !important;
   top: 76px !important;
   bottom: 24px !important;
   width: 250px !important;
@@ -520,12 +530,15 @@
 
 /* ============================================================
    Responsive Kuralları:
-   1200px ve üzeri: Solda sabit vaka paneli (merkezi 880px alanı asla bozmaz)
+   1440px ve üzeri: Solda sabit vaka paneli (merkezi 880px alanı asla bozmaz, 24px boşlukla hizalanır)
+   1200px - 1439px: Solda kompakt vaka paneli (230px, merkezi 760px alanı asla örtmez)
    1200px altı: Soldan açılan çekmece (drawer) + sol tetikleyici buton
    ============================================================ */
 @media (max-width: 1199px) {
   .home-case-sidebar {
     transform: translateX(calc(-100% - 30px)) !important;
+    left: 16px !important;
+    width: 260px !important;
   }
 
   .home-case-sidebar.is-open {
@@ -547,10 +560,41 @@
   }
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 1200px) and (max-width: 1439px) {
   .home-case-sidebar {
     transform: none !important;
-    left: 20px !important;
+    left: 16px !important;
+    width: 230px !important;
+  }
+
+  .home-case-sidebar-toggle {
+    display: none !important;
+  }
+
+  .home-case-sidebar-backdrop {
+    display: none !important;
+  }
+
+  .case-sidebar-close-btn {
+    display: none !important;
+  }
+
+  /* 1280px ve 1366px pencerelerde orta içerik ile sol panel çakışmasını sıfırlar */
+  .page-home,
+  .page {
+    max-width: min(760px, calc(100vw - 520px)) !important;
+  }
+
+  .agent-container {
+    max-width: min(700px, 100%) !important;
+  }
+}
+
+@media (min-width: 1440px) {
+  .home-case-sidebar {
+    transform: none !important;
+    left: max(20px, calc(50% - 440px - 250px - 24px)) !important;
+    width: 250px !important;
   }
 
   .home-case-sidebar-toggle {
@@ -565,3 +609,4 @@
     display: none !important;
   }
 }
+
