@@ -134,11 +134,11 @@ export function homePage({ t, icon, assetPath, theme, state }) {
         ${chatHistoryHtml}
 
         <!-- Ajan Giriş Kutusu -->
-        <div class="agent-box">
-          <div class="agent-input-wrapper">
+        <div class="agent-box ${isInputDisabled ? "is-disabled" : ""}">
+          <div class="agent-input-wrapper ${isInputDisabled ? "is-disabled" : ""}">
             <textarea
               id="agent-prompt-input"
-              class="agent-textarea"
+              class="agent-textarea ${isInputDisabled ? "is-disabled" : ""}"
               placeholder="${escapeHtml(
                 !hasInstalledAgent
                   ? (t("copilot.noAgentInstalled") || "Kurulu yapay zeka ajanı yok. En az bir ajanı kurun.")
@@ -148,7 +148,7 @@ export function homePage({ t, icon, assetPath, theme, state }) {
               )}"
               rows="2"
               data-agent-input
-              ${isInputDisabled ? "disabled" : ""}
+              ${isInputDisabled ? "disabled readonly tabindex=\"-1\"" : ""}
             >${escapeHtml(agentState.promptDraft || "")}</textarea>
           </div>
 

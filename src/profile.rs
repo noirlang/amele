@@ -651,6 +651,139 @@ pub fn sync_active_online_profile() -> AmeleResult<LocalProfile> {
     }
 }
 
+/// Aktif online profil hesabı üzerinden amele.noirlang.tr'ye hata/öneri raporu gönderir.
+pub fn submit_online_report(
+    title: &str,
+    description: &str,
+    image_urls: &[String],
+) -> AmeleResult<Value> {
+    let Some(current) = active_profile() else {
+        return Err(AmeleError::new(
+            HataKodu::YetkisizErisim,
+            "Aktif profil bulunmuyor",
+        ));
+    };
+    if current.online.is_none() {
+        return Err(AmeleError::new(
+            HataKodu::YetkisizErisim,
+            "Rapor göndermek için amele.noirlang.tr online hesabınızı bağlamanız gereklidir",
+        ));
+    }
+
+    let token = match load_online_token(&current.username) {
+        Ok(t) if !t.trim().is_empty() => t,
+        _ => {
+            return Err(AmeleError::new(
+                HataKodu::YetkisizErisim,
+                "Online oturum süresi dolmuş. Lütfen yeniden giriş yapın.",
+            ));
+        }
+    };
+
+    let title_clean = title.trim();
+    let desc_clean = description.trim();
+    if title_clean.is_empty() {
+        return Err(AmeleError::new(
+            HataKodu::IcerikGecersiz,
+            "Rapor başlığı boş bırakılamaz",
+        ));
+    }
+    if desc_clean.is_empty() {
+        return Err(AmeleError::new(
+            HataKodu::IcerikGecersiz,
+            "Rapor açıklaması boş bırakılamaz",
+        ));
+    }
+
+    let api_base = load_online_api_base(&current.username)
+        .as_deref()
+        .and_then(normalize_online_api_base)
+        .unwrap_or_else(default_online_api_base_url);
+
+    let payload = serde_json::json!({
+        "title": title_clean,
+        "description": desc_clean,
+        "imageUrls": image_urls,
+    });
+
+    let mut last_error = None;
+    for base in online_api_base_candidates(Some(&api_base)) {
+        let url = format!("{base}/api/reports");
+        match online_post_json_with_session_cookie(&base, &url, Some(&token), &payload) {
+            Ok(resp) => return Ok(resp.value),
+            Err(err) => last_error = Some(err),
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| {
+        AmeleError::new(HataKodu::Baglanti, "Online rapor sunucusuna ulaşılamadı")
+    }))
+}
+
+/// Aktif online profil hesabı için amele.noirlang.tr'ye ekran görüntüsü yükler.
+pub fn upload_online_image(
+    image_bytes: &[u8],
+    filename: &str,
+    content_type: &str,
+) -> AmeleResult<String> {
+    let Some(current) = active_profile() else {
+        return Err(AmeleError::new(
+            HataKodu::YetkisizErisim,
+            "Aktif profil bulunmuyor",
+        ));
+    };
+    if current.online.is_none() {
+        return Err(AmeleError::new(
+            HataKodu::YetkisizErisim,
+            "Görsel yüklemek için online profil gereklidir",
+        ));
+    }
+    let token = load_online_token(&current.username).ok();
+    let api_base = load_online_api_base(&current.username)
+        .as_deref()
+        .and_then(normalize_online_api_base)
+        .unwrap_or_else(default_online_api_base_url);
+
+    let boundary = "----AmeleBoundary7MA4YWxkTrZu0gW";
+    let mut body = Vec::new();
+    body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+    body.extend_from_slice(
+        format!("Content-Disposition: form-data; name=\"image\"; filename=\"{filename}\"\r\n")
+            .as_bytes(),
+    );
+    body.extend_from_slice(format!("Content-Type: {content_type}\r\n\r\n").as_bytes());
+    body.extend_from_slice(image_bytes);
+    body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+
+    let mut last_error = None;
+    for base in online_api_base_candidates(Some(&api_base)) {
+        let url = format!("{base}/api/upload/image");
+        let agent = online_agent();
+        let request = apply_online_headers(agent.post(&url), &base, token.as_deref())
+            .set(
+                "Content-Type",
+                &format!("multipart/form-data; boundary={boundary}"),
+            );
+        match request.send_bytes(&body) {
+            Ok(response) => {
+                let parsed = parse_online_response(response)?;
+                if let Some(url_str) = parsed.value.get("url").and_then(|v| v.as_str()) {
+                    return Ok(url_str.to_string());
+                } else {
+                    return Ok(String::new());
+                }
+            }
+            Err(err) => {
+                last_error = Some(online_request_error("Ekran görüntüsü yüklenemedi", err))
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| {
+        AmeleError::new(HataKodu::Baglanti, "Online yükleme sunucusuna ulaşılamadı")
+    }))
+}
+
 /// Aktif yerel profilden online hesap bağlantısını kaldırır.
 pub fn disconnect_active_online_profile() -> AmeleResult<Option<LocalProfile>> {
     let Some(username) = active_username() else {
@@ -1796,5 +1929,21 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
+    }
+
+    #[test]
+    fn submit_online_report_requires_active_profile_and_non_empty_fields() {
+        // Without active online profile or with empty fields, error is returned
+        let res = submit_online_report("", "description", &[]);
+        assert!(res.is_err());
+
+        let res2 = submit_online_report("title", "", &[]);
+        assert!(res2.is_err());
+    }
+
+    #[test]
+    fn upload_online_image_requires_active_profile() {
+        let res = upload_online_image(b"fake image bytes", "test.png", "image/png");
+        assert!(res.is_err());
     }
 }

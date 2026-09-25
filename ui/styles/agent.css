@@ -118,10 +118,19 @@
   color: var(--muted, #a3a3a3);
 }
 
-.agent-textarea:disabled {
+.agent-input-wrapper.is-disabled,
+.agent-box.is-disabled .agent-input-wrapper {
+  cursor: not-allowed !important;
+}
+
+.agent-textarea:disabled,
+.agent-textarea[readonly],
+.agent-textarea.is-disabled,
+.agent-input-wrapper.is-disabled .agent-textarea {
   opacity: 0.55;
-  cursor: not-allowed;
-  user-select: none;
+  cursor: not-allowed !important;
+  user-select: none !important;
+  pointer-events: none !important;
 }
 
 /* Alt Araç Çubuğu (Toolbar) */

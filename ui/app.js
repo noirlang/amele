@@ -16,6 +16,7 @@ import { localText, toolCards, workflows } from "./core/workflows.js";
 import { icon, hydrateIcons, fontIcons } from "./icons.js";
 import { translate } from "./i18n.js";
 import { homePage, metric, renderCaseSidebar } from "./pages/home.js";
+import { renderReportSidebar } from "./pages/reportSidebar.js";
 import { toolsPage } from "./pages/tools.js";
 import { renderRadialNav, renderRadialWheelHtml } from "./core/radialNav.js";
 import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel, KNOWN_CONTRIBUTORS } from "./pages/other.js";
@@ -139,6 +140,14 @@ const state = {
     isGenerating: false,
     isExecuting: false,
     elevationModal: null
+  },
+  reportDraft: {
+    title: "",
+    description: "",
+    images: [],
+    submitting: false,
+    error: "",
+    success: ""
   },
   copilot: null,
   lastLog: initialLogMessages(preferredLanguage)
@@ -906,6 +915,7 @@ function render() {
   view.focus({ preventScroll: true });
   renderRadialNavDOM();
   renderCaseSidebarDOM();
+  renderReportSidebarDOM();
 }
 
 let navCloseTimer = null;
@@ -936,6 +946,127 @@ function renderCaseSidebarDOM() {
     document.querySelector(".home-case-sidebar-backdrop")?.classList?.add?.("is-open");
   }
   hydrateIcons(container);
+}
+
+function renderReportSidebarDOM() {
+  const container = document.getElementById("report-sidebar-container");
+  if (!container) return;
+  const wasOpen = Boolean(document.getElementById("home-report-sidebar")?.classList?.contains?.("is-open"));
+  const wasBackdropOpen = Boolean(document.querySelector(".home-report-sidebar-backdrop")?.classList?.contains?.("is-open"));
+  container.innerHTML = renderReportSidebar(state, t, icon, escapeHtml);
+  if (wasOpen) {
+    document.getElementById("home-report-sidebar")?.classList?.add?.("is-open");
+  }
+  if (wasBackdropOpen) {
+    document.querySelector(".home-report-sidebar-backdrop")?.classList?.add?.("is-open");
+  }
+  hydrateIcons(container);
+}
+
+function handleReportFile(file) {
+  if (!file) return;
+  if (!file.type.startsWith("image/")) {
+    showToast(t("onlineReport.error", { message: "Yalnızca görsel dosyaları seçilebilir" }) || "Geçersiz dosya türü", "warn");
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    showToast("Görsel 10MB'den büyük olamaz.", "warn");
+    return;
+  }
+  state.reportDraft = state.reportDraft || {};
+  state.reportDraft.images = state.reportDraft.images || [];
+  if (state.reportDraft.images.length >= 5) {
+    showToast("En fazla 5 görsel ekleyebilirsiniz.", "warn");
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    state.reportDraft.images.push({
+      dataUrl: e.target.result,
+      name: file.name,
+      type: file.type,
+      size: file.size
+    });
+    renderReportSidebarDOM();
+  };
+  reader.readAsDataURL(file);
+}
+
+async function handleSubmitReport() {
+  const draft = state.reportDraft || {};
+  const title = (draft.title || "").trim();
+  const description = (draft.description || "").trim();
+  if (!title) {
+    showToast(t("onlineReport.titleRequired") || "Başlık alanı boş bırakılamaz.", "warn");
+    return;
+  }
+  if (!description) {
+    showToast(t("onlineReport.descRequired") || "Açıklama alanı boş bırakılamaz.", "warn");
+    return;
+  }
+
+  const online = state?.activeProfile?.online;
+  const isOnline = Boolean(
+    online &&
+    online.username &&
+    online.status !== "offline" &&
+    online.status !== "session_expired" &&
+    (typeof navigator === "undefined" || navigator.onLine !== false)
+  );
+  if (!isOnline) {
+    showToast(t("onlineReport.lockedDesc") || "Rapor göndermek için online profil bağlayın.", "warn");
+    return;
+  }
+
+  draft.submitting = true;
+  draft.error = "";
+  draft.success = "";
+  renderReportSidebarDOM();
+
+  try {
+    const imageUrls = [];
+    const images = Array.isArray(draft.images) ? draft.images : [];
+    for (const img of images) {
+      if (img.url) {
+        imageUrls.push(img.url);
+      } else if (img.dataUrl) {
+        const uploadRes = await apiRequest("/api/reports/upload-image", {
+          method: "POST",
+          body: JSON.stringify({
+            imageBase64: img.dataUrl,
+            filename: img.name || "screenshot.png",
+            contentType: img.type || "image/png"
+          })
+        });
+        if (uploadRes && uploadRes.url) {
+          imageUrls.push(uploadRes.url);
+        }
+      }
+    }
+
+    await apiRequest("/api/reports/submit", {
+      method: "POST",
+      body: JSON.stringify({
+        title,
+        description,
+        imageUrls
+      })
+    });
+
+    draft.submitting = false;
+    draft.title = "";
+    draft.description = "";
+    draft.images = [];
+    draft.success = t("onlineReport.success") || "Raporunuz başarıyla iletildi!";
+    draft.error = "";
+    showToast(t("onlineReport.success") || "Raporunuz başarıyla iletildi!", "success");
+    renderReportSidebarDOM();
+  } catch (err) {
+    draft.submitting = false;
+    draft.error = err.message || (t("onlineReport.error", { message: err.message }) || "Rapor gönderilemedi");
+    showToast(`Rapor gönderilemedi: ${err.message}`, "error");
+    renderReportSidebarDOM();
+  }
 }
 
 function openNavMenu() {
@@ -1417,6 +1548,7 @@ function updateCaseControls() {
 
 function updateCaseSidebarDOM() {
   renderCaseSidebarDOM();
+  renderReportSidebarDOM();
 }
 
 function caseSelectOptions(selected = "", { allowNew = false } = {}) {
@@ -1692,6 +1824,21 @@ window.addEventListener("keydown", (e) => {
 });
 
 document.addEventListener("click", async (event) => {
+  // Kilitli rapor formu veya devre dışı bırakılmış ajan kutusu tıklandığında kesinlikle işlem yapma
+  const lockedReport = event.target.closest(".report-sidebar-form.is-locked");
+  if (lockedReport && !event.target.closest("[data-action='profile-online-start']")) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+
+  const agentDisabled = event.target.closest(".agent-input-wrapper.is-disabled, .agent-box.is-disabled, #agent-prompt-input[disabled], #agent-prompt-input[readonly]");
+  if (agentDisabled) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+
   // Dairesel Gezinti Menüsü (Radial Wheel Nav) İşlemleri
   const navAction = event.target.closest("[data-nav-action]");
   if (navAction) {
@@ -1800,9 +1947,10 @@ document.addEventListener("click", async (event) => {
   const agentChip = event.target.closest("[data-agent-chip], [data-copilot-chip]");
   if (agentChip) {
     event.preventDefault();
+    const input = document.querySelector("#agent-prompt-input, #copilot-prompt-input");
+    if (input && (input.disabled || input.hasAttribute("disabled") || input.readOnly)) return;
     const chipType = agentChip.dataset.agentChip || agentChip.dataset.copilotChip;
     const promptText = getQuickChipPrompt(chipType, state.language === "en");
-    const input = document.querySelector("#agent-prompt-input, #copilot-prompt-input");
     if (input) {
       input.value = promptText;
       input.focus();
@@ -1815,10 +1963,11 @@ document.addEventListener("click", async (event) => {
   const addCtx = event.target.closest("[data-agent-action='add-context'], [data-copilot-action='add-context']");
   if (addCtx) {
     event.preventDefault();
+    const input = document.querySelector("#agent-prompt-input, #copilot-prompt-input");
+    if (input && (input.disabled || input.hasAttribute("disabled") || input.readOnly)) return;
     const caseName = state.activeCase?.case_name || "varsayilan_vaka";
     const platform = state.platform;
     const ctxSnippet = ` [@vaka: ${caseName}, @platform: ${platform}] `;
-    const input = document.querySelector("#agent-prompt-input, #copilot-prompt-input");
     if (input) {
       input.value = (input.value ? input.value + " " : "") + ctxSnippet;
       if (state.agent) state.agent.promptDraft = input.value;
@@ -2245,6 +2394,13 @@ document.addEventListener("change", async (event) => {
   if (ramSymbolDir) {
     state.ramSymbolDirInput = ramSymbolDir.value.trim();
   }
+
+  const reportFileInput = event.target.closest("#report-file-input");
+  if (reportFileInput && reportFileInput.files?.[0]) {
+    handleReportFile(reportFileInput.files[0]);
+    reportFileInput.value = "";
+    return;
+  }
 });
 
 document.addEventListener("input", (event) => {
@@ -2290,6 +2446,75 @@ document.addEventListener("input", (event) => {
   const dockerSearch = event.target.closest("[data-docker-action='search']");
   if (dockerSearch) {
     handleDockerAction(event, { apiRequest, setRoute, render });
+  }
+
+  const reportTitle = event.target.closest("#report-title-input");
+  if (reportTitle) {
+    state.reportDraft = state.reportDraft || {};
+    state.reportDraft.title = reportTitle.value;
+    const submitBtn = document.querySelector(".report-sidebar-submit-btn");
+    const desc = state.reportDraft.description || "";
+    if (submitBtn && !state.reportDraft.submitting) {
+      submitBtn.disabled = !reportTitle.value.trim() || !desc.trim();
+    }
+    const countEl = document.querySelector("label[for='report-title-input'] span:last-child");
+    if (countEl) countEl.textContent = `${reportTitle.value.length}/200`;
+  }
+
+  const reportDesc = event.target.closest("#report-desc-input");
+  if (reportDesc) {
+    state.reportDraft = state.reportDraft || {};
+    state.reportDraft.description = reportDesc.value;
+    const submitBtn = document.querySelector(".report-sidebar-submit-btn");
+    const title = state.reportDraft.title || "";
+    if (submitBtn && !state.reportDraft.submitting) {
+      submitBtn.disabled = !title.trim() || !reportDesc.value.trim();
+    }
+    const countEl = document.querySelector("label[for='report-desc-input'] span:last-child");
+    if (countEl) countEl.textContent = `${reportDesc.value.length}/5000`;
+  }
+});
+
+document.addEventListener("dragover", (e) => {
+  const dropzone = e.target.closest("#report-sidebar-dropzone");
+  if (dropzone) {
+    e.preventDefault();
+    dropzone.classList.add("is-dragover");
+  }
+});
+
+document.addEventListener("dragleave", (e) => {
+  const dropzone = e.target.closest("#report-sidebar-dropzone");
+  if (dropzone) {
+    dropzone.classList.remove("is-dragover");
+  }
+});
+
+document.addEventListener("drop", (e) => {
+  const dropzone = e.target.closest("#report-sidebar-dropzone");
+  if (dropzone) {
+    e.preventDefault();
+    dropzone.classList.remove("is-dragover");
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleReportFile(file);
+  }
+});
+
+document.addEventListener("paste", (e) => {
+  if (e.target.closest("#home-report-sidebar")) {
+    const items = e.clipboardData?.items;
+    if (items) {
+      for (const item of items) {
+        if (item.type && item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            handleReportFile(file);
+            break;
+          }
+        }
+      }
+    }
   }
 });
 
@@ -2400,6 +2625,42 @@ async function handleAction(button) {
     const backdrop = document.querySelector(".home-case-sidebar-backdrop");
     if (sidebar) sidebar.classList.remove("is-open");
     if (backdrop) backdrop.classList.remove("is-open");
+    return;
+  }
+
+  if (action === "toggle-report-sidebar") {
+    const sidebar = document.getElementById("home-report-sidebar");
+    const backdrop = document.querySelector(".home-report-sidebar-backdrop");
+    if (sidebar) sidebar.classList.toggle("is-open");
+    if (backdrop) backdrop.classList.toggle("is-open");
+    return;
+  }
+
+  if (action === "close-report-sidebar") {
+    const sidebar = document.getElementById("home-report-sidebar");
+    const backdrop = document.querySelector(".home-report-sidebar-backdrop");
+    if (sidebar) sidebar.classList.remove("is-open");
+    if (backdrop) backdrop.classList.remove("is-open");
+    return;
+  }
+
+  if (action === "report-pick-image") {
+    const fileInput = document.getElementById("report-file-input");
+    if (fileInput) fileInput.click();
+    return;
+  }
+
+  if (action === "report-remove-image") {
+    const idx = parseInt(button.dataset.index, 10);
+    if (!isNaN(idx) && state.reportDraft?.images) {
+      state.reportDraft.images.splice(idx, 1);
+      renderReportSidebarDOM();
+    }
+    return;
+  }
+
+  if (action === "submit-report") {
+    await handleSubmitReport();
     return;
   }
 

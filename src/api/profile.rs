@@ -188,3 +188,78 @@ pub fn profile_logout_endpoint() -> Response {
         Err(err) => json_error(500, err.to_string()),
     }
 }
+
+#[derive(Debug, Deserialize)]
+pub struct OnlineReportSubmitRequest {
+    pub title: String,
+    pub description: String,
+    #[serde(default, rename = "imageUrls", alias = "image_urls")]
+    pub image_urls: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OnlineReportUploadImageRequest {
+    #[serde(rename = "imageBase64", alias = "image_base64")]
+    pub image_base64: String,
+    #[serde(default)]
+    pub filename: Option<String>,
+    #[serde(default, rename = "contentType", alias = "content_type")]
+    pub content_type: Option<String>,
+}
+
+/// amele.noirlang.tr online portalına hata/öneri raporu gönderir.
+pub fn profile_report_submit_endpoint(body: &[u8]) -> Response {
+    let request: OnlineReportSubmitRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+
+    match crate::profile::submit_online_report(
+        &request.title,
+        &request.description,
+        &request.image_urls,
+    ) {
+        Ok(result) => json_ok(json!({ "ok": true, "result": result })),
+        Err(err) => {
+            let status = match err.code {
+                crate::HataKodu::YetkisizErisim | crate::HataKodu::TokenGecersiz => 401,
+                crate::HataKodu::IcerikGecersiz => 400,
+                _ => 500,
+            };
+            json_error(status, err.to_string())
+        }
+    }
+}
+
+/// amele.noirlang.tr online portalına ekran görüntüsü yükler.
+pub fn profile_report_upload_image_endpoint(body: &[u8]) -> Response {
+    let request: OnlineReportUploadImageRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+
+    let base64_str = if let Some(idx) = request.image_base64.find(',') {
+        &request.image_base64[idx + 1..]
+    } else {
+        &request.image_base64
+    };
+
+    use base64::Engine;
+    let image_bytes = match base64::engine::general_purpose::STANDARD.decode(base64_str.trim()) {
+        Ok(bytes) => bytes,
+        Err(err) => return json_error(400, format!("Geçersiz base64 görsel verisi: {err}")),
+    };
+
+    let filename = request
+        .filename
+        .unwrap_or_else(|| "screenshot.png".to_string());
+    let content_type = request
+        .content_type
+        .unwrap_or_else(|| "image/png".to_string());
+
+    match crate::profile::upload_online_image(&image_bytes, &filename, &content_type) {
+        Ok(url) => json_ok(json!({ "ok": true, "url": url })),
+        Err(err) => json_error(500, err.to_string()),
+    }
+}
+

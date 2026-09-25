@@ -42,6 +42,7 @@
 .help-sidebar,
 .help-main-content,
 .home-case-sidebar,
+.home-report-sidebar,
 .news-h-card {
   background: var(--panel) !important;
   background-image: none !important;
@@ -347,7 +348,9 @@ code:not(.help-code-block code) {
 }
 
 .home-case-sidebar,
-.home-case-sidebar-toggle {
+.home-case-sidebar-toggle,
+.home-report-sidebar,
+.home-report-sidebar-toggle {
   isolation: isolate;
   position: fixed !important;
   transition:
@@ -399,6 +402,10 @@ code:not(.help-code-block code) {
 .home-case-sidebar-toggle::before,
 .case-sidebar-header-btn::before,
 .case-sidebar-create-btn::before,
+.home-report-sidebar::before,
+.home-report-sidebar-toggle::before,
+.report-sidebar-submit-btn::before,
+.report-locked-connect-btn::before,
 .agent-dropdown-trigger::before,
 .news-h-btn::before {
   content: "";
@@ -554,6 +561,10 @@ code:not(.help-code-block code) {
 .home-case-sidebar-toggle > *,
 .case-sidebar-header-btn > *,
 .case-sidebar-create-btn > *,
+.home-report-sidebar > *,
+.home-report-sidebar-toggle > *,
+.report-sidebar-submit-btn > *,
+.report-locked-connect-btn > *,
 .agent-dropdown-trigger > *,
 .news-h-btn > * {
   position: relative;
@@ -613,6 +624,10 @@ code:not(.help-code-block code) {
 .home-case-sidebar-toggle:hover::before,
 .case-sidebar-header-btn:hover::before,
 .case-sidebar-create-btn:hover::before,
+.home-report-sidebar:hover::before,
+.home-report-sidebar-toggle:hover::before,
+.report-sidebar-submit-btn:hover::before,
+.report-locked-connect-btn:hover::before,
 .agent-dropdown-trigger:hover::before,
 .news-h-btn:hover::before {
   background: 
@@ -673,6 +688,10 @@ code:not(.help-code-block code) {
 .home-case-sidebar-toggle:hover,
 .case-sidebar-header-btn:hover,
 .case-sidebar-create-btn:hover,
+.home-report-sidebar:hover,
+.home-report-sidebar-toggle:hover,
+.report-sidebar-submit-btn:hover,
+.report-locked-connect-btn:hover,
 .agent-dropdown-trigger:hover,
 .news-h-btn:hover {
   box-shadow: 0 0 24px var(--glow-hover-glow) !important;
@@ -780,6 +799,10 @@ code:not(.help-code-block code) {
 .native-linux .case-sidebar-new-btn,
 .native-linux .case-sidebar-header-btn,
 .native-linux .case-sidebar-create-btn,
+.native-linux .home-report-sidebar,
+.native-linux .home-report-sidebar-toggle,
+.native-linux .report-sidebar-submit-btn,
+.native-linux .report-locked-connect-btn,
 .native-linux .agent-dropdown-trigger,
 .native-linux .agent-send-btn,
 .native-linux .news-h-btn,
@@ -833,6 +856,10 @@ code:not(.help-code-block code) {
 .native-linux .case-sidebar-new-btn::before,
 .native-linux .case-sidebar-header-btn::before,
 .native-linux .case-sidebar-create-btn::before,
+.native-linux .home-report-sidebar::before,
+.native-linux .home-report-sidebar-toggle::before,
+.native-linux .report-sidebar-submit-btn::before,
+.native-linux .report-locked-connect-btn::before,
 .native-linux .agent-dropdown-trigger::before,
 .native-linux .agent-send-btn::before,
 .native-linux .news-h-btn::before,
@@ -888,6 +915,10 @@ code:not(.help-code-block code) {
 .native-linux .case-sidebar-new-btn:hover::before,
 .native-linux .case-sidebar-header-btn:hover::before,
 .native-linux .case-sidebar-create-btn:hover::before,
+.native-linux .home-report-sidebar:hover::before,
+.native-linux .home-report-sidebar-toggle:hover::before,
+.native-linux .report-sidebar-submit-btn:hover::before,
+.native-linux .report-locked-connect-btn:hover::before,
 .native-linux .agent-dropdown-trigger:hover::before,
 .native-linux .agent-send-btn:hover:not(:disabled)::before,
 .native-linux .news-h-btn:hover::before,
