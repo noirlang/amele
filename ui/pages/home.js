@@ -255,7 +255,7 @@ export function homePage({ t, icon, assetPath, theme, state }) {
         <div class="news-horizontal-header">
           <div class="news-horizontal-title">
             <span class="news-header-icon">${icon ? icon("globe") : ""}</span>
-            <h3>${t("news.latestUpdates")}</h3>
+            <h3>News / Haberler</h3>
           </div>
         </div>
 
@@ -327,11 +327,30 @@ function getAgentOfficialSvg(agentId) {
   }
 }
 
+function getAgentDisplayName(agentId) {
+  const id = String(agentId || "").toLowerCase();
+  switch (id) {
+    case "agy":
+    case "antigravity":
+      return "Antigravity (AGY)";
+    case "claude":
+      return "Claude Code";
+    case "codex":
+      return "Codex";
+    case "pi":
+      return "Pi";
+    case "opencode":
+      return "OpenCode";
+    default:
+      return "Amele Ajanı";
+  }
+}
+
 function renderChatMessage(msg, state, t, escapeHtml, iconFn) {
   const isUser = msg.role === "user";
   const authorName = isUser
     ? (state?.activeProfile?.fullName || state?.activeProfile?.username || "melihemik")
-    : (msg.agent ? `${msg.agent.toUpperCase()} (${msg.model || "Expert"})` : "Amele Ajanı");
+    : (msg.agent ? (msg.model ? `${getAgentDisplayName(msg.agent)} (${msg.model})` : getAgentDisplayName(msg.agent)) : "Amele Ajanı");
 
   const formattedContent = formatSimpleMarkdown(msg.content);
 
@@ -348,6 +367,30 @@ function renderChatMessage(msg, state, t, escapeHtml, iconFn) {
     ? renderCommandCard(msg.suggested_command, msg.id, msg.execResult, state, t, escapeHtml, iconFn)
     : "";
 
+  const isEn = state?.language === "en";
+  const relaunchBtnHtml = (!isUser && msg.prompt)
+    ? `
+      <div class="agent-msg-actions">
+        <button
+          type="button"
+          class="agent-relaunch-btn"
+          data-agent-action="relaunch-terminal"
+          data-prompt="${escapeHtml(msg.prompt)}"
+          data-agent-id="${escapeHtml(rawAgentId)}"
+          data-model-id="${escapeHtml(msg.model || "")}"
+        >
+          <span class="inline-ico">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="4 17 10 11 4 5"></polyline>
+              <line x1="12" y1="19" x2="20" y2="19"></line>
+            </svg>
+          </span>
+          <span>${isEn ? "Open in Terminal" : "Terminalde Yeniden Aç"}</span>
+        </button>
+      </div>
+    `
+    : "";
+
   return `
     <div class="agent-msg ${isUser ? "user" : "assistant"}" data-msg-id="${msg.id}">
       <div class="agent-msg-header">
@@ -357,6 +400,7 @@ function renderChatMessage(msg, state, t, escapeHtml, iconFn) {
       <div class="agent-msg-body">
         ${formattedContent}
       </div>
+      ${relaunchBtnHtml}
       ${commandCardHtml}
     </div>
   `;

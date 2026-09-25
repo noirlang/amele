@@ -68,6 +68,7 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
         ("GET", "/api/ai/agents") => ai::get_agents_endpoint(),
         ("GET", "/api/ai/models") => ai::get_models_endpoint(path),
         ("POST", "/api/ai/chat") => ai::chat_endpoint(body),
+        ("POST", "/api/ai/launch-terminal") => ai::launch_terminal_endpoint(body),
         ("POST", "/api/ai/execute-command") => ai::execute_command_endpoint(body),
         ("GET", "/api/settings-default") => {
             crate::logging::runtime_log(

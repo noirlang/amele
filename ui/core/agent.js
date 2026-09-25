@@ -39,6 +39,25 @@ export const DEFAULT_AGENTS = [
   }
 ];
 
+export function getAgentDisplayName(agentId) {
+  const id = String(agentId || "").toLowerCase();
+  switch (id) {
+    case "agy":
+    case "antigravity":
+      return "Antigravity (AGY)";
+    case "claude":
+      return "Claude Code";
+    case "codex":
+      return "Codex";
+    case "pi":
+      return "Pi";
+    case "opencode":
+      return "OpenCode";
+    default:
+      return "Amele Ajanı";
+  }
+}
+
 export function initAgent(state, render) {
   if (!state.agent) {
     state.agent = {
@@ -194,9 +213,18 @@ export async function submitAgentPrompt(promptText, state, render, showToast, t)
 
   if (!state.agent) initAgent(state, render);
 
-  // üst üste gönderimde kitlenmesin diye kontrol
-  if (state.agent.isGenerating) return;
+  // Girdi kutusunu anında temizle
+  const inputEl = typeof document !== "undefined"
+    ? document.querySelector("#agent-prompt-input, #copilot-prompt-input")
+    : null;
+  if (inputEl) inputEl.value = "";
+  state.agent.promptDraft = "";
 
+  const selectedAgent = state.agent.selectedAgent || "agy";
+  const agentObj = state.agent.agents?.find((a) => a.id === selectedAgent);
+  const agentName = agentObj?.name || getAgentDisplayName(selectedAgent);
+
+  // Kullanıcı mesajını geçmişe ekle
   state.agent.messages.push({
     id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     role: "user",
@@ -204,14 +232,11 @@ export async function submitAgentPrompt(promptText, state, render, showToast, t)
     timestamp: Date.now()
   });
 
-  state.agent.promptDraft = "";
   state.agent.isGenerating = true;
   render();
   scrollChatToBottom();
 
-  // backend takılırsa sonsuz beklemesin diye 120sn timeout
-  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-  const timeoutId = controller ? setTimeout(() => controller.abort(), 120000) : null;
+  const isEn = state?.language === "en";
 
   try {
     const prof = state.activeProfile || null;
@@ -220,52 +245,65 @@ export async function submitAgentPrompt(promptText, state, render, showToast, t)
     const caseName = await ensureAgentCase(state);
     const payload = {
       prompt: cleanPrompt,
-      agent: state.agent.selectedAgent || "agy",
+      agent: selectedAgent,
       model: state.agent.selectedModel || null,
       case_name: caseName,
       target_scope: state.agent.selectedScope || "all",
-      profile_name: profName && profUser ? `${profName} (${profUser})` : (profName || profUser || null)
+      profile_name: profName && profUser ? `${profName} (${profUser})` : (profName || profUser || null),
+      profile_username: profUser || null,
+      profile_fullname: profName || null
     };
 
-    const reqOptions = {
+    const res = await apiRequest("/api/ai/launch-terminal", {
       method: "POST",
       body: JSON.stringify(payload)
-    };
-    if (controller) reqOptions.signal = controller.signal;
+    });
 
-    const res = await apiRequest("/api/ai/chat", reqOptions);
-
-    if (timeoutId) clearTimeout(timeoutId);
+    state.agent.isGenerating = false;
 
     if (res && res.ok) {
+      const termName = res.terminal || "terminal";
+      const confirmText = isEn
+        ? `Interactive terminal session opened for **${agentName}** via \`${termName}\`.\nPrompt sent and Amele forensic skill loaded.\nConversation is active directly in your terminal.`
+        : `**${agentName}** için etkileşimli terminal oturumu (\`${termName}\`) açıldı.\nİstem ve Amele adli bilişim kuralları aktarıldı.\nGörüşmeye doğrudan açılan terminal penceresinden devam edebilirsiniz.`;
+
       state.agent.messages.push({
         id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         role: "assistant",
-        content: res.response || "",
-        agent: res.agent,
-        model: res.model,
-        suggested_command: res.suggested_command,
+        content: confirmText,
+        agent: selectedAgent,
+        model: state.agent.selectedModel,
+        prompt: cleanPrompt,
         timestamp: Date.now()
       });
+
+      if (showToast) {
+        showToast(isEn ? `Terminal launched: ${agentName}` : `Terminal açıldı: ${agentName}`);
+      }
     } else {
+      const errMsg = res?.error || (isEn ? "Failed to launch terminal." : "Terminal başlatılamadı.");
       state.agent.messages.push({
         id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         role: "assistant",
-        content: "Ajan sorgusu tamamlanamadı veya bir hata oluştu.",
+        content: errMsg,
+        agent: selectedAgent,
         timestamp: Date.now()
       });
+      if (showToast) showToast(errMsg);
     }
   } catch (err) {
-    if (timeoutId) clearTimeout(timeoutId);
-    const isTimeout = err?.name === "AbortError";
+    state.agent.isGenerating = false;
+    const errMsg = isEn
+      ? `Error launching terminal: ${err?.message || err}`
+      : `Terminal başlatılırken hata oluştu: ${err?.message || err}`;
     state.agent.messages.push({
       id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       role: "assistant",
-      content: isTimeout
-        ? "Ajan zaman aşımına uğradı, lütfen tekrar deneyin."
-        : `Bağlantı hatası: ${err?.message || err}`,
+      content: errMsg,
+      agent: selectedAgent,
       timestamp: Date.now()
     });
+    if (showToast) showToast(errMsg);
   } finally {
     state.agent.isGenerating = false;
     render();

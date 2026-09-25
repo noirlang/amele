@@ -1663,6 +1663,18 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const relaunchBtn = event.target.closest("[data-agent-action='relaunch-terminal']");
+  if (relaunchBtn) {
+    event.preventDefault();
+    const prompt = relaunchBtn.dataset.prompt;
+    const agentId = relaunchBtn.dataset.agentId;
+    const modelId = relaunchBtn.dataset.modelId;
+    if (agentId && state.agent) state.agent.selectedAgent = agentId;
+    if (modelId && state.agent) state.agent.selectedModel = modelId;
+    submitAgentPrompt(prompt, state, render, showToast, t);
+    return;
+  }
+
   const linuxConfirm = event.target.closest("[data-elevation-action='confirm-linux']");
   if (linuxConfirm) {
     event.preventDefault();

@@ -582,6 +582,383 @@ pub fn chat_endpoint(body: &[u8]) -> Response {
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct LaunchTerminalRequest {
+    pub prompt: String,
+    pub agent: Option<String>,
+    pub model: Option<String>,
+    pub case_name: Option<String>,
+    pub target_scope: Option<String>,
+    pub profile_name: Option<String>,
+    pub profile_username: Option<String>,
+    pub profile_fullname: Option<String>,
+}
+
+/// Yapay zekaya aktarılacak zengin sistem, profil, vaka ve Amele SKILL.md bağlamını üretir.
+fn build_agent_full_prompt(
+    user_prompt: &str,
+    analist_name: &str,
+    username: &str,
+    case_name: &str,
+    target_scope: &str,
+    working_dir: &str,
+) -> String {
+    let os_name = std::env::consts::OS;
+    let arch_name = std::env::consts::ARCH;
+
+    let amele_path = check_binary("amele").unwrap_or_else(|| "amele".to_string());
+    let adb_path = check_binary("adb").unwrap_or_else(|| "bulunamadı".to_string());
+    let avml_path = check_binary("avml").unwrap_or_else(|| "bulunamadı".to_string());
+    let docker_path = check_binary("docker").unwrap_or_else(|| "bulunamadı".to_string());
+
+    let profile_display = if !analist_name.is_empty() && !username.is_empty() {
+        format!("{analist_name} (@{username})")
+    } else if !analist_name.is_empty() {
+        analist_name.to_string()
+    } else if !username.is_empty() {
+        format!("@{username}")
+    } else {
+        "Melih Emik (@melihemik)".to_string()
+    };
+
+    let skill_text = load_amele_skill_text();
+
+    format!(
+r#"# Amele Adli Bilişim Asistanı Görev Talimatı
+
+Sen Amele Adli Bilişim (Digital Forensics & Incident Response) platformunun uzman yapay zeka asistanısın.
+Analiste adli bilişim incelemelerinde, disk/RAM/mobil/docker edinimlerinde ve Amele CLI komutlarında rehberlik et.
+
+## 👤 Analist & Oturum Bilgileri
+- Analist / Kullanıcı Adı: {profile_display}
+- Aktif Vaka: {case_name}
+- İnceleme Kapsamı: {target_scope}
+- Çalışma Dizini: {working_dir}
+
+## 💻 Sistem & Araç Bilgileri
+- İşletim Sistemi: {os_name} ({arch_name})
+- Amele CLI Yolu: {amele_path}
+- ADB Durumu: {adb_path}
+- AVML / RAM Aracı: {avml_path}
+- Docker Durumu: {docker_path}
+
+## 📖 Amele Kural & Beceri Kılavuzu (SKILL.md)
+{skill_text}
+
+---
+## 🎯 Analistin İstemi:
+{user_prompt}
+"#
+    )
+}
+
+/// Uygun sistem terminal emülatörünü tespit eder.
+pub fn find_terminal_command(script_path: &str) -> Option<(String, Vec<String>)> {
+    #[cfg(unix)]
+    {
+        // 1. $TERMINAL ortam değişkeni
+        if let Ok(term) = std::env::var("TERMINAL") {
+            let term_clean = term.trim().to_string();
+            if !term_clean.is_empty() && check_binary(&term_clean).is_some() {
+                let args = if term_clean.contains("xdg-terminal-exec")
+                    || term_clean.contains("gnome-terminal")
+                    || term_clean.contains("kgx")
+                {
+                    vec!["--".to_string(), "bash".to_string(), script_path.to_string()]
+                } else {
+                    vec!["-e".to_string(), "bash".to_string(), script_path.to_string()]
+                };
+                return Some((term_clean, args));
+            }
+        }
+
+        // 2. xdg-terminal-exec (standart masaüstü terminal başlatıcısı)
+        if check_binary("xdg-terminal-exec").is_some() {
+            return Some((
+                "xdg-terminal-exec".to_string(),
+                vec!["--".to_string(), "bash".to_string(), script_path.to_string()],
+            ));
+        }
+
+        // 3. Bilinen popüler Linux terminal emülatörleri
+        let candidates = [
+            ("alacritty", vec!["-e", "bash", script_path]),
+            ("kitty", vec!["-e", "bash", script_path]),
+            ("gnome-terminal", vec!["--", "bash", script_path]),
+            ("konsole", vec!["-e", "bash", script_path]),
+            ("kgx", vec!["--", "bash", script_path]),
+            ("x-terminal-emulator", vec!["-e", "bash", script_path]),
+            ("xterm", vec!["-e", "bash", script_path]),
+        ];
+
+        for (bin, args) in candidates {
+            if check_binary(bin).is_some() {
+                return Some((
+                    bin.to_string(),
+                    args.into_iter().map(String::from).collect(),
+                ));
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        if check_binary("wt.exe").is_some() || check_binary("wt").is_some() {
+            return Some((
+                "wt.exe".to_string(),
+                vec!["cmd.exe".to_string(), "/k".to_string(), script_path.to_string()],
+            ));
+        }
+        return Some((
+            "cmd.exe".to_string(),
+            vec!["/k".to_string(), script_path.to_string()],
+        ));
+    }
+
+    None
+}
+
+/// Yapay zeka ajanını varsayılan sistem terminalinde etkileşimli olarak başlatır.
+/// Amele adli bilişim skill kuralları ve kullanıcının prompt'u oturuma aktarılır.
+pub fn launch_terminal_endpoint(body: &[u8]) -> Response {
+    let req: LaunchTerminalRequest = match serde_json::from_slice(body) {
+        Ok(r) => r,
+        Err(e) => return json_error(400, format!("Geçersiz JSON isteği: {e}")),
+    };
+
+    let prompt = req.prompt.trim();
+    if prompt.is_empty() {
+        return json_error(400, "Sorgu metni boş olamaz.");
+    }
+
+    let agent_id = req.agent.as_deref().unwrap_or("agy");
+    let model_id = req.model.as_deref().unwrap_or("");
+    let case_name = req.case_name.as_deref().unwrap_or("varsayilan_vaka");
+
+    // Profil kontrolü (kullanıcı adı ve tam ad)
+    let (mut username, mut full_name) = (
+        req.profile_username.as_deref().map(str::trim).filter(|s| !s.is_empty()),
+        req.profile_fullname.as_deref().map(str::trim).filter(|s| !s.is_empty()),
+    );
+
+    if username.is_none() || full_name.is_none() {
+        if let Some(ref p) = req.profile_name {
+            if let Some(start) = p.find('(') {
+                if let Some(end) = p.rfind(')') {
+                    let u = p[start + 1..end].trim();
+                    let name = p[..start].trim();
+                    if username.is_none() && !u.is_empty() {
+                        username = Some(u);
+                    }
+                    if full_name.is_none() && !name.is_empty() {
+                        full_name = Some(name);
+                    }
+                } else if username.is_none() {
+                    username = Some(p.trim());
+                }
+            } else if username.is_none() {
+                username = Some(p.trim());
+            }
+        }
+    }
+    ensure_cli_profile(username, full_name);
+
+    // Skill symlink'lerini sağla (claude, codex, opencode)
+    if let Ok(home) = std::env::var("HOME") {
+        let skill_src = format!("{home}/.gemini/config/skills/amele");
+        if std::path::Path::new(&skill_src).exists() {
+            let targets = [
+                format!("{home}/.claude/skills"),
+                format!("{home}/.codex/skills"),
+                format!("{home}/.config/opencode/skills"),
+            ];
+            for t in targets {
+                let _ = std::fs::create_dir_all(&t);
+                let link_path = std::path::PathBuf::from(&t).join("amele");
+                #[cfg(unix)]
+                {
+                    if !link_path.exists() {
+                        let _ = std::os::unix::fs::symlink(&skill_src, &link_path);
+                    }
+                }
+            }
+        }
+    }
+
+    // Çalışma dizini: Repo kökü veya mevcut çalışma dizini
+    let working_dir = if std::path::Path::new("/home/ra/Projects/amele-pack").exists() {
+        "/home/ra/Projects/amele-pack".to_string()
+    } else if let Ok(cwd) = std::env::current_dir() {
+        cwd.to_string_lossy().to_string()
+    } else {
+        std::env::var("HOME").unwrap_or_else(|_| ".".to_string())
+    };
+
+    // Agent ikili dosyası ve komut satırı
+    let (agent_display_name, agent_cmd) = match agent_id {
+        "claude" => {
+            let bin = check_binary("claude").unwrap_or_else(|| "claude".to_string());
+            let cmd = if model_id.is_empty() {
+                format!("\"{bin}\" --append-system-prompt \"You are the Amele Digital Forensics Agent. Follow the amele digital forensics skills and rules.\" \"$PROMPT\"")
+            } else {
+                format!("\"{bin}\" --model \"{model_id}\" --append-system-prompt \"You are the Amele Digital Forensics Agent. Follow the amele digital forensics skills and rules.\" \"$PROMPT\"")
+            };
+            ("Claude Code", cmd)
+        }
+        "codex" => {
+            let bin = check_binary("codex").unwrap_or_else(|| "codex".to_string());
+            let cmd = if model_id.is_empty() {
+                format!("\"{bin}\" \"$PROMPT\"")
+            } else {
+                format!("\"{bin}\" -m \"{model_id}\" \"$PROMPT\"")
+            };
+            ("Codex", cmd)
+        }
+        "pi" => {
+            let bin = check_binary("pi").unwrap_or_else(|| "pi".to_string());
+            let home = std::env::var("HOME").unwrap_or_default();
+            let skill_arg = format!("--skill \"{home}/.gemini/config/skills/amele\"");
+            let cmd = if model_id.is_empty() {
+                format!("\"{bin}\" {skill_arg} \"$PROMPT\"")
+            } else {
+                format!("\"{bin}\" {skill_arg} --model \"{model_id}\" \"$PROMPT\"")
+            };
+            ("Pi", cmd)
+        }
+        "opencode" => {
+            let bin = check_binary("opencode").unwrap_or_else(|| "opencode".to_string());
+            let cmd = if model_id.is_empty() {
+                format!("\"{bin}\" --prompt \"$PROMPT\"")
+            } else {
+                format!("\"{bin}\" -m \"{model_id}\" --prompt \"$PROMPT\"")
+            };
+            ("OpenCode", cmd)
+        }
+        _ => {
+            // varsayılan agy (Google Antigravity)
+            let bin = check_binary("agy").unwrap_or_else(|| "agy".to_string());
+            let cmd = if model_id.is_empty() {
+                format!("\"{bin}\" -i \"$PROMPT\"")
+            } else {
+                format!("\"{bin}\" --model \"{model_id}\" -i \"$PROMPT\"")
+            };
+            ("Antigravity (AGY)", cmd)
+        }
+    };
+
+    // Güvenli runtime dizini
+    let run_dir = std::env::var("XDG_RUNTIME_DIR")
+        .map(|p| std::path::PathBuf::from(p).join("amele"))
+        .unwrap_or_else(|_| std::env::temp_dir().join("amele"));
+    let _ = std::fs::create_dir_all(&run_dir);
+
+    let session_id = format!(
+        "{}_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis(),
+        std::process::id()
+    );
+
+    let prompt_file = run_dir.join(format!("prompt_{session_id}.txt"));
+    let script_file = run_dir.join(format!("agent_run_{session_id}.sh"));
+
+    // Kullanıcının sorusu, Amele SKILL.md, sistem bilgileri, kullanıcı adı ve aktif vaka ile zenginleştirilmiş tam istem üretilir
+    let target_scope = req.target_scope.as_deref().unwrap_or("all");
+    let full_prompt = build_agent_full_prompt(
+        prompt,
+        full_name.unwrap_or(""),
+        username.unwrap_or(""),
+        case_name,
+        target_scope,
+        &working_dir,
+    );
+
+    if let Err(e) = std::fs::write(&prompt_file, &full_prompt) {
+        return json_error(500, format!("İstem dosyası oluşturulamadı: {e}"));
+    }
+
+    let model_display = if model_id.is_empty() { "Varsayılan" } else { model_id };
+
+    let script_content = format!(
+        r#"#!/usr/bin/env bash
+PROMPT_FILE="{prompt_file_path}"
+SCRIPT_FILE="{script_file_path}"
+trap 'rm -f "$PROMPT_FILE" "$SCRIPT_FILE"' EXIT
+
+export TERM=xterm-256color
+export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:$HOME/.cargo/bin:/usr/local/bin:/usr/bin:$PATH"
+cd "{working_dir}"
+
+clear
+echo -e "\033[1;36m═══════════════════════════════════════════════════════════════════════\033[0m"
+echo -e "\033[1;32m  AMELE ADLİ BİLİŞİM — YAPAY ZEKA AJAN OTURUMU\033[0m"
+echo -e "\033[1;37m  Ajan: {agent_display_name} | Model: {model_display} | Vaka: {case_name}\033[0m"
+echo -e "\033[1;36m═══════════════════════════════════════════════════════════════════════\033[0m"
+echo
+
+if [ -f "$PROMPT_FILE" ]; then
+  PROMPT=$(cat "$PROMPT_FILE")
+else
+  PROMPT=""
+fi
+
+{agent_cmd}
+EXIT_CODE=$?
+
+echo
+if [ $EXIT_CODE -ne 0 ]; then
+  echo -e "\033[1;31mAjan $EXIT_CODE kodu ile kapandı.\033[0m"
+fi
+read -r -p "Terminali kapatmak için Enter tuşuna basın..." _
+"#,
+        prompt_file_path = prompt_file.display(),
+        script_file_path = script_file.display(),
+        working_dir = working_dir,
+        agent_display_name = agent_display_name,
+        model_display = model_display,
+        case_name = case_name,
+        agent_cmd = agent_cmd
+    );
+
+    if let Err(e) = std::fs::write(&script_file, &script_content) {
+        return json_error(500, format!("Çalıştırma betiği yazılamadı: {e}"));
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(meta) = std::fs::metadata(&script_file) {
+            let mut perms = meta.permissions();
+            perms.set_mode(0o700);
+            let _ = std::fs::set_permissions(&script_file, perms);
+        }
+    }
+
+    let script_str = script_file.to_string_lossy().to_string();
+    let (term_bin, term_args) = match find_terminal_command(&script_str) {
+        Some(pair) => pair,
+        None => {
+            return json_error(
+                500,
+                "Sistemde desteklenen bir terminal emülatörü bulunamadı (alacritty, kitty, gnome-terminal, konsole vb.).",
+            );
+        }
+    };
+
+    match Command::new(&term_bin).args(&term_args).spawn() {
+        Ok(_) => json_ok(json!({
+            "ok": true,
+            "terminal": term_bin,
+            "agent": agent_id,
+            "model": model_id,
+            "message": format!("Terminal başlatıldı ({term_bin})")
+        })),
+        Err(err) => json_error(500, format!("Terminal başlatılamadı: {err}")),
+    }
+}
+
 /// Yanıt içerisinden çalıştırılabilir ilk Amele CLI komutunu ayıklar.
 fn extract_suggested_command(text: &str) -> Option<String> {
     for line in text.lines() {
@@ -945,6 +1322,29 @@ mod tests {
                 assert!(val["needs_elevation"].as_bool().unwrap());
                 assert_eq!(val["os"].as_str().unwrap(), "linux");
             }
+        }
+    }
+
+    #[test]
+    fn test_launch_terminal_empty_prompt() {
+        let req = serde_json::json!({
+            "prompt": "   "
+        });
+        let body = serde_json::to_vec(&req).unwrap();
+        let resp = launch_terminal_endpoint(&body);
+        assert_eq!(resp.status, 400);
+    }
+
+    #[test]
+    fn test_find_terminal_command() {
+        let res = find_terminal_command("/tmp/test.sh");
+        // On linux with alacritty or xdg-terminal-exec, must find a terminal
+        #[cfg(unix)]
+        {
+            assert!(res.is_some());
+            let (bin, args) = res.unwrap();
+            assert!(!bin.is_empty());
+            assert!(!args.is_empty());
         }
     }
 }

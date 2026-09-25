@@ -759,6 +759,39 @@
   margin: 10px 0;
 }
 
+.agent-msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.agent-relaunch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--panel, #18181b);
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.15));
+  color: var(--text, #ffffff);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.agent-relaunch-btn:hover {
+  background: var(--panel-strong, #27272a);
+  border-color: var(--line-strong, rgba(255, 255, 255, 0.3));
+}
+
+.agent-relaunch-btn .inline-ico svg {
+  width: 13px;
+  height: 13px;
+}
+
 /* Önerilen Komut Kartı */
 .agent-command-card {
   margin-top: 10px;
