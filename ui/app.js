@@ -224,6 +224,9 @@ function syncBrandLogo() {
   if (aboutLogo) {
     aboutLogo.src = logoPath;
   }
+  document.querySelectorAll(".nav-center-logo").forEach((img) => {
+    img.src = logoPath;
+  });
 }
 
 function syncSidebarState() {

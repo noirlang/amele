@@ -11,6 +11,8 @@ export function renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl) {
   const avatarUrl = typeof getAvatarUrl === "function" ? getAvatarUrl(profile) : "";
   const profileTooltip = `@${username} · ${t("profile.title") || "Profil"}`;
   const mobileAllowed = Boolean(state.mobileToolsAccess?.allowed);
+  const isLight = state.theme === "light";
+  const logoSrc = isLight ? "./assets/logo/logo-siyah.png" : "./assets/logo/logo.webp";
 
   // 11 Uygulama Menü Elemanı:
   const list = [
@@ -248,7 +250,7 @@ export function renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl) {
           aria-label="${isOpen ? "Menüyü Kapat" : "Menüyü Aç"}"
           aria-expanded="${isOpen}"
         >
-          <img src="./assets/logo/logo.webp" alt="Amele" class="nav-center-logo" draggable="false" />
+          <img src="${logoSrc}" alt="Amele" class="nav-center-logo" draggable="false" />
           <span class="nav-trigger-chevron" aria-hidden="true">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="6 9 12 15 18 9" />
