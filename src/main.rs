@@ -166,7 +166,9 @@ fn main() {
         Some("settings-default") => print_default_settings(),
         Some("profiles") | Some("profile-list") => profile_list_command(),
         Some("profile-create") => profile_create_command(args.collect()),
-        Some("profile-use") | Some("profile-select") | Some("profile-login") | Some("login") => profile_use_command(args.collect()),
+        Some("profile-use") | Some("profile-select") | Some("profile-login") | Some("login") => {
+            profile_use_command(args.collect())
+        }
         Some("profile-logout") | Some("logout") => profile_logout_command(),
         Some("profile-online-sync") | Some("online-sync") => profile_online_sync_command(),
         Some("hash") => hash_command(args.collect()),

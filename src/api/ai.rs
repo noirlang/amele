@@ -611,7 +611,7 @@ fn build_agent_full_prompt(
     let skill_text = load_amele_skill_text();
 
     format!(
-r#"# Amele Adli Bilişim Asistanı Görev Talimatı
+        r#"# Amele Adli Bilişim Asistanı Görev Talimatı
 
 Sen Amele Adli Bilişim (Digital Forensics & Incident Response) platformunun uzman yapay zeka asistanısın.
 Analiste adli bilişim incelemelerinde, disk/RAM/mobil/docker edinimlerinde ve Amele CLI komutlarında rehberlik et.
@@ -656,9 +656,17 @@ pub fn find_terminal_command(script_path: &str) -> Option<(String, Vec<String>)>
                     || term_clean.contains("gnome-terminal")
                     || term_clean.contains("kgx")
                 {
-                    vec!["--".to_string(), "bash".to_string(), script_path.to_string()]
+                    vec![
+                        "--".to_string(),
+                        "bash".to_string(),
+                        script_path.to_string(),
+                    ]
                 } else {
-                    vec!["-e".to_string(), "bash".to_string(), script_path.to_string()]
+                    vec![
+                        "-e".to_string(),
+                        "bash".to_string(),
+                        script_path.to_string(),
+                    ]
                 };
                 return Some((term_clean, args));
             }
@@ -668,7 +676,11 @@ pub fn find_terminal_command(script_path: &str) -> Option<(String, Vec<String>)>
         if check_binary("xdg-terminal-exec").is_some() {
             return Some((
                 "xdg-terminal-exec".to_string(),
-                vec!["--".to_string(), "bash".to_string(), script_path.to_string()],
+                vec![
+                    "--".to_string(),
+                    "bash".to_string(),
+                    script_path.to_string(),
+                ],
             ));
         }
 
@@ -698,7 +710,11 @@ pub fn find_terminal_command(script_path: &str) -> Option<(String, Vec<String>)>
         if check_binary("wt.exe").is_some() || check_binary("wt").is_some() {
             return Some((
                 "wt.exe".to_string(),
-                vec!["cmd.exe".to_string(), "/k".to_string(), script_path.to_string()],
+                vec![
+                    "cmd.exe".to_string(),
+                    "/k".to_string(),
+                    script_path.to_string(),
+                ],
             ));
         }
         return Some((
@@ -729,8 +745,14 @@ pub fn launch_terminal_endpoint(body: &[u8]) -> Response {
 
     // Profil kontrolü (kullanıcı adı ve tam ad)
     let (mut username, mut full_name) = (
-        req.profile_username.as_deref().map(str::trim).filter(|s| !s.is_empty()),
-        req.profile_fullname.as_deref().map(str::trim).filter(|s| !s.is_empty()),
+        req.profile_username
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty()),
+        req.profile_fullname
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty()),
     );
 
     if username.is_none() || full_name.is_none() {
@@ -791,9 +813,13 @@ pub fn launch_terminal_endpoint(body: &[u8]) -> Response {
         "claude" => {
             let bin = check_binary("claude").unwrap_or_else(|| "claude".to_string());
             let cmd = if model_id.is_empty() {
-                format!("\"{bin}\" --append-system-prompt \"You are the Amele Digital Forensics Agent. Follow the amele digital forensics skills and rules.\" \"$PROMPT\"")
+                format!(
+                    "\"{bin}\" --append-system-prompt \"You are the Amele Digital Forensics Agent. Follow the amele digital forensics skills and rules.\" \"$PROMPT\""
+                )
             } else {
-                format!("\"{bin}\" --model \"{model_id}\" --append-system-prompt \"You are the Amele Digital Forensics Agent. Follow the amele digital forensics skills and rules.\" \"$PROMPT\"")
+                format!(
+                    "\"{bin}\" --model \"{model_id}\" --append-system-prompt \"You are the Amele Digital Forensics Agent. Follow the amele digital forensics skills and rules.\" \"$PROMPT\""
+                )
             };
             ("Claude Code", cmd)
         }
@@ -871,7 +897,11 @@ pub fn launch_terminal_endpoint(body: &[u8]) -> Response {
         return json_error(500, format!("İstem dosyası oluşturulamadı: {e}"));
     }
 
-    let model_display = if model_id.is_empty() { "Varsayılan" } else { model_id };
+    let model_display = if model_id.is_empty() {
+        "Varsayılan"
+    } else {
+        model_id
+    };
 
     let script_content = format!(
         r#"#!/usr/bin/env bash
