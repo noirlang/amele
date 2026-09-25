@@ -39,19 +39,27 @@
 }
 
 .agent-mascot {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text);
+  width: auto;
+  height: auto;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--green, #65e58a);
+  flex-shrink: 0;
 }
 
 .agent-mascot svg {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
+  display: block;
+  color: currentColor;
+}
+
+.theme-light .agent-mascot {
+  color: #1a4a2b;
 }
 
 .agent-greeting-title {
