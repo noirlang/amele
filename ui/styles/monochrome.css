@@ -453,7 +453,9 @@ code:not(.help-code-block code) {
 .danger-button::before,
 .icon-button::before,
 .top-action::before,
-.agent-send-btn::before {
+.agent-send-btn::before,
+.report-sidebar-submit-btn::before,
+.report-locked-connect-btn::before {
   content: "";
   position: absolute;
   inset: -1px;
@@ -704,7 +706,9 @@ code:not(.help-code-block code) {
 .danger-button:hover::before,
 .icon-button:hover::before,
 .top-action:hover::before,
-.agent-send-btn:hover:not(:disabled)::before {
+.agent-send-btn:hover:not(:disabled)::before,
+.report-sidebar-submit-btn:hover:not(:disabled)::before,
+.report-locked-connect-btn:hover::before {
   background: conic-gradient(
     from var(--glow-angle),
     transparent 0%,
@@ -723,12 +727,15 @@ code:not(.help-code-block code) {
 .danger-button:hover,
 .icon-button:hover,
 .top-action:hover,
-.agent-send-btn:hover:not(:disabled) {
+.agent-send-btn:hover:not(:disabled),
+.report-sidebar-submit-btn:hover:not(:disabled),
+.report-locked-connect-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 0 14px var(--glow-hover-glow) !important;
 }
 
-.agent-send-btn:disabled::before {
+.agent-send-btn:disabled::before,
+.report-sidebar-submit-btn:disabled::before {
   display: none !important;
 }
 

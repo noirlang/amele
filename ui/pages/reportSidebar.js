@@ -40,7 +40,6 @@ export function renderReportSidebar(state, t, icon, esc) {
     >
       <span class="toggle-ico">${icon("bug")}</span>
       <span class="toggle-txt">${t("onlineReport.sidebarTitle") || "Rapor"}</span>
-      <span class="toggle-badge ${isOnline ? "online" : "offline"}"></span>
     </button>
 
     <div class="home-report-sidebar-backdrop" data-action="close-report-sidebar"></div>
@@ -50,10 +49,6 @@ export function renderReportSidebar(state, t, icon, esc) {
         <div class="report-sidebar-header-left">
           <span class="report-sidebar-header-icon">${icon("bug")}</span>
           <span class="report-sidebar-header-title">${t("onlineReport.sidebarTitle") || "Rapor Bildir"}</span>
-          <span class="report-status-pill ${isOnline ? "online" : "offline"}">
-            <span class="pill-dot"></span>
-            <span>${isOnline ? (t("onlineReport.statusOnline") || "Online") : (t("onlineReport.statusOffline") || "Offline")}</span>
-          </span>
         </div>
         <div class="report-sidebar-header-right">
           <button
@@ -72,14 +67,14 @@ export function renderReportSidebar(state, t, icon, esc) {
 
       <div class="report-sidebar-body">
         ${!isOnline ? `
-          <!-- Çevrimdışı Kilit Kartı: Online hesap girilmediğinde doldurma kesinlikle engellenir -->
+          <!-- Kilit Kartı: Hesap girilmediğinde doldurma kesinlikle engellenir -->
           <div class="report-locked-card">
             <span class="report-locked-icon">${icon("lock")}</span>
-            <h4 class="report-locked-title">${t("onlineReport.lockedTitle") || "Online Hesap Gerekli"}</h4>
-            <p class="report-locked-desc">${t("onlineReport.lockedDesc") || "Hata bildirmek veya öneri iletmek için amele.noirlang.tr online hesabınızı bağlayın."}</p>
+            <h4 class="report-locked-title">${t("onlineReport.lockedTitle") || "Profil Bağlantısı Gerekli"}</h4>
+            <p class="report-locked-desc">${t("onlineReport.lockedDesc") || "Hata bildirmek veya geri bildirim iletmek için profilinizi bağlayın."}</p>
             <button type="button" class="report-locked-connect-btn" data-action="profile-online-start">
-              ${icon("globe")}
-              <span>${t("onlineReport.connectBtn") || "Online Profil Bağla"}</span>
+              ${icon("user")}
+              <span>${t("onlineReport.connectBtn") || "Profili Bağla"}</span>
             </button>
           </div>
 
@@ -157,7 +152,7 @@ export function renderReportSidebar(state, t, icon, esc) {
             <div class="report-sidebar-field">
               <label class="report-sidebar-label">
                 <span>${t("onlineReport.screenshotLabel") || "Ekran Görüntüsü"}</span>
-                ${images.length > 0 ? `<span style="font-size:10px; color:#eab308;">${images.length}/5</span>` : ""}
+                ${images.length > 0 ? `<span style="font-size:10px; color:var(--text, #ffffff);">${images.length}/5</span>` : ""}
               </label>
               <div
                 class="report-sidebar-dropzone"

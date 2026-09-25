@@ -42,19 +42,6 @@
   fill: none;
 }
 
-.home-report-sidebar-toggle .toggle-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #22c55e;
-}
-
-.home-report-sidebar-toggle .toggle-badge.offline {
-  background: #737373;
-}
 
 /* Arka plan karartması */
 .home-report-sidebar-backdrop {
@@ -132,64 +119,31 @@
 }
 
 .report-sidebar-header-icon svg {
-  width: 16px;
-  height: 16px;
-  color: #eab308;
+  width: 15px;
+  height: 15px;
+  color: var(--text, #ffffff);
   display: block;
   stroke: currentColor;
   fill: none;
 }
 
+.theme-light .report-sidebar-header-icon svg {
+  color: #1a1a1a;
+}
+
 .report-sidebar-header-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text, #ffffff);
-  letter-spacing: -0.01em;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #a1a1aa);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .theme-light .report-sidebar-header-title {
-  color: #111111;
-}
-
-/* Online / Offline Durum Rozeti */
-.report-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 7px;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.report-status-pill.online {
-  background: rgba(34, 197, 94, 0.14);
-  color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.3);
-}
-
-.report-status-pill.offline {
-  background: rgba(255, 255, 255, 0.06);
-  color: #a3a3a3;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.theme-light .report-status-pill.offline {
-  background: rgba(0, 0, 0, 0.05);
-  color: #737373;
-  border-color: rgba(0, 0, 0, 0.12);
-}
-
-.report-status-pill .pill-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
+  color: #52525b;
 }
 
 .report-sidebar-header-right {
@@ -243,7 +197,7 @@
   background: rgba(0, 0, 0, 0.15);
 }
 
-/* Çevrimdışı / Kilitli Durum Kartı */
+/* Kilitli Durum Kartı */
 .report-locked-card {
   display: flex;
   flex-direction: column;
@@ -251,17 +205,26 @@
   text-align: center;
   gap: 8px;
   padding: 14px 12px;
-  background: rgba(234, 179, 8, 0.04);
-  border: 1px dashed rgba(234, 179, 8, 0.3);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed var(--line, rgba(255, 255, 255, 0.15));
   border-radius: 10px;
 }
 
+.theme-light .report-locked-card {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
 .report-locked-icon svg {
-  width: 22px;
-  height: 22px;
-  color: #eab308;
+  width: 20px;
+  height: 20px;
+  color: var(--muted, #a1a1aa);
   stroke: currentColor;
   fill: none;
+}
+
+.theme-light .report-locked-icon svg {
+  color: #71717a;
 }
 
 .report-locked-title {
@@ -292,24 +255,30 @@
   font-size: 12px;
   font-weight: 600;
   border-radius: 7px;
-  background: #eab308;
-  color: #000000;
-  border: none;
+  background: var(--text, #ffffff);
+  color: var(--bg, #000000);
+  border: 1px solid var(--text, #ffffff);
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  transition: transform 0.15s ease, opacity 0.15s ease;
   user-select: none;
 }
 
 .report-locked-connect-btn:hover {
-  background: #facc15;
+  opacity: 0.9;
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(234, 179, 8, 0.35);
+}
+
+.theme-light .report-locked-connect-btn {
+  background: #111111;
+  color: #ffffff;
+  border-color: #111111;
 }
 
 .report-locked-connect-btn svg {
   width: 13px;
   height: 13px;
-  fill: currentColor;
+  stroke: currentColor;
+  fill: none;
 }
 
 /* Rapor Formu */
@@ -382,8 +351,14 @@
 .report-sidebar-input:focus,
 .report-sidebar-textarea:focus {
   outline: none;
-  border-color: #eab308;
-  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.2);
+  border-color: var(--text, #ffffff);
+  box-shadow: 0 0 0 1px var(--text, #ffffff);
+}
+
+.theme-light .report-sidebar-input:focus,
+.theme-light .report-sidebar-textarea:focus {
+  border-color: #111111;
+  box-shadow: 0 0 0 1px #111111;
 }
 
 .report-sidebar-textarea {
@@ -414,13 +389,23 @@
 }
 
 .report-sidebar-dropzone:hover {
-  border-color: #eab308;
-  background: rgba(234, 179, 8, 0.04);
+  border-color: var(--text, rgba(255, 255, 255, 0.4));
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .report-sidebar-dropzone.is-dragover {
-  border-color: #eab308;
-  background: rgba(234, 179, 8, 0.08);
+  border-color: var(--text, #ffffff);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.theme-light .report-sidebar-dropzone:hover {
+  border-color: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.theme-light .report-sidebar-dropzone.is-dragover {
+  border-color: #111111;
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .report-dropzone-ico svg {
@@ -521,27 +506,33 @@
   gap: 7px;
   width: 100%;
   padding: 8px 12px;
-  background: #eab308;
-  border: none;
+  background: var(--text, #ffffff) !important;
+  border: 1px solid var(--text, #ffffff) !important;
   border-radius: 8px;
-  color: #000000;
-  font-size: 12.5px;
+  color: var(--bg, #000000) !important;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 2px 10px rgba(234, 179, 8, 0.25);
+  box-shadow: none;
   user-select: none;
   margin-top: 2px;
 }
 
+.theme-light .report-sidebar-submit-btn {
+  background: #111111 !important;
+  border-color: #111111 !important;
+  color: #ffffff !important;
+}
+
 .report-sidebar-submit-btn:hover:not(:disabled) {
-  background: #facc15;
+  opacity: 0.92;
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(234, 179, 8, 0.4);
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.15);
 }
 
 .report-sidebar-submit-btn:disabled {
-  opacity: 0.45;
+  opacity: 0.35 !important;
   cursor: not-allowed;
   transform: none !important;
   box-shadow: none !important;
