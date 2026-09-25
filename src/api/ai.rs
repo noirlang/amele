@@ -1420,14 +1420,48 @@ mod tests {
 
     #[test]
     fn test_find_terminal_command() {
-        let res = find_terminal_command("/tmp/test.sh");
-        // On linux with alacritty or xdg-terminal-exec, must find a terminal
+        // ci kosan kutuda terminal olmayabiliyor, o yuzden sahte $TERMINAL ile bakiyoruz
         #[cfg(unix)]
         {
+            use std::os::unix::fs::PermissionsExt;
+
+            let tmp = std::env::temp_dir().join(format!("amele-fake-term-{}", std::process::id()));
+            let _ = std::fs::create_dir_all(&tmp);
+            let fake = tmp.join("fake-term");
+            std::fs::write(&fake, "#!/bin/sh\nexit 0\n").unwrap();
+            if let Ok(meta) = std::fs::metadata(&fake) {
+                let mut perms = meta.permissions();
+                perms.set_mode(0o755);
+                let _ = std::fs::set_permissions(&fake, perms);
+            }
+
+            let old = std::env::var("TERMINAL").ok();
+            // rust 2024te env yazmak unsafe, test tek threadde kosuyor o yuzden sorun yok
+            unsafe {
+                std::env::set_var("TERMINAL", fake.to_string_lossy().to_string());
+            }
+
+            let res = find_terminal_command("/tmp/test.sh");
             assert!(res.is_some());
             let (bin, args) = res.unwrap();
             assert!(!bin.is_empty());
             assert!(!args.is_empty());
+
+            unsafe {
+                if let Some(v) = old {
+                    std::env::set_var("TERMINAL", v);
+                } else {
+                    std::env::remove_var("TERMINAL");
+                }
+            }
+            let _ = std::fs::remove_file(&fake);
+
+            // gercek ortamda terminal yoksa da paniklemeden None donebilmeli
+            let res2 = find_terminal_command("/tmp/test.sh");
+            if let Some((bin, args)) = res2 {
+                assert!(!bin.is_empty());
+                assert!(!args.is_empty());
+            }
         }
     }
 }
