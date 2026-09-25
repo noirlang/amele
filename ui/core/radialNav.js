@@ -1,7 +1,6 @@
 // Dairesel saçılan gezinti menüsü (Radial Wheel Navigation).
-// Sol menüdeki tüm adli araçlar (Home, Windows, Linux, Docker, Android, iOS, Diğer)
-// ve sağ üstteki tüm menü elemanları (Profil, Yardım, Hakkında, Ayarlar, Dil, Çıkış)
-// tek bir 360 derecelik çarkta toplanmıştır.
+// Sol menü ve sağ üstteki 11 ana uygulama modülü (Home, Windows, Linux, Docker, Android, iOS, Diğer, Yardım, Ayarlar, Profil, Çıkış)
+// 360 derecelik dairesel çarkta toplanmıştır (About ve Dil ayarı Ayarlar içinde yer aldığından çarktan çıkarılmıştır).
 
 export function renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl) {
   const isOpen = Boolean(state.navMenu?.isOpen);
@@ -11,12 +10,9 @@ export function renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl) {
   const username = profile?.username || profile?.display_name || profile?.full_name || "melihemik";
   const avatarUrl = typeof getAvatarUrl === "function" ? getAvatarUrl(profile) : "";
   const profileTooltip = `@${username} · ${t("profile.title") || "Profil"}`;
-  const isEn = state.language === "en";
-  const flagSrc = isEn ? "./assets/flags/tr.svg" : "./assets/flags/gb.svg";
-  const flagAlt = isEn ? "Türkçe" : "English";
   const mobileAllowed = Boolean(state.mobileToolsAccess?.allowed);
 
-  // Sol menü + Sağ üst menü bileşenlerinin tamamı doğrudan çarkta:
+  // 11 Uygulama Menü Elemanı:
   const list = [
     {
       id: "home",
@@ -147,22 +143,6 @@ export function renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl) {
       `
     },
     {
-      id: "about",
-      label: t("about.title") || "Hakkında",
-      tooltip: t("about.title") || "Hakkında & Geliştirici",
-      isActive: state.route === "about",
-      content: `
-        <button
-          type="button"
-          class="nav-circle-btn${state.route === "about" ? " is-active" : ""}"
-          data-route="about"
-          aria-label="${escapeHtml(t("about.title") || "Hakkında")}"
-        >
-          ${icon("info")}
-        </button>
-      `
-    },
-    {
       id: "settings",
       label: t("settings.title") || "Ayarlar",
       tooltip: t("settings.title") || "Ayarlar & Bütünlük",
@@ -195,21 +175,6 @@ export function renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl) {
               ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(username)}" class="nav-circle-avatar" />`
               : icon("user")
           }
-        </button>
-      `
-    },
-    {
-      id: "language",
-      label: t("nav.language") || "Dil",
-      tooltip: flagAlt,
-      content: `
-        <button
-          type="button"
-          class="nav-circle-btn nav-circle-flag-btn"
-          data-nav-action="toggle-language"
-          aria-label="${escapeHtml(flagAlt)}"
-        >
-          <img src="${flagSrc}" alt="${escapeHtml(flagAlt)}" class="nav-circle-flag" />
         </button>
       `
     },

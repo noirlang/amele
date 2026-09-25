@@ -1433,7 +1433,10 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   width: 100%;
   flex: 1;
   overflow: auto;
-  padding: 64px 28px 36px;
+  padding: 68px 24px 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   transition: background-color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
               color 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -1455,9 +1458,12 @@ html.sidebar-collapsed .sidebar-expand-toggle,
 .page {
   position: relative;
   z-index: 1;
-  max-width: 1280px;
+  max-width: 880px;
   margin: 0 auto;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   animation: page-in 360ms var(--ease);
 }
 
