@@ -110,12 +110,7 @@ export function homePage({ t, icon, assetPath, theme, state }) {
     ? renderElevationModal(elevationModal, t, escapeHtml, icon)
     : "";
 
-  const caseSidebarHtml = renderCaseSidebar(state, t, icon, escapeHtml);
-
   return `
-    <!-- Sol taraftaki bağımsız vaka seçim paneli (merkezi asla bozmaz) -->
-    ${caseSidebarHtml}
-
     <section class="page page-home">
       <!-- Yapay Zeka Ajan Bölümü (en üstte, ortalı) -->
       <div class="agent-container">

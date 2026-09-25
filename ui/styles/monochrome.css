@@ -320,12 +320,10 @@ code:not(.help-code-block code) {
 .home-hero,
 .news-hero-container,
 .agent-box,
-.home-case-sidebar,
 .case-sidebar-card,
 .news-h-card,
 .home-news-horizontal-section,
 .case-sidebar-new-btn,
-.home-case-sidebar-toggle,
 .case-sidebar-header-btn,
 .case-sidebar-create-btn,
 .agent-dropdown-trigger,
@@ -342,6 +340,18 @@ code:not(.help-code-block code) {
 .textarea {
   isolation: isolate;
   position: relative;
+  transition:
+    border-color 260ms var(--ease),
+    box-shadow 260ms var(--ease),
+    background-color 260ms var(--ease),
+    color 260ms var(--ease),
+    transform 260ms var(--ease);
+}
+
+.home-case-sidebar,
+.home-case-sidebar-toggle {
+  isolation: isolate;
+  position: fixed !important;
   transition:
     border-color 260ms var(--ease),
     box-shadow 260ms var(--ease),

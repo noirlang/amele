@@ -905,6 +905,7 @@ function render() {
   if (state.route === "ios") loadEvidenceCases();
   view.focus({ preventScroll: true });
   renderRadialNavDOM();
+  renderCaseSidebarDOM();
 }
 
 let navCloseTimer = null;
@@ -919,6 +920,21 @@ function renderRadialNavDOM() {
   }
 
   container.innerHTML = renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl);
+  hydrateIcons(container);
+}
+
+function renderCaseSidebarDOM() {
+  const container = document.getElementById("case-sidebar-container");
+  if (!container) return;
+  const wasOpen = Boolean(document.getElementById("home-case-sidebar")?.classList?.contains?.("is-open"));
+  const wasBackdropOpen = Boolean(document.querySelector(".home-case-sidebar-backdrop")?.classList?.contains?.("is-open"));
+  container.innerHTML = renderCaseSidebar(state, t, icon, escapeHtml);
+  if (wasOpen) {
+    document.getElementById("home-case-sidebar")?.classList?.add?.("is-open");
+  }
+  if (wasBackdropOpen) {
+    document.querySelector(".home-case-sidebar-backdrop")?.classList?.add?.("is-open");
+  }
   hydrateIcons(container);
 }
 
@@ -1400,28 +1416,7 @@ function updateCaseControls() {
 }
 
 function updateCaseSidebarDOM() {
-  const sidebar = document.getElementById("home-case-sidebar");
-  if (!sidebar) return;
-
-  const listEl = document.getElementById("case-sidebar-list");
-  if (listEl) {
-    const tempContainer = document.createElement("div");
-    tempContainer.innerHTML = renderCaseSidebar(state, t, icon, escapeHtml);
-    const newListEl = tempContainer.querySelector("#case-sidebar-list");
-    if (newListEl) {
-      listEl.innerHTML = newListEl.innerHTML;
-    }
-    const newCountBadge = tempContainer.querySelector(".case-sidebar-count-badge");
-    const countBadge = sidebar.querySelector(".case-sidebar-count-badge");
-    if (countBadge && newCountBadge) {
-      countBadge.textContent = newCountBadge.textContent;
-    }
-    const newToggleBadge = tempContainer.querySelector(".toggle-badge");
-    const toggleBadge = document.querySelector(".home-case-sidebar-toggle .toggle-badge");
-    if (toggleBadge && newToggleBadge) {
-      toggleBadge.textContent = newToggleBadge.textContent;
-    }
-  }
+  renderCaseSidebarDOM();
 }
 
 function caseSelectOptions(selected = "", { allowNew = false } = {}) {

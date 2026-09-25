@@ -6,10 +6,10 @@
 /* Sol kenar tetikleyici butonu (Küçük ekranlar için) */
 .home-case-sidebar-toggle {
   display: none;
-  position: fixed;
-  left: 16px;
-  top: 76px;
-  z-index: 80;
+  position: fixed !important;
+  left: 16px !important;
+  top: 76px !important;
+  z-index: 80 !important;
   align-items: center;
   gap: 7px;
   padding: 6px 12px;
@@ -23,6 +23,7 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+  margin: 0 !important;
   transition: all 0.15s ease;
 }
 
@@ -50,34 +51,35 @@
 /* Arka plan karartması */
 .home-case-sidebar-backdrop {
   display: none;
-  position: fixed;
-  inset: 0;
+  position: fixed !important;
+  inset: 0 !important;
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
-  z-index: 85;
+  z-index: 85 !important;
 }
 
 /* Ana sol panel container */
 .home-case-sidebar {
-  position: fixed;
-  left: 20px;
-  top: 76px;
-  bottom: 24px;
-  width: 250px;
-  max-height: calc(100vh - 100px);
-  display: flex;
-  flex-direction: column;
-  background: var(--panel, #111111);
+  position: fixed !important;
+  left: 20px !important;
+  top: 76px !important;
+  bottom: 24px !important;
+  width: 250px !important;
+  max-height: calc(100vh - 100px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: var(--panel, #111111) !important;
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
-  border-radius: 14px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.1)) !important;
+  border-radius: 14px !important;
   box-shadow:
     0 16px 40px -8px rgba(0, 0, 0, 0.7),
     0 0 0 1px rgba(255, 255, 255, 0.04);
-  z-index: 88;
-  overflow: hidden;
+  z-index: 88 !important;
+  overflow: hidden !important;
+  margin: 0 !important;
   transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
 }
 
@@ -518,36 +520,37 @@
 
 /* ============================================================
    Responsive Kuralları:
-   1400px ve üzeri: Sabit kenar paneli (asla merkezi bozmaz)
-   1400px altı: Çekmece (drawer) + tetikleyici buton
+   1200px ve üzeri: Solda sabit vaka paneli (merkezi 880px alanı asla bozmaz)
+   1200px altı: Soldan açılan çekmece (drawer) + sol tetikleyici buton
    ============================================================ */
-@media (max-width: 1399px) {
+@media (max-width: 1199px) {
   .home-case-sidebar {
-    transform: translateX(calc(-100% - 30px));
+    transform: translateX(calc(-100% - 30px)) !important;
   }
 
   .home-case-sidebar.is-open {
-    transform: translateX(0);
+    transform: translateX(0) !important;
     box-shadow: 0 16px 56px rgba(0, 0, 0, 0.85);
   }
 
   .home-case-sidebar-toggle {
-    display: inline-flex;
+    display: inline-flex !important;
   }
 
   .home-case-sidebar.is-open + .home-case-sidebar-backdrop,
   .home-case-sidebar-backdrop.is-open {
-    display: block;
+    display: block !important;
   }
 
   .case-sidebar-close-btn {
-    display: inline-flex;
+    display: inline-flex !important;
   }
 }
 
-@media (min-width: 1400px) {
+@media (min-width: 1200px) {
   .home-case-sidebar {
     transform: none !important;
+    left: 20px !important;
   }
 
   .home-case-sidebar-toggle {
