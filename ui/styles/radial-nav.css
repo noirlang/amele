@@ -56,11 +56,16 @@
   z-index: 990;
   background: transparent !important;
   pointer-events: none;
-  transition: top 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: top 240ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .nav.centered-nav.is-open {
   top: clamp(120px, 15vh, 142px);
+}
+
+.nav.centered-nav.is-closing {
+  top: 1.15rem !important;
+  transition: top 240ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @media (max-width: 600px) {
@@ -125,12 +130,17 @@
   align-items: center;
   justify-content: center;
   color: rgba(242, 240, 234, 0.75);
-  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1), color 200ms ease;
+  transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1), color 200ms ease;
 }
 
 .nav-center-trigger.is-open .nav-trigger-chevron {
   transform: rotate(180deg);
   color: #fff;
+}
+
+.nav-center-trigger.is-closing .nav-trigger-chevron {
+  transform: rotate(0deg) !important;
+  color: rgba(242, 240, 234, 0.75) !important;
 }
 
 /* 360-Degree Radial Wheel Container */
@@ -168,9 +178,18 @@
   z-index: 1050;
 }
 
+.nav-radial-wheel.is-closing {
+  pointer-events: none;
+}
+
+.nav-radial-wheel.is-closing .nav-circle-tooltip {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 .nav-radial-wheel.is-closing .nav-radial-item {
-  animation: radialItemBurstOut 190ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: calc((var(--total-btns, 12) - var(--btn-index, 0)) * 6.5ms);
+  animation: radialItemBurstOut 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--btn-index, 0) * 3ms);
 }
 
 @keyframes radialItemBurstIn {
@@ -191,11 +210,11 @@
 @keyframes radialItemBurstOut {
   0% {
     opacity: 1;
-    transform: translate(var(--tx), var(--ty)) scale(1) rotate(0deg);
+    transform: translate(var(--tx), var(--ty)) scale(1);
   }
   100% {
     opacity: 0;
-    transform: translate(0, 0) scale(0.12) rotate(180deg);
+    transform: translate(var(--tx), var(--ty)) scale(0.25);
   }
 }
 
@@ -369,6 +388,11 @@
 
 .theme-light .nav-center-trigger.is-open .nav-trigger-chevron {
   color: #111;
+}
+
+.theme-light .nav-center-trigger.is-closing .nav-trigger-chevron {
+  transform: rotate(0deg) !important;
+  color: rgba(30, 30, 30, 0.75) !important;
 }
 
 .theme-light .nav-circle-btn {

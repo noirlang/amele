@@ -17,7 +17,7 @@ import { icon, hydrateIcons, fontIcons } from "./icons.js";
 import { translate } from "./i18n.js";
 import { homePage, metric } from "./pages/home.js";
 import { toolsPage } from "./pages/tools.js";
-import { renderRadialNav } from "./core/radialNav.js";
+import { renderRadialNav, renderRadialWheelHtml } from "./core/radialNav.js";
 import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel, KNOWN_CONTRIBUTORS } from "./pages/other.js";
 import { workflowPage, pickerField, field, pageTitle, casePanel } from "./pages/workflow.js";
 import { initDeveloperMode, devLog } from "./developer.js";
@@ -909,22 +909,63 @@ let navCloseTimer = null;
 function renderRadialNavDOM() {
   const container = document.getElementById("radial-nav-container");
   if (!container) return;
-  // Kapanma animasyonu oynatılırken DOM'u tekrar oluşturup CSS animasyonunu sıfırlama
-  if (state.navMenu.isClosing && container.querySelector(".nav-radial-wheel.is-closing")) {
+
+  // Menü açıkken veya kapanma animasyonu sürerken dış render çağrılarının DOM'u ezmesini engelle
+  if (state.navMenu.isOpen || state.navMenu.isClosing) {
     return;
   }
+
   container.innerHTML = renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl);
   hydrateIcons(container);
 }
 
-function toggleNavMenu() {
+function openNavMenu() {
   if (state.navMenu.isClosing) return;
-  if (state.navMenu.isOpen) {
-    closeNavMenu();
+  if (navCloseTimer) clearTimeout(navCloseTimer);
+  state.navMenu.isOpen = true;
+  state.navMenu.isClosing = false;
+
+  const container = document.getElementById("radial-nav-container");
+  if (!container) return;
+
+  const nav = container.querySelector(".nav.centered-nav");
+  const island = container.querySelector(".nav-center-island");
+  const trigger = container.querySelector(".nav-center-trigger");
+
+  if (nav && island && trigger) {
+    // Varsa eski backdrop ve wheel'i temizle
+    container.querySelector(".nav-backdrop")?.remove();
+    island.querySelector(".nav-radial-wheel")?.remove();
+
+    // Backdrop ekle
+    const backdrop = document.createElement("div");
+    backdrop.className = "nav-backdrop";
+    backdrop.dataset.navAction = "close-menu";
+    backdrop.setAttribute("aria-label", "Kapat");
+    container.insertBefore(backdrop, nav);
+
+    // Çark HTML'ini ekle
+    const wheelHtml = renderRadialWheelHtml(state, t, icon, escapeHtml, getAvatarUrl);
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = wheelHtml;
+    const wheelEl = tempDiv.firstElementChild;
+    if (wheelEl) {
+      island.appendChild(wheelEl);
+      hydrateIcons(wheelEl);
+    }
+
+    // Bir sonraki frame'de sınıfları ekleyerek CSS top ve transform transition'larını tetikle
+    requestAnimationFrame(() => {
+      nav.classList.remove("is-closing");
+      nav.classList.add("is-open");
+      trigger.classList.remove("is-closing");
+      trigger.classList.add("is-open");
+      trigger.setAttribute("aria-expanded", "true");
+      trigger.setAttribute("aria-label", t("nav.closeMenu") || "Menüyü Kapat");
+    });
   } else {
-    state.navMenu.isOpen = true;
-    state.navMenu.isClosing = false;
-    renderRadialNavDOM();
+    container.innerHTML = renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl);
+    hydrateIcons(container);
   }
 }
 
@@ -932,12 +973,49 @@ function closeNavMenu() {
   if (!state.navMenu.isOpen || state.navMenu.isClosing) return;
   if (navCloseTimer) clearTimeout(navCloseTimer);
   state.navMenu.isClosing = true;
-  renderRadialNavDOM();
+
+  const container = document.getElementById("radial-nav-container");
+  if (container) {
+    const backdrop = container.querySelector(".nav-backdrop");
+    const nav = container.querySelector(".nav.centered-nav");
+    const trigger = container.querySelector(".nav-center-trigger");
+    const wheel = container.querySelector(".nav-radial-wheel");
+
+    if (backdrop) backdrop.classList.add("is-closing");
+    if (wheel) wheel.classList.add("is-closing");
+    if (nav) {
+      nav.classList.add("is-closing");
+      nav.classList.remove("is-open");
+    }
+    if (trigger) {
+      trigger.classList.add("is-closing");
+      trigger.classList.remove("is-open");
+      trigger.setAttribute("aria-expanded", "false");
+      trigger.setAttribute("aria-label", t("nav.openMenu") || "Menüyü Aç");
+    }
+  }
+
   navCloseTimer = setTimeout(() => {
     state.navMenu.isOpen = false;
     state.navMenu.isClosing = false;
-    renderRadialNavDOM();
-  }, 280);
+    if (container) {
+      container.querySelector(".nav-backdrop")?.remove();
+      container.querySelector(".nav-radial-wheel")?.remove();
+      const nav = container.querySelector(".nav.centered-nav");
+      const trigger = container.querySelector(".nav-center-trigger");
+      nav?.classList.remove("is-closing");
+      trigger?.classList.remove("is-closing");
+    }
+  }, 240);
+}
+
+function toggleNavMenu() {
+  if (state.navMenu.isClosing) return;
+  if (state.navMenu.isOpen) {
+    closeNavMenu();
+  } else {
+    openNavMenu();
+  }
 }
 
 function routeGroup(route) {

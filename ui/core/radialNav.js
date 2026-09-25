@@ -2,19 +2,14 @@
 // Sol menü ve sağ üstteki 12 ana uygulama modülü (Home, Windows, Linux, Docker, Android, iOS, Diğer, Yardım, Hakkında, Ayarlar, Profil, Çıkış)
 // 360 derecelik dairesel çarkta toplanmıştır (Dil ayarı Ayarlar içinde yer aldığından çarktan çıkarılmıştır).
 
-export function renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl) {
-  const isOpen = Boolean(state.navMenu?.isOpen);
-  const isClosing = Boolean(state.navMenu?.isClosing);
-
+export function buildRadialNavItems(state, t, icon, escapeHtml, getAvatarUrl) {
   const profile = state.activeProfile;
   const username = profile?.username || profile?.display_name || profile?.full_name || "melihemik";
   const avatarUrl = typeof getAvatarUrl === "function" ? getAvatarUrl(profile) : "";
   const profileTooltip = `@${username} · ${t("profile.title") || "Profil"}`;
   const mobileAllowed = Boolean(state.mobileToolsAccess?.allowed);
-  const isLight = state.theme === "light";
-  const logoSrc = isLight ? "./assets/logo/logo-siyah.png" : "./assets/logo/logo.webp";
 
-  // 11 Uygulama Menü Elemanı:
+  // 12 Uygulama Menü Elemanı:
   const list = [
     {
       id: "home",
@@ -239,16 +234,50 @@ export function renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl) {
     };
   });
 
+  return { items, total };
+}
+
+export function renderRadialWheelHtml(state, t, icon, escapeHtml, getAvatarUrl) {
+  const isClosing = Boolean(state.navMenu?.isClosing);
+  const { items, total } = buildRadialNavItems(state, t, icon, escapeHtml, getAvatarUrl);
+
+  return `
+    <div class="nav-radial-wheel${isClosing ? " is-closing" : ""}">
+      ${items
+        .map(
+          (item) => `
+        <div
+          class="nav-radial-item"
+          style="--cos: ${item.cos}; --sin: ${item.sin}; --btn-index: ${item.index}; --total-btns: ${total};"
+        >
+          <div class="nav-circle-btn-wrap">
+            ${item.content}
+            <span class="nav-circle-tooltip placement-${item.placement}">${escapeHtml(item.tooltip)}</span>
+          </div>
+        </div>
+      `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+export function renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl) {
+  const isOpen = Boolean(state.navMenu?.isOpen);
+  const isClosing = Boolean(state.navMenu?.isClosing);
+  const isLight = state.theme === "light";
+  const logoSrc = isLight ? "./assets/logo/logo-siyah.png" : "./assets/logo/logo.webp";
+
   return `
     ${isOpen ? `<div class="nav-backdrop${isClosing ? " is-closing" : ""}" data-nav-action="close-menu" aria-label="Kapat"></div>` : ""}
-    <nav class="nav centered-nav${isOpen ? " is-open" : ""}${isClosing ? " is-closing" : ""}" aria-label="Main navigation">
+    <nav class="nav centered-nav${isOpen && !isClosing ? " is-open" : ""}${isClosing ? " is-closing" : ""}" aria-label="Main navigation">
       <div class="nav-center-island">
         <button
           type="button"
-          class="nav-center-trigger${isOpen ? " is-open" : ""}${isClosing ? " is-closing" : ""}"
+          class="nav-center-trigger${isOpen && !isClosing ? " is-open" : ""}${isClosing ? " is-closing" : ""}"
           data-nav-action="toggle-menu"
-          aria-label="${isOpen ? "Menüyü Kapat" : "Menüyü Aç"}"
-          aria-expanded="${isOpen}"
+          aria-label="${isOpen && !isClosing ? (t("nav.closeMenu") || "Menüyü Kapat") : (t("nav.openMenu") || "Menüyü Aç")}"
+          aria-expanded="${isOpen && !isClosing}"
         >
           <img src="${logoSrc}" alt="Amele" class="nav-center-logo" draggable="false" />
           <span class="nav-trigger-chevron" aria-hidden="true">
@@ -258,29 +287,7 @@ export function renderRadialNav(state, t, icon, escapeHtml, getAvatarUrl) {
           </span>
         </button>
 
-        ${
-          isOpen
-            ? `
-          <div class="nav-radial-wheel${isClosing ? " is-closing" : ""}">
-            ${items
-              .map(
-                (item) => `
-              <div
-                class="nav-radial-item"
-                style="--cos: ${item.cos}; --sin: ${item.sin}; --btn-index: ${item.index}; --total-btns: ${total};"
-              >
-                <div class="nav-circle-btn-wrap">
-                  ${item.content}
-                  <span class="nav-circle-tooltip placement-${item.placement}">${escapeHtml(item.tooltip)}</span>
-                </div>
-              </div>
-            `
-              )
-              .join("")}
-          </div>
-        `
-            : ""
-        }
+        ${isOpen ? renderRadialWheelHtml(state, t, icon, escapeHtml, getAvatarUrl) : ""}
       </div>
     </nav>
   `;
