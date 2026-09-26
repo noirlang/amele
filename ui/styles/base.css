@@ -3954,22 +3954,23 @@ code {
 .toast {
   position: fixed;
   right: 24px;
-  bottom: 24px;
+  top: 80px;
   z-index: 10050 !important;
-  max-width: min(680px, calc(100vw - 32px));
+  max-width: min(560px, calc(100vw - 32px));
   max-height: min(42vh, 420px);
   padding: 14px 16px;
   border: 1px solid var(--line-strong);
   border-radius: 14px;
-  background: rgba(8, 16, 20, 0.94);
+  background: rgba(8, 16, 20, 0.96);
   color: var(--text);
-  box-shadow: var(--shadow);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
   line-height: 1.45;
   opacity: 0;
   overflow: auto;
-  transform: translateY(10px);
+  transform: translateY(-8px);
   white-space: pre-wrap;
   pointer-events: none;
+  cursor: pointer;
   transition: opacity 180ms var(--ease), transform 180ms var(--ease);
 }
 
@@ -4320,7 +4321,7 @@ svg.svg-fill path {
 
   .toast {
     right: 16px;
-    bottom: 16px;
+    top: 72px;
   }
 }
 

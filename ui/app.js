@@ -910,6 +910,9 @@ function render() {
     const workflow = workflows[state.route.split(":")[1]];
     if (workflow && workflow.mode.includes("disk")) loadEvidenceCases();
   }
+  if (state.route === "about") {
+    loadGitHubContributors();
+  }
   if (state.route === "android:logical" || state.route === "android:filesystem" || state.route === "android:ram") loadEvidenceCases();
   if (state.route === "ios") loadEvidenceCases();
   view.focus({ preventScroll: true });
@@ -3880,6 +3883,9 @@ async function scanTargets() {
           showToast(t("scan.toolMissing", { tool: toolName }), "error");
           return;
         }
+        if (status?.tool_path) {
+          state.ramToolPath = status.tool_path;
+        }
         const label = status?.tool_path || statusMessage || t("scan.toolReady", { tool: toolName });
         updateSide("target", escapeHtml(label));
         writeWorkflowLog(t("scan.toolDoneLog", { target: toolName, message: statusMessage || t("ready") }));
@@ -4278,7 +4284,9 @@ async function startAcquisition(button) {
       }
       if (!requireActiveConnection(workflow, payload)) return;
     }
-    const target = document.querySelector("[data-field='target']")?.value.trim();
+    const target = isRam
+      ? (state.ramToolPath || document.querySelector("[data-field='target']")?.value.trim() || "")
+      : (document.querySelector("[data-field='target']")?.value.trim() || "");
     const outputFormat = document.querySelector("[data-field='output-format']")?.value || "raw";
     if (workflow && !workflow.mode.includes("ram") && !target) {
       showToast(t("workflow.diskRequired"), "error");
@@ -4362,7 +4370,7 @@ async function startAcquisition(button) {
             ? {
                 output,
                 tool: workflow.platform === "Windows" ? "winpmem" : "avml",
-                tool_path: target,
+                tool_path: target || state.ramToolPath || undefined,
                 case_name: caseName,
                 output_format: outputFormat
             }
@@ -5242,11 +5250,25 @@ async function loadGitHubContributors() {
     const seenNames = new Set();
     const result = [];
 
-    const response = await fetch("https://api.github.com/repos/noirlang/amele/commits?per_page=30", {
-      headers: { Accept: "application/vnd.github.v3+json" }
-    });
-    if (!response.ok) return;
-    const commits = await response.json();
+    const repoUrls = [
+      "https://api.github.com/repos/amele-next/amele-next/commits?per_page=30",
+      "https://api.github.com/repos/noirlang/amele/commits?per_page=30"
+    ];
+    let commits = null;
+    for (const url of repoUrls) {
+      try {
+        const response = await fetch(url, {
+          headers: { Accept: "application/vnd.github.v3+json" }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) {
+            commits = data;
+            break;
+          }
+        }
+      } catch (_) {}
+    }
     if (!Array.isArray(commits) || commits.length === 0) return;
 
     const findKnown = (login, name, email) => {

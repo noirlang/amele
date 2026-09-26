@@ -29,11 +29,13 @@ export function renderReportSidebar(state, t, icon, esc) {
   const titleVal = draft.title || "";
   const descVal = draft.description || "";
 
+  const isCollapsed = Boolean(state?.reportSidebarCollapsed ?? (state?.currentPage === "workflow"));
+
   return `
     <!-- Mobil ve Dar Ekranlar İçin Sağ Tetikleyici Buton -->
     <button
       type="button"
-      class="home-report-sidebar-toggle"
+      class="home-report-sidebar-toggle${isCollapsed ? " is-visible" : ""}"
       data-action="toggle-report-sidebar"
       title="${t("onlineReport.sidebarTitle") || "Rapor Bildir"}"
       aria-label="Rapor Menüsü"
@@ -44,7 +46,7 @@ export function renderReportSidebar(state, t, icon, esc) {
 
     <div class="home-report-sidebar-backdrop" data-action="close-report-sidebar"></div>
 
-    <aside class="home-report-sidebar" id="home-report-sidebar">
+    <aside class="home-report-sidebar${isCollapsed ? " is-collapsed" : ""}" id="home-report-sidebar">
       <div class="report-sidebar-header">
         <div class="report-sidebar-header-left">
           <span class="report-sidebar-header-icon">${icon("bug")}</span>

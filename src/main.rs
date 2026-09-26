@@ -3069,15 +3069,23 @@ fn install_winpmem_binary(source: &Path) -> Result<Value, String> {
     let target_dir = Path::new(r"C:\Tools");
     fs::create_dir_all(target_dir).map_err(|err| format!("C:\\Tools olusturulamadi: {err}"))?;
     let target = target_dir.join(ram::WINPMEM_NAME);
-    let temp = target_dir.join(".amele-winpmem.tmp");
-    fs::copy(source, &temp)
-        .map_err(|err| format!("WinPMEM C:\\Tools altina kopyalanamadi: {err}"))?;
-    if target.exists() {
-        fs::remove_file(&target)
-            .map_err(|err| format!("Eski WinPMEM dosyasi kaldirilamadi: {err}"))?;
+    let target_alias = target_dir.join("winpmem.exe");
+
+    let _ = fs::copy(source, &target);
+    let _ = fs::copy(source, &target_alias);
+
+    // Ayrıca ProgramData altına da garanti kopya bırak
+    if let Some(prog_data) = std::env::var_os("ProgramData") {
+        let amele_tools = PathBuf::from(prog_data).join("amele").join("tools");
+        if let Ok(_) = fs::create_dir_all(&amele_tools) {
+            let _ = fs::copy(source, amele_tools.join(ram::WINPMEM_NAME));
+            let _ = fs::copy(source, amele_tools.join("winpmem.exe"));
+        }
     }
-    fs::rename(&temp, &target)
-        .map_err(|err| format!("WinPMEM C:\\Tools altina kurulamadi: {err}"))?;
+
+    if !target.exists() && !target_alias.exists() {
+        return Err("WinPMEM C:\\Tools altina kopyalanamadi".to_string());
+    }
 
     Ok(json!({
         "ok": true,

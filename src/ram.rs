@@ -594,21 +594,25 @@ pub fn find_avml(candidate: Option<&Path>) -> Option<PathBuf> {
 
 /// Dosyanın var ve geçerli boyutta bir çalıştırılabilir dosya olduğunu doğrular (boş veya hasarlı dosyaları eler).
 pub fn is_valid_executable_file(path: &Path) -> bool {
-    if !path.is_file() {
+    if !path.exists() {
         return false;
     }
-    match fs::metadata(path) {
-        Ok(m) => m.len() > 10_000,
-        Err(_) => false,
+    if let Ok(m) = fs::metadata(path) {
+        if m.is_dir() {
+            return false;
+        }
+        m.len() > 1000
+    } else {
+        path.is_file()
     }
 }
 
 /// Windows'ta PATH veya bilinen konumlarda WinPMEM binary'sini arar.
 pub fn find_winpmem(candidate: Option<&Path>) -> Option<PathBuf> {
-    if let Some(path) = candidate
-        && is_valid_executable_file(path)
-    {
-        return Some(path.to_path_buf());
+    if let Some(path) = candidate {
+        if is_valid_executable_file(path) {
+            return Some(path.to_path_buf());
+        }
     }
 
     let names = [WINPMEM_NAME, "winpmem.exe", "winpmem_x64.exe"];
@@ -619,15 +623,44 @@ pub fn find_winpmem(candidate: Option<&Path>) -> Option<PathBuf> {
     }
 
     let mut candidates = Vec::new();
+    let runtime_dir = crate::settings::secure_runtime_dir();
+
     for name in &names {
         candidates.push(PathBuf::from(format!(r"C:\Tools\{name}")));
         candidates.push(PathBuf::from(format!(r"C:\Forensics\{name}")));
+        candidates.push(PathBuf::from(format!(r"C:\ProgramData\amele\tools\{name}")));
+        candidates.push(PathBuf::from(format!(r"C:\ProgramData\amele\{name}")));
+        candidates.push(PathBuf::from(format!(r"C:\amele\{name}")));
+        candidates.push(PathBuf::from(format!(r"C:\{name}")));
+        candidates.push(runtime_dir.join(name));
+        candidates.push(runtime_dir.join("amele-winpmem-install").join(name));
+
         if let Ok(exe) = std::env::current_exe() {
             if let Some(exe_dir) = exe.parent() {
                 candidates.push(exe_dir.join(name));
+                candidates.push(exe_dir.join("tools").join(name));
             }
         }
+
+        if let Ok(cwd) = std::env::current_dir() {
+            candidates.push(cwd.join(name));
+            candidates.push(cwd.join("tools").join(name));
+        }
+
+        if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
+            let p = PathBuf::from(local_app_data).join("amele");
+            candidates.push(p.join(name));
+            candidates.push(p.join("tools").join(name));
+            candidates.push(p.join("amele-winpmem-install").join(name));
+        }
+
+        if let Some(app_data) = std::env::var_os("APPDATA") {
+            let p = PathBuf::from(app_data).join("amele");
+            candidates.push(p.join(name));
+            candidates.push(p.join("tools").join(name));
+        }
     }
+
     candidates
         .into_iter()
         .find(|path| is_valid_executable_file(path))

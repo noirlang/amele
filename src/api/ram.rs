@@ -153,6 +153,16 @@ fn run_local_ram_job(
     request.output = plan.working_path.to_string_lossy().into_owned();
 
     let tool = request.tool.as_deref().unwrap_or_default();
+    if tool == "winpmem" {
+        if let Some(resolved) = ram::find_winpmem(request.tool_path.as_deref().map(Path::new)) {
+            request.tool_path = Some(resolved.to_string_lossy().into_owned());
+        }
+    } else if tool == "avml" {
+        if let Some(resolved) = ram::find_avml(request.tool_path.as_deref().map(Path::new)) {
+            request.tool_path = Some(resolved.to_string_lossy().into_owned());
+        }
+    }
+
     if local_ram_requires_elevation(tool) {
         run_elevated_local_ram_job(
             &job_id,

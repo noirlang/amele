@@ -9,7 +9,16 @@ export function showToast(message, type = "success") {
   if (!toast) {
     toast = document.createElement("div");
     toast.className = "toast";
+    toast.onclick = () => {
+      toast.classList.remove("visible");
+      window.clearTimeout(toastTimer);
+    };
     document.body.appendChild(toast);
+  } else if (!toast.onclick) {
+    toast.onclick = () => {
+      toast.classList.remove("visible");
+      window.clearTimeout(toastTimer);
+    };
   }
 
   const displayMessage = type === "error" ? normalizeErrorMessage(message) : String(message ?? "");
