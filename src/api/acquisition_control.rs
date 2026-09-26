@@ -28,6 +28,7 @@ pub fn acquisition_status_endpoint(body: &[u8]) -> Response {
                     "logs": job.logs,
                     "result": job.result,
                     "error": job.error,
+                    "phase": job.phase,
                 }),
             );
         }
@@ -54,6 +55,7 @@ pub fn acquisition_status_endpoint(body: &[u8]) -> Response {
             "logs": job.logs,
             "result": job.result,
             "error": job.error,
+            "phase": job.phase,
         })),
         None => json_error(404, "acquisition job not found"),
     }

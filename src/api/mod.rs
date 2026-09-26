@@ -28,15 +28,18 @@ pub mod wireguard;
 #[cfg(target_os = "linux")]
 pub use helpers::elevated_helper_executable;
 pub use helpers::{
-    cleanup_helper_files, command_error_message, download_file_to_path, elevated_disk_list,
-    helper_file_stem, helper_owner_gid, helper_owner_uid, process_is_root, read_helper_error,
-    read_helper_json, read_helper_progress, run_elevated_helper_wait, sha256_file,
-    spawn_elevated_helper, write_helper_control_state, write_json_file,
+    SudoKeepalive, cleanup_helper_files, command_error_message, download_file_to_path,
+    elevated_disk_list, elevation_error_wants_retry, helper_file_stem, helper_owner_gid,
+    helper_owner_uid, process_is_root, read_helper_error, read_helper_json, read_helper_progress,
+    run_elevated_helper_wait, sha256_file, spawn_elevated_helper, write_helper_control_state,
+    write_json_file,
 };
 pub use jobs::{
-    AcquisitionJob, NEXT_ACQUISITION_JOB_ID, acquisition_jobs, append_acquisition_log,
-    create_acquisition_job, fail_acquisition_job_with_message, finish_acquisition_job_with_message,
-    update_acquisition_message, update_acquisition_progress, update_acquisition_progress_message,
+    AcquisitionJob, NEXT_ACQUISITION_JOB_ID, PhaseProgress, acquisition_jobs,
+    append_acquisition_log, create_acquisition_job, fail_acquisition_job_with_message,
+    finish_acquisition_job_with_message, format_job_bytes, format_job_eta,
+    update_acquisition_message, update_acquisition_phase, update_acquisition_progress,
+    update_acquisition_progress_message,
 };
 pub use mount::image_unmount_current;
 #[cfg(target_os = "linux")]

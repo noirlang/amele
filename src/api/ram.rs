@@ -9,6 +9,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
+use std::time::{Duration, Instant};
 
 use crate::output_format::{self, AcquisitionOutputFormat};
 use crate::ram;
@@ -23,12 +24,15 @@ const VOLATILITY_LINUX_SYMBOL_RAW_BASE: &str =
 pub use super::ram_tools::{avml_install_endpoint, winpmem_install_endpoint};
 
 use super::{
+    PhaseProgress,
+    SudoKeepalive,
     append_acquisition_log,
     cleanup_helper_files,
     create_acquisition_job,
     current_evidence_vault,
     // Elevated and installer helpers
     download_file_to_path,
+    elevation_error_wants_retry,
     evidence_vault_for_output,
     fail_acquisition_job_with_message,
     finish_acquisition_job_with_message,
@@ -44,10 +48,12 @@ use super::{
     sha256_file,
     spawn_elevated_helper,
     update_acquisition_message,
+    update_acquisition_phase,
     update_acquisition_progress_message,
     write_helper_control_state,
     write_json_file,
 };
+use crate::output_format::PHASE_HASH;
 
 #[derive(Deserialize)]
 /// Yerel RAM edinim isteğinde araç, çıktı ve vaka bilgisini taşır.
@@ -180,12 +186,14 @@ fn run_local_ram_job(
 
     match result {
         Ok(result) => {
-            match output_format::finalize_output(
+            let mut hasher = PhaseProgress::start(&job_id, PHASE_HASH, result.bytes_written);
+            match output_format::finalize_output_with_progress(
                 &plan,
                 "ram",
                 request.tool.as_deref().unwrap_or_default(),
                 request.case_name.as_deref().unwrap_or_default(),
                 None,
+                &mut |done, total, phase| hasher.report(done, total, phase),
             ) {
                 Ok(finalized) => {
                     let completion_message = if format == AcquisitionOutputFormat::Aff4 {
@@ -355,7 +363,7 @@ fn local_ram_requires_elevation(tool: &str) -> bool {
 
     #[cfg(windows)]
     {
-        tool == "winpmem" && !ram::is_root_or_admin()
+        tool == "winpmem" && !process_is_root()
     }
 
     #[cfg(not(any(target_os = "linux", windows)))]
@@ -388,10 +396,14 @@ fn run_elevated_local_ram_job(
     plan: &output_format::OutputPlan,
     case_name: &str,
 ) {
-    update_acquisition_message(
-        job_id,
-        "Yetki bekleniyor: Linux'ta sudo/pkexec parola penceresini, Windows'ta UAC Evet/Hayır penceresini onaylayın.",
-    );
+    #[cfg(target_os = "linux")]
+    let wait_msg = "Yetki bekleniyor: Sudo/pkexec parola penceresini onaylayın.";
+    #[cfg(windows)]
+    let wait_msg = "Yetki bekleniyor: Windows UAC Evet/Hayır penceresini onaylayın.";
+    #[cfg(not(any(target_os = "linux", windows)))]
+    let wait_msg = "Yetki bekleniyor: Yönetici yetkisi onayını verin.";
+
+    update_acquisition_message(job_id, wait_msg);
     let stem = helper_file_stem("amele-ram-helper");
     let request_path = crate::settings::secure_runtime_dir().join(format!("{stem}-request.json"));
     let result_path = crate::settings::secure_runtime_dir().join(format!("{stem}-result.json"));
@@ -422,6 +434,9 @@ fn run_elevated_local_ram_job(
         progress_path.to_string_lossy().into_owned(),
         control_path.to_string_lossy().into_owned(),
     ];
+    let _keepalive = SudoKeepalive::start();
+    let elevated_start = Instant::now();
+    let mut elevation_retried = false;
     let mut child = match spawn_elevated_helper(&args) {
         Ok(child) => child,
         Err(err) => {
@@ -432,10 +447,10 @@ fn run_elevated_local_ram_job(
     };
     update_acquisition_message(
         job_id,
-        &format!("Yetki helper başlatıldı: {}", child.method()),
+        &format!("Root yetkisi sağlandı: {}", child.method()),
     );
 
-    loop {
+    'helper_wait: loop {
         if control.is_cancelled() {
             let _ = write_helper_control_state(&control_path, "cancelled");
             update_acquisition_message(job_id, "RAM edinimi iptal ediliyor");
@@ -469,7 +484,10 @@ fn run_elevated_local_ram_job(
             let _ = write_helper_control_state(&control_path, "running");
         }
 
-        if let Some((done, total, message)) = read_helper_progress(&progress_path) {
+        if let Some((done, total, message, phase)) = read_helper_progress(&progress_path) {
+            if let Some(ref p) = phase {
+                update_acquisition_phase(job_id, p);
+            }
             update_acquisition_progress_message(job_id, done, total, &message);
         }
 
@@ -478,6 +496,44 @@ fn run_elevated_local_ram_job(
                 if !status.success() {
                     let error = read_helper_error(&result_path)
                         .unwrap_or_else(|| child.failure_message(&status));
+                    if !elevation_retried
+                        && !control.is_cancelled()
+                        && elevated_start.elapsed() < Duration::from_secs(120)
+                        && elevation_error_wants_retry(&error)
+                    {
+                        elevation_retried = true;
+                        cleanup_helper_files(&[&result_path, &progress_path]);
+                        let _ = write_helper_control_state(&control_path, "running");
+                        update_acquisition_message(
+                            job_id,
+                            "Yetki alınamadı, parola penceresi tekrar açılıyor...",
+                        );
+                        thread::sleep(Duration::from_secs(1));
+                        match spawn_elevated_helper(&args) {
+                            Ok(next) => {
+                                child = next;
+                                update_acquisition_message(
+                                    job_id,
+                                    &format!("Yetki helper başlatıldı: {}", child.method()),
+                                );
+                                continue 'helper_wait;
+                            }
+                            Err(err) => {
+                                cleanup_helper_files(&[
+                                    &request_path,
+                                    &result_path,
+                                    &progress_path,
+                                    &control_path,
+                                ]);
+                                fail_acquisition_job_with_message(
+                                    job_id,
+                                    err,
+                                    "RAM edinimi basarisiz",
+                                );
+                                return;
+                            }
+                        }
+                    }
                     cleanup_helper_files(&[
                         &request_path,
                         &result_path,
@@ -522,12 +578,22 @@ fn run_elevated_local_ram_job(
             working_path: target_path,
             final_path: plan.final_path.clone(),
         };
-        match output_format::finalize_output(
+        let elevated_bytes = result
+            .get("bytes_written")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0);
+        let existing_sha256 = result
+            .get("sha256")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        let mut hasher = PhaseProgress::start(job_id, PHASE_HASH, elevated_bytes);
+        match output_format::finalize_output_with_progress(
             &actual_plan,
             "ram",
             request.tool.as_deref().unwrap_or_default(),
             case_name,
-            None,
+            existing_sha256,
+            &mut |done, total, phase| hasher.report(done, total, phase),
         ) {
             Ok(finalized) => finish_acquisition_job_with_message(
                 job_id,
@@ -1442,5 +1508,68 @@ pub fn ram_read_carved_endpoint(body: &[u8]) -> Response {
             }))
         }
         Err(err) => json_error(500, err.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::acquisition_jobs;
+
+    #[test]
+    fn test_ram_elevation_detection() {
+        #[cfg(target_os = "linux")]
+        {
+            if !process_is_root() {
+                assert!(local_ram_requires_elevation("avml"));
+            } else {
+                assert!(!local_ram_requires_elevation("avml"));
+            }
+            assert!(!local_ram_requires_elevation("winpmem"));
+        }
+
+        #[cfg(windows)]
+        {
+            if !process_is_root() {
+                assert!(local_ram_requires_elevation("winpmem"));
+            } else {
+                assert!(!local_ram_requires_elevation("winpmem"));
+            }
+            assert!(!local_ram_requires_elevation("avml"));
+        }
+
+        #[cfg(not(any(target_os = "linux", windows)))]
+        {
+            assert!(!local_ram_requires_elevation("avml"));
+        }
+    }
+
+    #[test]
+    fn test_update_acquisition_message() {
+        let (job_id, _control) = create_acquisition_job("Job initial");
+        update_acquisition_message(&job_id, "Job updated");
+        let jobs = acquisition_jobs().lock().unwrap();
+        let job = jobs.get(&job_id).unwrap();
+        assert_eq!(job.message, "Job updated");
+        assert_eq!(job.logs.len(), 2);
+    }
+
+    #[test]
+    fn test_run_local_ram_job_cancelled() {
+        let (job_id, control) = create_acquisition_job("Job initial");
+        let temp = tempfile::tempdir().unwrap();
+        let out = temp.path().join("ram_test.raw");
+        let req = LocalRamRequest {
+            output: out.to_string_lossy().to_string(),
+            tool: Some("avml".to_string()),
+            tool_path: None,
+            case_name: None,
+            output_format: Some("raw".to_string()),
+        };
+        control.cancel();
+        run_local_ram_job(job_id.clone(), req, control);
+        let jobs = acquisition_jobs().lock().unwrap();
+        let job = jobs.get(&job_id).unwrap();
+        assert_eq!(job.status, "failed");
     }
 }

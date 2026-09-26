@@ -81,7 +81,6 @@
 
 .nav-item.active::before,
 .pulse,
-.progress-bar span,
 .spark {
   background: var(--text) !important;
   background-image: none !important;
@@ -221,6 +220,17 @@ code:not(.help-code-block code) {
   background: var(--bg-2) !important;
   border-color: var(--line-strong) !important;
   box-shadow: none !important;
+}
+
+.progress-bar span {
+  background: rgba(255, 255, 255, 0.38) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
+}
+
+.progress-bar b {
+  color: #ffffff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 4px rgba(0, 0, 0, 0.9) !important;
 }
 
 .switch {

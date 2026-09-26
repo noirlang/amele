@@ -6,6 +6,10 @@ use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
+use std::time::Duration;
 
 /// Komut stderr çıktısını yoksa fallback mesajını döndürür.
 pub fn command_error_message(output: &std::process::Output, fallback: &str) -> String {
@@ -32,6 +36,52 @@ pub fn process_is_root() -> bool {
     #[cfg(not(any(target_os = "linux", windows)))]
     {
         false
+    }
+}
+
+/// Uzun süren edinim işlerinde sudo oturum süresinin (timestamp timeout)
+/// dolmasını önlemek için periyodik olarak sudo -n -v çağırır.
+pub struct SudoKeepalive {
+    stop: Arc<AtomicBool>,
+    handle: Option<thread::JoinHandle<()>>,
+}
+
+impl SudoKeepalive {
+    pub fn start() -> Self {
+        let stop = Arc::new(AtomicBool::new(false));
+        #[cfg(target_os = "linux")]
+        let handle = {
+            let stop = stop.clone();
+            Some(thread::spawn(move || {
+                let mut count = 0;
+                while !stop.load(Ordering::SeqCst) {
+                    thread::sleep(Duration::from_millis(500));
+                    count += 1;
+                    if count >= 90 {
+                        count = 0;
+                        let _ = Command::new("sudo")
+                            .args(["-n", "-v"])
+                            .stdin(Stdio::null())
+                            .stdout(Stdio::null())
+                            .stderr(Stdio::null())
+                            .status();
+                    }
+                }
+            }))
+        };
+        #[cfg(not(target_os = "linux"))]
+        let handle = None;
+
+        Self { stop, handle }
+    }
+}
+
+impl Drop for SudoKeepalive {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::SeqCst);
+        if let Some(handle) = self.handle.take() {
+            let _ = handle.join();
+        }
     }
 }
 
@@ -312,14 +362,28 @@ fn spawn_linux_sudo_askpass(exe: &Path, args: &[String]) -> Result<ElevatedChild
         return Err("sudo bulunamadi".to_string());
     }
     let askpass = ensure_sudo_askpass_script()?;
-    let child = Command::new("sudo")
-        .arg("-A")
+    let mut cmd = Command::new("sudo");
+    cmd.arg("-A")
         .arg("-p")
         .arg("Amele Forensic Tool yetkisi gerekiyor: ")
         .arg(exe)
         .args(args)
-        .env("SUDO_ASKPASS", askpass)
-        .env("SUDO_ASKPASS_REQUIRE", "force")
+        .env("SUDO_ASKPASS", &askpass)
+        .env("SUDO_ASKPASS_REQUIRE", "force");
+
+    for key in [
+        "DISPLAY",
+        "WAYLAND_DISPLAY",
+        "XDG_RUNTIME_DIR",
+        "XAUTHORITY",
+        "DBUS_SESSION_BUS_ADDRESS",
+    ] {
+        if let Some(val) = std::env::var_os(key) {
+            cmd.env(key, val);
+        }
+    }
+
+    let child = cmd
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
@@ -370,7 +434,7 @@ fn linux_gui_askpass_available() -> bool {
 
 #[cfg(target_os = "linux")]
 /// sudo -A için geçici ve sabit bir askpass betiği hazırlar.
-fn ensure_sudo_askpass_script() -> Result<PathBuf, String> {
+pub(crate) fn ensure_sudo_askpass_script() -> Result<PathBuf, String> {
     use std::os::unix::fs::PermissionsExt;
 
     if let Some(path) = std::env::var_os("SUDO_ASKPASS").map(PathBuf::from)
@@ -381,7 +445,7 @@ fn ensure_sudo_askpass_script() -> Result<PathBuf, String> {
 
     let script = crate::settings::secure_runtime_dir().join("amele-sudo-askpass.sh");
     let body = r#"#!/bin/sh
-prompt="${SUDO_ASKPASS_PROMPT:-Amele Forensic Tool yetkisi gerekiyor}"
+prompt="${1:-${SUDO_ASKPASS_PROMPT:-Amele Forensic Tool yetkisi gerekiyor}}"
 if command -v zenity >/dev/null 2>&1; then
   exec zenity --password --title="Amele Forensic Tool" --text="$prompt"
 fi
@@ -570,6 +634,23 @@ pub fn describe_elevation_failure(method: &str, code: Option<i32>, stderr: &str)
     message
 }
 
+/// Helper hizli dusup yetki/parola sikintisina isaret ediyorsa parola
+/// penceresinin bir kez daha acilmasi icin true doner.
+pub fn elevation_error_wants_retry(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    lower.contains("parola")
+        || lower.contains("polkit")
+        || lower.contains("authentication agent")
+        || lower.contains("iptal")
+        || lower.contains("dismissed")
+        || lower.contains("cancel")
+        || lower.contains("not authorized")
+        || lower.contains("incorrect password")
+        || lower.contains("sorry, try again")
+        || lower.contains("a password is required")
+        || lower.contains("uac")
+}
+
 /// Yetkili helper sürecini başlatır ve tamamlanmasını bekler.
 pub fn run_elevated_helper_wait(args: &[String]) -> Result<(), String> {
     let mut child = spawn_elevated_helper(args)?;
@@ -677,8 +758,8 @@ pub fn read_helper_error(path: &Path) -> Option<String> {
     })
 }
 
-/// Helper ilerleme dosyasından done/total/message değerlerini okur.
-pub fn read_helper_progress(path: &Path) -> Option<(u64, u64, String)> {
+/// Helper ilerleme dosyasından done/total/message/phase değerlerini okur.
+pub fn read_helper_progress(path: &Path) -> Option<(u64, u64, String, Option<String>)> {
     let value = read_helper_json(path).ok()?;
     let done = value
         .get("done")
@@ -693,7 +774,11 @@ pub fn read_helper_progress(path: &Path) -> Option<(u64, u64, String)> {
         .and_then(Value::as_str)
         .unwrap_or("Imaj alma sürüyor")
         .to_string();
-    Some((done, total, message))
+    let phase = value
+        .get("phase")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    Some((done, total, message, phase))
 }
 
 /// Geçici helper dosyalarını sessizce temizler.
@@ -782,4 +867,29 @@ fn run_elevated_disk_list_helper(output_path: &Path) -> Result<(), String> {
 /// Desteklenmeyen platformlarda yetkili disk listelemeyi hata olarak döndürür.
 fn run_elevated_disk_list_helper(_output_path: &Path) -> Result<(), String> {
     Err("yetki yükseltmeli disk listeleme bu platformda desteklenmiyor".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn elevation_retry_only_for_auth_errors() {
+        assert!(elevation_error_wants_retry(
+            "Yetki yükseltme başarısız (pkexec). Neden: pkexec yetki isteği iptal edildi veya kullanıcı yetkili değil."
+        ));
+        assert!(elevation_error_wants_retry("sudo: incorrect password"));
+        assert!(!elevation_error_wants_retry("AVML bulunamadi"));
+        assert!(!elevation_error_wants_retry(
+            "RAM araci basarisiz oldu: exit status: 1"
+        ));
+    }
+
+    #[test]
+    fn job_bytes_and_eta_format() {
+        assert_eq!(super::super::format_job_bytes(512), "512 B");
+        assert_eq!(super::super::format_job_bytes(16_106_127_360), "15,0 GB");
+        assert_eq!(super::super::format_job_eta(45), "45 sn");
+        assert_eq!(super::super::format_job_eta(150), "2 dk 30 sn");
+    }
 }

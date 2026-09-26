@@ -66,7 +66,9 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
         ("POST", "/api/profiles/online-logout") => profile::profile_online_logout_endpoint(),
         ("GET", "/api/profiles/mobile-access") => profile::profile_mobile_access_endpoint(),
         ("POST", "/api/reports/submit") => profile::profile_report_submit_endpoint(body),
-        ("POST", "/api/reports/upload-image") => profile::profile_report_upload_image_endpoint(body),
+        ("POST", "/api/reports/upload-image") => {
+            profile::profile_report_upload_image_endpoint(body)
+        }
         ("GET", "/api/ai/agents") => ai::get_agents_endpoint(),
         ("GET", "/api/ai/models") => ai::get_models_endpoint(path),
         ("POST", "/api/ai/chat") => ai::chat_endpoint(body),

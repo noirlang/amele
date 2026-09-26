@@ -9,8 +9,9 @@ use sha2::{Sha256, Sha512};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
+use std::time::{Duration, Instant};
 
-pub const HASH_BUFFER_SIZE: usize = 1024 * 1024;
+pub const HASH_BUFFER_SIZE: usize = 8 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 /// Desteklenen dosya bütünlük algoritmalarını temsil eder.
@@ -104,6 +105,41 @@ pub fn calculate_file_hash(
         .ok_or_else(|| AmeleError::new(HataKodu::Genel, "Hash sonucu uretilemedi"))
 }
 
+/// Tek algoritma için dosya hashini okunan bayt ilerlemesiyle hesaplar.
+/// GB'lik imajlarda arayuzun kilitlenmis gibi durmamasi icin kullanilir.
+pub fn calculate_file_hash_with_progress(
+    path: impl AsRef<Path>,
+    algorithm: HashAlgorithm,
+    on_progress: &mut dyn FnMut(u64, u64),
+) -> AmeleResult<String> {
+    let file = File::open(path.as_ref())
+        .map_err(|err| AmeleError::io(HataKodu::DosyaAcilamadi, "Hash dosyasi acilamadi", err))?;
+    let total = file.metadata().map(|meta| meta.len()).unwrap_or(0);
+    let mut state = HashState::new(algorithm);
+    let mut buffer = vec![0_u8; HASH_BUFFER_SIZE];
+    let mut done = 0_u64;
+    let mut last_report = Instant::now();
+    // file degiskeni asagida okuma icin tekrar kullaniliyor.
+    let mut file = file;
+    on_progress(0, total);
+    loop {
+        let read = file
+            .read(&mut buffer)
+            .map_err(|err| AmeleError::io(HataKodu::DosyaOkuma, "Hash dosyasi okunamadi", err))?;
+        if read == 0 {
+            break;
+        }
+        state.update(&buffer[..read]);
+        done += read as u64;
+        if last_report.elapsed() >= Duration::from_millis(250) || done >= total {
+            last_report = Instant::now();
+            on_progress(done, total);
+        }
+    }
+    on_progress(total, total);
+    Ok(state.finalize())
+}
+
 /// Dosyayı bir kez okuyarak birden fazla hash algoritmasını aynı anda hesaplar.
 pub fn calculate_multiple(
     path: impl AsRef<Path>,
@@ -152,7 +188,7 @@ pub fn compare_hash(left: &str, right: &str) -> bool {
 }
 
 /// Hedef dosyanın yanına SHA-256 sidecar dosyası yazar.
-pub(crate) fn write_sha256_sidecar(target: &Path, hash: &str) -> AmeleResult<()> {
+pub fn write_sha256_sidecar(target: &Path, hash: &str) -> AmeleResult<()> {
     let sidecar = target.with_extension(format!(
         "{}sha256",
         target

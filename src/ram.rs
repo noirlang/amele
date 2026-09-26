@@ -212,7 +212,7 @@ where
             &mut child,
             output_file.as_ref(),
             total,
-            Duration::from_secs(7200),
+            Duration::from_secs(10800),
             cancellation,
             &mut progress,
         )
@@ -350,7 +350,7 @@ where
                         child,
                         output_file.as_ref(),
                         total,
-                        Duration::from_secs(3600),
+                        Duration::from_secs(7200),
                         cancellation,
                         &mut progress,
                     );
@@ -446,7 +446,8 @@ where
                     "ram",
                     format!("RAM edinimi tamamlandi. Toplam {} bayt yazildi.", size),
                 );
-                progress(size, total);
+                let effective_total = total.max(size);
+                progress(size, effective_total);
                 return Ok(RamAcquisitionResult {
                     output_file: output_file.to_path_buf(),
                     bytes_written: size,
@@ -471,6 +472,7 @@ where
         }
 
         if started.elapsed() > timeout {
+            let hours = started.elapsed().as_secs() / 3600;
             runtime_log(
                 LogLevel::Error,
                 "ram",
@@ -478,11 +480,19 @@ where
             );
             let _ = child.kill();
             let _ = child.wait();
-            return Err(AmeleError::new(HataKodu::Genel, "RAM edinimi zaman asimi"));
+            return Err(AmeleError::new(
+                HataKodu::Genel,
+                format!(
+                    "RAM edinimi zaman asimini asti ({} sa limit). Daha buyuk belleklerde parca parca almayi deneyin.",
+                    hours.max(1)
+                ),
+            ));
         }
 
         if let Ok(metadata) = fs::metadata(output_file) {
-            progress(metadata.len(), total);
+            let size = metadata.len();
+            let effective_total = total.max(size);
+            progress(size, effective_total);
         }
 
         thread::sleep(Duration::from_secs(1));

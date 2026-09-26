@@ -123,7 +123,9 @@ impl EvidenceVault {
             logger,
             lock: Mutex::new(()),
         };
-        let _ = vault.write_case_manifest();
+        if !vault.case_manifest_path().exists() {
+            let _ = vault.write_case_manifest();
+        }
         Ok(vault)
     }
 
@@ -359,6 +361,32 @@ fn collect_manifest_files_recursive(
     }
 }
 
+fn read_sidecar_sha256(path: &Path) -> Option<String> {
+    let sidecars = [
+        path.with_extension(format!(
+            "{}sha256",
+            path.extension()
+                .and_then(|ext| ext.to_str())
+                .map(|ext| format!("{ext}."))
+                .unwrap_or_default()
+        )),
+        path.with_extension("sha256"),
+    ];
+    for sidecar in &sidecars {
+        if sidecar != path && sidecar.is_file() {
+            if let Ok(content) = fs::read_to_string(sidecar) {
+                if let Some(token) = content.split_whitespace().next() {
+                    let token = token.trim();
+                    if token.len() == 64 && token.chars().all(|c| c.is_ascii_hexdigit()) {
+                        return Some(token.to_ascii_lowercase());
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 fn case_manifest_file_json(root: &Path, path: &Path, metadata: &fs::Metadata) -> serde_json::Value {
     let relative = relative_case_path(root, path);
     let file_type = if metadata.file_type().is_symlink() {
@@ -367,7 +395,13 @@ fn case_manifest_file_json(root: &Path, path: &Path, metadata: &fs::Metadata) ->
         "file"
     };
     let sha256 = if metadata.file_type().is_file() {
-        calculate_file_hash(path, HashAlgorithm::Sha256).ok()
+        read_sidecar_sha256(path).or_else(|| {
+            if metadata.len() < 10 * 1024 * 1024 {
+                calculate_file_hash(path, HashAlgorithm::Sha256).ok()
+            } else {
+                None
+            }
+        })
     } else {
         None
     };

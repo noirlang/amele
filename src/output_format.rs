@@ -24,6 +24,10 @@ pub struct OutputPlan {
     pub final_path: PathBuf,
 }
 
+/// finalize uzun fazlarinin arayuzdeki etiketleri.
+pub const PHASE_HASH: &str = "SHA-256 hesaplanıyor";
+pub const PHASE_PACK: &str = "AFF4 paketleniyor";
+
 #[derive(Debug, Clone)]
 /// Final format dönüşümünden sonra API/CLI'ye dönecek bilgidir.
 pub struct FinalizedOutput {
@@ -87,12 +91,40 @@ pub fn finalize_output(
     case_name: &str,
     existing_raw_sha256: Option<String>,
 ) -> Result<FinalizedOutput, String> {
+    let mut noop = |_done: u64, _total: u64, _phase: &str| {};
+    finalize_output_with_progress(
+        plan,
+        artifact_kind,
+        source_label,
+        case_name,
+        existing_raw_sha256,
+        &mut noop,
+    )
+}
+
+/// Edinim çıktısını final formata tamamlar, uzun hash/paket fazlarını raporlar.
+/// on_progress(done, total, phase) imaj sonu takilma hissini onler.
+pub fn finalize_output_with_progress(
+    plan: &OutputPlan,
+    artifact_kind: &str,
+    source_label: &str,
+    case_name: &str,
+    existing_raw_sha256: Option<String>,
+    on_progress: &mut dyn FnMut(u64, u64, &'static str),
+) -> Result<FinalizedOutput, String> {
     match plan.format {
         AcquisitionOutputFormat::Raw => {
             let sha256 = match existing_raw_sha256.filter(|value| !value.trim().is_empty()) {
                 Some(value) => value,
-                None => hash::calculate_file_hash(&plan.working_path, HashAlgorithm::Sha256)
-                    .map_err(|err| err.to_string())?,
+                None => {
+                    on_progress(0, 0, PHASE_HASH);
+                    hash::calculate_file_hash_with_progress(
+                        &plan.working_path,
+                        HashAlgorithm::Sha256,
+                        &mut |done, total| on_progress(done, total, PHASE_HASH),
+                    )
+                    .map_err(|err| err.to_string())?
+                }
             };
             hash::write_sha256_sidecar(&plan.working_path, &sha256)
                 .map_err(|err| err.to_string())?;
@@ -106,9 +138,17 @@ pub fn finalize_output(
         AcquisitionOutputFormat::Aff4 => {
             let raw_sha256 = match existing_raw_sha256.filter(|value| !value.trim().is_empty()) {
                 Some(value) => value,
-                None => hash::calculate_file_hash(&plan.working_path, HashAlgorithm::Sha256)
-                    .map_err(|err| err.to_string())?,
+                None => {
+                    on_progress(0, 0, PHASE_HASH);
+                    hash::calculate_file_hash_with_progress(
+                        &plan.working_path,
+                        HashAlgorithm::Sha256,
+                        &mut |done, total| on_progress(done, total, PHASE_HASH),
+                    )
+                    .map_err(|err| err.to_string())?
+                }
             };
+            on_progress(0, 0, PHASE_PACK);
             package_aff4(plan, artifact_kind, source_label, case_name, &raw_sha256)
                 .map_err(|err| err.to_string())?;
             let aff4_sha256 = hash::calculate_file_hash(&plan.final_path, HashAlgorithm::Sha256)

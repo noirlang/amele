@@ -1,0 +1,328 @@
+/* ============================================================
+   Amele Forensic Tool - Aktif İşlemler Widget (Background Jobs)
+   Arka planda çalışan adli bilişim işlemlerini (RAM, Disk, Mobil, Docker)
+   sistemin monokrom cam tasarımına (glassmorphism) uygun gösterir.
+   ============================================================ */
+
+#amele-jobs-widget {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 99;
+  display: none;
+  font-family: inherit;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+  transform: translateY(0);
+  opacity: 1;
+}
+
+#amele-jobs-widget.hidden-state {
+  transform: translateY(30px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Ana İşlem Kartı Container ── */
+#amele-jobs-container {
+  background: var(--panel, #111111);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+  border-radius: 14px;
+  padding: 12px 14px;
+  width: 310px;
+  box-shadow:
+    0 16px 40px -8px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.theme-light #amele-jobs-container {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow:
+    0 16px 36px -8px rgba(0, 0, 0, 0.14),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Panel Başlığı ── */
+.jobs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+}
+
+.theme-light .jobs-header {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+.jobs-header-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.jobs-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text, #ffffff);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+  animation: jobs-pulse 1.8s ease-in-out infinite;
+}
+
+.theme-light .jobs-live-dot {
+  background: #111111;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes jobs-pulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.jobs-title {
+  color: var(--muted, #a1a1aa);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.theme-light .jobs-title {
+  color: #52525b;
+}
+
+.jobs-minimize-btn {
+  background: transparent;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+  color: var(--muted, #a1a1aa);
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.jobs-minimize-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: var(--text, #ffffff);
+}
+
+.theme-light .jobs-minimize-btn {
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #71717a;
+}
+
+.theme-light .jobs-minimize-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.25);
+  color: #111111;
+}
+
+/* ── Liste ve İşlem Öğesi ── */
+#amele-jobs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.job-item {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px 11px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  box-sizing: border-box;
+}
+
+.job-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.theme-light .job-item {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.theme-light .job-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.16);
+}
+
+.job-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.job-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--text, #ffffff);
+  flex-shrink: 0;
+}
+
+.job-icon svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  stroke: currentColor;
+  fill: none;
+}
+
+.theme-light .job-icon {
+  color: #111111;
+}
+
+.job-desc {
+  color: var(--text, #ffffff);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.theme-light .job-desc {
+  color: #111111;
+}
+
+/* ── İlerleme Çubuğu (Monokrom) ── */
+.job-progress-bg {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.theme-light .job-progress-bg {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.job-progress-fill {
+  height: 100%;
+  background: var(--text, #ffffff);
+  border-radius: 999px;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.theme-light .job-progress-fill {
+  background: #111111;
+}
+
+/* ── Durum Metni ve Yüzde ── */
+.job-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted, #a1a1aa);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.theme-light .job-status {
+  color: #71717a;
+}
+
+.job-msg {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.job-pct {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text, #ffffff);
+  flex-shrink: 0;
+}
+
+.theme-light .job-pct {
+  color: #111111;
+}
+
+/* ── Küçültülmüş Hap (Minimized Pill) ── */
+#amele-jobs-minimized {
+  display: none;
+  background: var(--panel, #111111);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.14));
+  border-radius: 999px;
+  padding: 6px 14px;
+  color: var(--text, #ffffff);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+}
+
+#amele-jobs-minimized:hover {
+  background: var(--panel-soft, #18181b);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.theme-light #amele-jobs-minimized {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #111111;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.theme-light #amele-jobs-minimized:hover {
+  background: #f4f4f5;
+  border-color: rgba(0, 0, 0, 0.22);
+}
+
+.spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--text, #ffffff);
+  border-radius: 50%;
+  animation: jobs-spin 0.8s linear infinite;
+}
+
+.theme-light .spinner {
+  border-color: rgba(0, 0, 0, 0.15);
+  border-top-color: #111111;
+}
+
+@keyframes jobs-spin {
+  to { transform: rotate(360deg); }
+}

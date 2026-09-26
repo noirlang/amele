@@ -759,11 +759,10 @@ pub fn upload_online_image(
     for base in online_api_base_candidates(Some(&api_base)) {
         let url = format!("{base}/api/upload/image");
         let agent = online_agent();
-        let request = apply_online_headers(agent.post(&url), &base, token.as_deref())
-            .set(
-                "Content-Type",
-                &format!("multipart/form-data; boundary={boundary}"),
-            );
+        let request = apply_online_headers(agent.post(&url), &base, token.as_deref()).set(
+            "Content-Type",
+            &format!("multipart/form-data; boundary={boundary}"),
+        );
         match request.send_bytes(&body) {
             Ok(response) => {
                 let parsed = parse_online_response(response)?;
@@ -773,9 +772,7 @@ pub fn upload_online_image(
                     return Ok(String::new());
                 }
             }
-            Err(err) => {
-                last_error = Some(online_request_error("Ekran görüntüsü yüklenemedi", err))
-            }
+            Err(err) => last_error = Some(online_request_error("Ekran görüntüsü yüklenemedi", err)),
         }
     }
 

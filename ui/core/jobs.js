@@ -9,23 +9,30 @@ let currentJobs = {};
 let isMinimized = false;
 let pollingInterval = null;
 
-const TOOL_ICONS = {
-  disk: "💿",
-  android: "📱",
-  ios: "🍎",
-  docker: "🐳",
-  ram: "🧠",
-  default: "⚙️"
+// sistem ikonlariyla uyumlu ince cizgi svg seti (jobs.css .job-icon svg bekler).
+const TOOL_SVGS = {
+  disk: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg>`,
+  android: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="6" y="8" width="12" height="11" rx="3"/><path d="M9 8L7.5 4.5M15 8l1.5-3.5M9.5 13h.01M14.5 13h.01"/></svg>`,
+  ios: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="8" y="2.5" width="8" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>`,
+  docker: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l8 4.5v9l-8 4.5-8-4.5v-9z"/><path d="M12 11.5L4 7M12 11.5l8-4.5M12 11.5V20"/></svg>`,
+  ram: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M10 2.5v4M14 2.5v4M10 17.5v4M14 17.5v4M2.5 10h4M2.5 14h4M17.5 10h4M17.5 14h4"/></svg>`,
+  default: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/></svg>`
 };
 
-function getIconForJobId(jobId) {
-  const lowerId = (jobId || "").toLowerCase();
-  if (lowerId.includes("disk")) return TOOL_ICONS.disk;
-  if (lowerId.includes("android")) return TOOL_ICONS.android;
-  if (lowerId.includes("ios")) return TOOL_ICONS.ios;
-  if (lowerId.includes("docker")) return TOOL_ICONS.docker;
-  if (lowerId.includes("ram") || lowerId.includes("memory")) return TOOL_ICONS.ram;
-  return TOOL_ICONS.default;
+function getSvgForJob(job) {
+  const text = `${job?.id || ""} ${(job?.logs || []).join(" ")}`.toLowerCase();
+  if (text.includes("disk") || text.includes("imaj") || text.includes("image")) return TOOL_SVGS.disk;
+  if (text.includes("android")) return TOOL_SVGS.android;
+  if (text.includes("ios")) return TOOL_SVGS.ios;
+  if (text.includes("docker")) return TOOL_SVGS.docker;
+  if (text.includes("ram") || text.includes("memory") || text.includes("bellek")) return TOOL_SVGS.ram;
+  return TOOL_SVGS.default;
+}
+
+// is basligi olarak ilk log satiri gosterilir (acq-12 yerine "Yerel RAM edinimi...").
+function getTitleForJob(id, job) {
+  const first = Array.isArray(job?.logs) ? job.logs.find((line) => String(line || "").trim() !== "") : "";
+  return first || id;
 }
 
 function truncate(str, maxLength = 30) {
@@ -34,176 +41,7 @@ function truncate(str, maxLength = 30) {
   return str.slice(0, maxLength - 3) + "...";
 }
 
-function injectStyles() {
-  if (document.getElementById("jobs-widget-styles")) return;
-  const style = document.createElement("style");
-  style.id = "jobs-widget-styles";
-  style.textContent = `
-    #amele-jobs-widget {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      z-index: 9999;
-      display: none;
-      font-family: system-ui, -apple-system, sans-serif;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      transform: translateY(0);
-      opacity: 1;
-    }
-    
-    #amele-jobs-widget.hidden-state {
-      transform: translateY(120%);
-      opacity: 0;
-    }
-
-    #amele-jobs-container {
-      background: rgba(15, 23, 42, 0.7);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border-radius: 12px;
-      padding: 12px;
-      width: 320px;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
-      position: relative;
-      border: 1px solid transparent;
-      background-clip: padding-box;
-    }
-    
-    #amele-jobs-container::before {
-      content: '';
-      position: absolute;
-      top: 0; right: 0; bottom: 0; left: 0;
-      z-index: -1;
-      margin: -1px;
-      border-radius: inherit;
-      background: linear-gradient(135deg, #06b6d4, #14b8a6);
-    }
-
-    .jobs-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    
-    .jobs-title {
-      color: #fff;
-      font-weight: 600;
-      font-size: 14px;
-    }
-    
-    .jobs-minimize-btn {
-      background: rgba(255, 255, 255, 0.1);
-      border: none;
-      color: #cbd5e1;
-      cursor: pointer;
-      border-radius: 4px;
-      padding: 2px 6px;
-      font-size: 12px;
-      transition: background 0.2s;
-    }
-    
-    .jobs-minimize-btn:hover {
-      background: rgba(255, 255, 255, 0.2);
-      color: #fff;
-    }
-
-    .job-item {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      padding: 8px;
-      background: rgba(255, 255, 255, 0.03);
-      border-radius: 8px;
-      margin-bottom: 8px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    
-    .job-item:last-child {
-      margin-bottom: 0;
-    }
-    
-    .job-item:hover {
-      background: rgba(255, 255, 255, 0.08);
-    }
-
-    .job-info {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    .job-icon {
-      font-size: 16px;
-    }
-    
-    .job-desc {
-      color: #f8fafc;
-      font-size: 13px;
-      font-weight: 500;
-      flex: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .job-progress-bg {
-      height: 4px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    
-    .job-progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #06b6d4, #14b8a6);
-      transition: width 0.3s ease;
-    }
-
-    .job-status {
-      display: flex;
-      justify-content: space-between;
-      color: #94a3b8;
-      font-size: 11px;
-    }
-
-    /* Minimized Pill */
-    #amele-jobs-minimized {
-      display: none;
-      background: rgba(15, 23, 42, 0.8);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid #14b8a6;
-      border-radius: 20px;
-      padding: 6px 12px;
-      color: #fff;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      align-items: center;
-      gap: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    }
-    
-    .spinner {
-      width: 14px;
-      height: 14px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-top-color: #14b8a6;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  `;
-  document.head.appendChild(style);
-}
-
+// stiller styles/jobs.css dosyasindan gelir, burada gomulu stil yok.
 function createDOM() {
   widgetElement = document.createElement("div");
   widgetElement.id = "amele-jobs-widget";
@@ -215,7 +53,10 @@ function createDOM() {
   const header = document.createElement("div");
   header.className = "jobs-header";
   header.innerHTML = `
-    <div class="jobs-title">Aktif İşlemler</div>
+    <div class="jobs-header-left">
+      <span class="jobs-live-dot"></span>
+      <div class="jobs-title">Aktif İşlemler</div>
+    </div>
     <button class="jobs-minimize-btn">Gizle</button>
   `;
   
@@ -297,13 +138,14 @@ function render() {
       el.onclick = () => handleJobClick(id);
       
       const pct = job.total ? Math.min(100, Math.round((job.done / job.total) * 100)) : 0;
-      const msg = truncate(job.message || "İşlem devam ediyor...", 40);
-      const icon = getIconForJobId(id);
-      
+      const phasePrefix = job.phase && !String(job.message || "").includes(job.phase) ? `${job.phase}: ` : "";
+      const msg = truncate(`${phasePrefix}${job.message || "İşlem devam ediyor..."}`, 45);
+      const title = truncate(getTitleForJob(id, job), 40);
+
       el.innerHTML = `
         <div class="job-info">
-          <span class="job-icon">${icon}</span>
-          <span class="job-desc">${escapeHtml(id)}</span>
+          <span class="job-icon">${getSvgForJob({ id, ...job })}</span>
+          <span class="job-desc">${escapeHtml(title)}</span>
         </div>
         <div class="job-progress-bg">
           <div class="job-progress-fill" style="width: ${pct}%"></div>
@@ -333,7 +175,6 @@ async function pollJobs() {
 
 export function initJobWidget() {
   if (widgetElement) return;
-  injectStyles();
   createDOM();
   pollJobs();
   pollingInterval = setInterval(pollJobs, 800);

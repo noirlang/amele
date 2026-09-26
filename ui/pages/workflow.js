@@ -21,6 +21,11 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
   const defaultUser = isWindows ? "Administrator" : "root";
   const defaultPort = isWindows ? "22" : "22";
 
+  const isAcquisitionRunning = Boolean(
+    state?.activeAcquisition &&
+    (state.activeAcquisition.workflowId === id || !state.activeAcquisition.workflowId)
+  );
+
   const connectionBlock = isSsh
     ? `
         <p class="section-label">${t("workflow.sshConnection")}</p>
@@ -82,7 +87,6 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
                 <option value="aff4">${t("workflow.formatAff4")}</option>
               </select>
             `)}
-
             <div class="section-divider"></div>
             <p class="section-label">${isRam ? t("workflow.ramOutput") : t("workflow.diskOutput")}</p>
             ${targetSelect}
@@ -90,10 +94,10 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
               <button class="secondary-button" data-action="scan">${icon(isRam ? "chip" : "disk")} ${scanLabel}</button>
               ${!isRemote && isRam && data.platform === "Windows" ? `<button class="secondary-button" data-action="download">${icon("refresh")} ${t("workflow.downloadWinpmem")}</button>` : ""}
               ${!isRemote && isRam && data.platform === "Linux" ? `<button class="secondary-button" data-action="install-avml">${icon("download")} ${t("workflow.downloadAvml")}</button>` : ""}
-              <button class="primary-button" data-action="start">${icon(isRam ? "ram" : "disk")} ${isRam ? t("workflow.startRam") : t("workflow.startImage")}</button>
+              <button class="primary-button" data-action="start" ${isAcquisitionRunning ? "hidden disabled" : ""}>${icon(isRam ? "ram" : "disk")} ${isRam ? t("workflow.startRam") : t("workflow.startImage")}</button>
             </div>
 
-            <div class="button-row acquisition-controls" data-acquisition-controls hidden>
+            <div class="button-row acquisition-controls" data-acquisition-controls ${isAcquisitionRunning ? "" : "hidden"}>
               <button class="secondary-button" data-action="pause">${icon("pause")} ${t("workflow.pause")}</button>
               <button class="secondary-button" data-action="resume">${icon("play")} ${t("workflow.resume")}</button>
               <button class="danger-button" data-action="stop">${icon("stop")} ${t("workflow.stop")}</button>

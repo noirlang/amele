@@ -2252,17 +2252,20 @@ html.sidebar-collapsed .sidebar-expand-toggle,
 .progress-bar {
   position: relative;
   overflow: hidden;
-  height: 18px;
+  height: 20px;
   border: 1px solid var(--line-strong);
   border-radius: 99px;
-  background: rgba(0, 0, 0, 0.22);
+  background: rgba(0, 0, 0, 0.5);
 }
 
 .progress-bar span {
   display: block;
   width: var(--value, 0%);
   height: 100%;
-  background: linear-gradient(90deg, var(--green), rgba(101, 229, 138, 0.28));
+  background: rgba(255, 255, 255, 0.38);
+  border-right: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
+  transition: width 0.2s ease;
 }
 
 .progress-bar b {
@@ -2270,11 +2273,12 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   inset: 0;
   display: grid;
   place-items: center;
-  font-size: 12px;
-}
-
-.progress-bar.is-past-half b {
-  color: #050505 !important;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: #ffffff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 4px rgba(0, 0, 0, 0.9) !important;
+  pointer-events: none;
 }
 
 .side-panel {
@@ -4145,6 +4149,14 @@ code {
   color: var(--muted);
   font-family: "Cascadia Code", Consolas, monospace;
   font-size: 13px;
+}
+
+/* edinim konsolu: tam log akar, kaydirma cubugu altta kalir. */
+#workflow-log {
+  max-height: 260px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .error-detail-box {

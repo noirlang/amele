@@ -262,4 +262,3 @@ pub fn profile_report_upload_image_endpoint(body: &[u8]) -> Response {
         Err(err) => json_error(500, err.to_string()),
     }
 }
-

@@ -7,6 +7,7 @@ use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::thread;
+use std::time::{Duration, Instant};
 
 #[cfg(windows)]
 use std::process::Command;
@@ -22,11 +23,14 @@ use crate::server::{Response, json_error, json_ok};
 
 use super::{
     ImageMountState,
+    PhaseProgress,
+    SudoKeepalive,
     cleanup_helper_files,
     create_acquisition_job,
     current_image_mount,
     default_case_base_dir,
     elevated_disk_list,
+    elevation_error_wants_retry,
     fail_acquisition_job_with_message,
     finish_acquisition_job_with_message,
     helper_file_stem,
@@ -46,6 +50,7 @@ use super::{
     write_helper_control_state,
     write_json_file,
 };
+use crate::output_format::PHASE_HASH;
 
 #[cfg(target_os = "linux")]
 use super::linux_mount_image_readonly;
@@ -137,16 +142,12 @@ pub fn disk_list_endpoint() -> Response {
     }
 }
 
-/// Disk listesinde erişilemez cihaz varsa yetki yükseltme gerekip gerekmediğini belirler.
+/// Disk listesinde erişilemez cihaz varsa veya yetki gerekiyorsa yetki yükseltme denenmesini sağlar.
 fn should_request_elevated_disk_list(disks: &[disk::DiskInfo]) -> bool {
-    #[cfg(target_os = "linux")]
-    {
-        if !process_is_root() {
-            return true;
-        }
-    }
-
     if !(cfg!(target_os = "linux") || cfg!(windows)) {
+        return false;
+    }
+    if process_is_root() {
         return false;
     }
     disks.is_empty() || disks.iter().any(|disk| !disk.accessible)
@@ -240,12 +241,19 @@ fn run_local_image_job(
         },
     ) {
         Ok(result) => {
-            match output_format::finalize_output(
+            let disk_total = if result.total_bytes > 0 {
+                result.total_bytes
+            } else {
+                result.bytes_copied
+            };
+            let mut hasher = PhaseProgress::start(&job_id, PHASE_HASH, disk_total);
+            match output_format::finalize_output_with_progress(
                 &plan,
                 "disk",
                 request.disk_name.as_deref().unwrap_or(&request.source),
                 request.case_name.as_deref().unwrap_or_default(),
                 result.sha256.clone(),
+                &mut |done, total, phase| hasher.report(done, total, phase),
             ) {
                 Ok(finalized) => finish_acquisition_job_with_message(
                     &job_id,
@@ -292,10 +300,14 @@ fn run_elevated_local_image_job(
     source_label: &str,
     case_name: &str,
 ) {
-    update_acquisition_message(
-        job_id,
-        "Yetki bekleniyor: Linux'ta sudo/pkexec parola penceresini, Windows'ta UAC Evet/Hayır penceresini onaylayın.",
-    );
+    #[cfg(target_os = "linux")]
+    let wait_msg = "Yetki bekleniyor: Sudo/pkexec parola penceresini onaylayın.";
+    #[cfg(windows)]
+    let wait_msg = "Yetki bekleniyor: Windows UAC Evet/Hayır penceresini onaylayın.";
+    #[cfg(not(any(target_os = "linux", windows)))]
+    let wait_msg = "Yetki bekleniyor: Yönetici yetkisi onayını verin.";
+
+    update_acquisition_message(job_id, wait_msg);
     let stem = helper_file_stem("amele-image-helper");
     let request_path = crate::settings::secure_runtime_dir().join(format!("{stem}-request.json"));
     let result_path = crate::settings::secure_runtime_dir().join(format!("{stem}-result.json"));
@@ -325,6 +337,9 @@ fn run_elevated_local_image_job(
         progress_path.to_string_lossy().into_owned(),
         control_path.to_string_lossy().into_owned(),
     ];
+    let _keepalive = SudoKeepalive::start();
+    let elevated_start = Instant::now();
+    let mut elevation_retried = false;
     let mut child = match spawn_elevated_helper(&args) {
         Ok(child) => child,
         Err(err) => {
@@ -335,10 +350,10 @@ fn run_elevated_local_image_job(
     };
     update_acquisition_message(
         job_id,
-        &format!("Yetki helper başlatıldı: {}", child.method()),
+        &format!("Root yetkisi sağlandı: {}", child.method()),
     );
 
-    loop {
+    'helper_wait: loop {
         if control.is_cancelled() {
             let _ = write_helper_control_state(&control_path, "cancelled");
             update_acquisition_message(job_id, "Imaj alma iptal ediliyor");
@@ -372,7 +387,10 @@ fn run_elevated_local_image_job(
             let _ = write_helper_control_state(&control_path, "running");
         }
 
-        if let Some((done, total, message)) = super::read_helper_progress(&progress_path) {
+        if let Some((done, total, message, phase)) = super::read_helper_progress(&progress_path) {
+            if let Some(ref p) = phase {
+                super::update_acquisition_phase(job_id, p);
+            }
             update_acquisition_progress_message(job_id, done, total, &message);
         }
 
@@ -381,6 +399,44 @@ fn run_elevated_local_image_job(
                 if !status.success() {
                     let error = super::read_helper_error(&result_path)
                         .unwrap_or_else(|| child.failure_message(&status));
+                    if !elevation_retried
+                        && !control.is_cancelled()
+                        && elevated_start.elapsed() < Duration::from_secs(120)
+                        && elevation_error_wants_retry(&error)
+                    {
+                        elevation_retried = true;
+                        cleanup_helper_files(&[&result_path, &progress_path]);
+                        let _ = write_helper_control_state(&control_path, "running");
+                        update_acquisition_message(
+                            job_id,
+                            "Yetki alınamadı, parola penceresi tekrar açılıyor...",
+                        );
+                        thread::sleep(Duration::from_secs(1));
+                        match spawn_elevated_helper(&args) {
+                            Ok(next) => {
+                                child = next;
+                                update_acquisition_message(
+                                    job_id,
+                                    &format!("Yetki helper başlatıldı: {}", child.method()),
+                                );
+                                continue 'helper_wait;
+                            }
+                            Err(err) => {
+                                cleanup_helper_files(&[
+                                    &request_path,
+                                    &result_path,
+                                    &progress_path,
+                                    &control_path,
+                                ]);
+                                fail_acquisition_job_with_message(
+                                    job_id,
+                                    err,
+                                    "Imaj alma basarisiz",
+                                );
+                                return;
+                            }
+                        }
+                    }
                     cleanup_helper_files(&[
                         &request_path,
                         &result_path,
@@ -416,8 +472,21 @@ fn run_elevated_local_image_job(
             .get("sha256")
             .and_then(Value::as_str)
             .map(str::to_string);
-        match output_format::finalize_output(plan, "disk", source_label, case_name, existing_sha256)
-        {
+        let elevated_total = result
+            .get("total_bytes")
+            .and_then(Value::as_u64)
+            .filter(|value| *value > 0)
+            .or_else(|| result.get("bytes_copied").and_then(Value::as_u64))
+            .unwrap_or(0);
+        let mut hasher = PhaseProgress::start(job_id, PHASE_HASH, elevated_total);
+        match output_format::finalize_output_with_progress(
+            plan,
+            "disk",
+            source_label,
+            case_name,
+            existing_sha256,
+            &mut |done, total, phase| hasher.report(done, total, phase),
+        ) {
             Ok(finalized) => finish_acquisition_job_with_message(
                 job_id,
                 json!({
@@ -1511,9 +1580,16 @@ fn local_image_source_requires_elevation(source: &Path) -> bool {
     #[cfg(target_os = "linux")]
     {
         use std::os::unix::fs::FileTypeExt;
+        if process_is_root() {
+            return false;
+        }
+        let source_str = source.to_string_lossy();
+        if source_str.starts_with("/dev/") {
+            return true;
+        }
         fs::metadata(source)
-            .map(|metadata| metadata.file_type().is_block_device() && !process_is_root())
-            .unwrap_or(false)
+            .map(|metadata| metadata.file_type().is_block_device())
+            .unwrap_or(true)
     }
 
     #[cfg(windows)]

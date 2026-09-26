@@ -3786,12 +3786,38 @@ function updateSide(key, value) {
   if (item) item.innerHTML = value;
 }
 
-function setAcquisitionControlsVisible(active, startButton = document.querySelector("[data-action='start']")) {
+// edinim surerken is log'unun tamamini konsol kutusuna basar, alta kaydirir.
+function renderAcquisitionConsole(job, extraLines = []) {
+  const box = document.querySelector("#workflow-log");
+  if (!box) return;
+  const logs = Array.isArray(job?.logs) ? job.logs : [];
+  const lines = [...logs, ...extraLines].filter((line) => String(line ?? "").trim() !== "");
+  if (!lines.length) return;
+  box.innerHTML = lines.map((line) => escapeHtml(line)).join("<br />");
+  box.scrollTop = box.scrollHeight;
+}
+
+// saniyeyi kisa sure metnine cevirir.
+function formatJobDuration(totalSecs, isEn) {
+  const secs = Math.max(0, Math.round(Number(totalSecs) || 0));
+  if (secs < 60) return isEn ? `${secs} sec` : `${secs} sn`;
+  if (secs < 3600) {
+    const mins = Math.floor(secs / 60);
+    const rest = secs % 60;
+    return isEn ? `${mins} min ${rest} sec` : `${mins} dk ${rest} sn`;
+  }
+  const hours = Math.floor(secs / 3600);
+  const mins = Math.floor((secs % 3600) / 60);
+  return isEn ? `${hours} h ${mins} min` : `${hours} sa ${mins} dk`;
+}
+
+function setAcquisitionControlsVisible(active, startButton) {
   const controls = document.querySelector("[data-acquisition-controls]");
   if (controls) controls.hidden = !active;
-  if (startButton) {
-    startButton.hidden = active;
-    startButton.disabled = active;
+  const start = startButton || document.querySelector("[data-action='start']");
+  if (start) {
+    start.hidden = active;
+    start.disabled = active;
   }
 }
 
@@ -4044,7 +4070,6 @@ function setProgressElement(progress, value, labelText = `${value}%`) {
   const numericValue = Math.max(0, Math.min(100, Number(value) || 0));
   const next = `${numericValue}%`;
   progress.style.setProperty("--value", next);
-  progress.classList.toggle("is-past-half", numericValue >= 50);
   const label = progress.querySelector("b");
   if (label) label.textContent = labelText;
 }
@@ -4062,9 +4087,9 @@ async function waitForAcquisitionJob(jobId, options = {}) {
       method: "POST",
       body: JSON.stringify({ job_id: jobId })
     });
-    if (typeof options.onUpdate === "function") options.onUpdate(job);
+    const customLabel = typeof options.onUpdate === "function" ? options.onUpdate(job) : null;
     const percent = acquisitionPercent(job);
-    setProgress(percent, `${percent}%`);
+    setProgress(percent, typeof customLabel === "string" && customLabel ? customLabel : `${percent}%`);
     if (job.message) updateSide("last-action", job.message);
 
     if (job.status === "completed") {
@@ -4243,6 +4268,8 @@ async function startAcquisition(button) {
     window.clearInterval(state.jobs.workflow);
     setProgress(0, "0%");
     const operation = isRam ? t("ramAcquisition") : t("imageAcquisition");
+    // son is durumu catch blogundan da gorunsun diye try disinda tutulur.
+    let lastJob = null;
 
     try {
       setAcquisitionControlsVisible(true, button);
@@ -4330,25 +4357,63 @@ async function startAcquisition(button) {
       workflowId: routeId,
       payload
     };
-    const result = await waitForAcquisitionJob(start.job_id);
+    // hiz ve kalan sure icin bir onceki orneklem burada tutulur.
+    let lastSample = null;
+    const isEn = state.language === "en";
+    const result = await waitForAcquisitionJob(start.job_id, {
+      onUpdate: (job) => {
+        lastJob = job;
+        renderAcquisitionConsole(job);
+        const done = Number(job?.done || 0);
+        const total = Number(job?.total || 0);
+        const now = Date.now();
+        if (!total) return job?.message || null;
+        let extra = "";
+        if (lastSample && now - lastSample.t > 400 && done >= lastSample.done) {
+          const dBytes = done - lastSample.done;
+          const dt = (now - lastSample.t) / 1000;
+          if (dBytes > 0 && dt > 0) {
+            const speed = dBytes / dt;
+            const eta = Math.round((total - done) / speed);
+            if (Number.isFinite(eta) && eta >= 0 && done < total) {
+              extra = ` • ${formatBytes(speed)}/sn • ${t("workflow.remaining")} ${formatJobDuration(eta, isEn)}`;
+            }
+          }
+        }
+        if (!lastSample || now - lastSample.t > 400) lastSample = { done, t: now };
+        const pct = acquisitionPercent(job);
+        const phasePrefix = job?.phase
+          ? `${job.phase} • `
+          : (job?.message && (job.message.includes("SHA") || job.message.includes("hash"))
+            ? "SHA-256 hesaplanıyor • "
+            : "");
+        return `${phasePrefix}${formatBytes(done)} / ${formatBytes(total)} • %${pct}${extra}`;
+      }
+    });
 
-    setProgress(100);
+    setProgress(100, "100%");
     const targetPath = result.target_path || result.target || output;
+    const doneLines = [t("workflow.operationCompletedPath", { operation, path: targetPath })];
     writeWorkflowLog(t("workflow.operationCompletedPath", { operation, path: targetPath }));
     if (result.sha256) {
+      doneLines.push(t("workflow.hashWritten", { hash: result.sha256 }));
       writeWorkflowLog(t("workflow.hashWritten", { hash: escapeHtml(result.sha256) }));
     }
     if (result.output_format) {
+      doneLines.push(t("workflow.formatCompleted", { format: String(result.output_format).toUpperCase() }));
       writeWorkflowLog(t("workflow.formatCompleted", { format: String(result.output_format).toUpperCase() }));
     }
+    // ozet satirlari konsolun en altina eklenir, tam log korunur.
+    renderAcquisitionConsole(lastJob, doneLines);
     updateSide("last-action", t("workflow.operationCompleted", { operation }));
     if (workflow?.mode.startsWith("remote") && payload) {
       updateSide("connection", t("connection.connected", { ip: payload.ip }));
     }
     showToast(t("workflow.operationCompleted", { operation }));
   } catch (error) {
-    setProgress(0);
+    setProgress(0, "0%");
     writeWorkflowLog(t("workflow.operationFailedDetail", { operation, message: error.message }));
+    renderAcquisitionConsole(lastJob, [t("workflow.operationFailedDetail", { operation, message: error.message })]);
     updateSide("last-action", t("workflow.operationFailed", { operation }));
     if (workflow?.mode.startsWith("remote")) {
       updateSide("connection", t("workflow.operationFailed", { operation }));

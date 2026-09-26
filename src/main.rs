@@ -2772,13 +2772,26 @@ fn restore_helper_output_owner(target: &Path, owner_uid: Option<u32>, owner_gid:
     let (Some(owner_uid), Some(owner_gid)) = (owner_uid, owner_gid) else {
         return;
     };
-    for path in [target.to_path_buf(), sha256_sidecar_path(target)] {
-        if path.exists() {
-            let _ = Command::new("chown")
-                .arg(format!("{owner_uid}:{owner_gid}"))
-                .arg(path)
-                .output();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        use std::os::unix::fs::chown;
+        if let Some(parent) = target.parent() {
+            if parent.exists() {
+                let _ = chown(parent, Some(owner_uid), Some(owner_gid));
+                let _ = fs::set_permissions(parent, fs::Permissions::from_mode(0o775));
+            }
         }
+        for path in [target.to_path_buf(), sha256_sidecar_path(target)] {
+            if path.exists() {
+                let _ = chown(&path, Some(owner_uid), Some(owner_gid));
+                let _ = fs::set_permissions(&path, fs::Permissions::from_mode(0o664));
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (target, owner_uid, owner_gid);
     }
 }
 
@@ -2885,16 +2898,64 @@ fn ram_helper_command(args: Vec<String>) -> Result<(), String> {
         )),
     };
 
-    watcher_stop.store(true, Ordering::SeqCst);
-    let _ = watcher.join();
-
     let payload = match result {
         Ok(result) => {
+            let total_bytes = result.bytes_written;
+            let _ = write_json_file(
+                &progress_path,
+                &json!({
+                    "done": 0,
+                    "total": total_bytes,
+                    "message": "SHA-256 hesaplanıyor",
+                    "phase": "SHA-256 hesaplanıyor",
+                }),
+            );
+            let mut last_progress = std::time::Instant::now();
+            let sha256_result = amele::hash::calculate_file_hash_with_progress(
+                &result.output_file,
+                amele::hash::HashAlgorithm::Sha256,
+                &mut |done, total| {
+                    if last_progress.elapsed() >= Duration::from_millis(250) || done >= total {
+                        last_progress = std::time::Instant::now();
+                        let _ = write_json_file(
+                            &progress_path,
+                            &json!({
+                                "done": done,
+                                "total": total,
+                                "message": "SHA-256 hesaplanıyor",
+                                "phase": "SHA-256 hesaplanıyor",
+                            }),
+                        );
+                    }
+                },
+            );
+
+            watcher_stop.store(true, Ordering::SeqCst);
+            let _ = watcher.join();
+
+            let _ = write_json_file(
+                &progress_path,
+                &json!({
+                    "done": total_bytes,
+                    "total": total_bytes,
+                    "message": "SHA-256 tamamlandı",
+                    "phase": "SHA-256 tamamlandı",
+                }),
+            );
+
+            let sha256_val = match sha256_result {
+                Ok(hash) => {
+                    let _ = amele::hash::write_sha256_sidecar(&result.output_file, &hash);
+                    Some(hash)
+                }
+                Err(_) => None,
+            };
             restore_helper_output_owner(&result.output_file, request.owner_uid, request.owner_gid);
             json!({
                 "ok": true,
                 "target_path": result.output_file,
                 "bytes_written": result.bytes_written,
+                "sha256": sha256_val,
             })
         }
         Err(err) => json!({
