@@ -320,6 +320,11 @@ where
                 "raw".into(),
                 output_file.as_ref().as_os_str().to_os_string(),
             ],
+            vec![
+                winpmem.clone().into_os_string(),
+                "-o".into(),
+                output_file.as_ref().as_os_str().to_os_string(),
+            ],
         ];
 
         let mut last_error = String::new();
@@ -378,10 +383,18 @@ where
             }
         }
 
-        let w_err = AmeleError::new(
-            HataKodu::Genel,
-            format!("WinPMEM komutu baslatilamadi: {last_error}"),
-        );
+        let formatted_error = if last_error.contains("1392")
+            || last_error.to_ascii_lowercase().contains("corrupted")
+        {
+            format!(
+                "WinPMEM calistirilamadi: Dosya bozuk veya okunamiyor (os error 1392) [{}]. Lutfen bu binary dosyasini silip tekrar indirin veya saglam bir winpmem.exe kopyasini C:\\Tools\\ altina yerlestirin.",
+                winpmem.display()
+            )
+        } else {
+            format!("WinPMEM komutu baslatilamadi: {last_error}")
+        };
+
+        let w_err = AmeleError::new(HataKodu::Genel, formatted_error);
         runtime_log(
             LogLevel::Error,
             "ram",
@@ -579,27 +592,45 @@ pub fn find_avml(candidate: Option<&Path>) -> Option<PathBuf> {
     })
 }
 
+/// Dosyanın var ve geçerli boyutta bir çalıştırılabilir dosya olduğunu doğrular (boş veya hasarlı dosyaları eler).
+pub fn is_valid_executable_file(path: &Path) -> bool {
+    if !path.is_file() {
+        return false;
+    }
+    match fs::metadata(path) {
+        Ok(m) => m.len() > 10_000,
+        Err(_) => false,
+    }
+}
+
 /// Windows'ta PATH veya bilinen konumlarda WinPMEM binary'sini arar.
 pub fn find_winpmem(candidate: Option<&Path>) -> Option<PathBuf> {
     if let Some(path) = candidate
-        && path.exists()
+        && is_valid_executable_file(path)
     {
         return Some(path.to_path_buf());
     }
 
-    find_in_path(WINPMEM_NAME).or_else(|| {
-        let mut candidates = vec![
-            PathBuf::from(r"C:\Tools\go-winpmem_amd64_1.0-rc2_signed.exe"),
-            PathBuf::from(r"C:\Forensics\go-winpmem_amd64_1.0-rc2_signed.exe"),
-        ];
-        // Çalışan uygulamanın yanındaki WinPMEM kopyası da kontrol edilir.
+    let names = [WINPMEM_NAME, "winpmem.exe", "winpmem_x64.exe"];
+    for name in &names {
+        if let Some(p) = find_in_path(name) {
+            return Some(p);
+        }
+    }
+
+    let mut candidates = Vec::new();
+    for name in &names {
+        candidates.push(PathBuf::from(format!(r"C:\Tools\{name}")));
+        candidates.push(PathBuf::from(format!(r"C:\Forensics\{name}")));
         if let Ok(exe) = std::env::current_exe() {
             if let Some(exe_dir) = exe.parent() {
-                candidates.insert(0, exe_dir.join(WINPMEM_NAME));
+                candidates.push(exe_dir.join(name));
             }
         }
-        candidates.into_iter().find(|path| path.exists())
-    })
+    }
+    candidates
+        .into_iter()
+        .find(|path| is_valid_executable_file(path))
 }
 
 /// PATH içindeki binary adayını bulur.
@@ -607,7 +638,7 @@ fn find_in_path(binary: &str) -> Option<PathBuf> {
     let paths = std::env::var_os("PATH")?;
     std::env::split_paths(&paths)
         .map(|dir| dir.join(binary))
-        .find(|path| path.exists())
+        .find(|path| is_valid_executable_file(path))
 }
 
 /// Sistemdeki fiziksel RAM miktarını platforma göre hesaplar.

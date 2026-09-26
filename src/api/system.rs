@@ -1613,8 +1613,13 @@ fn local_image_error_can_retry_elevated(message: &str) -> bool {
         return false;
     }
     let message = message.to_ascii_lowercase();
+    if message.contains("1392") || message.contains("corrupted") || message.contains("bozuk") {
+        return false;
+    }
     message.contains("permission denied")
+        || message.contains("access denied")
         || message.contains("access is denied")
         || message.contains("erişim engellendi")
-        || message.contains("os error 13")
+        || message.contains("os error 5")
+        || crate::diagnostics::is_os_error_13(&message)
 }

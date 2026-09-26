@@ -10,8 +10,14 @@ const KNOWN_ERROR_RULES = [
     suggestion: "Linux'ta sudo/pkexec parola penceresini onaylayın; pencere açılmıyorsa polkit agent veya zenity/kdialog/ssh-askpass kurun. Windows'ta UAC penceresini onaylayın veya Amele'u yönetici olarak başlatın."
   },
   {
+    code: "FILE_CORRUPTED",
+    patterns: ["corrupted and unreadable", "os error 1392", "file is corrupted", "dosya bozuk", "bozuk veya okunamıyor"],
+    detail: "Çalıştırılmak veya okunmak istenen araç ya da dosya bozuk veya okunamıyor (os error 1392).",
+    suggestion: "İlgili araç dosyasını (ör. WinPMEM veya AVML) silip tekrar indirin veya sağlam bir kopyasını sistem araç klasörüne (C:\\Tools\\) yerleştirin."
+  },
+  {
     code: "PERMISSION_DENIED",
-    patterns: ["permission denied", "access denied", "erişim engellendi", "erisim engellendi", "os error 13", "yetki"],
+    patterns: ["permission denied", "access denied", "access is denied", "erişim engellendi", "erisim engellendi", "os error 13)", "os error 13:", "os error 5", "yetki"],
     detail: "İşlem için gerekli sistem yetkisi alınamadı.",
     suggestion: "Linux'ta sudo/pkexec onayını verin. Windows'ta UAC penceresini onaylayın veya uygulamayı yönetici olarak açın."
   },

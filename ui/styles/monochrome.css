@@ -251,6 +251,7 @@ code:not(.help-code-block code) {
 }
 
 .toast {
+  z-index: 10050 !important;
   background: var(--panel-strong) !important;
   color: var(--text) !important;
   border-color: var(--line-strong) !important;

@@ -83,11 +83,25 @@ pub fn classify_error(message: &str) -> ErrorAdvice {
         };
     }
 
+    if lower.contains("corrupted and unreadable")
+        || lower.contains("os error 1392")
+        || lower.contains("file is corrupted")
+        || lower.contains("dosya bozuk")
+    {
+        return ErrorAdvice {
+            code: "FILE_CORRUPTED",
+            detail: "Calistirilmak veya okunmak istenen dosya bozuk veya okunamiyor (os error 1392).",
+            suggestion: "Ilgili arac dosyasini (or. WinPMEM veya AVML) silip tekrar indirin veya saglam bir kopyasini ilgili klasore yerlestirin.",
+        };
+    }
+
     if lower.contains("permission denied")
         || lower.contains("access denied")
+        || lower.contains("access is denied")
         || lower.contains("erisim engellendi")
         || lower.contains("erişim engellendi")
-        || lower.contains("os error 13")
+        || lower.contains("os error 5")
+        || is_os_error_13(&lower)
     {
         return ErrorAdvice {
             code: "PERMISSION_DENIED",
@@ -299,6 +313,21 @@ pub fn panic_payload(payload: &(dyn std::any::Any + Send)) -> String {
     "panic payload could not be decoded".to_string()
 }
 
+/// "os error 13" ifadesinin ardında başka rakam (ör. os error 1392) olmadan eşleştiğini doğrular.
+pub fn is_os_error_13(s: &str) -> bool {
+    let lower = s.to_ascii_lowercase();
+    if let Some(pos) = lower.find("os error 13") {
+        let after = &lower[pos + "os error 13".len()..];
+        if let Some(next_char) = after.chars().next() {
+            !next_char.is_ascii_digit()
+        } else {
+            true
+        }
+    } else {
+        false
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::classify_error;
@@ -308,6 +337,15 @@ mod tests {
         assert_eq!(
             classify_error("Disk access error: Access denied (os error 13)").code,
             "PERMISSION_DENIED"
+        );
+    }
+
+    #[test]
+    fn classifies_corrupted_file_errors() {
+        assert_eq!(
+            classify_error("The file or directory is corrupted and unreadable. (os error 1392)")
+                .code,
+            "FILE_CORRUPTED"
         );
     }
 

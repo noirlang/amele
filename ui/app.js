@@ -951,13 +951,19 @@ function renderCaseSidebarDOM() {
 function renderReportSidebarDOM() {
   const container = document.getElementById("report-sidebar-container");
   if (!container) return;
+  const isWorkflow = state.currentPage === "workflow";
   const wasOpen = Boolean(document.getElementById("home-report-sidebar")?.classList?.contains?.("is-open"));
+  const wasCollapsed = Boolean(state.reportSidebarCollapsed ?? isWorkflow);
   const wasBackdropOpen = Boolean(document.querySelector(".home-report-sidebar-backdrop")?.classList?.contains?.("is-open"));
   container.innerHTML = renderReportSidebar(state, t, icon, escapeHtml);
-  if (wasOpen) {
+  if (wasOpen && !wasCollapsed) {
     document.getElementById("home-report-sidebar")?.classList?.add?.("is-open");
   }
-  if (wasBackdropOpen) {
+  if (wasCollapsed) {
+    document.getElementById("home-report-sidebar")?.classList?.add?.("is-collapsed");
+    document.querySelector(".home-report-sidebar-toggle")?.classList?.add?.("is-visible");
+  }
+  if (wasBackdropOpen && !wasCollapsed) {
     document.querySelector(".home-report-sidebar-backdrop")?.classList?.add?.("is-open");
   }
   hydrateIcons(container);
@@ -2631,16 +2637,33 @@ async function handleAction(button) {
   if (action === "toggle-report-sidebar") {
     const sidebar = document.getElementById("home-report-sidebar");
     const backdrop = document.querySelector(".home-report-sidebar-backdrop");
-    if (sidebar) sidebar.classList.toggle("is-open");
-    if (backdrop) backdrop.classList.toggle("is-open");
+    const toggleBtn = document.querySelector(".home-report-sidebar-toggle");
+    if (sidebar) {
+      if (sidebar.classList.contains("is-collapsed")) {
+        sidebar.classList.remove("is-collapsed");
+        if (toggleBtn) toggleBtn.classList.remove("is-visible");
+        sidebar.classList.add("is-open");
+        if (backdrop) backdrop.classList.add("is-open");
+        state.reportSidebarCollapsed = false;
+      } else {
+        sidebar.classList.toggle("is-open");
+        if (backdrop) backdrop.classList.toggle("is-open");
+      }
+    }
     return;
   }
 
   if (action === "close-report-sidebar") {
     const sidebar = document.getElementById("home-report-sidebar");
     const backdrop = document.querySelector(".home-report-sidebar-backdrop");
-    if (sidebar) sidebar.classList.remove("is-open");
+    const toggleBtn = document.querySelector(".home-report-sidebar-toggle");
+    if (sidebar) {
+      sidebar.classList.remove("is-open");
+      sidebar.classList.add("is-collapsed");
+    }
     if (backdrop) backdrop.classList.remove("is-open");
+    if (toggleBtn) toggleBtn.classList.add("is-visible");
+    state.reportSidebarCollapsed = true;
     return;
   }
 

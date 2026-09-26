@@ -3955,7 +3955,7 @@ code {
   position: fixed;
   right: 24px;
   bottom: 24px;
-  z-index: 50;
+  z-index: 10050 !important;
   max-width: min(680px, calc(100vw - 32px));
   max-height: min(42vh, 420px);
   padding: 14px 16px;
