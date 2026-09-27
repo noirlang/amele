@@ -954,7 +954,7 @@ function renderCaseSidebarDOM() {
 function renderReportSidebarDOM() {
   const container = document.getElementById("report-sidebar-container");
   if (!container) return;
-  const isWorkflow = state.currentPage === "workflow";
+  const isWorkflow = Boolean(state.route && state.route.startsWith("workflow:"));
   const wasOpen = Boolean(document.getElementById("home-report-sidebar")?.classList?.contains?.("is-open"));
   const wasCollapsed = Boolean(state.reportSidebarCollapsed ?? isWorkflow);
   const wasBackdropOpen = Boolean(document.querySelector(".home-report-sidebar-backdrop")?.classList?.contains?.("is-open"));
@@ -965,6 +965,9 @@ function renderReportSidebarDOM() {
   if (wasCollapsed) {
     document.getElementById("home-report-sidebar")?.classList?.add?.("is-collapsed");
     document.querySelector(".home-report-sidebar-toggle")?.classList?.add?.("is-visible");
+    document.getElementById("app")?.classList?.add?.("report-sidebar-collapsed");
+  } else {
+    document.getElementById("app")?.classList?.remove?.("report-sidebar-collapsed");
   }
   if (wasBackdropOpen && !wasCollapsed) {
     document.querySelector(".home-report-sidebar-backdrop")?.classList?.add?.("is-open");
@@ -2648,6 +2651,7 @@ async function handleAction(button) {
         sidebar.classList.add("is-open");
         if (backdrop) backdrop.classList.add("is-open");
         state.reportSidebarCollapsed = false;
+        document.getElementById("app")?.classList?.remove?.("report-sidebar-collapsed");
       } else {
         sidebar.classList.toggle("is-open");
         if (backdrop) backdrop.classList.toggle("is-open");
@@ -2667,6 +2671,7 @@ async function handleAction(button) {
     if (backdrop) backdrop.classList.remove("is-open");
     if (toggleBtn) toggleBtn.classList.add("is-visible");
     state.reportSidebarCollapsed = true;
+    document.getElementById("app")?.classList?.add?.("report-sidebar-collapsed");
     return;
   }
 

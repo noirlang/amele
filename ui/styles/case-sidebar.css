@@ -8,7 +8,7 @@
   display: none;
   position: fixed !important;
   left: 16px !important;
-  top: 76px !important;
+  top: 16px !important;
   z-index: 80 !important;
   align-items: center;
   gap: 7px;
@@ -579,10 +579,37 @@
     display: none !important;
   }
 
-  /* 1280px ve 1366px pencerelerde orta içerik ile sol panel çakışmasını sıfırlar */
-  .page-home,
-  .page {
+  /* 1200px - 1439px pencerelerde kenar panellerinin durumuna göre .view ve .page konumlandırması */
+  .shell:not(.sidebar-collapsed):not(.report-sidebar-collapsed) .view {
+    padding-left: 254px;
+    padding-right: 254px;
+  }
+  .shell:not(.sidebar-collapsed):not(.report-sidebar-collapsed) .page {
     max-width: min(760px, calc(100vw - 520px)) !important;
+  }
+
+  .shell:not(.sidebar-collapsed).report-sidebar-collapsed .view {
+    padding-left: 254px;
+    padding-right: 24px;
+  }
+  .shell:not(.sidebar-collapsed).report-sidebar-collapsed .page {
+    max-width: min(880px, calc(100vw - 290px)) !important;
+  }
+
+  .shell.sidebar-collapsed:not(.report-sidebar-collapsed) .view {
+    padding-left: 24px;
+    padding-right: 254px;
+  }
+  .shell.sidebar-collapsed:not(.report-sidebar-collapsed) .page {
+    max-width: min(880px, calc(100vw - 290px)) !important;
+  }
+
+  .shell.sidebar-collapsed.report-sidebar-collapsed .view {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+  .shell.sidebar-collapsed.report-sidebar-collapsed .page {
+    max-width: 880px !important;
   }
 
   .agent-container {
