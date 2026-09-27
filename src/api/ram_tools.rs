@@ -12,7 +12,9 @@ use super::{
 };
 
 #[cfg(windows)]
-const WINPMEM_DOWNLOAD_URL: &str = "https://amele.noirlang.tr/go-winpmem_amd64_1.0-rc2_signed.exe";
+const WINPMEM_DOWNLOAD_URL: &str = "https://github.com/Velocidex/WinPmem/releases/download/v4.1.dev1/go-winpmem_amd64_1.0-rc2_signed.exe";
+#[cfg(windows)]
+const WINPMEM_FALLBACK_URL: &str = "https://amele.noirlang.tr/go-winpmem_amd64_1.0-rc2_signed.exe";
 
 #[cfg(windows)]
 use super::{
@@ -184,11 +186,18 @@ fn run_winpmem_install_job(job_id: String) {
         }
     });
 
-    let download_result = download_file_to_path(
+    let mut download_result = download_file_to_path(
         WINPMEM_DOWNLOAD_URL,
         &download_path,
         "WinPMEM download failed",
     );
+    if download_result.is_err() {
+        download_result = download_file_to_path(
+            WINPMEM_FALLBACK_URL,
+            &download_path,
+            "WinPMEM fallback download failed",
+        );
+    }
 
     monitor_stop.store(true, std::sync::atomic::Ordering::SeqCst);
     let _ = monitor_thread.join();

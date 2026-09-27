@@ -4483,19 +4483,25 @@ fn windows_ram_install_command() -> Result<(), String> {
 
     #[cfg(windows)]
     {
+        let target = amele::settings::secure_runtime_dir().join("winpmem.exe");
+        let primary_url = "https://github.com/Velocidex/WinPmem/releases/download/v4.1.dev1/go-winpmem_amd64_1.0-rc2_signed.exe";
+        let fallback_url = "https://amele.noirlang.tr/go-winpmem_amd64_1.0-rc2_signed.exe";
         println!(
             "{}",
             t_cli(
-                "[*] WinPMEM indirme URL'si: https://amele.noirlang.tr/go-winpmem_amd64_1.0-rc2_signed.exe",
-                "[*] WinPMEM download URL: https://amele.noirlang.tr/go-winpmem_amd64_1.0-rc2_signed.exe"
+                &format!("[*] WinPMEM indirme URL'si: {primary_url}"),
+                &format!("[*] WinPMEM download URL: {primary_url}")
             )
         );
-        let target = amele::settings::secure_runtime_dir().join("winpmem.exe");
-        crate::api::download_file_to_path(
-            "https://amele.noirlang.tr/go-winpmem_amd64_1.0-rc2_signed.exe",
-            &target,
-            "WinPMEM download failed",
-        )?;
+        if let Err(_) =
+            crate::api::download_file_to_path(primary_url, &target, "WinPMEM download failed")
+        {
+            crate::api::download_file_to_path(
+                fallback_url,
+                &target,
+                "WinPMEM fallback download failed",
+            )?;
+        }
         println!(
             "{}",
             t_cli(

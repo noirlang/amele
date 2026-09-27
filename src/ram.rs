@@ -307,17 +307,23 @@ where
         }
 
         let total = physical_ram_size();
+        let service_name = format!(
+            "amele_pmem_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or_else(|_| std::process::id() as u64)
+        );
         let commands: Vec<Vec<std::ffi::OsString>> = vec![
             vec![
                 winpmem.clone().into_os_string(),
                 "acquire".into(),
+                format!("--service_name={service_name}").into(),
                 output_file.as_ref().as_os_str().to_os_string(),
             ],
             vec![
                 winpmem.clone().into_os_string(),
                 "acquire".into(),
-                "--format".into(),
-                "raw".into(),
                 output_file.as_ref().as_os_str().to_os_string(),
             ],
             vec![
@@ -782,7 +788,7 @@ pub fn is_root_or_admin() -> bool {
 }
 
 /// Windows'ta mevcut process token'ının Administrators grubuna üye olup olmadığını
-/// Win32 CheckTokenMembership API ile kontrol eder.
+/// veya LocalSystem yetkisinde çalışıp çalışmadığını Win32 CheckTokenMembership ile kontrol eder.
 /// net session'ın aksine grup politikası veya servis durumundan etkilenmez.
 #[cfg(windows)]
 fn windows_check_token_admin() -> bool {
@@ -791,17 +797,20 @@ fn windows_check_token_admin() -> bool {
         AllocateAndInitializeSid, CheckTokenMembership, FreeSid, SID_IDENTIFIER_AUTHORITY,
     };
 
-    // DOMAIN_ALIAS_RID_ADMINS = 0x220 (544)
+    // SECURITY_BUILTIN_DOMAIN_RID = 0x20 (32) — S-1-5-32
+    const SECURITY_BUILTIN_DOMAIN_RID: u32 = 0x20;
+    // DOMAIN_ALIAS_RID_ADMINS = 0x220 (544) — S-1-5-32-544 (BUILTIN\Administrators)
     const DOMAIN_ALIAS_RID_ADMINS: u32 = 0x220;
-    // SECURITY_BUILTIN_DOMAIN_RID = 0x13 (19) — windows-sys'de constant yok
-    const SECURITY_BUILTIN_DOMAIN_RID: u32 = 0x13;
+    // SECURITY_LOCAL_SYSTEM_RID = 0x12 (18) — S-1-5-18 (NT AUTHORITY\SYSTEM)
+    const SECURITY_LOCAL_SYSTEM_RID: u32 = 0x12;
 
     // NT Authority SID identifier: [0, 0, 0, 0, 0, 5]
     let mut authority = SID_IDENTIFIER_AUTHORITY {
         Value: [0u8, 0, 0, 0, 0, 5],
     };
-    let mut admin_sid: *mut std::ffi::c_void = std::ptr::null_mut();
 
+    // 1. BUILTIN\Administrators (S-1-5-32-544) kontrolü
+    let mut admin_sid: *mut std::ffi::c_void = std::ptr::null_mut();
     let ok = unsafe {
         AllocateAndInitializeSid(
             &mut authority,
@@ -817,29 +826,46 @@ fn windows_check_token_admin() -> bool {
             &mut admin_sid,
         )
     };
-    if ok != TRUE {
-        runtime_log(
-            LogLevel::Warn,
-            "ram",
-            "AllocateAndInitializeSid basarisiz, false donuluyor",
-        );
-        return false;
+    if ok == TRUE {
+        let mut is_member: i32 = 0;
+        let check_ok =
+            unsafe { CheckTokenMembership(std::ptr::null_mut(), admin_sid, &mut is_member) };
+        unsafe { FreeSid(admin_sid) };
+
+        if check_ok == TRUE && is_member != 0 {
+            return true;
+        }
     }
 
-    let mut is_member: i32 = 0;
-    let check_ok = unsafe { CheckTokenMembership(std::ptr::null_mut(), admin_sid, &mut is_member) };
-    unsafe { FreeSid(admin_sid) };
+    // 2. NT AUTHORITY\SYSTEM (S-1-5-18) kontrolü (servis veya sistem helper süreçleri için)
+    let mut system_sid: *mut std::ffi::c_void = std::ptr::null_mut();
+    let ok_sys = unsafe {
+        AllocateAndInitializeSid(
+            &mut authority,
+            1,
+            SECURITY_LOCAL_SYSTEM_RID,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            &mut system_sid,
+        )
+    };
+    if ok_sys == TRUE {
+        let mut is_system: i32 = 0;
+        let check_ok =
+            unsafe { CheckTokenMembership(std::ptr::null_mut(), system_sid, &mut is_system) };
+        unsafe { FreeSid(system_sid) };
 
-    if check_ok != TRUE {
-        runtime_log(
-            LogLevel::Warn,
-            "ram",
-            "CheckTokenMembership basarisiz, false donuluyor",
-        );
-        return false;
+        if check_ok == TRUE && is_system != 0 {
+            return true;
+        }
     }
 
-    is_member != 0
+    false
 }
 
 #[cfg(all(test, target_os = "linux"))]
