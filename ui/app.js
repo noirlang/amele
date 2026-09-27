@@ -4192,7 +4192,7 @@ async function installWinpmem(button) {
     const result = await waitForAcquisitionJob(start.job_id);
 
     const status = result.status || {};
-    const path = status.tool_path || result.path || "C:\\Tools\\go-winpmem_amd64_1.0-rc2_signed.exe";
+    const path = status.tool_path || result.path || "C:\\Tools\\winpmem.exe";
     const label = status.message || result.message || "WinPMEM ready";
     updateSide("target", escapeHtml(path));
     writeWorkflowLog(t("scan.toolDoneLog", { target: "WinPMEM", message: escapeHtml(label) }));

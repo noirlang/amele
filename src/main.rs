@@ -4371,16 +4371,19 @@ fn linux_ram_install_command() -> Result<(), String> {
             ));
         }
     };
-
-    let url = format!("https://github.com/microsoft/avml/releases/latest/download/{asset_name}");
+    let url = if asset_name == "avml" {
+        "https://download.amele.noirlang.tr/avml".to_string()
+    } else {
+        format!("https://github.com/microsoft/avml/releases/latest/download/{asset_name}")
+    };
     let temp_download =
         amele::settings::secure_runtime_dir().join(format!("avml-{}.tmp", std::process::id()));
 
     println!(
         "{}",
         t_cli(
-            &format!("[*] AVML GitHub release üzerinden indiriliyor: {url}"),
-            &format!("[*] Downloading AVML from GitHub release: {url}")
+            &format!("[*] AVML indiriliyor: {url}"),
+            &format!("[*] Downloading AVML: {url}")
         )
     );
 
@@ -4484,8 +4487,8 @@ fn windows_ram_install_command() -> Result<(), String> {
     #[cfg(windows)]
     {
         let target = amele::settings::secure_runtime_dir().join("winpmem.exe");
-        let primary_url = "https://github.com/Velocidex/WinPmem/releases/download/v4.1.dev1/go-winpmem_amd64_1.0-rc2_signed.exe";
-        let fallback_url = "https://amele.noirlang.tr/go-winpmem_amd64_1.0-rc2_signed.exe";
+        let primary_url = "https://download.amele.noirlang.tr/winpmem.exe";
+        let fallback_url = "https://download.amele.noirlang.tr/winpmem.exe";
         println!(
             "{}",
             t_cli(

@@ -12,9 +12,9 @@ use super::{
 };
 
 #[cfg(windows)]
-const WINPMEM_DOWNLOAD_URL: &str = "https://github.com/Velocidex/WinPmem/releases/download/v4.1.dev1/go-winpmem_amd64_1.0-rc2_signed.exe";
+const WINPMEM_DOWNLOAD_URL: &str = "https://download.amele.noirlang.tr/winpmem.exe";
 #[cfg(windows)]
-const WINPMEM_FALLBACK_URL: &str = "https://amele.noirlang.tr/go-winpmem_amd64_1.0-rc2_signed.exe";
+const WINPMEM_FALLBACK_URL: &str = "https://download.amele.noirlang.tr/winpmem.exe";
 
 #[cfg(windows)]
 use super::{
@@ -40,8 +40,11 @@ pub fn avml_install_endpoint() -> Response {
                 ),
             );
         };
-        let url =
-            format!("https://github.com/microsoft/avml/releases/latest/download/{asset_name}");
+        let url = if asset_name == "avml" {
+            "https://download.amele.noirlang.tr/avml".to_string()
+        } else {
+            format!("https://github.com/microsoft/avml/releases/latest/download/{asset_name}")
+        };
         let download_dir = crate::settings::secure_runtime_dir().join("amele-avml-install");
         if let Err(err) = fs::create_dir_all(&download_dir) {
             return json_error(500, err.to_string());
@@ -49,8 +52,12 @@ pub fn avml_install_endpoint() -> Response {
         let download_path = download_dir.join(format!("{asset_name}.download"));
 
         if let Err(err) = download_file_to_path(&url, &download_path, "AVML download failed") {
-            let _ = fs::remove_file(&download_path);
-            return json_error(500, err);
+            let fallback_url =
+                format!("https://github.com/microsoft/avml/releases/latest/download/{asset_name}");
+            if download_file_to_path(&fallback_url, &download_path, "AVML download failed").is_err() {
+                let _ = fs::remove_file(&download_path);
+                return json_error(500, err);
+            }
         }
 
         #[cfg(unix)]
@@ -163,7 +170,7 @@ fn run_winpmem_install_job(job_id: String) {
 
     let monitor_job_id = job_id.clone();
     let monitor_path = download_path.clone();
-    let total_expected_bytes = 3_831_296; // ~3.65 MB
+    let total_expected_bytes = 5_257_728; // ~5.01 MB
     let monitor_stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let thread_stop = monitor_stop.clone();
 

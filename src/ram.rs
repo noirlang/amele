@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 const CONTROL_RUNNING: u8 = 0;
 const CONTROL_PAUSED: u8 = 1;
 const CONTROL_CANCELLED: u8 = 2;
-pub const WINPMEM_NAME: &str = "go-winpmem_amd64_1.0-rc2_signed.exe";
+pub const WINPMEM_NAME: &str = "winpmem.exe";
 
 /// RAM araçlarının bulunma, yetki ve fiziksel RAM durumunu UI'ye taşır.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -621,7 +621,7 @@ pub fn find_winpmem(candidate: Option<&Path>) -> Option<PathBuf> {
         }
     }
 
-    let names = [WINPMEM_NAME, "winpmem.exe", "winpmem_x64.exe"];
+    let names = [WINPMEM_NAME, "go-winpmem_amd64_1.0-rc2_signed.exe", "winpmem_x64.exe"];
     for name in &names {
         if let Some(p) = find_in_path(name) {
             return Some(p);
