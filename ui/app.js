@@ -34,7 +34,7 @@ import {
   getQuickChipPrompt
 } from "./core/agent.js";
 
-const APP_VERSION = "v0.0.20";
+const APP_VERSION = "v0.1.0";
 const assetPath = "./assets";
 const backendAvailable = location.protocol === "http:" || location.protocol === "https:";
 const urlParams = new URLSearchParams(window.location.search);
