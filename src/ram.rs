@@ -757,14 +757,12 @@ pub fn physical_ram_size() -> u64 {
 pub fn is_root_or_admin() -> bool {
     #[cfg(windows)]
     {
-        runtime_log(LogLevel::Debug, "ram", "Windows yetkileri denetleniyor...");
-        Command::new("cmd")
-            .args(["/C", "net", "session"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .map(|status| status.success())
-            .unwrap_or(false)
+        runtime_log(
+            LogLevel::Debug,
+            "ram",
+            "Windows yetkileri CheckTokenMembership ile denetleniyor...",
+        );
+        windows_check_token_admin()
     }
 
     #[cfg(unix)]
@@ -781,6 +779,65 @@ pub fn is_root_or_admin() -> bool {
     {
         false
     }
+}
+
+/// Windows'ta mevcut process token'ının Administrators grubuna üye olup olmadığını
+/// Win32 CheckTokenMembership API ile kontrol eder.
+/// net session'ın aksine grup politikası veya servis durumundan etkilenmez.
+#[cfg(windows)]
+fn windows_check_token_admin() -> bool {
+    use windows_sys::Win32::Foundation::TRUE;
+    use windows_sys::Win32::Security::{
+        AllocateAndInitializeSid, CheckTokenMembership, FreeSid, SECURITY_BUILTIN_DOMAIN_RID,
+        SECURITY_NT_AUTHORITY, SID_IDENTIFIER_AUTHORITY,
+    };
+
+    // DOMAIN_ALIAS_RID_ADMINS = 0x220 (544)
+    const DOMAIN_ALIAS_RID_ADMINS: u32 = 0x220;
+
+    let mut authority = SID_IDENTIFIER_AUTHORITY {
+        Value: SECURITY_NT_AUTHORITY,
+    };
+    let mut admin_sid = std::ptr::null_mut();
+
+    let ok = unsafe {
+        AllocateAndInitializeSid(
+            &mut authority,
+            2,
+            SECURITY_BUILTIN_DOMAIN_RID,
+            DOMAIN_ALIAS_RID_ADMINS,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            &mut admin_sid,
+        )
+    };
+    if ok != TRUE {
+        runtime_log(
+            LogLevel::Warn,
+            "ram",
+            "AllocateAndInitializeSid basarisiz, false donuluyor",
+        );
+        return false;
+    }
+
+    let mut is_member: i32 = 0;
+    let check_ok = unsafe { CheckTokenMembership(0, admin_sid, &mut is_member) };
+    unsafe { FreeSid(admin_sid) };
+
+    if check_ok != TRUE {
+        runtime_log(
+            LogLevel::Warn,
+            "ram",
+            "CheckTokenMembership basarisiz, false donuluyor",
+        );
+        return false;
+    }
+
+    is_member != 0
 }
 
 #[cfg(all(test, target_os = "linux"))]
