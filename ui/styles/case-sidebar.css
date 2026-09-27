@@ -580,36 +580,20 @@
   }
 
   /* 1200px - 1439px pencerelerde kenar panellerinin durumuna göre .view ve .page konumlandırması */
-  .shell:not(.sidebar-collapsed):not(.report-sidebar-collapsed) .view {
+  .shell:not(.report-sidebar-collapsed) .view {
     padding-left: 254px;
     padding-right: 254px;
   }
-  .shell:not(.sidebar-collapsed):not(.report-sidebar-collapsed) .page {
+  .shell:not(.report-sidebar-collapsed) .page {
     max-width: min(760px, calc(100vw - 520px)) !important;
   }
 
-  .shell:not(.sidebar-collapsed).report-sidebar-collapsed .view {
+  .shell.report-sidebar-collapsed .view {
     padding-left: 254px;
     padding-right: 24px;
   }
-  .shell:not(.sidebar-collapsed).report-sidebar-collapsed .page {
+  .shell.report-sidebar-collapsed .page {
     max-width: min(880px, calc(100vw - 290px)) !important;
-  }
-
-  .shell.sidebar-collapsed:not(.report-sidebar-collapsed) .view {
-    padding-left: 24px;
-    padding-right: 254px;
-  }
-  .shell.sidebar-collapsed:not(.report-sidebar-collapsed) .page {
-    max-width: min(880px, calc(100vw - 290px)) !important;
-  }
-
-  .shell.sidebar-collapsed.report-sidebar-collapsed .view {
-    padding-left: 24px;
-    padding-right: 24px;
-  }
-  .shell.sidebar-collapsed.report-sidebar-collapsed .page {
-    max-width: 880px !important;
   }
 
   .agent-container {

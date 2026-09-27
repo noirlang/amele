@@ -29,7 +29,7 @@ export function renderReportSidebar(state, t, icon, esc) {
   const titleVal = draft.title || "";
   const descVal = draft.description || "";
 
-  const isCollapsed = Boolean(state?.reportSidebarCollapsed ?? (state?.currentPage === "workflow"));
+  const isCollapsed = Boolean(state?.reportSidebarCollapsed);
 
   return `
     <!-- Mobil ve Dar Ekranlar İçin Sağ Tetikleyici Buton -->

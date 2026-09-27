@@ -954,9 +954,8 @@ function renderCaseSidebarDOM() {
 function renderReportSidebarDOM() {
   const container = document.getElementById("report-sidebar-container");
   if (!container) return;
-  const isWorkflow = Boolean(state.route && state.route.startsWith("workflow:"));
   const wasOpen = Boolean(document.getElementById("home-report-sidebar")?.classList?.contains?.("is-open"));
-  const wasCollapsed = Boolean(state.reportSidebarCollapsed ?? isWorkflow);
+  const wasCollapsed = Boolean(state.reportSidebarCollapsed);
   const wasBackdropOpen = Boolean(document.querySelector(".home-report-sidebar-backdrop")?.classList?.contains?.("is-open"));
   container.innerHTML = renderReportSidebar(state, t, icon, escapeHtml);
   if (wasOpen && !wasCollapsed) {
