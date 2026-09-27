@@ -59,9 +59,9 @@ export function homePage({ t, icon, assetPath, theme, state }) {
     `
     : "";
 
-  // 3. Yatay Haber Menüsü (Fotoğrafsız)
-  const newsList = Array.isArray(state?.news) && state.news.length > 0
-    ? state.news.slice(0, 8)
+  // 3. Haberler & Duyurular (2'şerli Ortalı Grid)
+  const allNews = Array.isArray(state?.news) && state.news.length > 0
+    ? state.news
     : [
         {
           id: "default-news-1",
@@ -76,6 +76,10 @@ export function homePage({ t, icon, assetPath, theme, state }) {
         }
       ];
 
+  const isNewsExpanded = Boolean(state?.newsExpanded);
+  const displayLimit = isNewsExpanded ? 8 : 4;
+  const newsList = allNews.slice(0, displayLimit);
+
   const newsCardsHtml = newsList.map((item) => {
     const title = isEn
       ? (item.titleEn || item.title || item.titleTr || "")
@@ -89,16 +93,30 @@ export function homePage({ t, icon, assetPath, theme, state }) {
     let targetUrl = item.link || item.url || (item.slug ? `https://amele.noirlang.tr/news/${encodeURIComponent(item.slug)}` : "https://amele.noirlang.tr");
     if (targetUrl.startsWith("/")) targetUrl = `https://amele.noirlang.tr${targetUrl}`;
 
+    const versionMatch = title.match(/v\d+\.\d+(\.\d+)?/i);
+    let badgeHtml = "";
+    if (versionMatch) {
+      badgeHtml = `<span class="news-h-badge is-version">${icon ? icon("rocket") : ""} ${escapeHtml(versionMatch[0])}</span>`;
+    } else if (/güvenlik|security|açık|vulnerability/i.test(title)) {
+      badgeHtml = `<span class="news-h-badge is-security">${icon ? icon("shield") : ""} ${isEn ? "Security" : "Güvenlik"}</span>`;
+    } else {
+      badgeHtml = `<span class="news-h-badge is-announcement">${icon ? icon("bell") : ""} ${isEn ? "Update" : "Duyuru"}</span>`;
+    }
+
     return `
       <div class="news-h-card" data-news-link="${targetUrl}">
         <div class="news-h-card-top">
-          <span class="news-h-author"><span class="inline-ico">${icon ? icon("user") : ""}</span> @${escapeHtml(author)}</span>
+          <div class="news-h-meta-left">
+            ${badgeHtml}
+            <span class="news-h-author"><span class="inline-ico">${icon ? icon("user") : ""}</span> @${escapeHtml(author)}</span>
+          </div>
           <span class="news-h-datetime"><span class="inline-ico">${icon ? icon("clock") : ""}</span> ${dateFormatted}</span>
         </div>
         <h4 class="news-h-title">${escapeHtml(title)}</h4>
         <p class="news-h-subtitle">${escapeHtml(summary)}</p>
         <div class="news-h-card-footer">
-          <span class="news-h-readmore">${t("news.readMore")} →</span>
+          <span class="news-h-source">${icon ? icon("globe") : ""} amele.noirlang.tr</span>
+          <span class="news-h-readmore">${t("news.readMore") || (isEn ? "Read Details" : "Detayları Oku")} ${icon ? icon("arrow-up-right") : "→"}</span>
         </div>
       </div>
     `;
@@ -271,16 +289,39 @@ export function homePage({ t, icon, assetPath, theme, state }) {
         </div>
       </div>
 
-      <!-- Yatay Haber Menüsü (Fotoğrafsız, ajanın altında ortada) -->
+      <!-- Haberler & Duyurular (2'şerli Ortalı Grid) -->
       <div class="home-news-horizontal-section">
         <div class="news-horizontal-header">
-          <span class="news-header-icon">${icon ? icon("globe") : ""}</span>
-          <h3>${t("news.title") || (isEn ? "News" : "Haberler")}</h3>
+          <div class="news-header-center">
+            <span class="news-header-icon">${icon ? icon("globe") : ""}</span>
+            <h3>${t("news.title") || (isEn ? "News" : "Haberler")}</h3>
+            <span class="news-count-pill">${allNews.length}</span>
+          </div>
         </div>
 
-        <div class="news-horizontal-scroll-container" id="news-horizontal-track">
+        <div class="news-horizontal-scroll-container news-grid-container" id="news-horizontal-track">
           ${newsCardsHtml}
         </div>
+
+        ${allNews.length > 4 ? `
+          <div class="news-section-actions">
+            <button type="button" class="news-action-btn" data-action="toggle-news-expand">
+              ${icon(isNewsExpanded ? "stop" : "tiles")}
+              <span>${isNewsExpanded ? (isEn ? "Show Less" : "Daha Az Göster") : (isEn ? `Show More (${allNews.length - 4})` : `Daha Fazla Göster (${allNews.length - 4})`)}</span>
+            </button>
+            <a href="https://amele.noirlang.tr/news" target="_blank" rel="noopener noreferrer" class="news-action-link" data-news-link="https://amele.noirlang.tr/news">
+              <span>${isEn ? "All News" : "Tümünü Gör"}</span>
+              ${icon ? icon("external-link") : ""}
+            </a>
+          </div>
+        ` : `
+          <div class="news-section-actions">
+            <a href="https://amele.noirlang.tr/news" target="_blank" rel="noopener noreferrer" class="news-action-link" data-news-link="https://amele.noirlang.tr/news">
+              <span>${isEn ? "Official News Archive" : "Resmi Haber Arşivi"}</span>
+              ${icon ? icon("external-link") : ""}
+            </a>
+          </div>
+        `}
       </div>
 
       <!-- Standart Adli Araç Kartları Grid (Uygulamanın ana araçları) -->

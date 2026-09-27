@@ -2620,6 +2620,11 @@ document.addEventListener("paste", (e) => {
 
 async function handleAction(button) {
   const action = button.dataset.action;
+  if (action === "toggle-news-expand") {
+    state.newsExpanded = !state.newsExpanded;
+    render();
+    return;
+  }
   if (action === "profile-create-start" || action === "profile-new") {
     state.profileGateMode = "create";
     showProfileGate();
@@ -5742,17 +5747,8 @@ async function loadNewsAnnouncements(forceRefresh = false) {
   }
 }
 
-let newsTimer = null;
 let newsPollingTimer = null;
 function startNewsCarouselTimer() {
-  if (newsTimer) clearInterval(newsTimer);
-  newsTimer = setInterval(() => {
-    if (state.route === "home" && Array.isArray(state.news) && state.news.length > 1) {
-      state.activeNewsIndex = (state.activeNewsIndex + 1) % Math.min(state.news.length, 5);
-      render();
-    }
-  }, 6000);
-
   // Periyodik olarak 60 saniyede bir web sitesinden yeni duyuru/haber kontrolü yap
   if (newsPollingTimer) clearInterval(newsPollingTimer);
   newsPollingTimer = setInterval(() => {
