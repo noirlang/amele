@@ -25,6 +25,49 @@ pub fn developer_logs_endpoint() -> Response {
     }))
 }
 
+/// download.amele.noirlang.tr üzerinden developer.json veya developers.json çeker.
+pub fn developers_endpoint() -> Response {
+    let urls = [
+        "https://download.amele.noirlang.tr/developer.json",
+        "https://download.amele.noirlang.tr/developers.json",
+    ];
+
+    for url in urls {
+        let output = std::process::Command::new("curl")
+            .arg("-L")
+            .arg("--fail")
+            .arg("--silent")
+            .arg("--show-error")
+            .arg("--max-time")
+            .arg("10")
+            .arg(url)
+            .output();
+
+        if let Ok(out) = output {
+            if out.status.success() {
+                if let Ok(val) = serde_json::from_slice::<Value>(&out.stdout) {
+                    return json_ok(val);
+                }
+            }
+        }
+    }
+
+    // Fallback varsayılan geliştirici
+    json_ok(json!({
+        "developers": [
+            {
+                "id": "melih-emik",
+                "name": "Melih Emik",
+                "role": "BDFL & Maintainer",
+                "avatar_url": "https://amele.noirlang.tr/contributors/melih-emik.webp",
+                "website": "https://melihemik.com.tr",
+                "github": "https://github.com/melihemik",
+                "linkedin": "https://linkedin.com/in/melihemik"
+            }
+        ]
+    }))
+}
+
 /// Frontend tarafındaki hata ve kritik olayları backend runtime log'una işler.
 pub fn developer_log_endpoint(body: &[u8]) -> Response {
     let request: DeveloperLogRequest = match serde_json::from_slice(body) {
@@ -176,5 +219,18 @@ fn get_system_memory() -> (Option<u64>, Option<u64>) {
     #[cfg(not(target_os = "linux"))]
     {
         (None, None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_developers_endpoint_returns_json() {
+        let resp = developers_endpoint();
+        assert_eq!(resp.status, 200);
+        let val: Value = serde_json::from_slice(&resp.body).expect("valid json");
+        assert!(val.get("developers").is_some() || val.is_array());
     }
 }

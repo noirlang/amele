@@ -5284,6 +5284,15 @@ async function bootApp() {
   syncSidebarState();
   installUiErrorHandlers();
   hydrateIcons();
+  try {
+    const cachedDevs = localStorage.getItem("amele_contributors");
+    if (cachedDevs) {
+      const parsed = JSON.parse(cachedDevs);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        state.contributors = parsed;
+      }
+    }
+  } catch (_) {}
   await loadProfiles();
   await loadUpdateTarget();
   if (state.activeProfile) {
@@ -5315,8 +5324,14 @@ async function bootApp() {
     loadNewsAnnouncements().catch(() => {});
     startNewsCarouselTimer();
 
-    // Load developers from download.amele.noirlang.tr in background
+    // Geliştirici listesini açılışta hemen çek
     loadDevelopers().catch(() => {});
+
+    // İlk açılışta yeni sürüm kontrolü yap
+    setTimeout(() => checkForUpdates().catch(() => {}), 2000);
+
+    // Her 5 dakikada bir düzenli olarak arkada version.json kontrolü yap
+    setInterval(() => checkForUpdates().catch(() => {}), 5 * 60 * 1000);
   }
 
   // Developer mode — 5 kez logoya tıklayınca aktifleşir
@@ -5330,21 +5345,78 @@ async function loadDevelopers() {
   if (developersLoading) return;
   developersLoading = true;
   try {
-    const res = await fetch("https://download.amele.noirlang.tr/developers.json");
-    if (!res.ok) return;
-    const data = await res.json();
-    if (Array.isArray(data.developers) && data.developers.length > 0) {
-      state.contributors = data.developers.map((d) => ({
-        id: d.id,
-        name: d.name,
-        role: d.role,
-        photo: d.avatar_url,
-        links: [
-          d.github ? ["GitHub", d.github] : null,
-          d.linkedin ? ["LinkedIn", d.linkedin] : null,
-          d.website ? ["Website", d.website] : null,
-        ].filter(Boolean),
-      }));
+    let data = null;
+
+    // 1. Önce backend endpoint'ini dene (/api/developers) — CORS sorunu yaşamaz
+    if (backendReady()) {
+      try {
+        const res = await apiRequest("/api/developers");
+        if (res && (res.developers || res.developer || Array.isArray(res) || res.name)) {
+          data = res;
+        }
+      } catch (_) {}
+    }
+
+    // 2. Backend yoksa veya veri dönmediyse doğrudan web'den dene
+    if (!data) {
+      const urls = [
+        "https://download.amele.noirlang.tr/developer.json",
+        "https://download.amele.noirlang.tr/developers.json"
+      ];
+      for (const url of urls) {
+        try {
+          const res = await fetch(url);
+          if (res.ok) {
+            data = await res.json();
+            if (data) break;
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (!data) return;
+
+    // JSON formatlarını normalize et:
+    // { developers: [...] } veya { developer: [...] } veya [...] veya tek nesne { ... }
+    const rawList = Array.isArray(data)
+      ? data
+      : Array.isArray(data.developers)
+      ? data.developers
+      : Array.isArray(data.developer)
+      ? data.developer
+      : (data.name ? [data] : []);
+
+    if (rawList.length > 0) {
+      state.contributors = rawList.map((d) => {
+        const name = d.name || d.full_name || "Melih Emik";
+        const role = d.role || d.title || d.defaultRole || "Developer";
+        const photo = d.avatar_url || d.photo || d.avatar || d.image || "melih-emik.jpg";
+
+        let links = [];
+        if (Array.isArray(d.links)) {
+          links = d.links;
+        } else if (d.links && typeof d.links === "object") {
+          links = Object.entries(d.links);
+        } else {
+          if (d.github) links.push(["GitHub", d.github]);
+          if (d.linkedin) links.push(["LinkedIn", d.linkedin]);
+          if (d.website || d.site) links.push(["Website", d.website || d.site]);
+          if (d.twitter || d.x) links.push(["X", d.twitter || d.x]);
+        }
+
+        return {
+          id: d.id || name.toLowerCase().replace(/\s+/g, "-"),
+          name,
+          role,
+          photo,
+          links
+        };
+      });
+
+      try {
+        localStorage.setItem("amele_contributors", JSON.stringify(state.contributors));
+      } catch (_) {}
+
       if (state.route === "about") {
         render();
       }
@@ -5355,6 +5427,71 @@ async function loadDevelopers() {
   }
 }
 const loadGitHubContributors = loadDevelopers;
+
+let updateCheckInProgress = false;
+async function checkForUpdates() {
+  if (updateCheckInProgress) return;
+  updateCheckInProgress = true;
+  const SKIP_KEY = "amele_update_skip";
+  const skippedVersion = localStorage.getItem(SKIP_KEY);
+  const lang = state.language || "en";
+  const isTr = lang === "tr";
+
+  try {
+    let result = null;
+    if (backendReady()) {
+      try {
+        result = await apiRequest("/api/update-check");
+      } catch (_) {}
+    }
+
+    if (!result || (!result.tag_name && !result.name && !result.version)) {
+      const controller = new AbortController();
+      const tid = setTimeout(() => controller.abort(), 15000);
+      const res = await fetch("https://download.amele.noirlang.tr/version.json", {
+        signal: controller.signal
+      });
+      clearTimeout(tid);
+      if (res.ok) {
+        const vdata = await res.json();
+        const vStr = vdata.version || "0.1.0";
+        const tag = vStr.startsWith("v") ? vStr : `v${vStr}`;
+        result = {
+          tag_name: tag,
+          name: `Amele ${tag}`,
+          version: vStr,
+          html_url: "https://amele.noirlang.tr",
+          mandatory: vdata.mandatory
+        };
+      }
+    }
+
+    if (!result) return;
+    state.latestUpdate = result;
+    state.updateTarget = result.update_target || state.updateTarget;
+
+    const latestTag = (result.tag_name || result.name || "").trim();
+    const releaseUrl = result.html_url || "https://amele.noirlang.tr";
+    if (!latestTag) return;
+
+    const parseVer = (v) => v.replace(/^v/i, "").split("-")[0].split(".").map(Number);
+    const [cMaj, cMin, cPatch] = parseVer(APP_VERSION);
+    const [lMaj, lMin, lPatch] = parseVer(latestTag);
+    const hasUpdate =
+      lMaj > cMaj ||
+      (lMaj === cMaj && lMin > cMin) ||
+      (lMaj === cMaj && lMin === cMin && lPatch > cPatch);
+
+    if (!hasUpdate) return;
+    if (skippedVersion === latestTag) return;
+
+    showUpdateToast({ latestTag, releaseUrl, isTr });
+  } catch (_) {
+    // Arka plan kontrolü sessizce hata yutar
+  } finally {
+    updateCheckInProgress = false;
+  }
+}
 
 function showUpdateToast({ latestTag, releaseUrl, isTr }) {
   // Var olan toast varsa kaldır

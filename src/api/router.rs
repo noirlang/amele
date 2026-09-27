@@ -46,6 +46,7 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
             // Polling istekleri konsolu kirletmesin diye log seviyesini düşürebilir veya loglamayabiliriz.
             developer::developer_logs_endpoint()
         }
+        ("GET", "/api/developers") => developer::developers_endpoint(),
         ("POST", "/api/developer-log") => developer::developer_log_endpoint(body),
         ("POST", "/api/open-dev-console") => {
             crate::logging::runtime_log(
