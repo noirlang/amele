@@ -971,6 +971,7 @@ export const translations = {
     "elevation.yesRunAdmin": "Evet, Yönetici Olarak Çalıştır",
     "elevation.no": "Hayır",
     "news.latestUpdates": "Haberler",
+    "news.title": "Haberler",
     "news.publisher": "Yayınlayan: {author}",
     "news.readMore": "Detayları Oku",
     "news.noNews": "Henüz duyuru bulunmuyor."
@@ -1945,6 +1946,7 @@ export const translations = {
     "elevation.yesRunAdmin": "Yes, Run as Administrator",
     "elevation.no": "No",
     "news.latestUpdates": "News",
+    "news.title": "News",
     "news.publisher": "Published by: {author}",
     "news.readMore": "Read Details",
     "news.noNews": "No announcements found."
