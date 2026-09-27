@@ -1485,14 +1485,30 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   will-change: transform, opacity;
 }
 
+.page-refresh {
+  animation: page-refresh-in 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  will-change: transform, opacity;
+}
+
 @keyframes page-standard-in {
   0% {
     opacity: 0;
-    transform: translate3d(0, 16px, 0) scale(0.99);
+    transform: translate3d(0, 24px, 0) scale(0.98);
   }
   100% {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes page-refresh-in {
+  0% {
+    opacity: 0.35;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 

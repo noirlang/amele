@@ -179,6 +179,20 @@ function boundPickerField(label, id, value, type = "file") {
   return pickerField(label, id, value, type, icon, t);
 }
 
+const MAIN_ROUTE_ORDER = [
+  "home",
+  "windows",
+  "linux",
+  "docker",
+  "android",
+  "ios",
+  "other",
+  "help",
+  "about",
+  "settings",
+  "profile"
+];
+
 function setRoute(route, direction) {
   if (isMobileToolsRoute(route) && !onlineMobileToolsAllowed()) {
     devLog("WARN", "ui:router", `Mobile route blocked (locked): ${route}`, apiRequest, backendReady);
@@ -208,7 +222,17 @@ function setRoute(route, direction) {
   ) {
     state.navDirection = "back";
   } else {
-    state.navDirection = "standard";
+    const prevGroup = routeGroup(prevRoute);
+    const nextGroup = routeGroup(route);
+    const prevIdx = MAIN_ROUTE_ORDER.indexOf(prevGroup);
+    const nextIdx = MAIN_ROUTE_ORDER.indexOf(nextGroup);
+    if (prevIdx !== -1 && nextIdx !== -1 && prevIdx !== nextIdx) {
+      state.navDirection = nextIdx > prevIdx ? "forward" : "back";
+    } else if (prevRoute === route) {
+      state.navDirection = "refresh";
+    } else {
+      state.navDirection = "standard";
+    }
   }
 
   devLog("DEBUG", "ui:router", `Navigate → ${route} (${state.navDirection})`, apiRequest, backendReady);
@@ -914,11 +938,16 @@ function render() {
 
   const pageEl = (typeof view?.querySelector === "function" ? view.querySelector(".page") : null) || document.querySelector("#view .page");
   if (pageEl && pageEl.classList) {
-    pageEl.classList.remove?.("page-forward", "page-back", "page-standard");
+    pageEl.classList.remove?.("page-forward", "page-back", "page-standard", "page-refresh");
+    if (pageEl.offsetWidth !== undefined) {
+      void pageEl.offsetWidth;
+    }
     if (state.navDirection === "forward") {
       pageEl.classList.add?.("page-forward");
     } else if (state.navDirection === "back") {
       pageEl.classList.add?.("page-back");
+    } else if (state.navDirection === "refresh") {
+      pageEl.classList.add?.("page-refresh");
     } else {
       pageEl.classList.add?.("page-standard");
     }
@@ -1209,7 +1238,7 @@ function closeNavMenu() {
       nav?.classList.remove("is-closing");
       trigger?.classList.remove("is-closing");
     }
-  }, 240);
+  }, 180);
 }
 
 function toggleNavMenu() {
@@ -1239,7 +1268,7 @@ function toolHub(platform) {
         const blocked = workflow && isLocalWorkflowBlocked(workflow);
         const targetRoute = card.route || `workflow:${card.id}`;
         return `
-        <button class="forensic-card ${blocked ? "is-disabled" : ""}" data-route="${targetRoute}" style="--accent:${card.accent}" ${blocked ? `aria-disabled="true" data-disabled-reason="${workflow.platform}"` : ""}>
+        <button class="forensic-card ${blocked ? "is-disabled" : ""}" data-route="${targetRoute}" data-nav-dir="forward" style="--accent:${card.accent}" ${blocked ? `aria-disabled="true" data-disabled-reason="${workflow.platform}"` : ""}>
           <span class="card-icon">${icon(card.icon)}</span>
           <h3>${localizeText(card.title)}</h3>
           <p>${localizeText(card.desc)}</p>
@@ -2241,6 +2270,12 @@ document.addEventListener("click", async (event) => {
 
   const routeButton = event.target.closest("[data-route]");
   if (routeButton) {
+    const radialWheel = routeButton.closest?.(".nav-radial-wheel");
+    const radialItem = routeButton.closest?.(".nav-radial-item");
+    if (radialWheel && radialItem) {
+      radialWheel.classList?.add("has-selection");
+      radialItem.classList?.add("is-selected");
+    }
     closeNavMenu();
     if (routeButton.dataset.tab) {
       state.activeTab = routeButton.dataset.tab;
