@@ -1458,7 +1458,8 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   background: radial-gradient(circle at 50% 6%, rgba(101, 229, 138, 0.08), transparent 30%);
 }
 
-.page {
+.page,
+.page-standard {
   position: relative;
   z-index: 1;
   max-width: 880px;
@@ -1469,19 +1470,76 @@ html.sidebar-collapsed .sidebar-expand-toggle,
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  animation: page-in 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: page-standard-in 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: transform, opacity;
 }
 
-@keyframes page-in {
-  from {
+.page-forward,
+.page-subview {
+  animation: page-slide-forward 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  will-change: transform, opacity;
+}
+
+.page-back {
+  animation: page-slide-back 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  will-change: transform, opacity;
+}
+
+@keyframes page-standard-in {
+  0% {
     opacity: 0;
-    transform: translate3d(0, 10px, 0);
+    transform: translate3d(0, 16px, 0) scale(0.99);
   }
-  to {
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes page-slide-forward {
+  0% {
+    opacity: 0;
+    transform: translate3d(42px, 0, 0);
+  }
+  100% {
     opacity: 1;
     transform: translate3d(0, 0, 0);
   }
+}
+
+@keyframes page-slide-back {
+  0% {
+    opacity: 0;
+    transform: translate3d(-42px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Workflow Navigation & Back Button */
+.workflow-header-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
+  width: 100%;
+}
+
+.workflow-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+}
+
+.workflow-back-btn:hover {
+  transform: translate3d(-4px, 0, 0);
 }
 
 .hero {
@@ -4615,55 +4673,10 @@ html, body {
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.page {
-  animation: page-in 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@keyframes animate__fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes animate__zoomIn {
-  from {
-    opacity: 0;
-    transform: scale3d(0.95, 0.95, 0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale3d(1, 1, 1);
-  }
-}
-
-/* Modal Entry Animation */
-.docker-modal-content {
-  animation: animate__zoomIn 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.modal-backdrop {
-  animation: animate__fadeIn 200ms ease forwards;
-}
-
-/* Ultra-Fast Responsive Hover Effects */
-.action-tile,
-.forensic-card,
-.doc-card,
-.contributor-card,
-.workflow-panel,
-.settings-card {
-  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease !important;
-}
-
-.action-tile:hover,
-.forensic-card:hover {
-  transform: translate3d(0, -3px, 0) !important;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4), 0 0 16px rgba(245, 245, 245, 0.06) !important;
-  border-color: rgba(245, 245, 245, 0.25) !important;
-}
-
 .action-tile:active,
 .forensic-card:active {
-  transform: translate3d(0, 0, 0) !important;
+  transform: scale(0.97) !important;
+  transition: transform 90ms ease !important;
 }
 
 .nav-item.is-locked,

@@ -70,8 +70,16 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
         </div>
       `;
 
+  const backRoute = isWindows ? "windows" : "linux";
+  const backLabel = isWindows ? (t("nav.windows") || "Windows Araçları") : (t("nav.linux") || "Linux Araçları");
+
   return `
     <section class="page">
+      <div class="workflow-header-row">
+        <button type="button" class="secondary-button workflow-back-btn" data-route="${backRoute}" data-nav-dir="back">
+          ${icon("arrowLeft")} <span>${backLabel}</span>
+        </button>
+      </div>
       <div class="workflow-layout">
         <div class="workflow-panel">
           ${pageTitle(localText(data.title), localText(data.desc), data.icon, icon)}

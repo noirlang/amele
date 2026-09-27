@@ -11,6 +11,7 @@ const mockElement = {
     remove: () => {}
   },
   querySelectorAll: () => [],
+  querySelector: () => mockElement,
   addEventListener: () => {},
   focus: () => {},
   dataset: {},

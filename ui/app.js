@@ -179,7 +179,7 @@ function boundPickerField(label, id, value, type = "file") {
   return pickerField(label, id, value, type, icon, t);
 }
 
-function setRoute(route) {
+function setRoute(route, direction) {
   if (isMobileToolsRoute(route) && !onlineMobileToolsAllowed()) {
     devLog("WARN", "ui:router", `Mobile route blocked (locked): ${route}`, apiRequest, backendReady);
     return;
@@ -192,7 +192,26 @@ function setRoute(route) {
       return;
     }
   }
-  devLog("DEBUG", "ui:router", `Navigate → ${route}`, apiRequest, backendReady);
+
+  const prevRoute = state.route || "home";
+
+  if (direction) {
+    state.navDirection = direction;
+  } else if (
+    (route.startsWith("workflow:") && !prevRoute.startsWith("workflow:")) ||
+    (route.startsWith("android:") && !prevRoute.startsWith("android:"))
+  ) {
+    state.navDirection = "forward";
+  } else if (
+    (!route.startsWith("workflow:") && prevRoute.startsWith("workflow:")) ||
+    (!route.startsWith("android:") && prevRoute.startsWith("android:"))
+  ) {
+    state.navDirection = "back";
+  } else {
+    state.navDirection = "standard";
+  }
+
+  devLog("DEBUG", "ui:router", `Navigate → ${route} (${state.navDirection})`, apiRequest, backendReady);
   state.route = route;
   render();
 }
@@ -891,6 +910,18 @@ function render() {
     syncBrandLogo();
 
     view.innerHTML = routes[state.route]?.(pageCtx) || homePage(pageCtx);
+  }
+
+  const pageEl = (typeof view?.querySelector === "function" ? view.querySelector(".page") : null) || document.querySelector("#view .page");
+  if (pageEl && pageEl.classList) {
+    pageEl.classList.remove?.("page-forward", "page-back", "page-standard");
+    if (state.navDirection === "forward") {
+      pageEl.classList.add?.("page-forward");
+    } else if (state.navDirection === "back") {
+      pageEl.classList.add?.("page-back");
+    } else {
+      pageEl.classList.add?.("page-standard");
+    }
   }
 
   hydrateIcons(view);
@@ -2203,7 +2234,7 @@ document.addEventListener("click", async (event) => {
     if (routeButton.dataset.tab) {
       state.activeTab = routeButton.dataset.tab;
     }
-    setRoute(routeButton.dataset.route);
+    setRoute(routeButton.dataset.route, routeButton.dataset.navDir);
     return;
   }
 
