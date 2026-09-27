@@ -788,17 +788,19 @@ pub fn is_root_or_admin() -> bool {
 fn windows_check_token_admin() -> bool {
     use windows_sys::Win32::Foundation::TRUE;
     use windows_sys::Win32::Security::{
-        AllocateAndInitializeSid, CheckTokenMembership, FreeSid, SECURITY_BUILTIN_DOMAIN_RID,
-        SECURITY_NT_AUTHORITY, SID_IDENTIFIER_AUTHORITY,
+        AllocateAndInitializeSid, CheckTokenMembership, FreeSid, SID_IDENTIFIER_AUTHORITY,
     };
 
     // DOMAIN_ALIAS_RID_ADMINS = 0x220 (544)
     const DOMAIN_ALIAS_RID_ADMINS: u32 = 0x220;
+    // SECURITY_BUILTIN_DOMAIN_RID = 0x13 (19) — windows-sys'de constant yok
+    const SECURITY_BUILTIN_DOMAIN_RID: u32 = 0x13;
 
+    // NT Authority SID identifier: [0, 0, 0, 0, 0, 5]
     let mut authority = SID_IDENTIFIER_AUTHORITY {
-        Value: SECURITY_NT_AUTHORITY,
+        Value: [0u8, 0, 0, 0, 0, 5],
     };
-    let mut admin_sid = std::ptr::null_mut();
+    let mut admin_sid: *mut std::ffi::c_void = std::ptr::null_mut();
 
     let ok = unsafe {
         AllocateAndInitializeSid(
@@ -825,7 +827,7 @@ fn windows_check_token_admin() -> bool {
     }
 
     let mut is_member: i32 = 0;
-    let check_ok = unsafe { CheckTokenMembership(0, admin_sid, &mut is_member) };
+    let check_ok = unsafe { CheckTokenMembership(std::ptr::null_mut(), admin_sid, &mut is_member) };
     unsafe { FreeSid(admin_sid) };
 
     if check_ok != TRUE {
