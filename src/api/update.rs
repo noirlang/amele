@@ -277,19 +277,14 @@ pub fn update_download_endpoint(body: &[u8]) -> Response {
                     }
                     Ok(None) => {
                         let downloaded = fs::metadata(&target).map(|m| m.len()).unwrap_or(0);
-                        let pct = if total_bytes > 0 {
-                            (downloaded * 100) / total_bytes
-                        } else {
-                            0
-                        };
                         let msg = if total_bytes > 0 {
                             format!(
-                                "%{pct} indirildi ({:.1} MB / {:.1} MB)",
+                                "{:.1} MB / {:.1} MB",
                                 downloaded as f64 / 1_048_576.0,
                                 total_bytes as f64 / 1_048_576.0
                             )
                         } else {
-                            format!("{:.1} MB indirildi", downloaded as f64 / 1_048_576.0)
+                            format!("{:.1} MB", downloaded as f64 / 1_048_576.0)
                         };
                         update_acquisition_progress_message(
                             &job_id_clone,

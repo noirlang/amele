@@ -3514,16 +3514,16 @@ async function handleAction(button) {
       if (hasUpdate) {
         showToast(
           isTr
-            ? `🚀 Yeni sürüm mevcut: ${latestTag}! (Mevcut: ${APP_VERSION})`
-            : `🚀 New update available: ${latestTag}! (Current: ${APP_VERSION})`,
+            ? `Yeni sürüm mevcut: ${latestTag}! (Mevcut: ${APP_VERSION})`
+            : `New update available: ${latestTag}! (Current: ${APP_VERSION})`,
           "success"
         );
         showUpdateToast({ latestTag, releaseUrl, isTr });
       } else {
         showToast(
           isTr
-            ? `✓ Amele güncel! En son sürümü kullanıyorsunuz (${APP_VERSION}).`
-            : `✓ Amele is up to date! You are on the latest release (${APP_VERSION}).`,
+            ? `Amele güncel! En son sürümü kullanıyorsunuz (${APP_VERSION}).`
+            : `Amele is up to date! You are on the latest release (${APP_VERSION}).`,
           "info"
         );
       }
@@ -3593,14 +3593,14 @@ async function handleAction(button) {
       if (hasUpdate) {
         showToast(
           isTr
-            ? `🚀 Yeni sürüm mevcut: ${latestTag}! (Mevcut: ${APP_VERSION})`
-            : `🚀 New update available: ${latestTag}! (Current: ${APP_VERSION})`,
+            ? `Yeni sürüm mevcut: ${latestTag}! (Mevcut: ${APP_VERSION})`
+            : `New update available: ${latestTag}! (Current: ${APP_VERSION})`,
           "success"
         );
         showUpdateToast({ latestTag, releaseUrl, isTr });
         setStatus(
           "[data-update-status]",
-          `<span class="status-icon-update">🚀</span> <span>${isTr ? "Yeni sürüm:" : "New version:"} <b>${escapeHtml(latestTag)}</b></span>`
+          `<span class="status-icon-update">${icon("rocket")}</span> <span>${isTr ? "Yeni sürüm:" : "New version:"} <b>${escapeHtml(latestTag)}</b></span>`
         );
         const resultArea = document.querySelector("[data-update-result]");
         if (resultArea) {
@@ -3611,8 +3611,8 @@ async function handleAction(button) {
       } else {
         showToast(
           isTr
-            ? `✓ Amele güncel! En son sürümü kullanıyorsunuz (${APP_VERSION}).`
-            : `✓ Amele is up to date! You are on the latest release (${APP_VERSION}).`,
+            ? `Amele güncel! En son sürümü kullanıyorsunuz (${APP_VERSION}).`
+            : `Amele is up to date! You are on the latest release (${APP_VERSION}).`,
           "info"
         );
         setStatus(
@@ -4986,7 +4986,7 @@ async function downloadUpdatePackage() {
     updateBtn.style.opacity = "0.5";
   }
 
-  if (status) status.innerHTML = `${icon("download")} <span>${t("settings.downloading") || "İndiriliyor..."} (%0)</span>`;
+  if (status) status.innerHTML = `${icon("download")} <span>${t("settings.downloading") || "İndiriliyor..."}</span>`;
 
   try {
     const res = await apiRequest("/api/update-download", {
@@ -5005,11 +5005,11 @@ async function downloadUpdatePackage() {
     const result = await waitForAcquisitionJob(jobId, {
       onUpdate: (job) => {
         const pct = acquisitionPercent(job);
-        const text = job.message || `%${pct} indirildi`;
+        const rawMsg = job.message || "";
+        const cleanMsg = rawMsg ? rawMsg.replace(/:\s*\d+%/g, "").trim() : `${pct}%`;
         if (progressFill) progressFill.style.width = `${pct}%`;
         if (progressPct) progressPct.textContent = `%${pct}`;
-        if (progressMsg) progressMsg.textContent = text;
-        if (status) status.innerHTML = `${icon("download")} <span>${escapeHtml(text)}</span>`;
+        if (progressMsg) progressMsg.textContent = cleanMsg.includes("indirildi") ? cleanMsg : `${cleanMsg} indirildi`;
         return `%${pct}`;
       },
     });
@@ -5017,7 +5017,7 @@ async function downloadUpdatePackage() {
     if (progressFill) progressFill.style.width = "100%";
     if (progressPct) progressPct.textContent = "%100";
     if (progressMsg) progressMsg.textContent = "İndirme tamamlandı! Kurulum başlatılıyor...";
-    if (status) status.innerHTML = `${icon("download")} <span>${t("settings.installing") || "Kurulum başlatılıyor..."}</span>`;
+    if (status) status.innerHTML = `${icon("shield")} <span>${t("settings.installing") || "Kurulum başlatılıyor..."}</span>`;
 
     const install = await apiRequest("/api/update-install", {
       method: "POST",
@@ -5577,7 +5577,7 @@ function showUpdateToast({ latestTag, releaseUrl, isTr }) {
     </div>
     <div class="update-toast-body">
       <div class="update-toast-row">
-        <span class="update-toast-icon">🚀</span>
+        <span class="update-toast-icon">${icon("rocket")}</span>
         <span class="update-toast-title">${title}</span>
       </div>
       <div class="update-toast-version">

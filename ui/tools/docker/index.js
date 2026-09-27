@@ -4,6 +4,7 @@ import { showToast } from "../../core/toast.js";
 
 export const dockerState = {
   mode: "local", // "local" | "remote"
+  slideDirection: "right", // "left" | "right"
   customRoot: "",
   localStatus: null,
   localContainers: [],
@@ -74,7 +75,8 @@ export function dockerPage({ t, icon, state, pageTitle, pickerField, field, esca
       ${pageTitle(t("docker.title"), t("docker.desc"), "docker", icon)}
 
       <!-- Mod Değiştirici: Yerel vs Uzak Agent -->
-      <div class="analysis-tabs">
+      <div class="analysis-tabs" data-active-mode="${isRemote ? "remote" : "local"}">
+        <div class="analysis-tabs-glider" aria-hidden="true"></div>
         <button class="analysis-tab-btn ${!isRemote ? "active" : ""}" data-docker-action="set-mode" data-mode="local">
           ${icon("monitor")} ${t("docker.localMode")}
         </button>
@@ -89,6 +91,7 @@ export function dockerPage({ t, icon, state, pageTitle, pickerField, field, esca
           ${casePanel ? casePanel("docker", t("docker.caseHint") || "Konteyner adli delil edinimi seçilen vakanın docker klasörüne yazılır. Vaka yoksa yeni vaka adıyla otomatik oluşturulur.") : ""}
           <div class="section-divider"></div>
 
+          <div class="docker-mode-content slide-from-${d.slideDirection || "right"}">
           ${!isRemote ? `
             <p class="section-label">${t("docker.localSettings")}</p>
             ${renderPicker(t("docker.customRoot"), "docker-custom-root", d.customRoot || (typeof navigator !== "undefined" && (navigator.platform?.includes("Win") || navigator.userAgent?.includes("Windows")) ? "C:\\ProgramData\\Docker" : "/var/lib/docker"), "folder")}
@@ -111,6 +114,7 @@ export function dockerPage({ t, icon, state, pageTitle, pickerField, field, esca
               </button>
             </div>
           `}
+          </div>
 
           <div class="section-divider"></div>
           
@@ -390,9 +394,13 @@ export async function handleDockerAction(e, { apiRequest, setRoute, render, stat
   const action = target.dataset.dockerAction;
 
   if (action === "set-mode") {
-    dockerState.mode = target.dataset.mode || "local";
-    dockerState.selectedContainer = null;
-    render();
+    const nextMode = target.dataset.mode || "local";
+    if (dockerState.mode !== nextMode) {
+      dockerState.slideDirection = nextMode === "remote" ? "right" : "left";
+      dockerState.mode = nextMode;
+      dockerState.selectedContainer = null;
+      render();
+    }
   } else if (action === "set-filter") {
     dockerState.filter = target.dataset.filter || "all";
     render();

@@ -173,7 +173,18 @@ code:not(.help-code-block code) {
 }
 
 /* Analysis Tabs & Segmented Controls */
-.analysis-tab-btn.active {
+.analysis-tabs:has(.analysis-tabs-glider) .analysis-tab-btn {
+  background: transparent !important;
+}
+
+.analysis-tabs:has(.analysis-tabs-glider) .analysis-tab-btn.active {
+  background: transparent !important;
+  color: var(--bg) !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+.analysis-tabs:not(:has(.analysis-tabs-glider)) .analysis-tab-btn.active {
   background: var(--text) !important;
   color: var(--bg) !important;
   box-shadow: none !important;
@@ -193,7 +204,14 @@ code:not(.help-code-block code) {
   background: rgba(38, 33, 24, 0.04) !important;
 }
 
-.theme-light .analysis-tab-btn.active {
+.theme-light .analysis-tabs:has(.analysis-tabs-glider) .analysis-tab-btn.active {
+  background: transparent !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.theme-light .analysis-tabs:not(:has(.analysis-tabs-glider)) .analysis-tab-btn.active {
   background: #ffffff !important;
   color: #1a4a2b !important;
   border: 1px solid rgba(26, 74, 43, 0.22) !important;
@@ -956,10 +974,6 @@ code:not(.help-code-block code) {
 .native-linux .modal-overlay,
 .native-linux .monitor-brand {
   backdrop-filter: none !important;
-}
-
-.native-linux .page {
-  animation: none !important;
 }
 
 .native-linux .spark {

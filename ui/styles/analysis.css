@@ -3,8 +3,9 @@
 /* --- Forensic Evidence & RAM Analysis Redesign Styles --- */
 
 .analysis-tabs {
+  position: relative;
   display: flex;
-  gap: 10px;
+  gap: 0;
   margin-bottom: 20px;
   padding: 4px;
   border: 1px solid var(--line);
@@ -12,7 +13,30 @@
   background: rgba(0, 0, 0, 0.22);
 }
 
+.analysis-tabs-glider {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  background: var(--text);
+  border-radius: 9px;
+  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.analysis-tabs[data-active-mode="remote"] .analysis-tabs-glider {
+  transform: translateX(100%);
+}
+
+.analysis-tabs[data-active-mode="local"] .analysis-tabs-glider {
+  transform: translateX(0);
+}
+
 .analysis-tab-btn {
+  position: relative;
+  z-index: 2;
   flex: 1;
   display: inline-flex;
   align-items: center;
@@ -22,23 +46,22 @@
   padding: 0 16px;
   border: 0;
   border-radius: 9px;
-  background: transparent;
+  background: transparent !important;
   color: var(--muted);
   font-weight: 800;
   font-size: 14px;
   cursor: pointer;
-  transition: all 180ms var(--ease);
+  transition: color 200ms ease;
+  user-select: none;
 }
 
 .analysis-tab-btn:hover {
-  background: rgba(255, 255, 255, 0.035);
   color: var(--text);
 }
 
 .analysis-tab-btn.active {
-  background: var(--green);
-  color: #07130d;
-  box-shadow: 0 2px 8px rgba(101, 229, 138, 0.2);
+  color: var(--bg) !important;
+  box-shadow: none;
 }
 
 .theme-light .analysis-tabs {
@@ -46,20 +69,54 @@
   border-color: rgba(38, 33, 24, 0.12);
 }
 
+.theme-light .analysis-tabs-glider {
+  background: #111111;
+}
+
 .theme-light .analysis-tab-btn {
   color: var(--muted);
 }
 
 .theme-light .analysis-tab-btn:hover {
-  background: rgba(38, 33, 24, 0.04);
   color: var(--text);
 }
 
 .theme-light .analysis-tab-btn.active {
-  background: #ffffff;
-  color: #1a4a2b;
-  border: 1px solid rgba(26, 74, 43, 0.2);
-  box-shadow: 0 2px 8px rgba(38, 33, 24, 0.08);
+  color: #ffffff !important;
+}
+
+.docker-mode-content {
+  will-change: transform, opacity;
+}
+
+.slide-from-right {
+  animation: slideFromRight 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.slide-from-left {
+  animation: slideFromLeft 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideFromRight {
+  from {
+    opacity: 0;
+    transform: translate3d(24px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes slideFromLeft {
+  from {
+    opacity: 0;
+    transform: translate3d(-24px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 .forensic-split {
