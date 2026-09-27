@@ -4941,8 +4941,9 @@ async function loadEvidenceLogs() {
 }
 
 async function downloadUpdatePackage() {
-  const progress = document.querySelector("[data-update-progress]");
   const status = document.querySelector("[data-update-status]");
+  const resultArea = document.querySelector("[data-update-result]");
+  const updateBtn = resultArea?.querySelector("[data-action='download-update']");
   const update = state.latestUpdate || await apiRequest("/api/update-check");
   state.latestUpdate = update;
   const asset = update.platform_asset || {};
@@ -4956,45 +4957,94 @@ async function downloadUpdatePackage() {
     showToast(message, "error");
     return;
   }
-  if (progress) {
-    setProgressElement(progress, 35, "35%");
+
+  // Progress container oluştur veya var olanı al
+  let progressContainer = resultArea?.querySelector(".update-progress-container");
+  if (!progressContainer && resultArea) {
+    progressContainer = document.createElement("div");
+    progressContainer.className = "update-progress-container";
+    progressContainer.style.cssText = "margin-top: 14px; width: 100%; max-width: 380px; margin-left: auto; margin-right: auto;";
+    progressContainer.innerHTML = `
+      <div class="job-progress-bg" style="height: 6px; background: rgba(255, 255, 255, 0.08); border-radius: 999px; overflow: hidden;">
+        <div class="job-progress-fill" data-update-progress-fill style="width: 0%; height: 100%; background: var(--text, #fff); transition: width 0.2s ease;"></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 12px; color: var(--muted, #a1a1aa);">
+        <span data-update-progress-msg>İndirme başlatılıyor...</span>
+        <span data-update-progress-pct style="font-weight: 600; color: var(--text, #fff);">%0</span>
+      </div>
+    `;
+    resultArea.appendChild(progressContainer);
   }
-  if (status) status.innerHTML = `${icon("download")} ${t("settings.downloading")}`;
+  if (progressContainer) progressContainer.style.display = "block";
+
+  const progressFill = progressContainer?.querySelector("[data-update-progress-fill]");
+  const progressMsg = progressContainer?.querySelector("[data-update-progress-msg]");
+  const progressPct = progressContainer?.querySelector("[data-update-progress-pct]");
+
+  if (updateBtn) {
+    updateBtn.disabled = true;
+    updateBtn.style.opacity = "0.5";
+  }
+
+  if (status) status.innerHTML = `${icon("download")} <span>${t("settings.downloading") || "İndiriliyor..."} (%0)</span>`;
+
   try {
-    const result = await apiRequest("/api/update-download", {
+    const res = await apiRequest("/api/update-download", {
       method: "POST",
       body: JSON.stringify({
         url: asset.download_url,
         name: asset.name,
-        expected_sha256: asset.digest || ""
-      })
+        expected_sha256: asset.digest || "",
+      }),
     });
-    if (progress) {
-      setProgressElement(progress, 75, "75%");
-    }
-    if (status) status.innerHTML = `${icon("download")} ${t("settings.installing")}`;
+
+    const jobId = res?.job_id;
+    if (!jobId) throw new Error("İndirme işi oluşturulamadı");
+
+    // İşi poll ederek canlı yüzdeli takip et
+    const result = await waitForAcquisitionJob(jobId, {
+      onUpdate: (job) => {
+        const pct = acquisitionPercent(job);
+        const text = job.message || `%${pct} indirildi`;
+        if (progressFill) progressFill.style.width = `${pct}%`;
+        if (progressPct) progressPct.textContent = `%${pct}`;
+        if (progressMsg) progressMsg.textContent = text;
+        if (status) status.innerHTML = `${icon("download")} <span>${escapeHtml(text)}</span>`;
+        return `%${pct}`;
+      },
+    });
+
+    if (progressFill) progressFill.style.width = "100%";
+    if (progressPct) progressPct.textContent = "%100";
+    if (progressMsg) progressMsg.textContent = "İndirme tamamlandı! Kurulum başlatılıyor...";
+    if (status) status.innerHTML = `${icon("download")} <span>${t("settings.installing") || "Kurulum başlatılıyor..."}</span>`;
+
     const install = await apiRequest("/api/update-install", {
       method: "POST",
-      body: JSON.stringify({ path: result.path })
+      body: JSON.stringify({ path: result.path }),
     });
-    if (progress) {
-      setProgressElement(progress, 100, "100%");
-    }
-    if (status) status.innerHTML = `${icon("shield")} ${t("settings.installStarted")}`;
+
+    if (status) status.innerHTML = `${icon("shield")} <span>${t("settings.installStarted") || "Kurulum başlatıldı"}</span>`;
+    if (progressMsg) progressMsg.textContent = t("settings.installStarted") || "Kurulum başlatıldı";
     setStatus(
       "[data-update-log]",
-      `${t("settings.downloaded", { path: escapeHtml(result.path) })}<br />${t("settings.sha256", { hash: escapeHtml(result.sha256) })}<br />${escapeHtml(install.message || t("settings.installStarted"))}`
+      `${t("settings.downloaded", { path: escapeHtml(result.path) })}<br />${escapeHtml(install.message || t("settings.installStarted"))}`
     );
-    showToast(t("settings.installStarted"));
+    showToast(t("settings.installStarted") || "Güncelleme paketi çalıştırıldı", "success");
   } catch (error) {
-    if (progress) {
-      setProgressElement(progress, 0, "0%");
-    }
+    if (progressFill) progressFill.style.width = "0%";
+    if (progressPct) progressPct.textContent = "%0";
+    if (progressMsg) progressMsg.textContent = "İndirme başarısız";
     const failedKey = String(error.message || "").toLowerCase().includes("installer")
       ? "settings.installFailed"
       : "settings.downloadFailed";
-    if (status) status.innerHTML = `${icon("info")} ${t(failedKey, { message: escapeHtml(error.message) })}`;
+    if (status) status.innerHTML = `${icon("info")} <span>${t(failedKey, { message: escapeHtml(error.message) })}</span>`;
     showToast(t(failedKey, { message: error.message }), "error");
+  } finally {
+    if (updateBtn) {
+      updateBtn.disabled = false;
+      updateBtn.style.opacity = "1";
+    }
   }
 }
 
@@ -5513,22 +5563,32 @@ function showUpdateToast({ latestTag, releaseUrl, isTr }) {
   toast.id = "amele-update-toast";
   toast.className = "update-toast";
 
-  const title = isTr ? "🚀 Yeni Güncelleme Hazır!" : "🚀 New Update Available!";
-  const verLine = isTr
-    ? `Mevcut: <b>${APP_VERSION}</b> → Yeni: <b>${latestTag}</b>`
-    : `Current: <b>${APP_VERSION}</b> → Latest: <b>${latestTag}</b>`;
-  const downloadLabel = isTr ? "⬇ İndir" : "⬇ Download";
+  const title = isTr ? "Yeni Güncelleme Hazır" : "New Update Available";
+  const downloadLabel = isTr ? "İndir" : "Download";
   const dismissLabel = isTr ? "Şimdi değil" : "Not now";
 
   toast.innerHTML = `
     <div class="update-toast-header">
-      <span class="update-toast-badge">⬆ ${isTr ? "Güncelleme" : "Update"}</span>
+      <div class="update-toast-header-left">
+        <span class="update-toast-dot"></span>
+        <span class="update-toast-category">${isTr ? "Güncelleme" : "Update"}</span>
+      </div>
       <button class="update-toast-close" title="${isTr ? "Kapat" : "Close"}">✕</button>
     </div>
-    <p class="update-toast-title">${title}</p>
-    <p class="update-toast-version">${verLine}</p>
+    <div class="update-toast-body">
+      <div class="update-toast-row">
+        <span class="update-toast-icon">🚀</span>
+        <span class="update-toast-title">${title}</span>
+      </div>
+      <div class="update-toast-version">
+        ${isTr ? "Mevcut" : "Current"}: <b>${APP_VERSION}</b> → ${isTr ? "Yeni" : "New"}: <b>${latestTag}</b>
+      </div>
+    </div>
     <div class="update-toast-actions">
-      <a class="update-toast-btn primary" href="${releaseUrl}" target="_blank" rel="noopener noreferrer">${downloadLabel}</a>
+      <a class="update-toast-btn primary" href="${releaseUrl}" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>${downloadLabel}</span>
+      </a>
       <button class="update-toast-btn secondary dismiss-btn">${dismissLabel}</button>
     </div>
   `;
@@ -5541,7 +5601,7 @@ function showUpdateToast({ latestTag, releaseUrl, isTr }) {
     if (skip) {
       try { localStorage.setItem("amele_update_skip", latestTag); } catch {}
     }
-    setTimeout(() => toast.remove(), 400);
+    setTimeout(() => toast.remove(), 350);
   };
 
   toast.querySelector(".update-toast-close").addEventListener("click", () => hide(false));

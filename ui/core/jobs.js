@@ -16,11 +16,13 @@ const TOOL_SVGS = {
   ios: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="8" y="2.5" width="8" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>`,
   docker: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l8 4.5v9l-8 4.5-8-4.5v-9z"/><path d="M12 11.5L4 7M12 11.5l8-4.5M12 11.5V20"/></svg>`,
   ram: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M10 2.5v4M14 2.5v4M10 17.5v4M14 17.5v4M2.5 10h4M2.5 14h4M17.5 10h4M17.5 14h4"/></svg>`,
+  update: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
   default: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/></svg>`
 };
 
 function getSvgForJob(job) {
   const text = `${job?.id || ""} ${(job?.logs || []).join(" ")}`.toLowerCase();
+  if (text.includes("güncelle") || text.includes("update") || text.includes("indir")) return TOOL_SVGS.update;
   if (text.includes("disk") || text.includes("imaj") || text.includes("image")) return TOOL_SVGS.disk;
   if (text.includes("android")) return TOOL_SVGS.android;
   if (text.includes("ios")) return TOOL_SVGS.ios;

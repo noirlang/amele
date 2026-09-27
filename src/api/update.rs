@@ -8,7 +8,10 @@ use std::process::{Command, Stdio};
 
 use crate::server::{Response, json_error, json_ok};
 
-use super::{home_dir, process_is_root, sha256_file};
+use super::{
+    create_acquisition_job, fail_acquisition_job_with_message, finish_acquisition_job_with_message,
+    home_dir, process_is_root, sha256_file, update_acquisition_progress_message,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum UpdatePackageKind {
@@ -168,7 +171,28 @@ pub fn update_target_endpoint() -> Response {
     json_ok(update_target_json(&update_target, None))
 }
 
-/// Seçilen release asset'ini indirir ve hash doğrulaması yapar.
+/// Uzak sunucudan Content-Length başlığını okur.
+fn get_remote_content_length(url: &str) -> u64 {
+    let output = Command::new("curl")
+        .arg("-sIL")
+        .arg("--max-time")
+        .arg("5")
+        .arg(url)
+        .output();
+    if let Ok(out) = output {
+        let text = String::from_utf8_lossy(&out.stdout);
+        for line in text.lines() {
+            if let Some(val) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                if let Ok(len) = val.trim().parse::<u64>() {
+                    return len;
+                }
+            }
+        }
+    }
+    0
+}
+
+/// Seçilen release asset'ini indirir, canlı yüzde ve hız takibi yapar.
 pub fn update_download_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
     struct UpdateDownloadRequest {
@@ -182,7 +206,7 @@ pub fn update_download_endpoint(body: &[u8]) -> Response {
         Ok(request) => request,
         Err(err) => return json_error(400, err.to_string()),
     };
-    let url = request.url.trim();
+    let url = request.url.trim().to_string();
     if url.is_empty() {
         return json_error(400, "url is required");
     }
@@ -204,57 +228,139 @@ pub fn update_download_endpoint(body: &[u8]) -> Response {
         .map(sanitize_download_name)
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "amele-update.bin".to_string());
-    let target = output_dir.join(name);
-    let output = Command::new("curl")
-        .arg("-L")
-        .arg("--fail")
-        .arg("--silent")
-        .arg("--show-error")
-        .arg("-o")
-        .arg(&target)
-        .arg(url)
-        .output();
+    let target = output_dir.join(&name);
 
-    match output {
-        Ok(output) if output.status.success() => {}
-        Ok(output) => {
-            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let (job_id, _control) = create_acquisition_job("Amele güncelleme paketi indiriliyor");
+    let job_id_clone = job_id.clone();
+    let expected_sha256 = request.expected_sha256.clone();
+
+    std::thread::Builder::new()
+        .name(format!("update-dl-{}", job_id))
+        .spawn(move || {
+            let total_bytes = get_remote_content_length(&url);
             let _ = fs::remove_file(&target);
-            return json_error(
-                500,
-                if stderr.is_empty() {
-                    "download failed".to_string()
-                } else {
-                    stderr
-                },
+
+            let mut child = match Command::new("curl")
+                .arg("-L")
+                .arg("--fail")
+                .arg("--silent")
+                .arg("--show-error")
+                .arg("-o")
+                .arg(&target)
+                .arg(&url)
+                .spawn()
+            {
+                Ok(child) => child,
+                Err(err) => {
+                    fail_acquisition_job_with_message(
+                        &job_id_clone,
+                        err.to_string(),
+                        "İndirme işlemi başlatılamadı",
+                    );
+                    return;
+                }
+            };
+
+            loop {
+                match child.try_wait() {
+                    Ok(Some(status)) => {
+                        if !status.success() {
+                            let _ = fs::remove_file(&target);
+                            fail_acquisition_job_with_message(
+                                &job_id_clone,
+                                format!("curl exited with {status}"),
+                                "İndirme başarısız oldu",
+                            );
+                            return;
+                        }
+                        break;
+                    }
+                    Ok(None) => {
+                        let downloaded = fs::metadata(&target).map(|m| m.len()).unwrap_or(0);
+                        let pct = if total_bytes > 0 {
+                            (downloaded * 100) / total_bytes
+                        } else {
+                            0
+                        };
+                        let msg = if total_bytes > 0 {
+                            format!(
+                                "%{pct} indirildi ({:.1} MB / {:.1} MB)",
+                                downloaded as f64 / 1_048_576.0,
+                                total_bytes as f64 / 1_048_576.0
+                            )
+                        } else {
+                            format!("{:.1} MB indirildi", downloaded as f64 / 1_048_576.0)
+                        };
+                        update_acquisition_progress_message(
+                            &job_id_clone,
+                            downloaded,
+                            total_bytes,
+                            &msg,
+                        );
+                        std::thread::sleep(std::time::Duration::from_millis(250));
+                    }
+                    Err(err) => {
+                        let _ = fs::remove_file(&target);
+                        fail_acquisition_job_with_message(
+                            &job_id_clone,
+                            err.to_string(),
+                            "İndirme izleme hatası",
+                        );
+                        return;
+                    }
+                }
+            }
+
+            let size = fs::metadata(&target).map(|m| m.len()).unwrap_or(0);
+            update_acquisition_progress_message(
+                &job_id_clone,
+                size,
+                size,
+                "İndirme tamamlandı, paket doğrulanıyor...",
             );
-        }
-        Err(err) => return json_error(500, err.to_string()),
-    }
 
-    let sha256 = match sha256_file(&target) {
-        Ok(value) => value,
-        Err(err) => return json_error(500, err),
-    };
-    if let Some(expected) = request.expected_sha256 {
-        let expected = expected
-            .trim()
-            .strip_prefix("sha256:")
-            .unwrap_or_else(|| expected.trim())
-            .to_ascii_lowercase();
-        if !expected.is_empty() && expected != sha256 {
-            let _ = fs::remove_file(&target);
-            return json_error(500, "downloaded file sha256 mismatch");
-        }
-    }
-    let size = fs::metadata(&target)
-        .map(|meta| meta.len())
-        .unwrap_or_default();
+            let sha256 = match sha256_file(&target) {
+                Ok(val) => val,
+                Err(err) => {
+                    let _ = fs::remove_file(&target);
+                    fail_acquisition_job_with_message(&job_id_clone, err, "Hash doğrulama hatası");
+                    return;
+                }
+            };
+
+            if let Some(expected) = expected_sha256 {
+                let expected = expected
+                    .trim()
+                    .strip_prefix("sha256:")
+                    .unwrap_or_else(|| expected.trim())
+                    .to_ascii_lowercase();
+                if !expected.is_empty() && expected != sha256 {
+                    let _ = fs::remove_file(&target);
+                    fail_acquisition_job_with_message(
+                        &job_id_clone,
+                        "SHA256 uyuşmazlığı".to_string(),
+                        "İndirilen dosya doğrulamadan geçemedi",
+                    );
+                    return;
+                }
+            }
+
+            finish_acquisition_job_with_message(
+                &job_id_clone,
+                json!({
+                    "path": target,
+                    "size": size,
+                    "sha256": sha256
+                }),
+                "Güncelleme paketi başarıyla indirildi",
+            );
+        })
+        .ok();
 
     json_ok(json!({
-        "path": target,
-        "size": size,
-        "sha256": sha256,
+        "ok": true,
+        "job_id": job_id,
+        "status": "running"
     }))
 }
 
