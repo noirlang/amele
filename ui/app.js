@@ -92,7 +92,7 @@ const state = {
   activeCase: null,
   pendingCaseName: "",
   cases: [],
-  contributors: safeJsonParse(localStorage.getItem("amele_contributors")),
+  contributors: null,
   acquisitionHistory: [],
   caseBaseDir: "",
   profiles: [],
@@ -3466,16 +3466,25 @@ async function handleAction(button) {
           result = await apiRequest("/api/update-check");
         } catch (_) {}
       }
-      if (!result || (!result.tag_name && !result.name)) {
+      if (!result || (!result.tag_name && !result.name && !result.version)) {
         const controller = new AbortController();
         const tid = setTimeout(() => controller.abort(), 25000);
         const res = await fetch(
-          "https://api.github.com/repos/noirlang/amele/releases/latest",
-          { signal: controller.signal, headers: { Accept: "application/vnd.github+json" } }
+          "https://download.amele.noirlang.tr/version.json",
+          { signal: controller.signal }
         );
         clearTimeout(tid);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        result = await res.json();
+        const vdata = await res.json();
+        const vStr = vdata.version || "0.1.0";
+        const tag = vStr.startsWith("v") ? vStr : `v${vStr}`;
+        result = {
+          tag_name: tag,
+          name: `Amele ${tag}`,
+          version: vStr,
+          html_url: "https://amele.noirlang.tr",
+          mandatory: vdata.mandatory
+        };
       }
 
       state.latestUpdate = result;
@@ -3534,16 +3543,25 @@ async function handleAction(button) {
           result = await apiRequest("/api/update-check");
         } catch (_) {}
       }
-      if (!result || (!result.tag_name && !result.name)) {
+      if (!result || (!result.tag_name && !result.name && !result.version)) {
         const controller = new AbortController();
         const tid = setTimeout(() => controller.abort(), 25000);
         const res = await fetch(
-          "https://api.github.com/repos/noirlang/amele/releases/latest",
-          { signal: controller.signal, headers: { Accept: "application/vnd.github+json" } }
+          "https://download.amele.noirlang.tr/version.json",
+          { signal: controller.signal }
         );
         clearTimeout(tid);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        result = await res.json();
+        const vdata = await res.json();
+        const vStr = vdata.version || "0.1.0";
+        const tag = vStr.startsWith("v") ? vStr : `v${vStr}`;
+        result = {
+          tag_name: tag,
+          name: `Amele ${tag}`,
+          version: vStr,
+          html_url: "https://amele.noirlang.tr",
+          mandatory: vdata.mandatory
+        };
       }
 
       state.latestUpdate = result;
@@ -5248,126 +5266,6 @@ async function previewCarvedFile(filePath) {
   }
 }
 
-async function loadGitHubContributors() {
-  try {
-    const seenKeys = new Set();
-    const seenNames = new Set();
-    const result = [];
-
-    const repoUrls = [
-      "https://api.github.com/repos/amele-next/amele-next/commits?per_page=30",
-      "https://api.github.com/repos/noirlang/amele/commits?per_page=30"
-    ];
-    let commits = null;
-    for (const url of repoUrls) {
-      try {
-        const response = await fetch(url, {
-          headers: { Accept: "application/vnd.github.v3+json" }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (Array.isArray(data) && data.length > 0) {
-            commits = data;
-            break;
-          }
-        }
-      } catch (_) {}
-    }
-    if (!Array.isArray(commits) || commits.length === 0) return;
-
-    const findKnown = (login, name, email) => {
-      const l = (login || "").toLowerCase().trim();
-      const n = (name || "").toLowerCase().trim();
-      const e = (email || "").toLowerCase().trim();
-
-      if (l === "melihemik" || n.includes("melih emik") || e.includes("melihemik") || e.includes("favilances")) {
-        return KNOWN_CONTRIBUTORS.melihemik;
-      }
-      if (l === "yetece1" || l === "yusuftuncel" || n.includes("yusuf") || e.includes("yetece") || e.includes("yusuftuncel")) {
-        return KNOWN_CONTRIBUTORS.yetece1;
-      }
-      if (l === "kafkaskrtl" || l === "muhammedaliguner" || n.includes("muhammet ali") || n.includes("muhammed ali") || n.includes("kafkaskrtl") || e.includes("kafkaskrtl") || e.includes("muhammetali")) {
-        return KNOWN_CONTRIBUTORS.kafkaskrtl;
-      }
-      if (l === "abdulhalimaltuntas" || n.includes("abdulhalim") || e.includes("abdulhalim")) {
-        return KNOWN_CONTRIBUTORS.abdulhalimaltuntas;
-      }
-      return null;
-    };
-
-    const addPerson = (login, name, email, avatarFallback) => {
-      const cleanLogin = (login || "").toLowerCase().trim();
-      const cleanName = (name || "").trim();
-      const rawKey = `${cleanLogin}|${cleanName}|${(email || "").toLowerCase()}`;
-      if (seenKeys.has(rawKey) || (cleanLogin && seenKeys.has(cleanLogin))) return;
-      seenKeys.add(rawKey);
-      if (cleanLogin) seenKeys.add(cleanLogin);
-
-      const known = findKnown(cleanLogin, cleanName, email);
-      if (known) {
-        const knownKey = (known.key || known.name).toLowerCase();
-        if (!seenNames.has(knownKey)) {
-          seenNames.add(knownKey);
-          result.push(known);
-        }
-      } else {
-        let derivedLogin = cleanLogin;
-        if (!derivedLogin && email && email.includes("@users.noreply.github.com")) {
-          const match = email.match(/(?:\d+\+)?([^@]+)@users\.noreply\.github\.com/i);
-          if (match) derivedLogin = match[1];
-        }
-        const finalName = cleanName || derivedLogin || "Developer";
-        const nameKey = finalName.toLowerCase();
-        if (!seenNames.has(nameKey)) {
-          seenNames.add(nameKey);
-          const avatarUrl = avatarFallback || (derivedLogin ? `https://github.com/${derivedLogin}.png` : "");
-          const profileUrl = derivedLogin ? `https://github.com/${derivedLogin}` : "";
-          result.push({
-            name: finalName,
-            role: "Developer",
-            photo: avatarUrl,
-            links: profileUrl ? [["GitHub", profileUrl]] : []
-          });
-        }
-      }
-    };
-
-    for (const commit of commits) {
-      // 1. Commit Author
-      addPerson(commit.author?.login, commit.commit?.author?.name, commit.commit?.author?.email, commit.author?.avatar_url);
-
-      // 2. Commit Committer (ignoring generic github web-flow)
-      if (commit.committer?.login && commit.committer.login !== "web-flow") {
-        addPerson(commit.committer.login, commit.commit?.committer?.name, commit.commit?.committer?.email, commit.committer?.avatar_url);
-      }
-
-      // 3. Co-authored-by trailers in commit message
-      const msg = commit.commit?.message || "";
-      const coAuthorRegex = /Co-authored-by:\s*([^<\r\n]+?)(?:\s*<([^>\r\n]+)>)?(?:\r?\n|$)/gim;
-      let match;
-      while ((match = coAuthorRegex.exec(msg)) !== null) {
-        const coName = match[1]?.trim();
-        const coEmail = match[2]?.trim();
-        if (coName || coEmail) {
-          addPerson("", coName, coEmail, null);
-        }
-      }
-    }
-
-    if (result.length > 0) {
-      state.contributors = result;
-      try {
-        localStorage.setItem("amele_contributors", JSON.stringify(result));
-      } catch (e) {}
-      if (state.route === "about") {
-        render();
-      }
-    }
-  } catch (err) {
-    console.warn("GitHub contributors fetch failed, using fallback registry:", err);
-  }
-}
-
 async function bootApp() {
   setLanguage(state.language);
   setTheme(state.theme);
@@ -5401,15 +5299,12 @@ async function bootApp() {
       }
     }
 
-    // Load latest GitHub contributors in background
-    loadGitHubContributors().catch(() => {});
-
     // Load latest news & announcements from website in background
     loadNewsAnnouncements().catch(() => {});
     startNewsCarouselTimer();
 
-    // GitHub sürüm kontrolü — 3 saniye gecikmeyle başlat (UI açılsın önce)
-    setTimeout(() => checkForUpdates(), 3000);
+    // Load developers from download.amele.noirlang.tr in background
+    loadDevelopers().catch(() => {});
   }
 
   // Developer mode — 5 kez logoya tıklayınca aktifleşir
@@ -5418,46 +5313,28 @@ async function bootApp() {
   devLog("INFO", "ui:startup", `Amele ${APP_VERSION} başlatıldı — platform: ${state.platform}, dil: ${state.language}, tema: ${state.theme}, backend: ${backendAvailable}`, apiRequest, backendReady);
 }
 
-/**
- * GitHub API'den en son sürümü çekip mevcut sürümle karşılaştırır.
- * Eğer yeni sürüm mevcutsa sağ altta güncelleme bildirimi gösterir.
- */
-async function checkForUpdates() {
-  const SKIP_KEY = "amele_update_skip";
-  const skippedVersion = localStorage.getItem(SKIP_KEY);
-  const lang = state.language || "en";
-  const isTr = lang === "tr";
-
+async function loadDevelopers() {
   try {
-    const controller = new AbortController();
-    const tid = setTimeout(() => controller.abort(), 25000);
-    const res = await fetch(
-      "https://api.github.com/repos/noirlang/amele/releases/latest",
-      { signal: controller.signal, headers: { Accept: "application/vnd.github+json" } }
-    );
-    clearTimeout(tid);
+    const res = await fetch("https://download.amele.noirlang.tr/developers.json");
     if (!res.ok) return;
     const data = await res.json();
-    const latestTag = (data.tag_name || "").trim();
-    const releaseUrl = data.html_url || "https://github.com/noirlang/amele/releases/latest";
-    if (!latestTag) return;
-
-    // Basit semver karşılaştırması: APP_VERSION < latestTag
-    const parseVer = (v) => v.replace(/^v/, "").split(".").map(Number);
-    const [cMaj, cMin, cPatch] = parseVer(APP_VERSION);
-    const [lMaj, lMin, lPatch] = parseVer(latestTag);
-    const hasUpdate =
-      lMaj > cMaj ||
-      (lMaj === cMaj && lMin > cMin) ||
-      (lMaj === cMaj && lMin === cMin && lPatch > cPatch);
-
-    if (!hasUpdate) return;
-    if (skippedVersion === latestTag) return;
-
-    showUpdateToast({ latestTag, releaseUrl, isTr });
-  } catch {
-    // Sessizce geç — internet yoksa veya rate-limit aşıldıysa rahatsız etme
-  }
+    if (Array.isArray(data.developers) && data.developers.length > 0) {
+      state.contributors = data.developers.map((d) => ({
+        id: d.id,
+        name: d.name,
+        role: d.role,
+        photo: d.avatar_url,
+        links: [
+          d.github ? ["GitHub", d.github] : null,
+          d.linkedin ? ["LinkedIn", d.linkedin] : null,
+          d.website ? ["Website", d.website] : null,
+        ].filter(Boolean),
+      }));
+      if (state.route === "about") {
+        render();
+      }
+    }
+  } catch (_) {}
 }
 
 function showUpdateToast({ latestTag, releaseUrl, isTr }) {

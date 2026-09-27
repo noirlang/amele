@@ -607,7 +607,7 @@ mod tests {
             if let Ok((mut stream, _)) = listener.accept() {
                 let mut buf = [0u8; 256];
                 let _ = stream.read(&mut buf);
-                let resp = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{\"ok\":true,\"version\":\"0.0.20\"}";
+                let resp = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{\"ok\":true,\"version\":\"0.1.0\"}";
                 let _ = stream.write_all(resp.as_bytes());
             }
         });

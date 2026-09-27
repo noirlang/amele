@@ -355,12 +355,9 @@ export const KNOWN_CONTRIBUTORS = {
 };
 
 export function renderContributors(contributors, t, icon, assetPath) {
-  const list = (contributors && contributors.length > 0) ? contributors : [
-    KNOWN_CONTRIBUTORS.melihemik,
-    KNOWN_CONTRIBUTORS.yetece1,
-    KNOWN_CONTRIBUTORS.kafkaskrtl,
-    KNOWN_CONTRIBUTORS.abdulhalimaltuntas
-  ];
+  const list = (Array.isArray(contributors) && contributors.length > 0)
+    ? contributors
+    : [KNOWN_CONTRIBUTORS.melihemik];
 
   return list.map(c => {
     const roleText = c.roleKey ? t(c.roleKey) : (c.role || "Developer");

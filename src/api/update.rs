@@ -74,7 +74,7 @@ fn is_legacy_arch_asset_name(name: &str) -> bool {
     name == "amele-linux-x64.tar.zst" || name == "amele-forensic-tool-linux-x64.tar.zst"
 }
 
-/// GitHub release API üzerinden güncelleme bilgisi alır.
+/// download.amele.noirlang.tr version.json üzerinden güncelleme bilgisi alır.
 pub fn update_check_endpoint() -> Response {
     let output = Command::new("curl")
         .arg("-L")
@@ -82,8 +82,8 @@ pub fn update_check_endpoint() -> Response {
         .arg("--silent")
         .arg("--show-error")
         .arg("--max-time")
-        .arg("30")
-        .arg("https://api.github.com/repos/noirlang/amele/releases/latest")
+        .arg("15")
+        .arg("https://download.amele.noirlang.tr/version.json")
         .output();
     let output = match output {
         Ok(output) if output.status.success() => output,
@@ -92,7 +92,7 @@ pub fn update_check_endpoint() -> Response {
             return json_error(
                 500,
                 if stderr.is_empty() {
-                    "release check failed".to_string()
+                    "version check failed".to_string()
                 } else {
                     stderr
                 },
@@ -101,39 +101,60 @@ pub fn update_check_endpoint() -> Response {
         Err(err) => return json_error(500, err.to_string()),
     };
 
-    let release: Value = match serde_json::from_slice(&output.stdout) {
-        Ok(release) => release,
+    let version_info: Value = match serde_json::from_slice(&output.stdout) {
+        Ok(val) => val,
         Err(err) => return json_error(500, err.to_string()),
     };
-    let assets = release
-        .get("assets")
-        .and_then(Value::as_array)
-        .map(|assets| {
-            assets
-                .iter()
-                .map(|asset| {
-                    json!({
-                        "name": asset.get("name").and_then(Value::as_str).unwrap_or_default(),
-                        "download_url": asset.get("browser_download_url").and_then(Value::as_str).unwrap_or_default(),
-                        "size": asset.get("size").and_then(Value::as_u64).unwrap_or_default(),
-                        "digest": asset.get("digest").and_then(Value::as_str).unwrap_or_default(),
-                    })
-                })
-                .collect::<Vec<Value>>()
-        })
-        .unwrap_or_default();
+
+    let version_str = version_info
+        .get("version")
+        .and_then(Value::as_str)
+        .unwrap_or("0.1.0");
+    let base_url = version_info
+        .get("base_url")
+        .and_then(Value::as_str)
+        .unwrap_or("https://download.amele.noirlang.tr")
+        .trim_end_matches('/');
+    let mandatory = version_info
+        .get("mandatory")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+
+    let mut assets = Vec::new();
+    if let Some(files) = version_info.get("files").and_then(Value::as_object) {
+        for (_key, file_val) in files {
+            if let Some(filename) = file_val.as_str() {
+                let download_url = format!("{base_url}/{filename}");
+                assets.push(json!({
+                    "name": filename,
+                    "download_url": download_url,
+                    "size": 0,
+                    "digest": "",
+                }));
+            }
+        }
+    }
+
     let update_target = current_update_target();
     let platform_asset = preferred_update_asset(&assets, &update_target);
     let asset_error = platform_asset
         .is_null()
         .then(|| missing_platform_asset_message(&update_target, &assets));
 
+    let tag_name = if version_str.starts_with('v') {
+        version_str.to_string()
+    } else {
+        format!("v{version_str}")
+    };
+
     json_ok(json!({
         "current_version": env!("CARGO_PKG_VERSION"),
-        "tag_name": release.get("tag_name").and_then(Value::as_str).unwrap_or_default(),
-        "name": release.get("name").and_then(Value::as_str).unwrap_or_default(),
-        "html_url": release.get("html_url").and_then(Value::as_str).unwrap_or_default(),
-        "body": release.get("body").and_then(Value::as_str).unwrap_or_default(),
+        "tag_name": tag_name,
+        "version": version_str,
+        "name": format!("Amele {tag_name}"),
+        "mandatory": mandatory,
+        "html_url": "https://amele.noirlang.tr",
+        "body": "",
         "assets": assets,
         "update_target": update_target_json(&update_target, platform_asset.get("name").and_then(Value::as_str)),
         "platform_asset": platform_asset,
