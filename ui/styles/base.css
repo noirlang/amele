@@ -3790,13 +3790,9 @@ code {
   color: rgba(38, 33, 24, 0.75);
 }
 
-.capability-grid,
-.contributor-grid {
+.capability-grid {
   display: grid;
   gap: 16px;
-}
-
-.capability-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -3809,14 +3805,23 @@ code {
 }
 
 .contributor-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .contributor-card {
-  display: grid;
-  justify-items: center;
-  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 220px;
+  max-width: 100%;
+  padding: 20px 16px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--radius-lg);
   background:
@@ -4256,7 +4261,7 @@ svg.svg-fill path {
   }
 
   .contributor-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: center;
   }
 
   .status-strip {

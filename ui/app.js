@@ -5341,8 +5341,18 @@ async function bootApp() {
 }
 
 let developersLoading = false;
-async function loadDevelopers() {
+async function loadDevelopers(force = false) {
   if (developersLoading) return;
+
+  // Günde en fazla 1 kere istek gönder:
+  // Önbellek varsa ve son istekten bu yana 24 saat (86.400.000 ms) geçmediyse istek atma
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+  const lastFetch = Number(localStorage.getItem("amele_contributors_last_fetch") || 0);
+  const now = Date.now();
+  if (!force && state.contributors && state.contributors.length > 0 && (now - lastFetch < ONE_DAY_MS)) {
+    return;
+  }
+
   developersLoading = true;
   try {
     let data = null;
@@ -5415,6 +5425,7 @@ async function loadDevelopers() {
 
       try {
         localStorage.setItem("amele_contributors", JSON.stringify(state.contributors));
+        localStorage.setItem("amele_contributors_last_fetch", String(Date.now()));
       } catch (_) {}
 
       if (state.route === "about") {
