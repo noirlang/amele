@@ -4259,6 +4259,12 @@ code {
   border: none;
 }
 
+.update-toast-btn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
 .update-toast-btn.primary {
   background: var(--text, #ffffff);
   color: var(--bg, #09090b);

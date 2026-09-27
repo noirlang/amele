@@ -159,8 +159,10 @@ function renderHashResult(res, t) {
   return out;
 }
 
-export function settingsPage({ t, icon, state, platformLabel, APP_VERSION, pageTitle }) {
+export function settingsPage({ t, icon, state, platformLabel, APP_VERSION, pageTitle, escapeHtml }) {
   const isDark = state.theme !== "light";
+  const esc = escapeHtml || ((s) => s);
+  const isTr = (state.language || "en") === "tr";
 
   return `
     <section class="page settings-page">
@@ -287,11 +289,11 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION, pageT
             </button>
           </div>
           <div class="settings-update-status-row text-center">
-            <span class="settings-update-status-text" data-update-status></span>
+            <span class="settings-update-status-text" data-update-status>${state.updateAvailable ? `<span class="status-icon-update">${icon("rocket")}</span> <span>${isTr ? "Yeni sürüm:" : "New version:"} <b>${esc(state.updateAvailable.latestTag)}</b></span>` : ""}</span>
           </div>
 
-          <div class="settings-update-result text-center" data-update-result style="display: none;">
-            <button class="secondary-button" data-action="download-update" style="display: none; margin: 8px auto 0;">${icon("download")} ${t("settings.downloadInstall")}</button>
+          <div class="settings-update-result text-center" data-update-result style="${state.updateAvailable ? "display: block;" : "display: none;"}">
+            <button class="secondary-button" data-action="download-update" style="${state.updateAvailable ? "display: inline-flex;" : "display: none;"} margin: 8px auto 0;">${icon("download")} ${t("settings.downloadInstall") || (isTr ? "İndir ve Kur" : "Download & Install")}</button>
           </div>
         </article>
 

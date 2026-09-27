@@ -946,6 +946,17 @@ function render() {
   }
   if (state.route === "android:logical" || state.route === "android:filesystem" || state.route === "android:ram") loadEvidenceCases();
   if (state.route === "ios") loadEvidenceCases();
+  if (state.route === "settings" && state.updateAvailable) {
+    const statusEl = document.querySelector("[data-update-status]");
+    const resultArea = document.querySelector("[data-update-result]");
+    const dlBtn = resultArea?.querySelector("[data-action='download-update']");
+    const isTr = (state.language || "en") === "tr";
+    if (statusEl && !statusEl.innerHTML.trim()) {
+      statusEl.innerHTML = `<span class="status-icon-update">${icon("rocket")}</span> <span>${isTr ? "Yeni sürüm:" : "New version:"} <b>${escapeHtml(state.updateAvailable.latestTag)}</b></span>`;
+    }
+    if (resultArea) resultArea.style.display = "block";
+    if (dlBtn) dlBtn.style.display = "inline-flex";
+  }
   view.focus({ preventScroll: true });
   renderRadialNavDOM();
   renderCaseSidebarDOM();
@@ -3622,6 +3633,7 @@ async function handleAction(button) {
         (lMaj === cMaj && lMin === cMin && lPatch > cPatch);
 
       if (hasUpdate) {
+        state.updateAvailable = { latestTag, releaseUrl };
         showToast(
           isTr
             ? `Yeni sürüm mevcut: ${latestTag}! (Mevcut: ${APP_VERSION})`
@@ -3640,6 +3652,7 @@ async function handleAction(button) {
           if (dl) dl.style.display = "inline-flex";
         }
       } else {
+        state.updateAvailable = null;
         showToast(
           isTr
             ? `Amele güncel! En son sürümü kullanıyorsunuz (${APP_VERSION}).`
@@ -4975,9 +4988,14 @@ async function downloadUpdatePackage() {
   const status = document.querySelector("[data-update-status]");
   const resultArea = document.querySelector("[data-update-result]");
   const updateBtn = resultArea?.querySelector("[data-action='download-update']");
-  const update = state.latestUpdate || await apiRequest("/api/update-check");
-  state.latestUpdate = update;
-  const asset = update.platform_asset || {};
+  let update = state.latestUpdate;
+  if (!update || !update.platform_asset?.download_url) {
+    try {
+      update = await apiRequest("/api/update-check");
+      state.latestUpdate = update;
+    } catch (_) {}
+  }
+  const asset = update?.platform_asset || {};
   if (!asset.download_url) {
     const target = update.update_target || state.updateTarget || {};
     const message = update.asset_error || t("settings.noAssetForPackage", {
@@ -5575,6 +5593,7 @@ async function checkForUpdates() {
       (lMaj === cMaj && lMin === cMin && lPatch > cPatch);
 
     if (!hasUpdate) return;
+    state.updateAvailable = { latestTag, releaseUrl };
     if (skippedVersion === latestTag) return;
 
     showUpdateToast({ latestTag, releaseUrl, isTr });
@@ -5616,11 +5635,11 @@ function showUpdateToast({ latestTag, releaseUrl, isTr }) {
       </div>
     </div>
     <div class="update-toast-actions">
-      <a class="update-toast-btn primary" href="${releaseUrl}" target="_blank" rel="noopener noreferrer">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <button type="button" class="update-toast-btn primary update-goto-settings-btn">
+        ${icon("download")}
         <span>${downloadLabel}</span>
-      </a>
-      <button class="update-toast-btn secondary dismiss-btn">${dismissLabel}</button>
+      </button>
+      <button type="button" class="update-toast-btn secondary dismiss-btn">${dismissLabel}</button>
     </div>
   `;
 
@@ -5635,8 +5654,24 @@ function showUpdateToast({ latestTag, releaseUrl, isTr }) {
     setTimeout(() => toast.remove(), 350);
   };
 
-  toast.querySelector(".update-toast-close").addEventListener("click", () => hide(false));
-  toast.querySelector(".dismiss-btn").addEventListener("click", () => hide(true));
+  toast.querySelector(".update-toast-close")?.addEventListener("click", () => hide(false));
+  toast.querySelector(".dismiss-btn")?.addEventListener("click", () => hide(true));
+  const gotoSettingsBtn = toast.querySelector(".update-goto-settings-btn");
+  if (gotoSettingsBtn) {
+    gotoSettingsBtn.addEventListener("click", () => {
+      state.updateAvailable = { latestTag, releaseUrl };
+      hide(false);
+      setRoute("settings");
+      setTimeout(() => {
+        const targetEl = document.querySelector("[data-update-result]") || document.querySelector(".settings-update-row-centered");
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        const dlBtn = document.querySelector("[data-action='download-update']");
+        if (dlBtn) dlBtn.focus();
+      }, 120);
+    });
+  }
 
   // Göster
   requestAnimationFrame(() => {
