@@ -910,8 +910,8 @@ function render() {
     const workflow = workflows[state.route.split(":")[1]];
     if (workflow && workflow.mode.includes("disk")) loadEvidenceCases();
   }
-  if (state.route === "about") {
-    loadGitHubContributors();
+  if (state.route === "about" && (!state.contributors || state.contributors.length === 0)) {
+    loadDevelopers().catch(() => {});
   }
   if (state.route === "android:logical" || state.route === "android:filesystem" || state.route === "android:ram") loadEvidenceCases();
   if (state.route === "ios") loadEvidenceCases();
@@ -1771,15 +1771,25 @@ function requireActiveConnection(workflow, payload) {
   return true;
 }
 
+// Polyfill/safe helper for non-element nodes (like Text nodes during selectstart)
+if (typeof Node !== "undefined" && !Node.prototype.closest) {
+  Node.prototype.closest = function (selector) {
+    const el = this.nodeType === 1 ? this : this.parentElement;
+    return el && typeof el.closest === "function" ? el.closest(selector) : null;
+  };
+}
+
 // Prevent image drag and accidental selection highlight artifacts across chrome/sidebar/brand
 document.addEventListener("dragstart", (event) => {
-  if (event.target.tagName === "IMG" || event.target.closest(".sidebar, .brand-row, .brand-mark, .about-hero")) {
+  const el = event.target?.nodeType === 1 ? event.target : event.target?.parentElement;
+  if (event.target?.tagName === "IMG" || el?.closest?.(".sidebar, .brand-row, .brand-mark, .about-hero")) {
     event.preventDefault();
   }
 });
 
 document.addEventListener("selectstart", (event) => {
-  if (event.target.closest(".brand-mark, .sidebar-head, .brand-row, .sidebar, .sidebar-toggle, .about-hero-center, .about-hero-logo")) {
+  const el = event.target?.nodeType === 1 ? event.target : event.target?.parentElement;
+  if (el?.closest?.(".brand-mark, .sidebar-head, .brand-row, .sidebar, .sidebar-toggle, .about-hero-center, .about-hero-logo")) {
     event.preventDefault();
   }
 });
@@ -1814,13 +1824,15 @@ for (const delay of [0, 40, 100, 250, 500, 1000, 2000]) {
 
 document.addEventListener("selectionchange", clearSidebarSelection);
 document.addEventListener("mousedown", (event) => {
-  if (event.target.closest(".sidebar, .brand-row, .brand-mark, #brand-logo, .about-hero-logo, .topbar")) {
+  const el = event.target?.nodeType === 1 ? event.target : event.target?.parentElement;
+  if (el?.closest?.(".sidebar, .brand-row, .brand-mark, #brand-logo, .about-hero-logo, .topbar")) {
     clearChromeArtifacts();
   }
 }, { capture: true });
 
 document.addEventListener("mouseup", (event) => {
-  if (event.target.closest(".sidebar, .brand-row, .brand-mark, #brand-logo, .about-hero-logo, .topbar")) {
+  const el = event.target?.nodeType === 1 ? event.target : event.target?.parentElement;
+  if (el?.closest?.(".sidebar, .brand-row, .brand-mark, #brand-logo, .about-hero-logo, .topbar")) {
     clearChromeArtifacts();
   }
 }, { capture: true });
@@ -5313,7 +5325,10 @@ async function bootApp() {
   devLog("INFO", "ui:startup", `Amele ${APP_VERSION} başlatıldı — platform: ${state.platform}, dil: ${state.language}, tema: ${state.theme}, backend: ${backendAvailable}`, apiRequest, backendReady);
 }
 
+let developersLoading = false;
 async function loadDevelopers() {
+  if (developersLoading) return;
+  developersLoading = true;
   try {
     const res = await fetch("https://download.amele.noirlang.tr/developers.json");
     if (!res.ok) return;
@@ -5334,8 +5349,12 @@ async function loadDevelopers() {
         render();
       }
     }
-  } catch (_) {}
+  } catch (_) {
+  } finally {
+    developersLoading = false;
+  }
 }
+const loadGitHubContributors = loadDevelopers;
 
 function showUpdateToast({ latestTag, releaseUrl, isTr }) {
   // Var olan toast varsa kaldır
