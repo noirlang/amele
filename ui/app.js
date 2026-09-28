@@ -970,8 +970,8 @@ function render() {
     const workflow = workflows[state.route.split(":")[1]];
     if (workflow && workflow.mode.includes("disk")) loadEvidenceCases();
   }
-  if (state.route === "about" && (!state.contributors || state.contributors.length === 0)) {
-    loadDevelopers().catch(() => {});
+  if (state.route === "about") {
+    loadDevelopers(true).catch(() => {});
   }
   if (state.route === "android:logical" || state.route === "android:filesystem" || state.route === "android:ram") loadEvidenceCases();
   if (state.route === "ios") loadEvidenceCases();
@@ -5483,15 +5483,6 @@ let developersLoading = false;
 async function loadDevelopers(force = false) {
   if (developersLoading) return;
 
-  // Günde en fazla 1 kere istek gönder:
-  // Önbellek varsa ve son istekten bu yana 24 saat (86.400.000 ms) geçmediyse istek atma
-  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-  const lastFetch = Number(localStorage.getItem("amele_contributors_last_fetch") || 0);
-  const now = Date.now();
-  if (!force && state.contributors && state.contributors.length > 0 && (now - lastFetch < ONE_DAY_MS)) {
-    return;
-  }
-
   developersLoading = true;
   try {
     let data = null;
@@ -5509,12 +5500,12 @@ async function loadDevelopers(force = false) {
     // 2. Backend yoksa veya veri dönmediyse doğrudan web'den dene
     if (!data) {
       const urls = [
-        "https://download.amele.noirlang.tr/developer.json",
-        "https://download.amele.noirlang.tr/developers.json"
+        "https://download.amele.noirlang.tr/developers.json",
+        "https://download.amele.noirlang.tr/developer.json"
       ];
       for (const url of urls) {
         try {
-          const res = await fetch(url);
+          const res = await fetch(`${url}?_t=${Date.now()}`, { cache: "no-store" });
           if (res.ok) {
             data = await res.json();
             if (data) break;

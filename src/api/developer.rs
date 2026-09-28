@@ -28,11 +28,12 @@ pub fn developer_logs_endpoint() -> Response {
 /// download.amele.noirlang.tr üzerinden developer.json veya developers.json çeker.
 pub fn developers_endpoint() -> Response {
     let urls = [
-        "https://download.amele.noirlang.tr/developer.json",
         "https://download.amele.noirlang.tr/developers.json",
+        "https://download.amele.noirlang.tr/developer.json",
     ];
 
     for url in urls {
+        let bust_url = format!("{url}?t={}", chrono::Utc::now().timestamp());
         let output = std::process::Command::new("curl")
             .arg("-L")
             .arg("--fail")
@@ -40,7 +41,7 @@ pub fn developers_endpoint() -> Response {
             .arg("--show-error")
             .arg("--max-time")
             .arg("10")
-            .arg(url)
+            .arg(&bust_url)
             .output();
 
         if let Ok(out) = output {
