@@ -112,7 +112,7 @@ pub fn update_check_endpoint() -> Response {
     let version_str = version_info
         .get("version")
         .and_then(Value::as_str)
-        .unwrap_or("0.1.0");
+        .unwrap_or("0.1.1");
     let base_url = version_info
         .get("base_url")
         .and_then(Value::as_str)

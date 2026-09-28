@@ -65,8 +65,8 @@ export function homePage({ t, icon, assetPath, theme, state }) {
     : [
         {
           id: "default-news-1",
-          titleTr: "Amele v0.1.0 Adli Bilişim Güncellemesi Yayınlandı",
-          titleEn: "Amele v0.1.0 Digital Forensics Release",
+          titleTr: "Amele v0.1.1 Adli Bilişim Güncellemesi Yayınlandı",
+          titleEn: "Amele v0.1.1 Digital Forensics Release",
           summaryTr: "Konteyner adli bilişimi, bellek ve disk edinim motoru, bağımsız 120 FPS Chromium motoru sisteme entegre edildi.",
           summaryEn: "Container forensics, memory and disk acquisition engine, and standalone 120 FPS Chromium engine integrated.",
 

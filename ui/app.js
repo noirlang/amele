@@ -34,7 +34,7 @@ import {
   getQuickChipPrompt
 } from "./core/agent.js";
 
-const APP_VERSION = "v0.1.0";
+const APP_VERSION = "v0.1.1";
 const assetPath = "./assets";
 const backendAvailable = location.protocol === "http:" || location.protocol === "https:";
 const urlParams = new URLSearchParams(window.location.search);
@@ -3570,7 +3570,7 @@ async function handleAction(button) {
         clearTimeout(tid);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const vdata = await res.json();
-        const vStr = vdata.version || "0.1.0";
+        const vStr = vdata.version || "0.1.1";
         const tag = vStr.startsWith("v") ? vStr : `v${vStr}`;
         result = {
           tag_name: tag,
@@ -3647,7 +3647,7 @@ async function handleAction(button) {
         clearTimeout(tid);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const vdata = await res.json();
-        const vStr = vdata.version || "0.1.0";
+        const vStr = vdata.version || "0.1.1";
         const tag = vStr.startsWith("v") ? vStr : `v${vStr}`;
         result = {
           tag_name: tag,
@@ -5604,7 +5604,7 @@ async function checkForUpdates() {
       clearTimeout(tid);
       if (res.ok) {
         const vdata = await res.json();
-        const vStr = vdata.version || "0.1.0";
+        const vStr = vdata.version || "0.1.1";
         const tag = vStr.startsWith("v") ? vStr : `v${vStr}`;
         result = {
           tag_name: tag,
