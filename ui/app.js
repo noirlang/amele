@@ -5499,19 +5499,12 @@ async function loadDevelopers(force = false) {
 
     // 2. Backend yoksa veya veri dönmediyse doğrudan web'den dene
     if (!data) {
-      const urls = [
-        "https://download.amele.noirlang.tr/developers.json",
-        "https://download.amele.noirlang.tr/developer.json"
-      ];
-      for (const url of urls) {
-        try {
-          const res = await fetch(`${url}?_t=${Date.now()}`, { cache: "no-store" });
-          if (res.ok) {
-            data = await res.json();
-            if (data) break;
-          }
-        } catch (_) {}
-      }
+      try {
+        const res = await fetch(`https://download.amele.noirlang.tr/developers.json?_t=${Date.now()}`, { cache: "no-store" });
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch (_) {}
     }
 
     if (!data) return;

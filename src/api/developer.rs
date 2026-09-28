@@ -25,30 +25,24 @@ pub fn developer_logs_endpoint() -> Response {
     }))
 }
 
-/// download.amele.noirlang.tr üzerinden developer.json veya developers.json çeker.
+/// download.amele.noirlang.tr üzerinden developers.json çeker.
 pub fn developers_endpoint() -> Response {
-    let urls = [
-        "https://download.amele.noirlang.tr/developers.json",
-        "https://download.amele.noirlang.tr/developer.json",
-    ];
+    let url = "https://download.amele.noirlang.tr/developers.json";
+    let bust_url = format!("{url}?t={}", chrono::Utc::now().timestamp());
+    let output = std::process::Command::new("curl")
+        .arg("-L")
+        .arg("--fail")
+        .arg("--silent")
+        .arg("--show-error")
+        .arg("--max-time")
+        .arg("10")
+        .arg(&bust_url)
+        .output();
 
-    for url in urls {
-        let bust_url = format!("{url}?t={}", chrono::Utc::now().timestamp());
-        let output = std::process::Command::new("curl")
-            .arg("-L")
-            .arg("--fail")
-            .arg("--silent")
-            .arg("--show-error")
-            .arg("--max-time")
-            .arg("10")
-            .arg(&bust_url)
-            .output();
-
-        if let Ok(out) = output {
-            if out.status.success() {
-                if let Ok(val) = serde_json::from_slice::<Value>(&out.stdout) {
-                    return json_ok(val);
-                }
+    if let Ok(out) = output {
+        if out.status.success() {
+            if let Ok(val) = serde_json::from_slice::<Value>(&out.stdout) {
+                return json_ok(val);
             }
         }
     }
