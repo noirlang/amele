@@ -54,7 +54,8 @@ pub fn avml_install_endpoint() -> Response {
         if let Err(err) = download_file_to_path(&url, &download_path, "AVML download failed") {
             let fallback_url =
                 format!("https://github.com/microsoft/avml/releases/latest/download/{asset_name}");
-            if download_file_to_path(&fallback_url, &download_path, "AVML download failed").is_err() {
+            if download_file_to_path(&fallback_url, &download_path, "AVML download failed").is_err()
+            {
                 let _ = fs::remove_file(&download_path);
                 return json_error(500, err);
             }

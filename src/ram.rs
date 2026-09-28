@@ -621,7 +621,11 @@ pub fn find_winpmem(candidate: Option<&Path>) -> Option<PathBuf> {
         }
     }
 
-    let names = [WINPMEM_NAME, "go-winpmem_amd64_1.0-rc2_signed.exe", "winpmem_x64.exe"];
+    let names = [
+        WINPMEM_NAME,
+        "go-winpmem_amd64_1.0-rc2_signed.exe",
+        "winpmem_x64.exe",
+    ];
     for name in &names {
         if let Some(p) = find_in_path(name) {
             return Some(p);
