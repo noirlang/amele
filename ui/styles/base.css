@@ -3829,7 +3829,7 @@ code {
 }
 
 .about-radial-widget {
-  --orbit-radius: 86px;
+  --orbit-radius: 70px;
   position: relative;
   width: 240px;
   height: 240px;
@@ -3854,12 +3854,12 @@ code {
 .about-radial-logo img {
   display: block;
   width: auto;
-  height: 52px;
-  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.65));
+  height: 38px;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.55));
 }
 
 .theme-light .about-radial-logo img {
-  filter: invert(0.88) drop-shadow(0 0 10px rgba(38, 33, 24, 0.3));
+  filter: invert(0.88) drop-shadow(0 0 8px rgba(38, 33, 24, 0.25));
 }
 
 .about-radial-orbit {
@@ -3887,20 +3887,16 @@ code {
 
 .about-radial-button {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   transform: translate(-50%, -50%);
-  padding: 6px 2px;
+  padding: 0;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 14px;
   background: var(--panel);
   color: var(--text);
-  font: inherit;
-  font-size: 10px;
   cursor: pointer;
   pointer-events: auto;
   transition:

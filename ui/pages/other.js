@@ -463,7 +463,6 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath, theme, state }) {
                   <div class="about-radial-upright">
                     <button type="button" class="about-radial-button" data-route="${route}" title="${t(`nav.${route}`)}" aria-label="${t(`nav.${route}`)}">
                       <span class="about-radial-icon" aria-hidden="true">${icon(route === "other" ? "tiles" : route)}</span>
-                      <span class="about-radial-label">${t(`nav.${route}`)}</span>
                     </button>
                   </div>
                 </div>
