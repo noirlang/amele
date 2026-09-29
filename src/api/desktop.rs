@@ -401,16 +401,16 @@ mod tests {
     #[test]
     fn test_validate_external_url_valid() {
         assert_eq!(
-            validate_external_url("https://github.com/amele-next").unwrap(),
-            "https://github.com/amele-next"
+            validate_external_url("https://github.com/noirlang/amele").unwrap(),
+            "https://github.com/noirlang/amele"
         );
         assert_eq!(
-            validate_external_url("http://127.0.0.1:8080/test").unwrap(),
-            "http://127.0.0.1:8080/test"
+            validate_external_url("https://amele.noirlang.tr").unwrap(),
+            "https://amele.noirlang.tr"
         );
         assert_eq!(
-            validate_external_url("mailto:support@amele.dev").unwrap(),
-            "mailto:support@amele.dev"
+            validate_external_url("mailto:info@noirlang.tr").unwrap(),
+            "mailto:info@noirlang.tr"
         );
     }
 

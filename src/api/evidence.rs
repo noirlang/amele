@@ -37,7 +37,13 @@ pub fn evidence_create_endpoint(body: &[u8]) -> Response {
                 Ok(summary) => summary,
                 Err(err) => return json_error(500, err.to_string()),
             };
-            set_current_evidence_case(base_dir, case_name);
+            set_current_evidence_case(base_dir, case_name.clone());
+            let _ = crate::profile::record_active_profile_activity(
+                "case",
+                "create",
+                Some(&case_name),
+                Some(&format!("Vaka oluşturuldu: {}", case_name)),
+            );
             json_serialize(&summary)
         }
         Err(err) => json_error(500, err.to_string()),
@@ -65,7 +71,15 @@ pub fn evidence_add_note_endpoint(body: &[u8]) -> Response {
         Err(response) => return response,
     };
     match vault.add_note(request.note.trim()) {
-        Ok(path) => json_ok(json!({ "path": path })),
+        Ok(path) => {
+            let _ = crate::profile::record_active_profile_activity(
+                "case",
+                "add_note",
+                Some(&vault.case_name),
+                Some("Vakaya adli not eklendi"),
+            );
+            json_ok(json!({ "path": path }))
+        }
         Err(err) => json_error(500, err.to_string()),
     }
 }
@@ -77,10 +91,15 @@ pub fn evidence_list_files_endpoint(body: &[u8]) -> Response {
         subdir: Option<String>,
     }
 
-    let request: EvidenceListRequest = match serde_json::from_slice(body) {
-        Ok(request) => request,
-        Err(err) => return json_error(400, err.to_string()),
+    let request: EvidenceListRequest = if body.is_empty() {
+        EvidenceListRequest { subdir: None }
+    } else {
+        match serde_json::from_slice(body) {
+            Ok(request) => request,
+            Err(err) => return json_error(400, err.to_string()),
+        }
     };
+
     let vault = match current_evidence_vault() {
         Ok(vault) => vault,
         Err(response) => return response,
@@ -111,6 +130,7 @@ pub fn evidence_summary_endpoint() -> Response {
             "output_count": summary.output_count,
             "android_count": summary.android_count,
             "ios_count": summary.ios_count,
+            "docker_count": summary.docker_count,
             "hash_count": summary.hash_count,
             "report_count": summary.report_count,
             "manifest_path": summary.manifest_path,
@@ -126,10 +146,15 @@ pub fn evidence_manifest_endpoint(body: &[u8]) -> Response {
         case_name: Option<String>,
     }
 
-    let request: EvidenceManifestRequest = match serde_json::from_slice(body) {
-        Ok(request) => request,
-        Err(err) => return json_error(400, err.to_string()),
+    let request: EvidenceManifestRequest = if body.is_empty() {
+        EvidenceManifestRequest { case_name: None }
+    } else {
+        match serde_json::from_slice(body) {
+            Ok(request) => request,
+            Err(err) => return json_error(400, err.to_string()),
+        }
     };
+
     let vault = match report_evidence_vault(request.case_name.as_deref()) {
         Ok(vault) => vault,
         Err(response) => return response,
@@ -156,10 +181,15 @@ pub fn acquisition_history_endpoint(body: &[u8]) -> Response {
         case_name: Option<String>,
     }
 
-    let request: AcquisitionHistoryRequest = match serde_json::from_slice(body) {
-        Ok(request) => request,
-        Err(err) => return json_error(400, err.to_string()),
+    let request: AcquisitionHistoryRequest = if body.is_empty() {
+        AcquisitionHistoryRequest { case_name: None }
+    } else {
+        match serde_json::from_slice(body) {
+            Ok(request) => request,
+            Err(err) => return json_error(400, err.to_string()),
+        }
     };
+
     let vault = match report_evidence_vault(request.case_name.as_deref()) {
         Ok(vault) => vault,
         Err(response) => return response,
@@ -220,6 +250,7 @@ pub fn evidence_cases_endpoint() -> Response {
                 "ram_dir": case_dir.join("ram"),
                 "android_dir": case_dir.join("android"),
                 "ios_dir": case_dir.join("ios"),
+                "docker_dir": case_dir.join("docker"),
             })
         });
 
@@ -269,18 +300,29 @@ pub fn report_create_endpoint(body: &[u8]) -> Response {
         .source
         .as_deref()
         .map(str::trim)
-        .unwrap_or("Amele Forensic Tool");
+        .unwrap_or("Amele Forensic Tool (https://amele.noirlang.tr)");
     let hash_sha256 = request
         .hash_sha256
         .as_deref()
         .map(str::trim)
         .unwrap_or_default();
+
+    let creator = crate::profile::active_profile()
+        .map(|p| {
+            if !p.full_name.trim().is_empty() {
+                format!("{} ({})", p.full_name, p.username)
+            } else {
+                p.username
+            }
+        })
+        .or_else(|| std::env::var("USER").ok())
+        .or_else(|| std::env::var("USERNAME").ok())
+        .unwrap_or_else(|| "amele".to_string());
+
     let info = ReportInfo {
         title: title.to_string(),
         description: description.to_string(),
-        creator: std::env::var("USER")
-            .or_else(|_| std::env::var("USERNAME"))
-            .unwrap_or_else(|_| "amele".to_string()),
+        creator,
         source: source.to_string(),
         hash_sha256: hash_sha256.to_string(),
         date: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
@@ -291,6 +333,12 @@ pub fn report_create_endpoint(body: &[u8]) -> Response {
 
     match report::create_report(&info, format, &target, Some(&vault)) {
         Ok(path) => {
+            let _ = crate::profile::record_active_profile_activity(
+                "report",
+                "create",
+                Some(&vault.case_name),
+                Some(&format!("Adli rapor oluşturuldu: {}", target.display())),
+            );
             let manifest_path = vault.write_case_manifest().ok();
             json_ok(json!({
                 "path": path,
@@ -301,8 +349,19 @@ pub fn report_create_endpoint(body: &[u8]) -> Response {
     }
 }
 
+struct CaseArtifactsData {
+    output_count: usize,
+    ram_count: usize,
+    android_count: usize,
+    ios_count: usize,
+    docker_count: usize,
+    hash_count: usize,
+    report_count: usize,
+    artifacts: Value,
+}
+
 /// Vaka içindeki edinim türlerini platform ve türe göre gruplayıp sayar.
-fn case_artifacts_summary(case_dir: &Path) -> Value {
+fn case_artifacts_summary(case_dir: &Path) -> CaseArtifactsData {
     let mut linux_disk = 0usize;
     let mut windows_disk = 0usize;
     #[allow(unused_mut)]
@@ -312,8 +371,10 @@ fn case_artifacts_summary(case_dir: &Path) -> Value {
     #[allow(unused_mut)]
     let mut other_ram = 0usize;
 
+    let mut output_count = 0usize;
     if let Ok(entries) = fs::read_dir(case_dir.join("ciktilar")) {
         for entry in entries.flatten() {
+            output_count += 1;
             let path = entry.path();
             if path.is_file() {
                 let name = path
@@ -351,8 +412,10 @@ fn case_artifacts_summary(case_dir: &Path) -> Value {
         }
     }
 
+    let mut ram_count = 0usize;
     if let Ok(entries) = fs::read_dir(case_dir.join("ram")) {
         for entry in entries.flatten() {
+            ram_count += 1;
             let path = entry.path();
             if path.is_file() {
                 let name = path
@@ -391,7 +454,7 @@ fn case_artifacts_summary(case_dir: &Path) -> Value {
     let hash_count = count_directory_entries(&case_dir.join("hash"));
     let report_count = count_directory_entries(&case_dir.join("raporlar"));
 
-    json!({
+    let artifacts = json!({
         "linux_disk": linux_disk,
         "windows_disk": windows_disk,
         "other_disk": other_disk,
@@ -403,13 +466,24 @@ fn case_artifacts_summary(case_dir: &Path) -> Value {
         "docker": docker_count,
         "hash": hash_count,
         "report": report_count,
-    })
+    });
+
+    CaseArtifactsData {
+        output_count,
+        ram_count,
+        android_count,
+        ios_count,
+        docker_count,
+        hash_count,
+        report_count,
+        artifacts,
+    }
 }
 
 /// Tek vaka klasörünü API listeleme JSON'una dönüştürür.
 fn case_listing_json(case_name: &str, case_dir: &Path) -> Value {
     let metadata = crate::evidence::read_case_metadata(case_dir);
-    let artifacts = case_artifacts_summary(case_dir);
+    let data = case_artifacts_summary(case_dir);
     json!({
         "case_name": case_name,
         "case_dir": case_dir,
@@ -421,15 +495,15 @@ fn case_listing_json(case_name: &str, case_dir: &Path) -> Value {
         "created_by": metadata.created_by,
         "created_by_name": metadata.created_by_name,
         "created_at": metadata.created_at,
-        "output_count": count_directory_entries(&case_dir.join("ciktilar")),
-        "ram_count": count_directory_entries(&case_dir.join("ram")),
-        "android_count": count_directory_entries(&case_dir.join("android")),
-        "ios_count": count_directory_entries(&case_dir.join("ios")),
-        "docker_count": count_directory_entries(&case_dir.join("docker")),
-        "hash_count": count_directory_entries(&case_dir.join("hash")),
-        "report_count": count_directory_entries(&case_dir.join("raporlar")),
+        "output_count": data.output_count,
+        "ram_count": data.ram_count,
+        "android_count": data.android_count,
+        "ios_count": data.ios_count,
+        "docker_count": data.docker_count,
+        "hash_count": data.hash_count,
+        "report_count": data.report_count,
         "manifest_path": case_dir.join("case_manifest.json"),
-        "artifacts": artifacts,
+        "artifacts": data.artifacts,
     })
 }
 
@@ -727,6 +801,81 @@ fn json_usize(value: &Value, key: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_report_format() {
+        assert_eq!(report_format("txt"), Some(ReportFormat::Txt));
+        assert_eq!(report_format("TXT"), Some(ReportFormat::Txt));
+        assert_eq!(report_format("json"), Some(ReportFormat::Json));
+        assert_eq!(report_format("  Json  "), Some(ReportFormat::Json));
+        assert_eq!(report_format("pdf"), None);
+        assert_eq!(report_format(""), None);
+    }
+
+    #[test]
+    fn test_evidence_create_endpoint_validation() {
+        let resp = evidence_create_endpoint(b"");
+        assert_eq!(resp.status, 400);
+
+        let resp = evidence_create_endpoint(b"invalid");
+        assert_eq!(resp.status, 400);
+
+        let resp = evidence_create_endpoint(br#"{"case_name": ""}"#);
+        assert_eq!(resp.status, 400);
+
+        let resp = evidence_create_endpoint(br#"{"case_name": "   "}"#);
+        assert_eq!(resp.status, 400);
+    }
+
+    #[test]
+    fn test_evidence_add_note_endpoint_validation() {
+        let resp = evidence_add_note_endpoint(b"");
+        assert_eq!(resp.status, 400);
+
+        let resp = evidence_add_note_endpoint(br#"{"note": ""}"#);
+        assert_eq!(resp.status, 400);
+
+        let resp = evidence_add_note_endpoint(br#"{"note": "   "}"#);
+        assert_eq!(resp.status, 400);
+    }
+
+    #[test]
+    fn test_report_create_endpoint_validation() {
+        let resp = report_create_endpoint(b"not json");
+        assert_eq!(resp.status, 400);
+
+        let resp = report_create_endpoint(br#"{"format": "html"}"#);
+        assert_eq!(resp.status, 400);
+    }
+
+    #[test]
+    fn test_evidence_cases_endpoint_returns_ok() {
+        let resp = evidence_cases_endpoint();
+        assert_eq!(resp.status, 200);
+        let val: Value = serde_json::from_slice(&resp.body).unwrap();
+        assert!(val.get("base_dir").is_some());
+        assert!(val.get("cases").is_some());
+    }
+
+    #[test]
+    fn test_case_artifacts_summary() {
+        let dir = tempfile::tempdir().unwrap();
+        let case_dir = dir.path().join("test_case");
+        fs::create_dir_all(case_dir.join("ciktilar")).unwrap();
+        fs::create_dir_all(case_dir.join("ram")).unwrap();
+        fs::create_dir_all(case_dir.join("docker")).unwrap();
+
+        fs::write(case_dir.join("ciktilar").join("sda.dd"), b"disk data").unwrap();
+        fs::write(case_dir.join("ram").join("lime.dump"), b"ram data").unwrap();
+        fs::write(case_dir.join("docker").join("docker_metadata.json"), b"{}").unwrap();
+
+        let data = case_artifacts_summary(&case_dir);
+        assert_eq!(data.output_count, 1);
+        assert_eq!(data.ram_count, 1);
+        assert_eq!(data.docker_count, 1);
+        assert_eq!(data.artifacts["linux_disk"], 1);
+        assert_eq!(data.artifacts["linux_ram"], 1);
+    }
 
     #[test]
     fn builds_acquisition_history_from_android_and_ios_manifests() {
