@@ -307,74 +307,35 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION, pageT
 }
 
 
-export const KNOWN_CONTRIBUTORS = {
-  melihemik: {
-    key: "melihemik",
-    name: "Melih Emik",
-    roleKey: "about.role.lead",
-    defaultRole: "BDFL",
-    photo: "melih-emik.jpg",
-    links: [
-      ["GitHub", "https://github.com/melihemik"],
-      ["LinkedIn", "https://www.linkedin.com/in/melihemik/"],
-      ["Website", "https://melihemik.com.tr"]
-    ]
-  },
-  yetece1: {
-    key: "yetece1",
-    name: "Yusuf Tuncel",
-    roleKey: "about.role.windows",
-    defaultRole: "Windows Sorumlusu",
-    photo: "yusuf-tuncel.jpg",
-    links: [
-      ["GitHub", "https://github.com/yetece1"],
-      ["LinkedIn", "https://www.linkedin.com/in/yusuf-tuncel/"],
-      ["Website", "https://yusuftuncel.tr"]
-    ]
-  },
-  kafkaskrtl: {
-    key: "kafkaskrtl",
-    name: "Muhammet Ali Güner",
-    roleKey: "about.role.linux",
-    defaultRole: "Linux Sorumlusu",
-    photo: "muhammet-ali-guner.jpg",
-    links: [
-      ["GitHub", "https://github.com/kafkaskrtl"],
-      ["LinkedIn", "https://www.linkedin.com/in/muhammetali-g%C3%BCner/"]
-    ]
-  },
-  abdulhalimaltuntas: {
-    key: "abdulhalimaltuntas",
-    name: "Abdulhalim Altuntaş",
-    roleKey: "about.role.android",
-    defaultRole: "Android Sorumlusu",
-    photo: "abdulhalim.jpg",
-    links: [
-      ["GitHub", "https://github.com/abdulhalimaltuntas"],
-      ["LinkedIn", "https://www.linkedin.com/in/abdulhalim-altunta%C5%9F-7992672b5/"]
-    ]
-  }
-};
-
 export function renderContributors(contributors, t, icon, assetPath) {
-  const list = (Array.isArray(contributors) && contributors.length > 0)
-    ? contributors
-    : [KNOWN_CONTRIBUTORS.melihemik];
+  if (Array.isArray(contributors) && contributors.length > 0) {
+    return contributors.map(c => {
+      const roleText = c.roleKey ? t(c.roleKey) : (c.role || "Developer");
+      const avatarSrc = c.photo ? (c.photo.startsWith("http") ? c.photo : `${assetPath}/contributors/${c.photo}`) : `${assetPath}/contributors/melih-emik.jpg`;
+      return `
+        <article class="contributor-card">
+          <img class="avatar" src="${avatarSrc}" alt="${c.name}" draggable="false" onerror="this.src='${assetPath}/contributors/melih-emik.jpg'" />
+          <h3>${c.name}</h3>
+          <p>${roleText}</p>
+          <div class="social-row" aria-label="${c.name} bağlantıları">
+            ${(c.links || []).map(([label, url]) => socialLink(label, url, icon)).join("")}
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
 
-  return list.map(c => {
-    const roleText = c.roleKey ? t(c.roleKey) : (c.role || "Developer");
-    const avatarSrc = c.photo ? (c.photo.startsWith("http") ? c.photo : `${assetPath}/contributors/${c.photo}`) : `${assetPath}/contributors/melih-emik.jpg`;
-    return `
-      <article class="contributor-card">
-        <img class="avatar" src="${avatarSrc}" alt="${c.name}" draggable="false" onerror="this.src='${assetPath}/contributors/melih-emik.jpg'" />
-        <h3>${c.name}</h3>
-        <p>${roleText}</p>
-        <div class="social-row" aria-label="${c.name} bağlantıları">
-          ${(c.links || []).map(([label, url]) => socialLink(label, url, icon)).join("")}
-        </div>
-      </article>
-    `;
-  }).join("");
+  return `
+    <div class="contributors-error-card" style="grid-column: 1 / -1; text-align: center; padding: 28px 20px; border: 1px dashed var(--border-color, #333); border-radius: 12px; background: rgba(255,255,255,0.02);">
+      <div style="font-size: 28px; margin-bottom: 8px;">⚠️</div>
+      <p style="margin: 0 0 14px; color: var(--text-muted, #aaa); font-size: 14px; line-height: 1.5;">
+        ${t("about.contributorsFetchError")}
+      </p>
+      <a href="https://github.com/amele-next/amele-next/issues" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 8px 16px; border-radius: 8px; font-size: 13px;">
+        ${icon("github")} <span>${t("about.reportIssue")}</span>
+      </a>
+    </div>
+  `;
 }
 
 export function aboutPage({ t, icon, APP_VERSION, assetPath, theme, state }) {

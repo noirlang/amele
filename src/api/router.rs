@@ -43,10 +43,13 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
             "version": env!("CARGO_PKG_VERSION"),
         })),
         ("GET", "/api/developer-logs") => {
-            // Polling istekleri konsolu kirletmesin diye log seviyesini düşürebilir veya loglamayabiliriz.
-            developer::developer_logs_endpoint()
+            let since = _query.and_then(|q| {
+                q.split('&')
+                    .find_map(|pair| pair.strip_prefix("since="))
+                    .and_then(|val| val.parse::<u64>().ok())
+            });
+            developer::developer_logs_endpoint(since)
         }
-        ("GET", "/api/developers") => developer::developers_endpoint(),
         ("POST", "/api/developer-log") => developer::developer_log_endpoint(body),
         ("POST", "/api/open-dev-console") => {
             crate::logging::runtime_log(

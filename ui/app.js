@@ -19,7 +19,7 @@ import { homePage, metric, renderCaseSidebar } from "./pages/home.js";
 import { renderReportSidebar } from "./pages/reportSidebar.js";
 import { toolsPage } from "./pages/tools.js";
 import { renderRadialNav, renderRadialWheelHtml } from "./core/radialNav.js";
-import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel, KNOWN_CONTRIBUTORS } from "./pages/other.js";
+import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel } from "./pages/other.js";
 import { workflowPage, pickerField, field, pageTitle, casePanel } from "./pages/workflow.js";
 import { initDeveloperMode, devLog } from "./developer.js";
 import { initJobWidget } from "./core/jobs.js";
@@ -5487,37 +5487,25 @@ async function loadDevelopers(force = false) {
   try {
     let data = null;
 
-    // 1. Önce backend endpoint'ini dene (/api/developers) — CORS sorunu yaşamaz
-    if (backendReady()) {
-      try {
-        const res = await apiRequest("/api/developers");
-        if (res && (res.developers || res.developer || Array.isArray(res) || res.name)) {
-          data = res;
-        }
-      } catch (_) {}
-    }
-
-    // 2. Backend yoksa veya veri dönmediyse doğrudan web'den dene
-    if (!data) {
-      try {
-        const res = await fetch(`https://download.amele.noirlang.tr/developers.json?_t=${Date.now()}`, { cache: "no-store" });
-        if (res.ok) {
-          data = await res.json();
-        }
-      } catch (_) {}
-    }
-
-    if (!data) return;
+    // Doğrudan web'den fetch et — R2/domain üzerinde CORS izinleri mevcuttur
+    try {
+      const res = await fetch(`https://download.amele.noirlang.tr/developers.json?_t=${Date.now()}`, { cache: "no-store" });
+      if (res.ok) {
+        data = await res.json();
+      }
+    } catch (_) {}
 
     // JSON formatlarını normalize et:
     // { developers: [...] } veya { developer: [...] } veya [...] veya tek nesne { ... }
-    const rawList = Array.isArray(data)
-      ? data
-      : Array.isArray(data.developers)
-      ? data.developers
-      : Array.isArray(data.developer)
-      ? data.developer
-      : (data.name ? [data] : []);
+    const rawList = data
+      ? (Array.isArray(data)
+        ? data
+        : Array.isArray(data.developers)
+        ? data.developers
+        : Array.isArray(data.developer)
+        ? data.developer
+        : (data.name ? [data] : []))
+      : [];
 
     if (rawList.length > 0) {
       state.contributors = rawList.map((d) => {
@@ -5550,12 +5538,21 @@ async function loadDevelopers(force = false) {
         localStorage.setItem("amele_contributors", JSON.stringify(state.contributors));
         localStorage.setItem("amele_contributors_last_fetch", String(Date.now()));
       } catch (_) {}
-
-      if (state.route === "about") {
-        render();
+    } else {
+      // Çekilemediyse veya boşsa, hata durumunu yansıt
+      if (!state.contributors || state.contributors.length === 0) {
+        state.contributors = [];
       }
     }
+
+    if (state.route === "about") {
+      render();
+    }
   } catch (_) {
+    if (!state.contributors || state.contributors.length === 0) {
+      state.contributors = [];
+      if (state.route === "about") render();
+    }
   } finally {
     developersLoading = false;
   }

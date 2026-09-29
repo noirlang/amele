@@ -155,6 +155,23 @@ pub fn runtime_logs(limit: usize) -> Vec<RuntimeLogEntry> {
         .unwrap_or_default()
 }
 
+/// Belirli bir sıra numarasından (seq) sonraki runtime log satırlarını döndürür.
+pub fn runtime_logs_since(since_seq: u64, limit: usize) -> Vec<RuntimeLogEntry> {
+    let limit = limit.clamp(1, 2000);
+    runtime_log_store()
+        .lock()
+        .map(|store| {
+            store
+                .entries
+                .iter()
+                .filter(|e| e.seq > since_seq)
+                .take(limit)
+                .cloned()
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// Runtime log dosya yolunu döndürür.
 pub fn runtime_log_file_path() -> Option<PathBuf> {
     runtime_log_store()

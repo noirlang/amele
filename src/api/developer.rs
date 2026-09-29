@@ -16,49 +16,16 @@ struct DeveloperLogRequest {
 }
 
 /// Developer mod penceresinin okuyacağı runtime log ve iş özetini döndürür.
-pub fn developer_logs_endpoint() -> Response {
+/// `since_seq` verilirse yalnızca o sıra numarasından sonraki yeni log satırları döndürülür.
+pub fn developer_logs_endpoint(since_seq: Option<u64>) -> Response {
+    let logs = match since_seq {
+        Some(seq) if seq > 0 => crate::logging::runtime_logs_since(seq, 200),
+        _ => crate::logging::runtime_logs(200),
+    };
     json_ok(json!({
-        "logs": crate::logging::runtime_logs(1000),
+        "logs": logs,
         "log_file": crate::logging::runtime_log_file_path(),
         "jobs": developer_job_snapshot(),
-    }))
-}
-
-/// download.amele.noirlang.tr üzerinden developers.json çeker.
-pub fn developers_endpoint() -> Response {
-    let url = "https://download.amele.noirlang.tr/developers.json";
-    let bust_url = format!("{url}?t={}", chrono::Utc::now().timestamp());
-    let output = std::process::Command::new("curl")
-        .arg("-L")
-        .arg("--fail")
-        .arg("--silent")
-        .arg("--show-error")
-        .arg("--max-time")
-        .arg("10")
-        .arg(&bust_url)
-        .output();
-
-    if let Ok(out) = output {
-        if out.status.success() {
-            if let Ok(val) = serde_json::from_slice::<Value>(&out.stdout) {
-                return json_ok(val);
-            }
-        }
-    }
-
-    // Fallback varsayılan geliştirici
-    json_ok(json!({
-        "developers": [
-            {
-                "id": "melih-emik",
-                "name": "Melih Emik",
-                "role": "BDFL & Maintainer",
-                "avatar_url": "https://amele.noirlang.tr/contributors/melih-emik.webp",
-                "website": "https://melihemik.com.tr",
-                "github": "https://github.com/melihemik",
-                "linkedin": "https://linkedin.com/in/melihemik"
-            }
-        ]
     }))
 }
 
@@ -112,19 +79,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_developers_endpoint_returns_json() {
-        let resp = developers_endpoint();
-        assert_eq!(resp.status, 200);
-        let val: Value = serde_json::from_slice(&resp.body).expect("valid json");
-        assert!(val.get("developers").is_some() || val.is_array());
-    }
-
-    #[test]
     fn test_developer_logs_endpoint_returns_json() {
-        let resp = developer_logs_endpoint();
+        let resp = developer_logs_endpoint(None);
         assert_eq!(resp.status, 200);
         let val: Value = serde_json::from_slice(&resp.body).expect("valid json");
         assert!(val.get("logs").is_some());
         assert!(val.get("jobs").is_some());
+
+        let resp_since = developer_logs_endpoint(Some(999999));
+        assert_eq!(resp_since.status, 200);
+        let val_since: Value = serde_json::from_slice(&resp_since.body).expect("valid json");
+        assert_eq!(val_since.get("logs").and_then(|l| l.as_array()).map(|a| a.len()), Some(0));
     }
 }
