@@ -20,14 +20,18 @@ pub fn android_case_analysis_endpoint(body: &[u8]) -> Response {
         return response;
     }
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Default)]
     struct AndroidAnalysisRequest {
         case_name: Option<String>,
     }
 
-    let request: AndroidAnalysisRequest = match serde_json::from_slice(body) {
-        Ok(request) => request,
-        Err(err) => return json_error(400, err.to_string()),
+    let request: AndroidAnalysisRequest = if body.is_empty() {
+        AndroidAnalysisRequest::default()
+    } else {
+        match serde_json::from_slice(body) {
+            Ok(request) => request,
+            Err(err) => return json_error(400, err.to_string()),
+        }
     };
     let vault = match report_evidence_vault(request.case_name.as_deref()) {
         Ok(vault) => vault,
@@ -302,114 +306,13 @@ fn run_android_logical_job(
     case_name: Option<String>,
     control: ram::CancellationToken,
 ) {
-    crate::logging::runtime_log(
-        crate::logging::LogLevel::Info,
-        "android:logical",
-        format!(
-            "IS BASLADI | job_id={job_id} | serial={serial} | vaka={}",
-            case_name.as_deref().unwrap_or("(otomatik)")
-        ),
-    );
-
-    let vault = match evidence_vault_for_output(case_name.as_deref()) {
-        Ok(vault) => vault,
-        Err(err) => {
-            crate::logging::runtime_log(
-                crate::logging::LogLevel::Error,
-                "android:logical",
-                format!("IS BASARISIZ (vaka hatasi) | job_id={job_id} | hata={err}"),
-            );
-            fail_acquisition_job_with_message(&job_id, err, "Android imaj alma basarisiz");
-            return;
-        }
-    };
-
-    let android_dir = match android_edinim_klasoru(&vault.android_dir, "logical", &serial) {
-        Ok(path) => path,
-        Err(err) => {
-            crate::logging::runtime_log(
-                crate::logging::LogLevel::Error,
-                "android:logical",
-                format!("IS BASARISIZ (klasor hatasi) | job_id={job_id} | hata={err}"),
-            );
-            fail_acquisition_job_with_message(&job_id, err, "Android imaj alma basarisiz");
-            return;
-        }
-    };
-
-    if let Err(err) = std::fs::create_dir_all(&android_dir) {
-        crate::logging::runtime_log(
-            crate::logging::LogLevel::Error,
-            "android:logical",
-            format!("IS BASARISIZ (dizin) | job_id={job_id} | hata={err}"),
-        );
-        fail_acquisition_job_with_message(&job_id, err.to_string(), "Android imaj alma basarisiz");
-        return;
-    }
-
-    match android::orchestrated_acquisition(
-        &serial,
-        &android_dir,
+    run_android_profile_acquisition_job(
+        job_id,
+        serial,
+        case_name,
         android::AndroidAcquisitionProfile::FullLogical,
-        |done, total, category| {
-            update_acquisition_progress_message(
-                &job_id,
-                done as u64,
-                total as u64,
-                &format!("Toplaniyor: {category}"),
-            );
-        },
-        || android_job_should_stop(&control),
-    ) {
-        Ok(result) => {
-            let success_count = result.items.iter().filter(|i| i.success).count();
-            let fail_count = result.items.iter().filter(|i| !i.success).count();
-            let total_count = result.items.len();
-            crate::logging::runtime_log(
-                crate::logging::LogLevel::Info,
-                "android:logical",
-                format!(
-                    "IS TAMAMLANDI | job_id={job_id} | serial={serial} | {success_count}/{total_count} basarili | {fail_count} basarisiz | {} byte | cikti={:?}",
-                    result.total_bytes, result.output_dir
-                ),
-            );
-            if !result.errors.is_empty() {
-                crate::logging::runtime_log(
-                    crate::logging::LogLevel::Warn,
-                    "android:logical",
-                    format!("IS HATALARI | job_id={job_id} | {:?}", result.errors),
-                );
-            }
-            finish_acquisition_job_with_message(
-                &job_id,
-                json!({
-                    "message": format!("Android mantiksal imaj tamamlandi ({success_count}/{total_count} adim basarili)"),
-                    "profile": result.profile,
-                    "device_profile": result.device_profile,
-                    "session": result.session,
-                    "capabilities": result.capabilities,
-                    "output_dir": result.output_dir,
-                    "total_bytes": result.total_bytes,
-                    "sha256": result.sha256,
-                    "manifest_sha256": result.manifest_sha256,
-                    "items": result.items,
-                    "errors": result.errors,
-                }),
-                "Android mantiksal imaj tamamlandi",
-            );
-        }
-        Err(err) => {
-            let explained = android::explain_android_error(err.clone());
-            crate::logging::runtime_log(
-                crate::logging::LogLevel::Error,
-                "android:logical",
-                format!(
-                    "IS BASARISIZ | job_id={job_id} | serial={serial} | ham_hata={err} | aciklama={explained}"
-                ),
-            );
-            fail_android_job(&job_id, err, "Android imaj alma basarisiz");
-        }
-    }
+        control,
+    );
 }
 
 /// Android dosya sistemi edinim işini başlatır.
@@ -741,12 +644,12 @@ fn android_edinim_klasoru(
         format!("{temiz_tur}_{temiz_serial}_{tarih}")
     };
 
-    let mut bingol = klasor_on_adi.clone();
-    let mut cikti_klasoru = android_kok_klasoru.join(&bingol);
+    let mut klasor_adi = klasor_on_adi.clone();
+    let mut cikti_klasoru = android_kok_klasoru.join(&klasor_adi);
     let mut tekrar = 1_u32;
     while cikti_klasoru.exists() {
-        bingol = format!("{klasor_on_adi}_{tekrar}");
-        cikti_klasoru = android_kok_klasoru.join(&bingol);
+        klasor_adi = format!("{klasor_on_adi}_{tekrar}");
+        cikti_klasoru = android_kok_klasoru.join(&klasor_adi);
         tekrar += 1;
     }
 
@@ -781,6 +684,15 @@ mod tests {
         assert!(ikinci.is_dir());
         assert_eq!(ilk.parent(), Some(temp.path()));
         assert_eq!(ikinci.parent(), Some(temp.path()));
+    }
+
+    #[test]
+    fn android_case_analysis_bos_govde_veya_json_kabul_eder() {
+        let resp = android_case_analysis_endpoint(b"");
+        assert_ne!(resp.status, 400);
+
+        let resp2 = android_case_analysis_endpoint(b"{}");
+        assert_ne!(resp2.status, 400);
     }
 }
 
@@ -890,4 +802,3 @@ pub fn android_remote_disconnect_endpoint(body: &[u8]) -> Response {
 }
 // iceman'le karşılaştığında donup kalmaktan başka ne
 //yapabilirsinki silah sıkamazsın sokaklarda değilsin
-// TODO: Add android_chipset_devices_endpoint and android_physical_acquisition_endpoint for EDL/BROM device discovery and acquisition execution

@@ -103,7 +103,7 @@ fn detect_root(serial: &str) -> (bool, bool) {
         .map(|output| output_has_root(&output))
         .unwrap_or(false);
     let su_available =
-        run_adb_command_timeout(serial, &["shell", "su -c id"], Duration::from_secs(8))
+        run_adb_command_timeout(serial, &["shell", "su", "-c", "id"], Duration::from_secs(8))
             .map(|output| output_has_root(&output))
             .unwrap_or(false);
     (adb_root, su_available)
