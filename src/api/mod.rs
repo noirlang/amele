@@ -3,7 +3,6 @@
 pub mod acquisition_control;
 pub mod ai;
 pub mod android;
-pub mod case_transfer;
 pub mod desktop;
 pub mod developer;
 pub mod docker;
