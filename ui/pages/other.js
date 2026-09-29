@@ -1,6 +1,16 @@
 // ağ trafiği pcap ve wireguard tünel sayfası.
 
-export function otherPage({ t, icon, state, pageTitle, pickerField, field, escapeHtml, caseSelectOptions, detailPanel }) {
+export function otherPage({
+  t,
+  icon,
+  state,
+  pageTitle,
+  pickerField,
+  field,
+  escapeHtml,
+  caseSelectOptions,
+  detailPanel,
+}) {
   return `
     <section class="page">
       ${pageTitle(t("other.title"), t("other.desc"), "tiles")}
@@ -27,7 +37,17 @@ function simpleCard(title, desc, iconName, tab, icon, t) {
   `;
 }
 
-export function detailPanel({ tab, t, icon, state, pickerField, field, escapeHtml, caseSelectOptions, hashPanel }) {
+export function detailPanel({
+  tab,
+  t,
+  icon,
+  state,
+  pickerField,
+  field,
+  escapeHtml,
+  caseSelectOptions,
+  hashPanel,
+}) {
   if (tab === "evidence") {
     return `
       <p class="section-label">${t("case.management")}</p>
@@ -106,7 +126,9 @@ export function detailPanel({ tab, t, icon, state, pickerField, field, escapeHtm
 }
 
 function renderHistoryList(items, escapeHtml, icon) {
-  return items.map((item) => `
+  return items
+    .map(
+      (item) => `
     <div class="acquisition-history-item">
       <span class="metric-icon">${icon("clock")}</span>
       <div>
@@ -117,7 +139,9 @@ function renderHistoryList(items, escapeHtml, icon) {
         <small class="path-text">${escapeHtml(item.path || item.output || item.case_name || "")}</small>
       </div>
     </div>
-  `).join("");
+  `
+    )
+    .join("");
 }
 
 export function hashPanel(pickerField, field, state, t, icon) {
@@ -154,12 +178,22 @@ export function hashPanel(pickerField, field, state, t, icon) {
 
 function renderHashResult(res, t) {
   let out = `<strong>${t("hash.file") || "Dosya"}:</strong> ${res.path}<br/><strong>${t("hash.size") || "Boyut"}:</strong> ${res.file_size_formatted || res.file_size + " B"}<br/>`;
-  if (res.sha256) out += `<strong>SHA-256:</strong> <code style="word-break:break-all">${res.sha256}</code><br/>`;
-  if (res.md5) out += `<strong>MD5:</strong> <code style="word-break:break-all">${res.md5}</code><br/>`;
+  if (res.sha256)
+    out += `<strong>SHA-256:</strong> <code style="word-break:break-all">${res.sha256}</code><br/>`;
+  if (res.md5)
+    out += `<strong>MD5:</strong> <code style="word-break:break-all">${res.md5}</code><br/>`;
   return out;
 }
 
-export function settingsPage({ t, icon, state, platformLabel, APP_VERSION, pageTitle, escapeHtml }) {
+export function settingsPage({
+  t,
+  icon,
+  state,
+  platformLabel,
+  APP_VERSION,
+  pageTitle,
+  escapeHtml,
+}) {
   const isDark = state.theme !== "light";
   const esc = escapeHtml || ((s) => s);
   const isTr = (state.language || "en") === "tr";
@@ -232,7 +266,9 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION, pageT
               </div>
             </div>
 
-            ${state.platform === "linux" ? `
+            ${
+              state.platform === "linux"
+                ? `
             <!-- Linux Render Motoru Satırı -->
             <div class="settings-row">
               <div class="settings-row-label">
@@ -242,11 +278,13 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION, pageT
               <div class="settings-row-control">
                 <span class="engine-badge ${state.renderingEngine === "webkit" ? "is-webkit" : "is-chromium"}">
                   ${icon(state.renderingEngine === "webkit" ? "alert-circle" : "check")}
-                  ${state.renderingEngine === "webkit" ? (t("settings.engineWebKit") || "WebKitGTK") : (t("settings.engineChromium") || "Chromium")}
+                  ${state.renderingEngine === "webkit" ? t("settings.engineWebKit") || "WebKitGTK" : t("settings.engineChromium") || "Chromium"}
                 </span>
               </div>
             </div>
-            ${state.renderingEngine === "webkit" ? `
+            ${
+              state.renderingEngine === "webkit"
+                ? `
             <div class="settings-engine-banner is-warning">
               <span class="settings-engine-banner-icon">${icon("alert-circle")}</span>
               <div class="settings-engine-banner-text">
@@ -254,15 +292,19 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION, pageT
                 <span>${t("settings.engineWebKitRecommend") || "Daha akıcı bir deneyim için sisteminize Chromium tabanlı bir tarayıcı kurmanızı öneririz."}</span>
               </div>
             </div>
-            ` : `
+            `
+                : `
             <div class="settings-engine-banner is-success">
               <span class="settings-engine-banner-icon">${icon("check")}</span>
               <div class="settings-engine-banner-text">
                 <span>${t("settings.engineChromiumDesc") || "Uygulamadan en iyi şekilde verim alıyorsunuz."}</span>
               </div>
             </div>
-            `}
-            ` : ""}
+            `
+            }
+            `
+                : ""
+            }
           </div>
         </article>
 
@@ -306,7 +348,6 @@ export function settingsPage({ t, icon, state, platformLabel, APP_VERSION, pageT
   `;
 }
 
-
 export const KNOWN_CONTRIBUTORS = {
   melihemik: {
     key: "melihemik",
@@ -317,8 +358,8 @@ export const KNOWN_CONTRIBUTORS = {
     links: [
       ["GitHub", "https://github.com/melihemik"],
       ["LinkedIn", "https://www.linkedin.com/in/melihemik/"],
-      ["Website", "https://melihemik.com.tr"]
-    ]
+      ["Website", "https://melihemik.com.tr"],
+    ],
   },
   yetece1: {
     key: "yetece1",
@@ -329,8 +370,8 @@ export const KNOWN_CONTRIBUTORS = {
     links: [
       ["GitHub", "https://github.com/yetece1"],
       ["LinkedIn", "https://www.linkedin.com/in/yusuf-tuncel/"],
-      ["Website", "https://yusuftuncel.tr"]
-    ]
+      ["Website", "https://yusuftuncel.tr"],
+    ],
   },
   kafkaskrtl: {
     key: "kafkaskrtl",
@@ -340,8 +381,8 @@ export const KNOWN_CONTRIBUTORS = {
     photo: "muhammet-ali-guner.jpg",
     links: [
       ["GitHub", "https://github.com/kafkaskrtl"],
-      ["LinkedIn", "https://www.linkedin.com/in/muhammetali-g%C3%BCner/"]
-    ]
+      ["LinkedIn", "https://www.linkedin.com/in/muhammetali-g%C3%BCner/"],
+    ],
   },
   abdulhalimaltuntas: {
     key: "abdulhalimaltuntas",
@@ -351,20 +392,26 @@ export const KNOWN_CONTRIBUTORS = {
     photo: "abdulhalim.jpg",
     links: [
       ["GitHub", "https://github.com/abdulhalimaltuntas"],
-      ["LinkedIn", "https://www.linkedin.com/in/abdulhalim-altunta%C5%9F-7992672b5/"]
-    ]
-  }
+      ["LinkedIn", "https://www.linkedin.com/in/abdulhalim-altunta%C5%9F-7992672b5/"],
+    ],
+  },
 };
 
 export function renderContributors(contributors, t, icon, assetPath) {
-  const list = (Array.isArray(contributors) && contributors.length > 0)
-    ? contributors
-    : [KNOWN_CONTRIBUTORS.melihemik];
+  const list =
+    Array.isArray(contributors) && contributors.length > 0
+      ? contributors
+      : [KNOWN_CONTRIBUTORS.melihemik];
 
-  return list.map(c => {
-    const roleText = c.roleKey ? t(c.roleKey) : (c.role || "Developer");
-    const avatarSrc = c.photo ? (c.photo.startsWith("http") ? c.photo : `${assetPath}/contributors/${c.photo}`) : `${assetPath}/contributors/melih-emik.jpg`;
-    return `
+  return list
+    .map((c) => {
+      const roleText = c.roleKey ? t(c.roleKey) : c.role || "Developer";
+      const avatarSrc = c.photo
+        ? c.photo.startsWith("http")
+          ? c.photo
+          : `${assetPath}/contributors/${c.photo}`
+        : `${assetPath}/contributors/melih-emik.jpg`;
+      return `
       <article class="contributor-card">
         <img class="avatar" src="${avatarSrc}" alt="${c.name}" draggable="false" onerror="this.src='${assetPath}/contributors/melih-emik.jpg'" />
         <h3>${c.name}</h3>
@@ -374,7 +421,8 @@ export function renderContributors(contributors, t, icon, assetPath) {
         </div>
       </article>
     `;
-  }).join("");
+    })
+    .join("");
 }
 
 export function aboutPage({ t, icon, APP_VERSION, assetPath, theme, state }) {
@@ -403,36 +451,24 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath, theme, state }) {
         </div>
 
         <div class="about-hero-right">
-          <div class="about-hero-features">
-            <div class="about-feature-row">
-              <div class="about-feature-chip" data-route="windows" title="${t("nav.windows")}" aria-label="${t("nav.windows")}">
-                <span class="about-feature-icon">${icon("windows")}</span>
-                <span class="about-feature-label">${t("nav.windows")}</span>
-              </div>
-              <div class="about-feature-chip" data-route="linux" title="${t("nav.linux")}" aria-label="${t("nav.linux")}">
-                <span class="about-feature-icon">${icon("linux")}</span>
-                <span class="about-feature-label">${t("nav.linux")}</span>
-              </div>
-            </div>
-            <div class="about-feature-row">
-              <div class="about-feature-chip" data-route="docker" title="${t("nav.docker")}" aria-label="${t("nav.docker")}">
-                <span class="about-feature-icon">${icon("docker")}</span>
-                <span class="about-feature-label">${t("nav.docker")}</span>
-              </div>
-              <div class="about-feature-chip" data-route="android" title="${t("nav.android")}" aria-label="${t("nav.android")}">
-                <span class="about-feature-icon">${icon("android")}</span>
-                <span class="about-feature-label">${t("nav.android")}</span>
-              </div>
-            </div>
-            <div class="about-feature-row">
-              <div class="about-feature-chip" data-route="ios" title="${t("nav.ios")}" aria-label="${t("nav.ios")}">
-                <span class="about-feature-icon">${icon("ios")}</span>
-                <span class="about-feature-label">${t("nav.ios")}</span>
-              </div>
-              <div class="about-feature-chip" data-route="other" title="${t("nav.other")}" aria-label="${t("nav.other")}">
-                <span class="about-feature-icon">${icon("tiles")}</span>
-                <span class="about-feature-label">${t("nav.other")}</span>
-              </div>
+          <div class="about-radial-widget">
+            <a class="about-radial-logo" href="https://noirlang.tr" target="_blank" rel="noopener noreferrer" aria-label="Noirlang">
+              <img src="${assetPath}/logo/sirket.png" alt="Noirlang" draggable="false" />
+            </a>
+            <div class="about-radial-orbit">
+              ${["windows", "linux", "docker", "android", "ios", "other"]
+                .map(
+                  (route, index) => `
+                <div class="about-radial-position" style="--angle: ${index * 60}deg">
+                  <div class="about-radial-upright">
+                    <button type="button" class="about-radial-button" data-route="${route}" title="${t(`nav.${route}`)}" aria-label="${t(`nav.${route}`)}">
+                      <span class="about-radial-icon" aria-hidden="true">${icon(route === "other" ? "tiles" : route)}</span>
+                    </button>
+                  </div>
+                </div>
+              `
+                )
+                .join("")}
             </div>
           </div>
         </div>
@@ -443,9 +479,6 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath, theme, state }) {
         ${renderContributors(state?.contributors, t, icon, assetPath)}
       </div>
 
-      <div class="company-logo-card">
-        <img class="company-logo-img" src="${assetPath}/logo/sirket.png" alt="Şirket logosu" draggable="false" />
-      </div>
     </section>
   `;
 }
