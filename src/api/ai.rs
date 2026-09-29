@@ -3,7 +3,6 @@
 use crate::server::{Response, json_error, json_ok};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::io::Write;
 use std::process::{Command, Stdio};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -43,78 +42,7 @@ pub struct ExecuteCommandRequest {
     pub profile_fullname: Option<String>,
 }
 
-/// Sistemde kurulu olan yapay zeka CLI araçlarını tespit eder.
-fn check_binary(binary_name: &str) -> Option<String> {
-    let clean = binary_name.trim();
-    if clean.is_empty() {
-        return None;
-    }
-
-    // 1. Doğrudan dosya yolu verilmişse kontrol et
-    let direct_path = std::path::Path::new(clean);
-    if direct_path.is_file() {
-        return Some(clean.to_string());
-    }
-
-    // 2. PATH ortam değişkeni üzerinden tara
-    if let Some(paths) = std::env::var_os("PATH") {
-        for dir in std::env::split_paths(&paths) {
-            let candidate = dir.join(clean);
-            if candidate.is_file() {
-                return Some(candidate.to_string_lossy().to_string());
-            }
-        }
-    }
-
-    // 3. which komutu
-    if let Ok(output) = Command::new("which").arg(clean).output() {
-        if output.status.success() {
-            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !path.is_empty() && std::path::Path::new(&path).exists() {
-                return Some(path);
-            }
-        }
-    }
-
-    if let Ok(home) = std::env::var("HOME") {
-        let fallbacks = [
-            format!("{home}/.local/bin/{binary_name}"),
-            format!("{home}/.local/share/mise/shims/{binary_name}"),
-            format!("{home}/.cargo/bin/{binary_name}"),
-            format!("/usr/bin/{binary_name}"),
-            format!("/usr/local/bin/{binary_name}"),
-            format!("{home}/.local/share/mise/installs/{binary_name}/latest/{binary_name}"),
-            format!("{home}/.local/share/mise/installs/{binary_name}/latest/bin/{binary_name}"),
-        ];
-        for fb in fallbacks {
-            if std::path::Path::new(&fb).exists() {
-                return Some(fb);
-            }
-        }
-
-        // Mise versiyonlu dizinlerini tara (~/.local/share/mise/installs/<binary>/<versiyon>/...)
-        let mise_dir = format!("{home}/.local/share/mise/installs/{binary_name}");
-        if let Ok(entries) = std::fs::read_dir(mise_dir) {
-            for entry in entries.flatten() {
-                let dir_path = entry.path();
-                if dir_path.is_dir() {
-                    let candidates = [
-                        dir_path.join(binary_name),
-                        dir_path.join("bin").join(binary_name),
-                        dir_path.join(binary_name).join(binary_name),
-                    ];
-                    for c in candidates {
-                        if c.exists() {
-                            return Some(c.to_string_lossy().to_string());
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    None
-}
+pub use crate::api::desktop::{check_binary, find_terminal_command};
 
 /// CLI komutunu timeout ile çalıştırır, takılırsa öldürüp None döner.
 // ajan cli takılıp backendi kilitlemesin diye eklendi.
@@ -198,7 +126,7 @@ fn ensure_cli_profile(username: Option<&str>, full_name: Option<&str>) {
 }
 
 fn fetch_agy_models(binary_path: &str) -> Vec<AgentModel> {
-    if let Some(output) = run_cli_with_timeout(binary_path, &["models"], 10) {
+    if let Some(output) = run_cli_with_timeout(binary_path, &["models"], 3) {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let mut models = Vec::new();
@@ -232,7 +160,7 @@ fn fetch_agy_models(binary_path: &str) -> Vec<AgentModel> {
 }
 
 fn fetch_opencode_models(binary_path: &str) -> Vec<AgentModel> {
-    if let Some(output) = run_cli_with_timeout(binary_path, &["models"], 10) {
+    if let Some(output) = run_cli_with_timeout(binary_path, &["models"], 3) {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let mut models = Vec::new();
@@ -257,7 +185,7 @@ fn fetch_opencode_models(binary_path: &str) -> Vec<AgentModel> {
 
 fn fetch_codex_models(binary_path: &str) -> Vec<AgentModel> {
     // OpenAI / Codex oturum durumunu kontrol et
-    if let Some(output) = run_cli_with_timeout(binary_path, &["login", "status"], 10) {
+    if let Some(output) = run_cli_with_timeout(binary_path, &["login", "status"], 3) {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
         let combined = format!("{stdout} {stderr}");
@@ -285,7 +213,7 @@ fn fetch_codex_models(binary_path: &str) -> Vec<AgentModel> {
 
 fn fetch_pi_models(binary_path: &str) -> Vec<AgentModel> {
     // Pi sağlayıcı auth durumunu sorgula
-    if let Some(output) = run_cli_with_timeout(binary_path, &["auth", "check"], 10) {
+    if let Some(output) = run_cli_with_timeout(binary_path, &["auth", "check"], 3) {
         let combined = format!(
             "{} {}",
             String::from_utf8_lossy(&output.stdout),
@@ -301,7 +229,7 @@ fn fetch_pi_models(binary_path: &str) -> Vec<AgentModel> {
 }
 
 fn fetch_claude_models(binary_path: &str) -> Vec<AgentModel> {
-    if let Some(output) = run_cli_with_timeout(binary_path, &["auth", "status"], 10) {
+    if let Some(output) = run_cli_with_timeout(binary_path, &["auth", "status"], 3) {
         let stdout = String::from_utf8_lossy(&output.stdout);
         if stdout.contains("\"loggedIn\":true") {
             return vec![
@@ -367,7 +295,7 @@ pub fn get_agents_endpoint() -> Response {
             installed: agy_path.is_some(),
             binary_path: agy_path,
             description: "Google Antigravity Agentic Coding CLI".to_string(),
-            models: fetch_live_models_for_agent("agy"),
+            models: vec![],
         },
         DiscoveredAgent {
             id: "claude".to_string(),
@@ -375,7 +303,7 @@ pub fn get_agents_endpoint() -> Response {
             installed: claude_path.is_some(),
             binary_path: claude_path,
             description: "Anthropic Claude Code CLI Asistanı".to_string(),
-            models: fetch_live_models_for_agent("claude"),
+            models: vec![],
         },
         DiscoveredAgent {
             id: "codex".to_string(),
@@ -383,7 +311,7 @@ pub fn get_agents_endpoint() -> Response {
             installed: codex_path.is_some(),
             binary_path: codex_path,
             description: "OpenAI Codex CLI Ajanı".to_string(),
-            models: fetch_live_models_for_agent("codex"),
+            models: vec![],
         },
         DiscoveredAgent {
             id: "pi".to_string(),
@@ -391,7 +319,7 @@ pub fn get_agents_endpoint() -> Response {
             installed: pi_path.is_some(),
             binary_path: pi_path,
             description: "Earendil Works çok sağlayıcılı terminal ajanı".to_string(),
-            models: fetch_live_models_for_agent("pi"),
+            models: vec![],
         },
         DiscoveredAgent {
             id: "opencode".to_string(),
@@ -399,7 +327,7 @@ pub fn get_agents_endpoint() -> Response {
             installed: opencode_path.is_some(),
             binary_path: opencode_path,
             description: "Açık kaynak çoklu sağlayıcı CLI ajanı".to_string(),
-            models: fetch_live_models_for_agent("opencode"),
+            models: vec![],
         },
     ];
 
@@ -627,7 +555,7 @@ fn build_agent_full_prompt(
     } else if !username.is_empty() {
         format!("@{username}")
     } else {
-        "Melih Emik (@melihemik)".to_string()
+        "Bilinmeyen Analist".to_string()
     };
 
     let skill_text = load_amele_skill_text();
@@ -666,87 +594,6 @@ Analiste adli bilişim incelemelerinde, disk/RAM/mobil/docker edinimlerinde ve A
     )
 }
 
-/// Uygun sistem terminal emülatörünü tespit eder.
-pub fn find_terminal_command(script_path: &str) -> Option<(String, Vec<String>)> {
-    #[cfg(unix)]
-    {
-        // 1. $TERMINAL ortam değişkeni
-        if let Ok(term) = std::env::var("TERMINAL") {
-            let term_clean = term.trim().to_string();
-            if !term_clean.is_empty() && check_binary(&term_clean).is_some() {
-                let args = if term_clean.contains("xdg-terminal-exec")
-                    || term_clean.contains("gnome-terminal")
-                    || term_clean.contains("kgx")
-                {
-                    vec![
-                        "--".to_string(),
-                        "bash".to_string(),
-                        script_path.to_string(),
-                    ]
-                } else {
-                    vec![
-                        "-e".to_string(),
-                        "bash".to_string(),
-                        script_path.to_string(),
-                    ]
-                };
-                return Some((term_clean, args));
-            }
-        }
-
-        // 2. xdg-terminal-exec (standart masaüstü terminal başlatıcısı)
-        if check_binary("xdg-terminal-exec").is_some() {
-            return Some((
-                "xdg-terminal-exec".to_string(),
-                vec![
-                    "--".to_string(),
-                    "bash".to_string(),
-                    script_path.to_string(),
-                ],
-            ));
-        }
-
-        // 3. Bilinen popüler Linux terminal emülatörleri
-        let candidates = [
-            ("alacritty", vec!["-e", "bash", script_path]),
-            ("kitty", vec!["-e", "bash", script_path]),
-            ("gnome-terminal", vec!["--", "bash", script_path]),
-            ("konsole", vec!["-e", "bash", script_path]),
-            ("kgx", vec!["--", "bash", script_path]),
-            ("x-terminal-emulator", vec!["-e", "bash", script_path]),
-            ("xterm", vec!["-e", "bash", script_path]),
-        ];
-
-        for (bin, args) in candidates {
-            if check_binary(bin).is_some() {
-                return Some((
-                    bin.to_string(),
-                    args.into_iter().map(String::from).collect(),
-                ));
-            }
-        }
-    }
-
-    #[cfg(windows)]
-    {
-        if check_binary("wt.exe").is_some() || check_binary("wt").is_some() {
-            return Some((
-                "wt.exe".to_string(),
-                vec![
-                    "cmd.exe".to_string(),
-                    "/k".to_string(),
-                    script_path.to_string(),
-                ],
-            ));
-        }
-        return Some((
-            "cmd.exe".to_string(),
-            vec!["/k".to_string(), script_path.to_string()],
-        ));
-    }
-
-    None
-}
 
 /// Yapay zeka ajanını varsayılan sistem terminalinde etkileşimli olarak başlatır.
 /// Amele adli bilişim skill kuralları ve kullanıcının prompt'u oturuma aktarılır.
@@ -797,38 +644,26 @@ pub fn launch_terminal_endpoint(body: &[u8]) -> Response {
             }
         }
     }
-    ensure_cli_profile(username, full_name);
 
-    // Skill symlink'lerini sağla (claude, codex, opencode)
-    if let Ok(home) = std::env::var("HOME") {
-        let skill_src = format!("{home}/.gemini/config/skills/amele");
-        if std::path::Path::new(&skill_src).exists() {
-            let targets = [
-                format!("{home}/.claude/skills"),
-                format!("{home}/.codex/skills"),
-                format!("{home}/.config/opencode/skills"),
-            ];
-            for t in targets {
-                let _ = std::fs::create_dir_all(&t);
-                let link_path = std::path::PathBuf::from(&t).join("amele");
-                #[cfg(unix)]
-                {
-                    if !link_path.exists() {
-                        let _ = std::os::unix::fs::symlink(&skill_src, &link_path);
-                    }
-                }
-            }
-        }
+    if username.is_none() && full_name.is_none() {
+        return json_error(
+            400,
+            "Aktif analist profili bulunamadı. Lütfen önce profil seçin veya yeni bir profil oluşturun.",
+        );
     }
 
-    // Çalışma dizini: Repo kökü veya mevcut çalışma dizini
-    let working_dir = if std::path::Path::new("/home/ra/Projects/amele-pack").exists() {
-        "/home/ra/Projects/amele-pack".to_string()
-    } else if let Ok(cwd) = std::env::current_dir() {
-        cwd.to_string_lossy().to_string()
-    } else {
-        std::env::var("HOME").unwrap_or_else(|_| ".".to_string())
-    };
+    ensure_cli_profile(username, full_name);
+
+    // Çalışma dizini: Mevcut çalışma dizini, yoksa kullanıcı ana dizini
+    let working_dir = std::env::current_dir()
+        .ok()
+        .or_else(|| {
+            std::env::var_os("HOME")
+                .or_else(|| std::env::var_os("USERPROFILE"))
+                .map(std::path::PathBuf::from)
+        })
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| ".".to_string());
 
     // Agent ikili dosyası ve komut satırı
     let (agent_display_name, agent_cmd) = match agent_id {
@@ -1076,34 +911,6 @@ pub fn execute_command_endpoint(body: &[u8]) -> Response {
                 cmd_str
             };
 
-            // eski arayuzden parola geldiyse uyumluluk icin sudo -S ile calistir
-            if let Some(password) = req.sudo_password.as_deref().filter(|p| !p.is_empty()) {
-                let mut child = match Command::new("sudo")
-                    .arg("-S")
-                    .arg("-p")
-                    .arg("")
-                    .arg("sh")
-                    .arg("-c")
-                    .arg(clean_cmd)
-                    .stdin(Stdio::piped())
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped())
-                    .spawn()
-                {
-                    Ok(c) => c,
-                    Err(err) => return json_error(500, format!("Süreç başlatılamadı: {err}")),
-                };
-
-                if let Some(mut stdin) = child.stdin.take() {
-                    let _ = stdin.write_all(format!("{password}\n").as_bytes());
-                }
-
-                return match child.wait_with_output() {
-                    Ok(output) => cmd_result(output),
-                    Err(err) => json_error(500, format!("Komut tamamlanamadı: {err}")),
-                };
-            }
-
             // onay yoksa windowstaki gibi evet/hayir penceresini ac
             if req.linux_confirmed != Some(true) {
                 return json_ok(json!({
@@ -1208,11 +1015,11 @@ fn run_amele_rule_engine(prompt: &str, case_name: &str) -> String {
             Amele adli bilişim incelemelerinde tüm delil zincirinin ve işlemlerin denetlenebilmesi için analist oturumu zorunludur.\n\n\
             **Profil ile Giriş Yapma / Oturum Açma (Login):**\n\
             ```bash\n\
-            amele profile use melih --direct\n\
+            amele profile use <kullanici_adi> --direct\n\
             ```\n\n\
             **Yeni Profil Oluşturma & Anında Giriş:**\n\
             ```bash\n\
-            amele profile create \"Melih Emik\" melih tr dark --direct\n\
+            amele profile create \"<Ad Soyad>\" <kullanici_adi> tr dark --direct\n\
             ```\n\n\
             **Aktif Oturum ve Profilleri Listeleme:**\n\
             ```bash\n\
@@ -1438,6 +1245,19 @@ mod tests {
         let body = serde_json::to_vec(&req).unwrap();
         let resp = launch_terminal_endpoint(&body);
         assert_eq!(resp.status, 400);
+    }
+
+    #[test]
+    fn test_launch_terminal_missing_profile() {
+        let req = serde_json::json!({
+            "prompt": "Test sorgusu"
+        });
+        let body = serde_json::to_vec(&req).unwrap();
+        let resp = launch_terminal_endpoint(&body);
+        assert_eq!(resp.status, 400);
+        let val: serde_json::Value = serde_json::from_slice(&resp.body).unwrap();
+        assert_eq!(val["ok"], false);
+        assert!(val["error"].as_str().unwrap().contains("Aktif analist profili bulunamadı"));
     }
 
     #[test]

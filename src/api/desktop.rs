@@ -238,3 +238,167 @@ fn validate_external_url(value: &str) -> Result<String, String> {
         Err("only http, https and mailto links can be opened".to_string())
     }
 }
+
+/// Sistemde kurulu olan CLI araçlarını tespit eder.
+pub fn check_binary(binary_name: &str) -> Option<String> {
+    let clean = binary_name.trim();
+    if clean.is_empty() {
+        return None;
+    }
+
+    // 1. Doğrudan dosya yolu verilmişse kontrol et
+    let direct_path = std::path::Path::new(clean);
+    if direct_path.is_file() {
+        return Some(clean.to_string());
+    }
+
+    // 2. PATH ortam değişkeni üzerinden tara
+    if let Some(paths) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&paths) {
+            let candidate = dir.join(clean);
+            if candidate.is_file() {
+                return Some(candidate.to_string_lossy().to_string());
+            }
+            #[cfg(windows)]
+            {
+                let candidate_exe = dir.join(format!("{clean}.exe"));
+                if candidate_exe.is_file() {
+                    return Some(candidate_exe.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+
+    // 3. which / where komutu
+    #[cfg(unix)]
+    {
+        if let Ok(output) = Command::new("which").arg(clean).output() {
+            if output.status.success() {
+                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !path.is_empty() && std::path::Path::new(&path).is_file() {
+                    return Some(path);
+                }
+            }
+        }
+    }
+    #[cfg(windows)]
+    {
+        if let Ok(output) = Command::new("where").arg(clean).output() {
+            if output.status.success() {
+                let first_line = String::from_utf8_lossy(&output.stdout)
+                    .lines()
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
+                if !first_line.is_empty() && std::path::Path::new(&first_line).is_file() {
+                    return Some(first_line);
+                }
+            }
+        }
+    }
+
+    // 4. Standart kullanıcı ikili dizinleri fallback
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(std::path::PathBuf::from);
+
+    if let Some(h) = home {
+        let fallbacks = [
+            h.join(".local/bin").join(clean),
+            h.join(".cargo/bin").join(clean),
+            h.join(".local/share/mise/shims").join(clean),
+            std::path::PathBuf::from("/usr/local/bin").join(clean),
+            std::path::PathBuf::from("/usr/bin").join(clean),
+        ];
+        for fb in fallbacks {
+            if fb.is_file() {
+                return Some(fb.to_string_lossy().to_string());
+            }
+        }
+    }
+
+    None
+}
+
+/// Uygun sistem terminal emülatörünü tespit eder.
+pub fn find_terminal_command(script_path: &str) -> Option<(String, Vec<String>)> {
+    #[cfg(unix)]
+    {
+        // 1. $TERMINAL ortam değişkeni
+        if let Ok(term) = std::env::var("TERMINAL") {
+            let term_clean = term.trim().to_string();
+            if !term_clean.is_empty() && check_binary(&term_clean).is_some() {
+                let args = if term_clean.contains("xdg-terminal-exec")
+                    || term_clean.contains("gnome-terminal")
+                    || term_clean.contains("kgx")
+                {
+                    vec![
+                        "--".to_string(),
+                        "bash".to_string(),
+                        script_path.to_string(),
+                    ]
+                } else {
+                    vec![
+                        "-e".to_string(),
+                        "bash".to_string(),
+                        script_path.to_string(),
+                    ]
+                };
+                return Some((term_clean, args));
+            }
+        }
+
+        // 2. xdg-terminal-exec (standart masaüstü terminal başlatıcısı)
+        if check_binary("xdg-terminal-exec").is_some() {
+            return Some((
+                "xdg-terminal-exec".to_string(),
+                vec![
+                    "--".to_string(),
+                    "bash".to_string(),
+                    script_path.to_string(),
+                ],
+            ));
+        }
+
+        // 3. Bilinen popüler Linux terminal emülatörleri
+        let candidates = [
+            ("alacritty", vec!["-e", "bash", script_path]),
+            ("kitty", vec!["-e", "bash", script_path]),
+            ("gnome-terminal", vec!["--", "bash", script_path]),
+            ("konsole", vec!["-e", "bash", script_path]),
+            ("kgx", vec!["--", "bash", script_path]),
+            ("x-terminal-emulator", vec!["-e", "bash", script_path]),
+            ("xterm", vec!["-e", "bash", script_path]),
+        ];
+
+        for (bin, args) in candidates {
+            if check_binary(bin).is_some() {
+                return Some((
+                    bin.to_string(),
+                    args.into_iter().map(String::from).collect(),
+                ));
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        if check_binary("wt.exe").is_some() || check_binary("wt").is_some() {
+            return Some((
+                "wt.exe".to_string(),
+                vec![
+                    "cmd.exe".to_string(),
+                    "/k".to_string(),
+                    script_path.to_string(),
+                ],
+            ));
+        }
+        return Some((
+            "cmd.exe".to_string(),
+            vec!["/k".to_string(), script_path.to_string()],
+        ));
+    }
+
+    None
+}
