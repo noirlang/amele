@@ -40,6 +40,13 @@ pub fn current_image_mount() -> &'static Mutex<Option<ImageMountState>> {
     CURRENT_IMAGE_MOUNT.get_or_init(|| Mutex::new(None))
 }
 
+/// Aktif imaj mount mutex kilidini zehirlenmeye karşı korumalı olarak alır.
+pub fn lock_current_image_mount() -> std::sync::MutexGuard<'static, Option<ImageMountState>> {
+    current_image_mount()
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+}
+
 /// WireGuard yöneticisini saklayan global mutex'i döndürür.
 pub fn wireguard_manager() -> &'static Mutex<crate::wireguard::WireGuardManager> {
     static WIREGUARD_MANAGER: OnceLock<Mutex<crate::wireguard::WireGuardManager>> = OnceLock::new();
