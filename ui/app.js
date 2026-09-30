@@ -5480,7 +5480,7 @@ async function bootApp() {
 
   // Developer mode — 5 kez logoya tıklayınca aktifleşir
   initDeveloperMode({ apiRequest, backendReady });
-  if (backendAvailable) initJobWidget();
+  if (backendAvailable) initJobWidget({ onNavigate: (route) => setRoute(route) });
   devLog("INFO", "ui:startup", `Amele ${APP_VERSION} başlatıldı — platform: ${state.platform}, dil: ${state.language}, tema: ${state.theme}, backend: ${backendAvailable}`, apiRequest, backendReady);
 }
 

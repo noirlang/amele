@@ -4,32 +4,66 @@ import test from "node:test";
 import assert from "node:assert";
 
 // Mock Browser environment for import testing
-const mockElement = {
-  classList: {
-    add: () => {},
-    toggle: () => {},
-    remove: () => {}
-  },
-  querySelectorAll: () => [],
-  querySelector: () => mockElement,
-  addEventListener: () => {},
-  focus: () => {},
-  dataset: {},
-  set innerHTML(val) {},
-  get innerHTML() { return ""; }
+const createMockElement = () => {
+  const el = {
+    classList: {
+      add: () => {},
+      toggle: () => {},
+      remove: () => {}
+    },
+    querySelectorAll: () => [],
+    querySelector: () => el,
+    addEventListener: () => {},
+    focus: () => {},
+    dataset: {},
+    appendChild: (child) => child,
+    removeChild: (child) => child,
+    setAttribute: () => {},
+    getAttribute: () => null,
+    style: {},
+    set innerHTML(val) {},
+    get innerHTML() { return ""; }
+  };
+  return el;
 };
+
+const mockElement = createMockElement();
 
 let clickListener = null;
 
+const origSetTimeout = globalThis.setTimeout;
+const unrefSetTimeout = (...args) => {
+  const tid = origSetTimeout(...args);
+  if (typeof tid?.unref === "function") tid.unref();
+  return tid;
+};
+globalThis.setTimeout = unrefSetTimeout;
+
 globalThis.window = {
   location: {
+    origin: "http://127.0.0.1:8080",
+    protocol: "http:",
+    host: "127.0.0.1:8080",
     search: "?native=0&route=home"
   },
   addEventListener: () => {},
   clearTimeout: (...args) => globalThis.clearTimeout(...args),
-  setTimeout: (...args) => globalThis.setTimeout(...args)
+  setTimeout: unrefSetTimeout
 };
 globalThis.location = globalThis.window.location;
+globalThis.fetch = async (url) => {
+  const dummy = { ok: true, agents: [], jobs: {} };
+  return {
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify(dummy),
+    json: async () => dummy,
+    clone: () => ({
+      text: async () => JSON.stringify(dummy)
+    })
+  };
+};
+globalThis.window.fetch = globalThis.fetch;
 if (typeof globalThis.navigator === "undefined") {
   globalThis.navigator = { userAgent: "Mozilla/5.0 (X11; Linux x86_64)", platform: "Linux x86_64" };
 } else {
@@ -48,6 +82,10 @@ globalThis.document = {
     lang: "tr",
     set lang(v) {}
   },
+  body: {
+    appendChild: () => {}
+  },
+  createElement: () => mockElement,
   querySelector: () => mockElement,
   querySelectorAll: () => [],
   getElementById: () => mockElement,
