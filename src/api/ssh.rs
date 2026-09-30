@@ -1,4 +1,4 @@
-//! uzak ssh adli kopyalama api rotaları.
+//! Uzak SSH adli edinim ve analiz API uç noktaları.
 
 use std::path::PathBuf;
 use std::thread;
@@ -17,7 +17,7 @@ use super::{
     update_acquisition_message, update_acquisition_progress,
 };
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 pub struct SshConnectRequest {
     pub ip: String,
     pub port: Option<u16>,
@@ -26,7 +26,7 @@ pub struct SshConnectRequest {
     pub key_path: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 pub struct SshImageRequest {
     pub ip: String,
     pub port: Option<u16>,
@@ -39,7 +39,7 @@ pub struct SshImageRequest {
     pub output_format: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 pub struct SshRamRequest {
     pub ip: String,
     pub port: Option<u16>,
@@ -103,6 +103,10 @@ pub fn ssh_disks_endpoint(body: &[u8]) -> Response {
         Err(err) => return json_error(400, err.to_string()),
     };
 
+    if req.ip.trim().is_empty() || req.user.trim().is_empty() {
+        return json_error(400, "ip ve user alanları zorunludur");
+    }
+
     let params = to_params(req.ip, req.port, req.user, req.password, req.key_path);
     match SshConnection::connect(&params) {
         Ok(mut conn) => match conn.list_disks() {
@@ -122,6 +126,10 @@ pub fn ssh_tool_check_endpoint(body: &[u8]) -> Response {
         Ok(req) => req,
         Err(err) => return json_error(400, err.to_string()),
     };
+
+    if req.ip.trim().is_empty() || req.user.trim().is_empty() {
+        return json_error(400, "ip ve user alanları zorunludur");
+    }
 
     let params = to_params(req.ip, req.port, req.user, req.password, req.key_path);
     match SshConnection::connect(&params) {
@@ -147,18 +155,22 @@ pub fn ssh_image_endpoint(body: &[u8]) -> Response {
         return json_error(400, "ip, user ve disk_path alanları zorunludur");
     }
 
+    let format = match AcquisitionOutputFormat::parse(req.output_format.as_deref()) {
+        Ok(f) => f,
+        Err(err) => return json_error(400, format!("Geçersiz çıktı formatı: {err}")),
+    };
+
+    let _ = crate::profile::record_active_profile_activity(
+        "ssh",
+        "disk_image",
+        req.case_name.as_deref(),
+        Some(&format!("ip={} disk={}", req.ip, req.disk_path)),
+    );
+
     let (job_id, _control) = create_acquisition_job("SSH üzerinden disk imajı başlatıldı");
     let thread_job_id = job_id.clone();
 
     thread::spawn(move || {
-        let format = match AcquisitionOutputFormat::parse(req.output_format.as_deref()) {
-            Ok(f) => f,
-            Err(err) => {
-                fail_acquisition_job_with_message(&thread_job_id, err, "Geçersiz çıktı formatı");
-                return;
-            }
-        };
-
         let params = to_params(req.ip, req.port, req.user, req.password, req.key_path);
         let mut conn = match SshConnection::connect(&params) {
             Ok(c) => c,
@@ -232,18 +244,22 @@ pub fn ssh_ram_endpoint(body: &[u8]) -> Response {
         return json_error(400, "ip ve user alanları zorunludur");
     }
 
+    let format = match AcquisitionOutputFormat::parse(req.output_format.as_deref()) {
+        Ok(f) => f,
+        Err(err) => return json_error(400, format!("Geçersiz çıktı formatı: {err}")),
+    };
+
+    let _ = crate::profile::record_active_profile_activity(
+        "ssh",
+        "ram_image",
+        req.case_name.as_deref(),
+        Some(&format!("ip={}", req.ip)),
+    );
+
     let (job_id, _control) = create_acquisition_job("SSH üzerinden RAM dökümü başlatıldı");
     let thread_job_id = job_id.clone();
 
     thread::spawn(move || {
-        let format = match AcquisitionOutputFormat::parse(req.output_format.as_deref()) {
-            Ok(f) => f,
-            Err(err) => {
-                fail_acquisition_job_with_message(&thread_job_id, err, "Geçersiz çıktı formatı");
-                return;
-            }
-        };
-
         let params = to_params(req.ip, req.port, req.user, req.password, req.key_path);
         let mut conn = match SshConnection::connect(&params) {
             Ok(c) => c,
@@ -323,9 +339,93 @@ fn resolve_output_dir(
         if path.is_dir() {
             return path;
         }
+        if path.extension().is_none() {
+            let _ = std::fs::create_dir_all(&path);
+            if path.is_dir() {
+                return path;
+            }
+        }
         if let Some(parent) = path.parent() {
-            return parent.to_path_buf();
+            if !parent.as_os_str().is_empty() {
+                return parent.to_path_buf();
+            }
         }
     }
     std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_to_params() {
+        let params = to_params("192.168.1.100".to_string(), None, "root".to_string(), Some("secret".to_string()), None);
+        assert_eq!(params.ip, "192.168.1.100");
+        assert_eq!(params.port, 22);
+        assert_eq!(params.user, "root");
+        assert_eq!(params.password.as_deref(), Some("secret"));
+        assert!(params.key_path.is_none());
+
+        let params2 = to_params("10.0.0.1".to_string(), Some(2222), "admin".to_string(), None, Some("/id_rsa".to_string()));
+        assert_eq!(params2.port, 2222);
+        assert_eq!(params2.key_path.as_deref(), Some("/id_rsa"));
+    }
+
+    #[test]
+    fn test_ssh_connect_endpoint_validation() {
+        assert_eq!(ssh_connect_endpoint(b"").status, 400);
+        assert_eq!(ssh_connect_endpoint(b"invalid json").status, 400);
+        assert_eq!(ssh_connect_endpoint(br#"{"ip":"","user":"root"}"#).status, 400);
+        assert_eq!(ssh_connect_endpoint(br#"{"ip":"127.0.0.1","user":"   "}"#).status, 400);
+    }
+
+    #[test]
+    fn test_ssh_disks_endpoint_validation() {
+        assert_eq!(ssh_disks_endpoint(b"").status, 400);
+        assert_eq!(ssh_disks_endpoint(b"not json").status, 400);
+        assert_eq!(ssh_disks_endpoint(br#"{"ip":"","user":"root"}"#).status, 400);
+        assert_eq!(ssh_disks_endpoint(br#"{"ip":"127.0.0.1","user":""}"#).status, 400);
+    }
+
+    #[test]
+    fn test_ssh_tool_check_endpoint_validation() {
+        assert_eq!(ssh_tool_check_endpoint(b"").status, 400);
+        assert_eq!(ssh_tool_check_endpoint(b"not json").status, 400);
+        assert_eq!(ssh_tool_check_endpoint(br#"{"ip":"","user":"root"}"#).status, 400);
+        assert_eq!(ssh_tool_check_endpoint(br#"{"ip":"127.0.0.1","user":""}"#).status, 400);
+    }
+
+    #[test]
+    fn test_ssh_image_endpoint_validation() {
+        assert_eq!(ssh_image_endpoint(b"").status, 400);
+        assert_eq!(ssh_image_endpoint(b"not json").status, 400);
+        assert_eq!(ssh_image_endpoint(br#"{"ip":"","user":"root","disk_path":"/dev/sda"}"#).status, 400);
+        assert_eq!(ssh_image_endpoint(br#"{"ip":"10.0.0.1","user":"","disk_path":"/dev/sda"}"#).status, 400);
+        assert_eq!(ssh_image_endpoint(br#"{"ip":"10.0.0.1","user":"root","disk_path":""}"#).status, 400);
+        let resp = ssh_image_endpoint(br#"{"ip":"10.0.0.1","user":"root","disk_path":"/dev/sda","output_format":"invalid_xyz"}"#);
+        assert_eq!(resp.status, 400);
+    }
+
+    #[test]
+    fn test_ssh_ram_endpoint_validation() {
+        assert_eq!(ssh_ram_endpoint(b"").status, 400);
+        assert_eq!(ssh_ram_endpoint(b"not json").status, 400);
+        assert_eq!(ssh_ram_endpoint(br#"{"ip":"","user":"root"}"#).status, 400);
+        assert_eq!(ssh_ram_endpoint(br#"{"ip":"10.0.0.1","user":""}"#).status, 400);
+        let resp = ssh_ram_endpoint(br#"{"ip":"10.0.0.1","user":"root","output_format":"invalid_xyz"}"#);
+        assert_eq!(resp.status, 400);
+    }
+
+    #[test]
+    fn test_resolve_output_dir() {
+        let temp = std::env::temp_dir();
+        let target_dir = temp.join("amele_ssh_test_dir");
+        let dir = resolve_output_dir(Some(target_dir.to_str().unwrap()), None, "ciktilar");
+        assert_eq!(dir, target_dir);
+        let _ = std::fs::remove_dir_all(&target_dir);
+
+        let fallback = resolve_output_dir(None, None, "ciktilar");
+        assert!(fallback.is_dir() || fallback.as_os_str() == ".");
+    }
 }
