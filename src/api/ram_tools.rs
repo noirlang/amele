@@ -1,4 +1,4 @@
-//! lime ve winpmem sürücü kurulum api rotası.
+//! AVML ve WinPMEM bellek edinim araçlarının indirme ve yetkili kurulum işlemlerini yöneten yardımcı modül.
 
 use serde_json::{Value, json};
 use std::fs;
@@ -14,7 +14,8 @@ use super::{
 #[cfg(windows)]
 const WINPMEM_DOWNLOAD_URL: &str = "https://download.amele.noirlang.tr/winpmem.exe";
 #[cfg(windows)]
-const WINPMEM_FALLBACK_URL: &str = "https://download.amele.noirlang.tr/winpmem.exe";
+const WINPMEM_FALLBACK_URL: &str =
+    "https://github.com/Velocidex/WinPmem/releases/download/v4.0.rc1/winpmem_mini_x64_rc2.exe";
 
 #[cfg(windows)]
 use super::{
@@ -31,6 +32,13 @@ pub fn avml_install_endpoint() -> Response {
 
     #[cfg(target_os = "linux")]
     {
+        let _ = crate::profile::record_active_profile_activity(
+            "ram_tools",
+            "avml_install",
+            None,
+            Some("avml"),
+        );
+
         let Some(asset_name) = avml_release_asset_name() else {
             return json_error(
                 400,
@@ -135,6 +143,13 @@ pub fn winpmem_install_endpoint() -> Response {
 
     #[cfg(windows)]
     {
+        let _ = crate::profile::record_active_profile_activity(
+            "ram_tools",
+            "winpmem_install",
+            None,
+            Some("winpmem"),
+        );
+
         if std::env::consts::ARCH != "x86_64" {
             return json_error(
                 400,
@@ -292,5 +307,34 @@ fn avml_release_asset_name() -> Option<&'static str> {
         "x86_64" => Some("avml"),
         "aarch64" => Some("avml-aarch64"),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_avml_release_asset_name() {
+        #[cfg(target_arch = "x86_64")]
+        assert_eq!(avml_release_asset_name(), Some("avml"));
+
+        #[cfg(target_arch = "aarch64")]
+        assert_eq!(avml_release_asset_name(), Some("avml-aarch64"));
+    }
+
+    #[test]
+    fn test_platform_install_endpoints() {
+        #[cfg(not(target_os = "linux"))]
+        {
+            let resp = avml_install_endpoint();
+            assert_eq!(resp.status, 400);
+        }
+
+        #[cfg(not(windows))]
+        {
+            let resp = winpmem_install_endpoint();
+            assert_eq!(resp.status, 400);
+        }
     }
 }
