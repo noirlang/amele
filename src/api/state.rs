@@ -1,18 +1,18 @@
-//! aktif görevler ve paylaşılan durum nesneleri.
+//! Aktif görevler, paylaşılan durum nesneleri ve kasa (vault) durum yöneticisi.
 
 use crate::server::{Response, json_error};
 use chrono::Local;
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 /// Aktif vaka adını ve taban klasörünü global API durumunda tutar.
 pub struct EvidenceCaseState {
     pub base_dir: PathBuf,
     pub case_name: String,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 /// Aktif bağlı imajın dosya, mount klasörü ve varsa loop cihaz bilgisidir.
 pub struct ImageMountState {
     pub image_path: PathBuf,
@@ -25,6 +25,13 @@ pub struct ImageMountState {
 pub fn current_evidence_case() -> &'static Mutex<Option<EvidenceCaseState>> {
     static CURRENT_EVIDENCE_CASE: OnceLock<Mutex<Option<EvidenceCaseState>>> = OnceLock::new();
     CURRENT_EVIDENCE_CASE.get_or_init(|| Mutex::new(None))
+}
+
+/// Aktif vaka mutex kilidini zehirlenmeye karşı korumalı olarak alır.
+pub fn lock_current_evidence_case() -> std::sync::MutexGuard<'static, Option<EvidenceCaseState>> {
+    current_evidence_case()
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
 }
 
 /// Aktif imaj mount durumunu saklayan global mutex'i döndürür.
@@ -44,8 +51,8 @@ pub fn default_case_base_dir() -> PathBuf {
     #[cfg(test)]
     if let Some(path) = test_case_base_dir()
         .lock()
-        .ok()
-        .and_then(|current| current.clone())
+        .unwrap_or_else(|p| p.into_inner())
+        .clone()
     {
         return path;
     }
@@ -102,12 +109,11 @@ pub fn home_dir() -> Option<PathBuf> {
 
 /// Aktif vaka durumunu global state içine yazar.
 pub fn set_current_evidence_case(base_dir: PathBuf, case_name: String) {
-    if let Ok(mut current) = current_evidence_case().lock() {
-        *current = Some(EvidenceCaseState {
-            base_dir,
-            case_name,
-        });
-    }
+    let mut current = lock_current_evidence_case();
+    *current = Some(EvidenceCaseState {
+        base_dir,
+        case_name,
+    });
 }
 
 /// Çıktı üretirken açık vaka yoksa yeni vaka oluşturarak kasa döndürür.
@@ -122,11 +128,7 @@ pub fn evidence_vault_for_output(
 
     let (base_dir, case_name) = if let Some(case_name) = explicit_case {
         (default_case_base_dir(), case_name)
-    } else if let Some(state) = current_evidence_case()
-        .lock()
-        .ok()
-        .and_then(|current| current.clone())
-    {
+    } else if let Some(state) = lock_current_evidence_case().clone() {
         (state.base_dir, state.case_name)
     } else {
         (default_case_base_dir(), default_case_name())
@@ -140,10 +142,8 @@ pub fn evidence_vault_for_output(
 
 /// Mutlaka mevcut aktif vaka isteyen endpointler için kasa döndürür.
 pub fn current_evidence_vault() -> Result<crate::evidence::EvidenceVault, Response> {
-    let state = current_evidence_case()
-        .lock()
-        .ok()
-        .and_then(|current| current.clone())
+    let state = lock_current_evidence_case()
+        .clone()
         .ok_or_else(|| json_error(400, "case is not created"))?;
     crate::evidence::EvidenceVault::create(&state.base_dir, &state.case_name)
         .map_err(|err| json_error(500, err.to_string()))
@@ -153,44 +153,23 @@ pub fn current_evidence_vault() -> Result<crate::evidence::EvidenceVault, Respon
 pub fn report_evidence_vault(
     case_name: Option<&str>,
 ) -> Result<crate::evidence::EvidenceVault, Response> {
-    let explicit_case = case_name
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(sanitize_case_name)
-        .filter(|value| !value.is_empty());
-
-    let (base_dir, case_name) = if let Some(case_name) = explicit_case {
-        (default_case_base_dir(), case_name)
-    } else if let Some(state) = current_evidence_case()
-        .lock()
-        .ok()
-        .and_then(|current| current.clone())
-    {
-        (state.base_dir, state.case_name)
-    } else {
-        (default_case_base_dir(), default_case_name())
-    };
-
-    let vault = crate::evidence::EvidenceVault::create(&base_dir, &case_name)
-        .map_err(|err| json_error(500, err.to_string()))?;
-    set_current_evidence_case(base_dir, case_name);
-    Ok(vault)
+    evidence_vault_for_output(case_name).map_err(|err| json_error(500, err))
 }
 
 /// Sunucu port numarasını saklar (developer konsol penceresi için).
 pub fn current_server_port() -> u16 {
     server_port_static()
         .lock()
-        .ok()
-        .and_then(|guard| *guard)
+        .unwrap_or_else(|p| p.into_inner())
         .unwrap_or(0)
 }
 
 /// Sunucu port numarasını ayarlar (server.rs başlangıçta çağırır).
 pub fn set_server_port(port: u16) {
-    if let Ok(mut p) = server_port_static().lock() {
-        *p = Some(port);
-    }
+    let mut p = server_port_static()
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    *p = Some(port);
 }
 
 /// Port static'ini tek bir yerde tanımlar.
@@ -210,6 +189,7 @@ pub fn evidence_subdir(value: &str) -> &'static str {
         "ram" => "ram",
         "android" => "android",
         "ios" => "ios",
+        "docker" => "docker",
         _ => "ciktilar",
     }
 }
@@ -219,4 +199,86 @@ pub fn evidence_subdir(value: &str) -> &'static str {
 pub fn test_case_base_dir() -> &'static Mutex<Option<PathBuf>> {
     static TEST_CASE_BASE_DIR: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
     TEST_CASE_BASE_DIR.get_or_init(|| Mutex::new(None))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sanitize_case_name() {
+        assert_eq!(sanitize_case_name("Case_2026"), "Case_2026");
+        assert_eq!(sanitize_case_name("../../../etc/passwd"), "etc_passwd");
+        assert_eq!(sanitize_case_name(".."), "");
+        assert_eq!(sanitize_case_name("."), "");
+        assert_eq!(sanitize_case_name("---___..."), "");
+        assert_eq!(sanitize_case_name("Vaka 123 (Şüpheli)"), "Vaka_123____pheli");
+    }
+
+    #[test]
+    fn test_sanitize_file_stem() {
+        assert_eq!(sanitize_file_stem("hello_world-123.txt"), "hello_world-123.txt");
+        assert_eq!(sanitize_file_stem("___test___"), "test");
+        assert_eq!(sanitize_file_stem("bad*chars?here"), "bad_chars_here");
+    }
+
+    #[test]
+    fn test_evidence_subdir() {
+        assert_eq!(evidence_subdir("gunlukler"), "gunlukler");
+        assert_eq!(evidence_subdir("logs"), "gunlukler");
+        assert_eq!(evidence_subdir("raporlar"), "raporlar");
+        assert_eq!(evidence_subdir("reports"), "raporlar");
+        assert_eq!(evidence_subdir("hash"), "hash");
+        assert_eq!(evidence_subdir("notlar"), "notlar");
+        assert_eq!(evidence_subdir("notes"), "notlar");
+        assert_eq!(evidence_subdir("ciktilar"), "ciktilar");
+        assert_eq!(evidence_subdir("disk_imajlari"), "ciktilar");
+        assert_eq!(evidence_subdir("outputs"), "ciktilar");
+        assert_eq!(evidence_subdir("images"), "ciktilar");
+        assert_eq!(evidence_subdir("ram"), "ram");
+        assert_eq!(evidence_subdir("android"), "android");
+        assert_eq!(evidence_subdir("ios"), "ios");
+        assert_eq!(evidence_subdir("docker"), "docker");
+        assert_eq!(evidence_subdir("unknown_xyz"), "ciktilar");
+    }
+
+    #[test]
+    fn test_set_and_get_current_evidence_case() {
+        let base = PathBuf::from("/tmp/test_amele_cases");
+        let name = "Test_Case_001".to_string();
+        set_current_evidence_case(base.clone(), name.clone());
+
+        let state = lock_current_evidence_case().clone().expect("case should be set");
+        assert_eq!(state.base_dir, base);
+        assert_eq!(state.case_name, name);
+    }
+
+    #[test]
+    fn test_server_port_state() {
+        set_server_port(8088);
+        assert_eq!(current_server_port(), 8088);
+    }
+
+    #[test]
+    fn test_default_case_name_format() {
+        let name = default_case_name();
+        assert!(name.starts_with("Case_"));
+        assert!(name.len() > 10);
+    }
+
+    #[test]
+    fn test_report_evidence_vault_delegation() {
+        let temp_dir = std::env::temp_dir().join("amele_state_test_vault");
+        let _ = std::fs::create_dir_all(&temp_dir);
+
+        *test_case_base_dir().lock().unwrap_or_else(|p| p.into_inner()) = Some(temp_dir.clone());
+
+        let result = report_evidence_vault(Some("Direct_Case_Test"));
+        assert!(result.is_ok());
+        let vault = result.unwrap();
+        assert_eq!(vault.case_name, "Direct_Case_Test");
+
+        *test_case_base_dir().lock().unwrap_or_else(|p| p.into_inner()) = None;
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
 }
