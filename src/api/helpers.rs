@@ -1,4 +1,4 @@
-//! json yanıt üretme ve istek gövdesini okuma yardımcıları.
+//! yetki yükseltme (elevation), sudo askpass, helper süreç yönetimi ve ipc yardımcıları.
 
 use chrono::Local;
 use serde_json::{Value, json};
@@ -424,6 +424,7 @@ fn linux_gui_askpass_available() -> bool {
         || [
             "zenity",
             "kdialog",
+            "yad",
             "ssh-askpass",
             "x11-ssh-askpass",
             "lxqt-openssh-askpass",
@@ -451,6 +452,9 @@ if command -v zenity >/dev/null 2>&1; then
 fi
 if command -v kdialog >/dev/null 2>&1; then
   exec kdialog --password "$prompt"
+fi
+if command -v yad >/dev/null 2>&1; then
+  exec yad --entry --hide-text --title="Amele Forensic Tool" --text="$prompt"
 fi
 if command -v ssh-askpass >/dev/null 2>&1; then
   exec ssh-askpass "$prompt"
@@ -629,7 +633,7 @@ pub fn describe_elevation_failure(method: &str, code: Option<i32>, stderr: &str)
         message.push_str(&format!("\nAyrıntı: {raw}"));
     }
     message.push_str(
-        "\nÇözüm: Linux'ta sudo/pkexec parola penceresini onaylayın; pencere açılmıyorsa polkit agent veya zenity/kdialog/ssh-askpass kurun. Windows'ta UAC penceresini onaylayın veya Amele'u yönetici olarak başlatın.",
+        "\nÇözüm: Linux'ta sudo/pkexec parola penceresini onaylayın; pencere açılmıyorsa polkit agent veya zenity/kdialog/yad/ssh-askpass kurun. Windows'ta UAC penceresini onaylayın veya Amele'yi yönetici olarak başlatın.",
     );
     message
 }
@@ -709,7 +713,9 @@ pub fn download_file_to_path(url: &str, target: &Path, fallback: &str) -> Result
     match output {
         Ok(output) if output.status.success() => Ok(()),
         Ok(output) => Err(command_error_message(&output, fallback)),
-        Err(err) => Err(err.to_string()),
+        Err(err) => Err(format!(
+            "curl ile dosya indirilemedi (curl sistemde kurulu mu?): {err}"
+        )),
     }
 }
 
@@ -845,17 +851,8 @@ pub fn elevated_disk_list() -> Result<Vec<crate::disk::DiskInfo>, String> {
     .map_err(|err| err.to_string())
 }
 
-#[cfg(target_os = "linux")]
-/// Linux disk listeleme helper komutunu çalıştırır.
-fn run_elevated_disk_list_helper(output_path: &Path) -> Result<(), String> {
-    run_elevated_helper_wait(&[
-        "disk-list-helper".to_string(),
-        output_path.to_string_lossy().into_owned(),
-    ])
-}
-
-#[cfg(windows)]
-/// Windows disk listeleme helper komutunu çalıştırır.
+#[cfg(any(target_os = "linux", windows))]
+/// Yetkili disk listeleme helper komutunu çalıştırır.
 fn run_elevated_disk_list_helper(output_path: &Path) -> Result<(), String> {
     run_elevated_helper_wait(&[
         "disk-list-helper".to_string(),
@@ -891,5 +888,79 @@ mod tests {
         assert_eq!(super::super::format_job_bytes(16_106_127_360), "15,0 GB");
         assert_eq!(super::super::format_job_eta(45), "45 sn");
         assert_eq!(super::super::format_job_eta(150), "2 dk 30 sn");
+    }
+
+    #[test]
+    fn test_command_error_message() {
+        #[cfg(unix)]
+        {
+            let out_empty = std::process::Command::new("true").output().unwrap();
+            assert_eq!(command_error_message(&out_empty, "varsayilan hata"), "varsayilan hata");
+
+            let out_stderr = std::process::Command::new("sh")
+                .args(["-c", "echo 'ozel hata' >&2"])
+                .output()
+                .unwrap();
+            assert_eq!(command_error_message(&out_stderr, "fallback"), "ozel hata");
+        }
+    }
+
+    #[test]
+    fn test_helper_file_stem() {
+        let stem1 = helper_file_stem("ram");
+        let stem2 = helper_file_stem("disk");
+        assert!(stem1.starts_with("ram-"));
+        assert!(stem2.starts_with("disk-"));
+        assert_ne!(stem1, stem2);
+    }
+
+    #[test]
+    fn test_describe_elevation_failure() {
+        let sudo_err = describe_elevation_failure("sudo-askpass", Some(1), "incorrect password");
+        assert!(sudo_err.contains("sudo parolası hatalı"));
+        assert!(sudo_err.contains("Amele'yi"));
+
+        let pkexec_err = describe_elevation_failure("pkexec", Some(126), "dismissed");
+        assert!(pkexec_err.contains("iptal edildi"));
+
+        let win_err = describe_elevation_failure("windows-uac", Some(1), "");
+        assert!(win_err.contains("Windows UAC"));
+    }
+
+    #[test]
+    fn test_helper_json_and_progress_lifecycle() {
+        let tmp = tempfile::tempdir().unwrap();
+        let json_file = tmp.path().join("helper_test.json");
+        let control_file = tmp.path().join("control_test.json");
+
+        let data = json!({
+            "done": 1024,
+            "total": 4096,
+            "message": "Bloklar kopyalaniyor",
+            "phase": "read",
+            "error": "kritik io hatasi"
+        });
+        assert!(write_json_file(&json_file, &data).is_ok());
+
+        let read_val = read_helper_json(&json_file).unwrap();
+        assert_eq!(read_val["done"], 1024);
+
+        assert_eq!(read_helper_error(&json_file), Some("kritik io hatasi".to_string()));
+
+        let (done, total, msg, phase) = read_helper_progress(&json_file).unwrap();
+        assert_eq!(done, 1024);
+        assert_eq!(total, 4096);
+        assert_eq!(msg, "Bloklar kopyalaniyor");
+        assert_eq!(phase, Some("read".to_string()));
+
+        assert!(write_helper_control_state(&control_file, "pause").is_ok());
+        let ctrl_val = read_helper_json(&control_file).unwrap();
+        assert_eq!(ctrl_val["state"], "pause");
+
+        assert!(json_file.exists());
+        assert!(control_file.exists());
+        cleanup_helper_files(&[&json_file, &control_file]);
+        assert!(!json_file.exists());
+        assert!(!control_file.exists());
     }
 }
