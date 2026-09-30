@@ -159,4 +159,18 @@ test("Frontend Routing and Module Health", async (t) => {
       }, `Route "${route}" should navigate and render without throwing exceptions`);
     }
   });
+
+  await t.test("developer panel functions can be invoked without crashing", async () => {
+    const { openDevPanel, closeDevPanel, toggleDevPanel, handleDevTrigger, devLog } = await import("../ui/developer.js");
+    assert.strictEqual(typeof openDevPanel, "function", "openDevPanel should be a function");
+    assert.strictEqual(typeof closeDevPanel, "function", "closeDevPanel should be a function");
+    assert.strictEqual(typeof toggleDevPanel, "function", "toggleDevPanel should be a function");
+    assert.strictEqual(typeof handleDevTrigger, "function", "handleDevTrigger should be a function");
+    assert.strictEqual(typeof devLog, "function", "devLog should be a function");
+
+    assert.doesNotThrow(() => {
+      devLog("info", "test-scope", "test message", () => Promise.resolve({}), () => false);
+      handleDevTrigger(() => Promise.resolve({}), () => false);
+    });
+  });
 });

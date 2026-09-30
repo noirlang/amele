@@ -1,16 +1,56 @@
-# Amele UI Prototype
+# Amele Forensic Tool — User Interface (UI)
 
-This is a dependency-free frontend shell. It mirrors the original Qt page coverage while following the modern dark forensic visual direction from the supplied screenshots.
+A dependency-free, high-performance vanilla ES Module frontend designed for native desktop (WebKitGTK on Linux, WebView2 on Windows) and browser-based remote operation.
 
-Run `cargo run -- ui` from the repository root to open it as a native GTK/WebKit application window with the Rust backend. Opening `index.html` directly is only a static preview and will not expose local Rust APIs.
+---
 
-Implemented UX structure:
+## Architecture Overview
 
-- Home dashboard.
-- Windows tool hub with four option cards: remote disk, local disk, remote RAM, local RAM.
-- Linux tool hub with the same four-option structure.
-- Shared acquisition workflow screens with connection, VPN, output, controls, progress, and side status.
-- Agent documentation page.
-- Analysis page.
-- Other page covering hash, evidence, reports, and logs.
-- Settings page with theme and update management; dark mode is not on the home/sidebar.
+The UI layer runs as a client communicating with the embedded Amele Rust backend via local loopback HTTP/REST APIs and Server-Sent Events (SSE).
+
+```
+ui/
+├── app.js               # Application state, route dispatching, modal system & lifecycle
+├── icons.js             # Scalable inline SVG icon repository
+├── i18n.js              # Turkish / English translation dictionary and formatters
+├── developer.js         # Embedded real-time developer console & telemetry inspector
+├── index.html           # Desktop shell container with shortcut blockers & viewport setup
+├── styles.css           # Master stylesheet aggregator
+├── core/                # Reusable runtime engines (API client, agents, profiles, state)
+├── pages/               # Primary application view renderers (Home, Workflow, Hubs, Settings)
+├── tools/               # Forensic platform modules (Android, iOS, Docker)
+└── styles/              # Modular design system stylesheets
+```
+
+---
+
+## Key Modules & Capabilities
+
+- **Dashboard & Hubs**: Real-time acquisition status, recent news/announcements, and platform-specific acquisition hubs for Windows and Linux.
+- **Mobile Forensics**:
+  - **Android**: Logical extraction, physical/filesystem dumps, volatile RAM inspection, application cataloging with risk analysis, and MFT extraction.
+  - **iOS**: Automated iTunes/Finder backup normalization, Manifest.db parsing, and domain tree reconstruction.
+- **Cloud & Container Forensics**:
+  - **Docker**: Overlay2 UpperDir drift analysis, container escape risk grading, environment variable secret detection, and runtime configuration auditing.
+- **Telemetry & Developer Mode**: Pressing `Ctrl+Shift+D` or triple-clicking the version badge opens the embedded developer panel for live log streaming, active background job tracking, and memory monitoring.
+- **Multilingual (i18n)**: Fully synchronized English and Turkish UI strings with automatic placeholder validation.
+- **Visual Design**: High-contrast forensic theme system supporting Dark, Light, and Monochrome tactical modes.
+
+---
+
+## Running and Testing
+
+1. **Native Desktop Window**:
+   ```bash
+   cargo run -- ui
+   ```
+2. **Browser Server Mode**:
+   ```bash
+   cargo run -- server
+   # Access via http://127.0.0.1:8080
+   ```
+3. **Frontend Automated Test Suite**:
+   ```bash
+   node --test tests/i18n.test.js
+   node --test tests/routes.test.js
+   ```

@@ -21,7 +21,7 @@ import { toolsPage } from "./pages/tools.js";
 import { renderRadialNav, renderRadialWheelHtml } from "./core/radialNav.js";
 import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel } from "./pages/other.js";
 import { workflowPage, pickerField, field, pageTitle, casePanel } from "./pages/workflow.js";
-import { initDeveloperMode, devLog } from "./developer.js";
+import { initDeveloperMode, devLog, handleDevTrigger, toggleDevPanel } from "./developer.js";
 import { initJobWidget } from "./core/jobs.js";
 import {
   initAgent,
@@ -1931,6 +1931,11 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     event.stopPropagation();
     return;
+  }
+
+  const devTrigger = event.target.closest("[data-action='dev-trigger'], .brand-badge, .brand-version");
+  if (devTrigger) {
+    handleDevTrigger(apiRequest, backendReady);
   }
 
   // Dairesel Gezinti Menüsü (Radial Wheel Nav) İşlemleri

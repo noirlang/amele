@@ -35,6 +35,15 @@ export function initDeveloperMode({ apiRequest, backendReady }) {
     return;
   }
 
+  window.addEventListener("keydown", (e) => {
+    const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.platform);
+    const modKey = isMac ? e.metaKey : e.ctrlKey;
+    if (modKey && e.shiftKey && (e.key === "D" || e.key === "d")) {
+      e.preventDefault();
+      toggleDevPanel(apiRequest, backendReady);
+    }
+  });
+
   _logBrowserEnv(apiRequest, backendReady);
   _installApiInterceptor(apiRequest, backendReady);
 }
@@ -44,6 +53,63 @@ export function devLog(level, scope, message, apiRequest, backendReady, extra = 
   _appendLog(entry);
   _sendToBackend(level, scope, message, apiRequest, backendReady);
   _refreshIfOpen();
+}
+
+export function openDevPanel(apiRequest, backendReady) {
+  if (devOpen) return;
+  devOpen = true;
+
+  let overlay = document.getElementById("dev-overlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "dev-overlay";
+    overlay.className = "dev-overlay";
+    overlay.innerHTML = _buildPanelHtml();
+    document.body.appendChild(overlay);
+  }
+
+  requestAnimationFrame(() => {
+    overlay.classList.add("open");
+  });
+
+  const panel = document.getElementById("dev-panel");
+  _applyGeometry(panel);
+  _makeDraggable(panel);
+  _bindPanelEvents(overlay, apiRequest, backendReady);
+  _startPolling(apiRequest, backendReady);
+  _refreshPanel();
+}
+
+export function closeDevPanel() {
+  if (!devOpen) return;
+  devOpen = false;
+  _stopPolling();
+  const overlayEl = document.getElementById("dev-overlay");
+  if (overlayEl) {
+    overlayEl.classList.remove("open");
+    overlayEl.addEventListener("transitionend", () => overlayEl.remove(), { once: true });
+  }
+}
+
+export function toggleDevPanel(apiRequest, backendReady) {
+  if (devOpen) {
+    closeDevPanel();
+  } else {
+    openDevPanel(apiRequest, backendReady);
+  }
+}
+
+export function handleDevTrigger(apiRequest, backendReady) {
+  clickCount++;
+  clearTimeout(clickTimer);
+  if (clickCount >= DEV_CLICK_TARGET) {
+    clickCount = 0;
+    openDevPanel(apiRequest, backendReady);
+  } else {
+    clickTimer = setTimeout(() => {
+      clickCount = 0;
+    }, DEV_CLICK_TIMEOUT);
+  }
 }
 
 function _initStandalone(apiRequest, backendReady) {
@@ -233,13 +299,7 @@ function _bindPanelEvents(overlay, apiRequest, backendReady) {
 
   if (!isStandaloneMode) {
     document.getElementById("dev-close-btn")?.addEventListener("click", () => {
-      devOpen = false;
-      _stopPolling();
-      const overlayEl = document.getElementById("dev-overlay");
-      if (overlayEl) {
-        overlayEl.classList.remove("open");
-        overlayEl.addEventListener("transitionend", () => overlayEl.remove(), { once: true });
-      }
+      closeDevPanel();
     });
 
     document.getElementById("dev-maximize-btn")?.addEventListener("click", () => {
@@ -248,13 +308,7 @@ function _bindPanelEvents(overlay, apiRequest, backendReady) {
 
     const keyHandler = (e) => {
       if (e.key === "Escape" && devOpen) {
-        devOpen = false;
-        _stopPolling();
-        const overlayEl = document.getElementById("dev-overlay");
-        if (overlayEl) {
-          overlayEl.classList.remove("open");
-          overlayEl.addEventListener("transitionend", () => overlayEl.remove(), { once: true });
-        }
+        closeDevPanel();
         document.removeEventListener("keydown", keyHandler);
       }
     };
