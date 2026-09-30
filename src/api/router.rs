@@ -1,4 +1,4 @@
-//! frontendden gelen http get ve post isteklerini ilgili fonksiyona yollayan yönlendirici.
+//! Frontend üzerinden gelen HTTP isteklerini (GET/POST) ilgili API modül endpoint fonksiyonlarına yönlendiren yönlendirici.
 
 use crate::server::{Response, json_error, json_ok};
 
@@ -9,7 +9,12 @@ use super::{
 
 /// API HTTP metod/path çiftini ilgili endpoint fonksiyonuna yönlendirir ve detaylıca loglar.
 pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
-    if path != "/api/acquisition-status" && path != "/api/developer-logs" {
+    let (base_path, query) = match path.split_once('?') {
+        Some((b, q)) => (b, Some(q)),
+        None => (path, None),
+    };
+
+    if base_path != "/api/acquisition-status" && base_path != "/api/developer-logs" {
         let body_str = if body.is_empty() {
             "(boş)".to_string()
         } else if body.len() > 250 {
@@ -32,18 +37,13 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
         );
     }
 
-    let (base_path, _query) = match path.split_once('?') {
-        Some((b, q)) => (b, Some(q)),
-        None => (path, None),
-    };
-
     let response = match (method, base_path) {
         ("GET", "/api/health") => json_ok(serde_json::json!({
             "ok": true,
             "version": env!("CARGO_PKG_VERSION"),
         })),
         ("GET", "/api/developer-logs") => {
-            let since = _query.and_then(|q| {
+            let since = query.and_then(|q| {
                 q.split('&')
                     .find_map(|pair| pair.strip_prefix("since="))
                     .and_then(|val| val.parse::<u64>().ok())
@@ -606,24 +606,12 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
         }
         ("GET", "/api/docker-status") => docker::docker_status_endpoint(None),
         ("POST", "/api/docker-status") => {
-            let custom_root = serde_json::from_slice::<serde_json::Value>(body)
-                .ok()
-                .and_then(|v| {
-                    v.get("custom_docker_root")
-                        .and_then(|s| s.as_str())
-                        .map(str::to_string)
-                });
+            let custom_root = parse_custom_docker_root(body);
             docker::docker_status_endpoint(custom_root.as_deref())
         }
         ("GET", "/api/docker-containers") => docker::docker_containers_endpoint(None),
         ("POST", "/api/docker-containers") => {
-            let custom_root = serde_json::from_slice::<serde_json::Value>(body)
-                .ok()
-                .and_then(|v| {
-                    v.get("custom_docker_root")
-                        .and_then(|s| s.as_str())
-                        .map(str::to_string)
-                });
+            let custom_root = parse_custom_docker_root(body);
             docker::docker_containers_endpoint(custom_root.as_deref())
         }
         ("POST", "/api/docker-logs") => docker::docker_logs_endpoint(body),
@@ -662,3 +650,77 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
 
     response
 }
+
+/// Docker istek gövdesinden isteğe bağlı özel Docker kök dizinini ayrıştırır.
+fn parse_custom_docker_root(body: &[u8]) -> Option<String> {
+    serde_json::from_slice::<serde_json::Value>(body)
+        .ok()
+        .and_then(|v| {
+            v.get("custom_docker_root")
+                .and_then(|s| s.as_str())
+                .map(str::to_string)
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_route_health() {
+        let resp = route_api("GET", "/api/health", &[]);
+        assert_eq!(resp.status, 200);
+        let val: serde_json::Value = serde_json::from_slice(&resp.body).expect("valid json");
+        assert_eq!(val["ok"], true);
+        assert_eq!(val["version"], env!("CARGO_PKG_VERSION"));
+    }
+
+    #[test]
+    fn test_route_settings_default() {
+        let resp = route_api("GET", "/api/settings-default", &[]);
+        assert_eq!(resp.status, 200);
+        let val: serde_json::Value = serde_json::from_slice(&resp.body).expect("valid json");
+        assert!(val.is_object());
+    }
+
+    #[test]
+    fn test_route_not_found() {
+        let resp = route_api("GET", "/api/unknown-endpoint-xyz", &[]);
+        assert_eq!(resp.status, 404);
+        let val: serde_json::Value = serde_json::from_slice(&resp.body).expect("valid json");
+        assert_eq!(val["error"], "api endpoint not found");
+
+        let resp_post = route_api("POST", "/api/unknown-endpoint-xyz", b"{}");
+        assert_eq!(resp_post.status, 404);
+    }
+
+    #[test]
+    fn test_route_query_handling() {
+        let resp = route_api("GET", "/api/health?foo=bar&test=1", &[]);
+        assert_eq!(resp.status, 200);
+        let val: serde_json::Value = serde_json::from_slice(&resp.body).expect("valid json");
+        assert_eq!(val["ok"], true);
+    }
+
+    #[test]
+    fn test_developer_logs_query_parsing() {
+        let resp = route_api("GET", "/api/developer-logs?since=0", &[]);
+        assert_eq!(resp.status, 200);
+    }
+
+    #[test]
+    fn test_parse_custom_docker_root() {
+        assert_eq!(parse_custom_docker_root(b""), None);
+        assert_eq!(parse_custom_docker_root(b"not json"), None);
+        assert_eq!(parse_custom_docker_root(b"{}"), None);
+        assert_eq!(
+            parse_custom_docker_root(br#"{"custom_docker_root": "/var/lib/custom-docker"}"#),
+            Some("/var/lib/custom-docker".to_string())
+        );
+        assert_eq!(
+            parse_custom_docker_root(br#"{"custom_docker_root": 12345}"#),
+            None
+        );
+    }
+}
+
