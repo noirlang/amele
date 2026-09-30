@@ -9,6 +9,7 @@ Amele's Android module is built on a modular architecture. Each collection job r
 ```
 src/android/
 ├── adb.rs          — ADB wrapper, device listing, command execution
+├── app_catalog.rs  — Package cataloging, permissions, SHA-256 hashes & risk scoring
 ├── session.rs      — AndroidSession: serial, transport kind, API level, ADB path
 ├── capability.rs   — AndroidCapabilityReport: supported/partial/unsupported per feature
 ├── profile.rs      — AndroidDeviceProfile: model, build, root, encryption, SoC
@@ -20,6 +21,12 @@ src/android/
 ├── ram.rs          — Volatile data, Root process memory, Lemon physical RAM
 ├── remote.rs       — TCP/IP ADB + MESH relay connection management, Lemon preflight
 └── orchestrator.rs — Coordinates all flows, merges profile + device + manifest
+
+src/android_mft/
+├── engine.rs       — Android MFT acquisition and analysis workflow engine
+├── parser.rs       — Raw MFT / EXT4 / F2FS record parser
+├── records.rs      — MFT file metadata and timestamp data models
+└── report.rs       — Forensic MFT CSV and JSON summary reporting engine
 ```
 
 ### Output Folder Structure
