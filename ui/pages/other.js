@@ -1,4 +1,4 @@
-// ağ trafiği pcap ve wireguard tünel sayfası.
+// adli yardımcılar, vaka yönetimi, raporlama, ayarlar ve hakkında sayfası.
 
 export function otherPage({ t, icon, state, pageTitle, pickerField, field, escapeHtml, caseSelectOptions, detailPanel }) {
   return `
@@ -408,16 +408,6 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath, theme, state }) {
         <img class="company-logo-img" src="${assetPath}/logo/sirket.png" alt="Şirket logosu" draggable="false" />
       </div>
     </section>
-  `;
-}
-
-function capabilityCard(title, desc, iconName, accent, icon) {
-  return `
-    <article class="forensic-card" style="--accent:${accent};cursor:default">
-      <span class="card-icon">${icon(iconName)}</span>
-      <h3>${title}</h3>
-      <p>${desc}</p>
-    </article>
   `;
 }
 
