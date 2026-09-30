@@ -47,8 +47,9 @@ Requires Administrator privileges.
 
 **WinPMEM command variants (tried in order):**
 ```
-1. winpmem.exe acquire <output_file>
-2. winpmem.exe acquire --format raw <output_file>
+1. winpmem.exe acquire --service_name=<service_name> <output_file>
+2. winpmem.exe acquire <output_file>
+3. winpmem.exe -o <output_file>
 ```
 
 ### Remote Imaging (amele-win Agent)
