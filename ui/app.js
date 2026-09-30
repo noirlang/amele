@@ -2297,7 +2297,15 @@ document.addEventListener("click", async (event) => {
 
   const dockerButton = event.target.closest("[data-docker-action]");
   if (dockerButton) {
-    await handleDockerAction(event, { apiRequest, setRoute, render });
+    await handleDockerAction(event, {
+      apiRequest,
+      setRoute,
+      render,
+      state,
+      resolveCase() {
+        return resolveSelectedCaseName("#workflow-case") || null;
+      }
+    });
     return;
   }
 
@@ -2550,7 +2558,7 @@ document.addEventListener("input", (event) => {
   }
   const dockerSearch = event.target.closest("[data-docker-action='search']");
   if (dockerSearch) {
-    handleDockerAction(event, { apiRequest, setRoute, render });
+    handleDockerAction(event, { apiRequest, setRoute, render, state });
   }
 
   const reportTitle = event.target.closest("#report-title-input");

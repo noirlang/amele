@@ -251,6 +251,7 @@ function pollIosJob(jobId, { apiRequest, state, t, showToast, render }) {
       // Polling transient hatalarını sessiz tekrar dene.
     }
   }, 1200);
+  interval.unref?.();
 }
 
 function iosProfilePanel(profile, t, icon, escapeHtml) {

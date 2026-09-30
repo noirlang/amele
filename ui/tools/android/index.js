@@ -677,6 +677,7 @@ function pollLogicalJob(jobId, { apiRequest, state, t, showToast, render }) {
       // Silently retry on network hiccup
     }
   }, 1500);
+  interval.unref?.();
 }
 
 async function startFilesystemAcquisition(button, { apiRequest, backendReady, state, t, showToast, render, resolveCase }) {
@@ -770,6 +771,7 @@ function pollFilesystemJob(jobId, { apiRequest, state, t, showToast, render }) {
       // Silently retry
     }
   }, 1500);
+  interval.unref?.();
 }
 
 async function startRamAcquisition(button, { apiRequest, backendReady, state, t, showToast, render, resolveCase }) {
@@ -887,6 +889,7 @@ function pollRamJob(jobId, { apiRequest, state, t, showToast, render }) {
       // Silently retry
     }
   }, 1500);
+  interval.unref?.();
 }
 
 function deviceOptions(devices, selected, t, escapeHtml) {

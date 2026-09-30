@@ -230,4 +230,41 @@ test("Frontend Routing and Module Health", async (t) => {
       handleDevTrigger(() => Promise.resolve({}), () => false);
     });
   });
+
+  await t.test("tools modules and action handlers execute without crashing", async () => {
+    const { windowsPage } = await import("../ui/tools/windows/index.js");
+    const { linuxPage } = await import("../ui/tools/linux/index.js");
+    const { dockerPage, handleDockerAction, dockerState } = await import("../ui/tools/docker/index.js");
+    const { handleAndroidAction, syncAndroidDeviceSelection } = await import("../ui/tools/android/index.js");
+    const { handleIosAction, syncIosBackupPathInput } = await import("../ui/tools/ios/index.js");
+
+    assert.strictEqual(typeof windowsPage, "function", "windowsPage should be a function");
+    assert.strictEqual(typeof linuxPage, "function", "linuxPage should be a function");
+    assert.strictEqual(typeof dockerPage, "function", "dockerPage should be a function");
+    assert.strictEqual(typeof handleDockerAction, "function", "handleDockerAction should be a function");
+    assert.strictEqual(typeof handleAndroidAction, "function", "handleAndroidAction should be a function");
+    assert.strictEqual(typeof handleIosAction, "function", "handleIosAction should be a function");
+
+    // Test docker filter & mode changes
+    const fakeEvent = {
+      target: {
+        closest: (sel) => {
+          if (sel === "[data-docker-action]") {
+            return { dataset: { dockerAction: "set-filter", filter: "running" } };
+          }
+          return null;
+        }
+      }
+    };
+    await handleDockerAction(fakeEvent, {
+      apiRequest: () => Promise.resolve({}),
+      setRoute: () => {},
+      render: () => {},
+      state: {}
+    });
+    assert.strictEqual(dockerState.filter, "running");
+
+    // Reset filter
+    dockerState.filter = "all";
+  });
 });
