@@ -94,8 +94,11 @@ pub fn settings_save_endpoint(body: &[u8]) -> Response {
 mod tests {
     use super::*;
 
+    static SETTINGS_TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn test_settings_get_endpoint() {
+        let _guard = SETTINGS_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
         let resp = settings_get_endpoint();
         assert_eq!(resp.status, 200);
         let val: serde_json::Value = serde_json::from_slice(&resp.body).expect("valid json");
@@ -105,6 +108,7 @@ mod tests {
 
     #[test]
     fn test_settings_save_endpoint_validation() {
+        let _guard = SETTINGS_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
         // Empty body
         let resp = settings_save_endpoint(b"");
         assert_eq!(resp.status, 400);
@@ -128,6 +132,7 @@ mod tests {
 
     #[test]
     fn test_settings_save_endpoint_valid_updates() {
+        let _guard = SETTINGS_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
         // Save dark theme and Turkish
         let resp = settings_save_endpoint(br#"{"theme":"dark","language":"tr"}"#);
         assert_eq!(resp.status, 200);

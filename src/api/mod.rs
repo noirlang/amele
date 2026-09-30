@@ -52,7 +52,7 @@ pub use state::test_case_base_dir;
 pub use state::{
     EvidenceCaseState, ImageMountState, current_evidence_case, current_evidence_vault,
     current_image_mount, current_server_port, default_case_base_dir, default_case_name,
-    evidence_subdir, evidence_vault_for_output, home_dir, report_evidence_vault,
-    sanitize_case_name, sanitize_file_stem, set_current_evidence_case, set_server_port,
-    wireguard_manager,
+    evidence_subdir, evidence_vault_for_output, home_dir, lock_current_evidence_case,
+    report_evidence_vault, sanitize_case_name, sanitize_file_stem, set_current_evidence_case,
+    set_server_port, wireguard_manager,
 };
