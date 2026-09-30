@@ -324,4 +324,16 @@ mod tests {
         assert!(!is_lemon_supported_abi("armeabi"));
         assert!(!is_lemon_supported_abi("mips"));
     }
+
+    #[test]
+    fn test_remote_endpoint_kind_serde() {
+        let json_tcp = serde_json::to_string(&RemoteEndpointKind::TcpAdb).unwrap();
+        assert_eq!(json_tcp, "\"tcp_adb\"");
+
+        let json_mesh = serde_json::to_string(&RemoteEndpointKind::MeshRelay).unwrap();
+        assert_eq!(json_mesh, "\"mesh_relay\"");
+
+        let parsed: RemoteEndpointKind = serde_json::from_str("\"tcp_adb\"").unwrap();
+        assert_eq!(parsed, RemoteEndpointKind::TcpAdb);
+    }
 }

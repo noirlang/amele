@@ -195,4 +195,16 @@ mod tests {
         let info = classify_android_error("adbd cannot run as root in production builds");
         assert_eq!(info.code, "ANDROID_ROOT_REQUIRED");
     }
+
+    #[test]
+    fn classifies_all_known_error_types() {
+        assert_eq!(classify_android_error("").code, "ANDROID_UNKNOWN");
+        assert_eq!(classify_android_error("device offline").code, "ADB_DEVICE_OFFLINE");
+        assert_eq!(classify_android_error("more than one device").code, "ADB_MULTIPLE_DEVICES");
+        assert_eq!(classify_android_error("connection reset by peer").code, "ADB_CONNECTION_LOST");
+        assert_eq!(classify_android_error("command timeout expired").code, "ADB_TIMEOUT");
+        assert_eq!(classify_android_error("bugreport failed: no space").code, "ANDROID_BUGREPORT_FAILED");
+        assert_eq!(classify_android_error("read-only file system").code, "ANDROID_FILESYSTEM_RESTRICTED");
+        assert_eq!(classify_android_error("some totally random error 12345").code, "ANDROID_COMMAND_FAILED");
+    }
 }

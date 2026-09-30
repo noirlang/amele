@@ -212,4 +212,18 @@ mod tests {
         );
         assert_eq!(u32::from_le_bytes(buf[13..17].try_into().unwrap()), 2);
     }
+
+    #[test]
+    fn test_field_types_and_writer() {
+        let f_int = Field::int64(0x05, 1234567890);
+        assert_eq!(f_int.data.len(), 8);
+
+        let f_bool = Field::bool(0x06, true);
+        assert_eq!(f_bool.data, vec![1]);
+
+        let record = Record::new(RecordType::Contact, vec![f_int, f_bool]);
+        let mut buf = Vec::new();
+        let mut writer = RecordWriter::new(&mut buf, "serial1").unwrap();
+        assert!(writer.write_record(&record).is_ok());
+    }
 }

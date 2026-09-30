@@ -1912,6 +1912,16 @@ mod tests {
         assert_eq!(probe.size_kb, Some(128));
         assert_eq!(probe.sample_files.len(), 1);
     }
+
+    #[test]
+    fn test_parse_account_line() {
+        let line = "Account {name=johndoe@example.com, type=com.google}";
+        let (name, acc_type) = parse_account_line(line).unwrap();
+        assert_eq!(name, "johndoe@example.com");
+        assert_eq!(acc_type, "com.google");
+
+        assert_eq!(parse_account_line("Invalid line without format"), None);
+    }
 }
 
 /// Varsayılan profil ile Android mantıksal edinim akışını başlatır.
@@ -2222,3 +2232,4 @@ where
         errors,
     })
 }
+

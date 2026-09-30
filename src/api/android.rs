@@ -668,34 +668,6 @@ fn android_job_should_stop(control: &ram::CancellationToken) -> bool {
     control.is_cancelled()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn android_edinim_klasoru_ayni_vakada_ciktilari_ayirir() {
-        let temp = tempfile::tempdir().expect("temp dir");
-
-        let ilk = android_edinim_klasoru(temp.path(), "logical", "emulator:5554").unwrap();
-        let ikinci = android_edinim_klasoru(temp.path(), "logical", "emulator:5554").unwrap();
-
-        assert_ne!(ilk, ikinci);
-        assert!(ilk.is_dir());
-        assert!(ikinci.is_dir());
-        assert_eq!(ilk.parent(), Some(temp.path()));
-        assert_eq!(ikinci.parent(), Some(temp.path()));
-    }
-
-    #[test]
-    fn android_case_analysis_bos_govde_veya_json_kabul_eder() {
-        let resp = android_case_analysis_endpoint(b"");
-        assert_ne!(resp.status, 400);
-
-        let resp2 = android_case_analysis_endpoint(b"{}");
-        assert_ne!(resp2.status, 400);
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Lemon fiziksel RAM ön kontrol endpoint'i
 // ---------------------------------------------------------------------------
@@ -800,5 +772,103 @@ pub fn android_remote_disconnect_endpoint(body: &[u8]) -> Response {
     let result = android::disconnect_remote_endpoint(serial);
     json_ok(serde_json::to_value(&result).unwrap_or(serde_json::Value::Null))
 }
-// iceman'le karşılaştığında donup kalmaktan başka ne
-//yapabilirsinki silah sıkamazsın sokaklarda değilsin
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn android_edinim_klasoru_ayni_vakada_ciktilari_ayirir() {
+        let temp = tempfile::tempdir().expect("temp dir");
+
+        let ilk = android_edinim_klasoru(temp.path(), "logical", "emulator:5554").unwrap();
+        let ikinci = android_edinim_klasoru(temp.path(), "logical", "emulator:5554").unwrap();
+
+        assert_ne!(ilk, ikinci);
+        assert!(ilk.is_dir());
+        assert!(ikinci.is_dir());
+        assert_eq!(ilk.parent(), Some(temp.path()));
+        assert_eq!(ikinci.parent(), Some(temp.path()));
+    }
+
+    #[test]
+    fn android_case_analysis_bos_govde_veya_json_kabul_eder() {
+        let resp = android_case_analysis_endpoint(b"");
+        assert_ne!(resp.status, 400);
+
+        let resp2 = android_case_analysis_endpoint(b"{}");
+        assert_ne!(resp2.status, 400);
+    }
+
+    #[test]
+    fn test_android_device_profile_endpoint_validation() {
+        let resp = android_device_profile_endpoint(b"invalid json");
+        assert!(resp.status == 400 || resp.status == 403);
+
+        let resp2 = android_device_profile_endpoint(br#"{"serial": "   "}"#);
+        assert!(resp2.status == 400 || resp2.status == 403);
+    }
+
+    #[test]
+    fn test_android_profile_acquisition_endpoint_validation() {
+        let resp = android_profile_acquisition_endpoint(b"invalid json");
+        assert!(resp.status == 400 || resp.status == 403);
+
+        let resp2 = android_profile_acquisition_endpoint(br#"{"serial": ""}"#);
+        assert!(resp2.status == 400 || resp2.status == 403);
+    }
+
+    #[test]
+    fn test_android_logical_image_endpoint_validation() {
+        let resp = android_logical_image_endpoint(b"invalid json");
+        assert!(resp.status == 400 || resp.status == 403);
+
+        let resp2 = android_logical_image_endpoint(br#"{"serial": ""}"#);
+        assert!(resp2.status == 400 || resp2.status == 403);
+    }
+
+    #[test]
+    fn test_android_filesystem_image_endpoint_validation() {
+        let resp = android_filesystem_image_endpoint(b"invalid json");
+        assert!(resp.status == 400 || resp.status == 403);
+
+        let resp2 = android_filesystem_image_endpoint(br#"{"serial": ""}"#);
+        assert!(resp2.status == 400 || resp2.status == 403);
+    }
+
+    #[test]
+    fn test_android_ram_image_endpoint_validation() {
+        let resp = android_ram_image_endpoint(b"invalid json");
+        assert!(resp.status == 400 || resp.status == 403);
+
+        let resp2 = android_ram_image_endpoint(br#"{"serial": ""}"#);
+        assert!(resp2.status == 400 || resp2.status == 403);
+    }
+
+    #[test]
+    fn test_android_lemon_preflight_endpoint_validation() {
+        let resp = android_lemon_preflight_endpoint(b"invalid json");
+        assert!(resp.status == 400 || resp.status == 403);
+
+        let resp2 = android_lemon_preflight_endpoint(br#"{"serial": "  "}"#);
+        assert!(resp2.status == 400 || resp2.status == 403);
+    }
+
+    #[test]
+    fn test_android_remote_connect_endpoint_validation() {
+        let resp = android_remote_connect_endpoint(b"invalid json");
+        assert!(resp.status == 400 || resp.status == 403);
+
+        let resp2 = android_remote_connect_endpoint(br#"{"host": "  "}"#);
+        assert!(resp2.status == 400 || resp2.status == 403);
+    }
+
+    #[test]
+    fn test_android_remote_disconnect_endpoint_validation() {
+        let resp = android_remote_disconnect_endpoint(b"invalid json");
+        assert!(resp.status == 400 || resp.status == 403);
+
+        let resp2 = android_remote_disconnect_endpoint(br#"{"serial": ""}"#);
+        assert!(resp2.status == 400 || resp2.status == 403);
+    }
+}

@@ -333,3 +333,113 @@ fn from_logical_result(
         errors: logical.errors,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::android::session::{AndroidTransport, AndroidTransportKind};
+
+    fn dummy_session() -> AndroidSession {
+        AndroidSession {
+            serial: "test_dev".to_string(),
+            created_at: "now".to_string(),
+            adb_state: Some("device".to_string()),
+            connected: true,
+            transport: AndroidTransport {
+                kind: AndroidTransportKind::Usb,
+                label: "USB".to_string(),
+            },
+            device_profile: dummy_profile(),
+        }
+    }
+
+    fn dummy_profile() -> AndroidDeviceProfile {
+        AndroidDeviceProfile {
+            serial: "test_dev".to_string(),
+            product: Some("pixel".to_string()),
+            model: Some("Pixel 8".to_string()),
+            device: Some("shiba".to_string()),
+            abi: Some("arm64-v8a".to_string()),
+            api_level: Some(34),
+            build: None,
+            fingerprint: None,
+            security_patch: None,
+            selinux: None,
+            encryption: None,
+            kernel_version: None,
+            is_rooted: false,
+            adb_root: false,
+            su_available: false,
+        }
+    }
+
+    fn dummy_capabilities() -> AndroidCapabilityReport {
+        let check = crate::android::capability::AndroidCapabilityCheck {
+            level: crate::android::capability::AndroidCapabilityLevel::Supported,
+            available: true,
+            reason: "ok".to_string(),
+            recommendation: None,
+        };
+        AndroidCapabilityReport {
+            serial: "test_dev".to_string(),
+            generated_at: "now".to_string(),
+            adb_authorized: check.clone(),
+            logical_acquisition: check.clone(),
+            shared_storage: check.clone(),
+            bugreport: check.clone(),
+            adb_backup: check.clone(),
+            filesystem_non_root: check.clone(),
+            filesystem_root: check.clone(),
+            volatile_memory: check.clone(),
+            process_memory_root: check.clone(),
+            physical_memory_probe: check.clone(),
+            lemon_physical_memory: check.clone(),
+            remote_mesh_transport: check,
+        }
+    }
+
+    #[test]
+    fn test_from_ram_result() {
+        let ram_res = AndroidRamAcquisitionResult {
+            output_file: PathBuf::from("/tmp/ram.bin"),
+            total_bytes: 4096,
+            sha256: "hash123".to_string(),
+            mode: AndroidRamMode::VolatileData,
+        };
+
+        let orch = from_ram_result(
+            dummy_profile(),
+            dummy_session(),
+            dummy_capabilities(),
+            Some("manifest_hash".to_string()),
+            ram_res,
+        );
+
+        assert_eq!(orch.total_bytes, 4096);
+        assert_eq!(orch.sha256, "hash123");
+        assert_eq!(orch.mode, AndroidRamMode::VolatileData);
+        assert_eq!(orch.manifest_sha256.as_deref(), Some("manifest_hash"));
+    }
+
+    #[test]
+    fn test_from_filesystem_result() {
+        let fs_res = FilesystemAcquisitionResult {
+            output_file: PathBuf::from("/tmp/userdata.img"),
+            total_bytes: 1024,
+            sha256: "hash456".to_string(),
+        };
+
+        let orch = from_filesystem_result(
+            dummy_profile(),
+            dummy_session(),
+            dummy_capabilities(),
+            Some("manifest_hash2".to_string()),
+            fs_res,
+        );
+
+        assert_eq!(orch.total_bytes, 1024);
+        assert_eq!(orch.sha256, "hash456");
+        assert_eq!(orch.output_file, PathBuf::from("/tmp/userdata.img"));
+    }
+}
+

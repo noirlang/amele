@@ -156,6 +156,7 @@ pub fn write_android_capability_report(
     output_dir: &Path,
     report: &AndroidCapabilityReport,
 ) -> Result<(), String> {
+    let _ = std::fs::create_dir_all(output_dir);
     let path = output_dir.join("android_capabilities.json");
     let content = serde_json::to_vec_pretty(report)
         .map_err(|err| format!("Android kabiliyet raporu JSON'a cevrilemedi: {err}"))?;
@@ -282,11 +283,21 @@ mod tests {
         let check = backup_capability(Some(34));
         assert_eq!(check.level, AndroidCapabilityLevel::Partial);
         assert!(check.reason.contains("34"));
+
+        let legacy = backup_capability(Some(28));
+        assert_eq!(legacy.level, AndroidCapabilityLevel::Partial);
+        assert!(legacy.reason.contains("denenebilir"));
+
+        let unknown = backup_capability(None);
+        assert_eq!(unknown.level, AndroidCapabilityLevel::Partial);
     }
 
     #[test]
     fn validates_lemon_abi_support() {
         assert!(is_lemon_supported_abi("arm64-v8a"));
+        assert!(is_lemon_supported_abi("armeabi-v7a"));
+        assert!(is_lemon_supported_abi("x86_64"));
+        assert!(is_lemon_supported_abi("x86"));
         assert!(!is_lemon_supported_abi("mips"));
     }
 
@@ -294,5 +305,39 @@ mod tests {
     fn requires_root_for_lemon() {
         let check = lemon_capability(false, true, Some("arm64-v8a"));
         assert_eq!(check.level, AndroidCapabilityLevel::Unsupported);
+
+        let unsupported_abi = lemon_capability(true, false, Some("mips"));
+        assert_eq!(unsupported_abi.level, AndroidCapabilityLevel::Unsupported);
+
+        let supported = lemon_capability(true, true, Some("arm64-v8a"));
+        assert_eq!(supported.level, AndroidCapabilityLevel::Partial);
+    }
+
+    #[test]
+    fn test_write_android_capability_report() {
+        let temp_dir = std::env::temp_dir().join(format!("amele_cap_test_{}", std::process::id()));
+        let check = super::supported("test reason");
+        let report = super::AndroidCapabilityReport {
+            serial: "test_serial".to_string(),
+            generated_at: "now".to_string(),
+            adb_authorized: check.clone(),
+            logical_acquisition: check.clone(),
+            shared_storage: check.clone(),
+            bugreport: check.clone(),
+            adb_backup: check.clone(),
+            filesystem_non_root: check.clone(),
+            filesystem_root: check.clone(),
+            volatile_memory: check.clone(),
+            process_memory_root: check.clone(),
+            physical_memory_probe: check.clone(),
+            lemon_physical_memory: check.clone(),
+            remote_mesh_transport: check,
+        };
+
+        let res = super::write_android_capability_report(&temp_dir, &report);
+        assert!(res.is_ok());
+        let file_path = temp_dir.join("android_capabilities.json");
+        assert!(file_path.is_file());
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

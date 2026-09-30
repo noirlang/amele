@@ -786,18 +786,17 @@ pub(super) fn parse_i64_prefix(value: &str) -> Option<i64> {
 
 /// Süre değerini milisaniye cinsinden i64 sayıya indirger.
 fn parse_duration_to_ms(value: &str) -> Option<i64> {
-    if let Some(number) = parse_i64_prefix(value) {
-        return Some(number);
-    }
-    let parts: Vec<&str> = value.split(':').collect();
-    if parts.len() >= 2 && parts.iter().all(|part| part.parse::<i64>().is_ok()) {
-        let mut total = 0_i64;
-        for part in parts {
-            total = total * 60 + part.parse::<i64>().ok()?;
+    if value.contains(':') {
+        let parts: Vec<&str> = value.split(':').collect();
+        if parts.len() >= 2 && parts.iter().all(|part| part.parse::<i64>().is_ok()) {
+            let mut total = 0_i64;
+            for part in parts {
+                total = total * 60 + part.parse::<i64>().ok()?;
+            }
+            return Some(total * 1000);
         }
-        return Some(total * 1000);
     }
-    None
+    parse_i64_prefix(value)
 }
 
 /// Satır mapinden ilk bulunan string alanı MFT field listesine ekler.
@@ -875,5 +874,30 @@ Accounts: 2
     fn trim_for_record_preserves_utf8_boundaries() {
         let trimmed = trim_for_record("Merhaba arkadaşlar", 12);
         assert!(trimmed.ends_with("[truncated]"));
+    }
+
+    #[test]
+    fn test_parse_getprop_line() {
+        assert_eq!(
+            parse_getprop_line("[ro.product.model]: [Pixel 7]"),
+            Some(("ro.product.model".to_string(), "Pixel 7".to_string()))
+        );
+        assert_eq!(parse_getprop_line("not a prop line"), None);
+    }
+
+    #[test]
+    fn test_parse_i64_prefix_and_duration() {
+        assert_eq!(parse_i64_prefix("1234ms"), Some(1234));
+        assert_eq!(parse_i64_prefix("-42foo"), Some(-42));
+        assert_eq!(parse_i64_prefix("abc"), None);
+
+        assert_eq!(parse_duration_to_ms("01:30"), Some(90_000));
+    }
+
+    #[test]
+    fn test_parse_status_telemetry_records() {
+        let content = "=== id ===\nuid=0(root) gid=0(root)\n=== selinux ===\nEnforcing\n";
+        let records = parse_status_telemetry_records("root_status", content);
+        assert_eq!(records.len(), 2);
     }
 }
