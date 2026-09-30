@@ -615,5 +615,33 @@ mod tests {
         assert!(super::is_amele_running_on(port));
         let _ = handle.join();
     }
+
+    #[test]
+    fn test_percent_decode() {
+        assert_eq!(super::percent_decode("hello%20world").unwrap(), "hello world");
+        assert_eq!(super::percent_decode("foo+bar").unwrap(), "foo bar");
+        assert!(super::percent_decode("%ZZ").is_err());
+    }
+
+    #[test]
+    fn test_mime_for() {
+        assert_eq!(super::mime_for(std::path::Path::new("index.html")), "text/html; charset=utf-8");
+        assert_eq!(super::mime_for(std::path::Path::new("script.js")), "text/javascript; charset=utf-8");
+        assert_eq!(super::mime_for(std::path::Path::new("style.css")), "text/css; charset=utf-8");
+        assert_eq!(super::mime_for(std::path::Path::new("data.json")), "application/json; charset=utf-8");
+    }
+
+    #[test]
+    fn test_response_helpers() {
+        let empty = super::Response::empty(204);
+        assert_eq!(empty.status, 204);
+        assert!(empty.body.is_empty());
+
+        let ok = super::json_ok(serde_json::json!({"status": "fine"}));
+        assert_eq!(ok.status, 200);
+
+        let err = super::json_error(400, "bad request");
+        assert_eq!(err.status, 400);
+    }
 }
-// o gözlerin geçmeyen hisleri var
+

@@ -546,4 +546,14 @@ mod tests {
                 .all(|entry| entry["relative_path"] != "case_manifest.json")
         );
     }
+
+    #[test]
+    fn test_create_case_invalid_names() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(EvidenceVault::create(dir.path(), "").is_err());
+        assert!(EvidenceVault::create(dir.path(), "..").is_err());
+        assert!(EvidenceVault::create(dir.path(), "../escape").is_err());
+        assert!(EvidenceVault::create(dir.path(), "foo/bar").is_err());
+        assert!(EvidenceVault::create(dir.path(), ".hidden").is_err());
+    }
 }

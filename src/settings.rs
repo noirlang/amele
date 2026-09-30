@@ -203,4 +203,27 @@ mod tests {
         assert_eq!(settings.hash_algoritmasi, "sha256");
         assert_eq!(settings.parca_boyutu, 4 * 1024 * 1024);
     }
+
+    #[test]
+    fn test_settings_save_load_and_normalize() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sub").join("ayarlar.json");
+
+        let mut settings = AppSettings::default();
+        settings.varsayilan_port = 0; // will be normalized
+        settings.normalize();
+        assert_eq!(settings.varsayilan_port, 4444);
+
+        settings.varsayilan_port = 8080;
+        settings.save(&path).unwrap();
+        assert!(path.exists());
+
+        let loaded = AppSettings::load(&path).unwrap();
+        assert_eq!(loaded.varsayilan_port, 8080);
+
+        // non-existent path loads default
+        let def = AppSettings::load(dir.path().join("missing.json")).unwrap();
+        assert_eq!(def.varsayilan_port, 4444);
+    }
 }
+

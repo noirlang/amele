@@ -294,3 +294,45 @@ impl Drop for Logger {
         self.info("Gunluk sistemi kapatiliyor");
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_verbose_toggle() {
+        set_verbose(true);
+        assert!(is_verbose());
+        set_verbose(false);
+        assert!(!is_verbose());
+    }
+
+    #[test]
+    fn test_log_level_ordering() {
+        assert!(LogLevel::Debug < LogLevel::Info);
+        assert!(LogLevel::Info < LogLevel::Warn);
+        assert!(LogLevel::Warn < LogLevel::Error);
+    }
+
+    #[test]
+    fn test_logger_file_creation_and_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let logger = Logger::start("test_case", dir.path()).unwrap();
+        logger.info("Test info message");
+        logger.warn("Test warn message");
+        logger.error("Test error message");
+        assert!(logger.active_file().exists());
+        let content = std::fs::read_to_string(logger.active_file()).unwrap();
+        assert!(content.contains("Test info message"));
+        assert!(content.contains("Test warn message"));
+        assert!(content.contains("Test error message"));
+    }
+
+    #[test]
+    fn test_runtime_log_snapshot() {
+        runtime_log(LogLevel::Info, "test_scope", "runtime test msg");
+        let entries = runtime_logs(10);
+        assert!(entries.iter().any(|e| e.message.contains("runtime test msg")));
+    }
+}
+

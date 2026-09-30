@@ -83,6 +83,9 @@ pub fn export_case(vault: &EvidenceVault, output_path: &Path) -> AmeleResult<Pat
     tar_header.set_mode(0o644);
     tar_header.set_cksum();
 
+    if let Some(parent) = dest.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
     let file = File::create(&dest)
         .map_err(|e| AmeleError::io(HataKodu::DosyaYazma, "Paket dosyası oluşturulamadı", e))?;
     let mut builder = Builder::new(GzEncoder::new(file, Compression::default()));
@@ -284,5 +287,24 @@ mod tests {
         let mut f = std::fs::OpenOptions::new().append(true).open(&pkg).unwrap();
         std::io::Write::write_all(&mut f, b"tampered").unwrap();
         assert!(!verify_package(&pkg).unwrap());
+    }
+
+    #[test]
+    fn test_read_package_header_missing() {
+        let p = Path::new("/non/existent/path.amelecase");
+        assert!(read_package_header(p).is_err());
+    }
+
+    #[test]
+    fn test_count_files_recursive() {
+        let dir = tempfile::tempdir().unwrap();
+        let sub = dir.path().join("sub");
+        fs::create_dir_all(&sub).unwrap();
+        fs::write(dir.path().join("a.txt"), "hello").unwrap();
+        fs::write(sub.join("b.txt"), "world!").unwrap();
+
+        let (count, bytes) = count_files_recursive(dir.path());
+        assert_eq!(count, 2);
+        assert_eq!(bytes, 11);
     }
 }

@@ -64,3 +64,38 @@ fn serve_static(path: &str, head_only: bool) -> Response {
         body: b"Not found".to_vec(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_route_options_and_method_not_allowed() {
+        let resp = route_request("OPTIONS", "/anything", b"");
+        assert_eq!(resp.status, 204);
+
+        let resp2 = route_request("POST", "/static_file.html", b"");
+        assert_eq!(resp2.status, 405);
+    }
+
+    #[test]
+    fn test_path_traversal_rejected() {
+        let resp = route_request("GET", "/../etc/passwd", b"");
+        assert_eq!(resp.status, 403);
+
+        let resp2 = route_request("GET", "/foo/../../secret", b"");
+        assert_eq!(resp2.status, 403);
+    }
+
+    #[test]
+    fn test_embedded_asset_served() {
+        let resp = route_request("GET", "/index.html", b"");
+        assert_eq!(resp.status, 200);
+        assert!(!resp.body.is_empty());
+
+        let head = route_request("HEAD", "/index.html", b"");
+        assert_eq!(head.status, 200);
+        assert!(head.body.is_empty());
+    }
+}
+

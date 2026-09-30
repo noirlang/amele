@@ -197,3 +197,40 @@ impl JobQueue {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_job_lifecycle() {
+        let mut job = Job::new(JobType::DiskEdinim, "Disk dump");
+        assert_eq!(job.status, JobStatus::Bekliyor);
+        assert_eq!(job.progress_percent, 0);
+
+        job.update_status(JobStatus::Calisiyor, Some(50));
+        assert_eq!(job.status, JobStatus::Calisiyor);
+        assert_eq!(job.progress_percent, 50);
+        assert!(job.started_at.is_some());
+
+        job.update_status(JobStatus::Tamamlandi, Some(100));
+        assert_eq!(job.status, JobStatus::Tamamlandi);
+        assert_eq!(job.progress_percent, 100);
+        assert!(job.finished_at.is_some());
+    }
+
+    #[test]
+    fn test_job_queue() {
+        let queue = JobQueue::new(None);
+        let job = Job::new(JobType::HashHesapla, "Hash");
+        let id = job.id;
+        queue.push(job);
+
+        let popped = queue.pop_wait().expect("should pop job");
+        assert_eq!(popped.lock().unwrap().id, id);
+
+        queue.stop();
+        assert!(queue.pop_wait().is_none());
+    }
+}
+

@@ -5550,3 +5550,22 @@ fn case_verify_command(args: Vec<String>) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cli_language_toggle() {
+        set_cli_english(false);
+        assert!(!is_cli_english());
+        assert_eq!(t_cli("Türkçe", "English"), "Türkçe");
+
+        set_cli_english(true);
+        assert!(is_cli_english());
+        assert_eq!(t_cli("Türkçe", "English"), "English");
+
+        set_cli_english(false);
+    }
+}
+

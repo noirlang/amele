@@ -246,3 +246,24 @@ complete -c amele -n "__fish_use_subcommand" -a completion -d "Generate shell co
 complete -c amele -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 "#
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_completion_generators() {
+        let bash = generate_bash_completion();
+        assert!(bash.contains("_amele_completion"));
+        assert!(bash.contains("android"));
+
+        let zsh = generate_zsh_completion();
+        assert!(zsh.contains("#compdef amele"));
+        assert!(zsh.contains("_amele"));
+
+        let fish = generate_fish_completion();
+        assert!(fish.contains("complete -c amele"));
+        assert!(fish.contains("subcommand"));
+    }
+}
+

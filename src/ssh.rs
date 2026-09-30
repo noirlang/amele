@@ -387,6 +387,9 @@ impl SshConnection {
             )
         })?;
 
+        if let Some(parent) = plan.working_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
         let mut file = File::create(&plan.working_path).map_err(|err| {
             AmeleError::io(
                 HataKodu::DosyaYazma,
@@ -479,6 +482,9 @@ impl SshConnection {
             )
         })?;
 
+        if let Some(parent) = plan.working_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
         let mut file = File::create(&plan.working_path).map_err(|err| {
             AmeleError::io(
                 HataKodu::DosyaYazma,
@@ -535,3 +541,43 @@ impl SshConnection {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_to_hex() {
+        assert_eq!(to_hex(&[0x12, 0xab, 0xef]), "12abef");
+    }
+
+    #[test]
+    fn test_ssh_connection_params_serde() {
+        let params = SshConnectionParams {
+            ip: "192.168.1.100".to_string(),
+            port: 2222,
+            user: "root".to_string(),
+            password: Some("secret".to_string()),
+            key_path: None,
+        };
+        let json = serde_json::to_string(&params).unwrap();
+        let deserialized: SshConnectionParams = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.ip, "192.168.1.100");
+        assert_eq!(deserialized.port, 2222);
+        assert_eq!(deserialized.user, "root");
+    }
+
+    #[test]
+    fn test_ssh_connect_invalid_address() {
+        let params = SshConnectionParams {
+            ip: "invalid.domain.that.does.not.exist.example".to_string(),
+            port: 22,
+            user: "root".to_string(),
+            password: None,
+            key_path: None,
+        };
+        let res = SshConnection::connect(&params);
+        assert!(res.is_err());
+    }
+}
+

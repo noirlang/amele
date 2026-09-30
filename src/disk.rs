@@ -707,4 +707,36 @@ mod tests {
         assert!(PathBuf::from(format!("{}.sha256", target.display())).exists());
         assert!(verify_image(&target, result.sha256.as_ref().unwrap()).unwrap());
     }
+
+    #[test]
+    fn test_verify_image_mismatch_and_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("target.img");
+        fs::write(&target, b"content").unwrap();
+        let valid_hash = "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73";
+        assert!(verify_image(&target, valid_hash).unwrap());
+        assert!(!verify_image(&target, "wronghash").unwrap());
+
+        let missing = dir.path().join("non_existent.img");
+        assert!(verify_image(&missing, valid_hash).is_err());
+    }
+
+    #[test]
+    fn test_disk_size_non_existent() {
+        let missing = Path::new("/path/does/not/exist/disk.raw");
+        assert!(disk_size(missing).is_err());
+    }
+
+    #[test]
+    fn test_disk_acquisition_cancelled() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("source.bin");
+        let target = dir.path().join("target.img");
+        fs::write(&source, vec![0u8; 1024]).unwrap();
+
+        let task = DiskAcquisitionTask::new(&source, &target);
+        let res = run_disk_acquisition_with_control(&task, |_, _| {}, || DiskAcquisitionControl::Cancel);
+        assert!(res.is_err());
+    }
 }
+
