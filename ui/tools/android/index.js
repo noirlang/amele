@@ -1,8 +1,6 @@
 // android edinim araçları bileşeni.
 
 export function androidPage({ t, icon, pageTitle, state, escapeHtml, backendReady }) {
-  // TODO: Enable physical acquisition card, implement EDL/BROM device scan dropdown and physical image trigger
-  // ${androidImageModeCard("physical", t("android.mode.physical.title"), t("android.mode.physical.desc"), "disk", "var(--text)", t("android.mode.soon"), icon, escapeHtml, { disabled: true })}
   return `
     <section class="page">
       ${pageTitle(t("hub.android.title"), t("hub.android.desc"), "android")}

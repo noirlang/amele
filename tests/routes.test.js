@@ -117,6 +117,25 @@ test("Frontend Routing and Module Health", async (t) => {
     const { iosPage, handleIosAction } = await import("../ui/ios.js");
     assert.strictEqual(typeof iosPage, "function", "iosPage should be a function");
     assert.strictEqual(typeof handleIosAction, "function", "handleIosAction should be a function");
+
+    const { dockerPage } = await import("../ui/docker.js");
+    assert.strictEqual(typeof dockerPage, "function", "dockerPage should be a function");
+
+    const { toolsPage } = await import("../ui/pages/tools.js");
+    assert.strictEqual(typeof toolsPage, "function", "toolsPage should be a function");
+
+    const { helpPage } = await import("../ui/pages/help.js");
+    assert.strictEqual(typeof helpPage, "function", "helpPage should be a function");
+
+    const { otherPage, detailPanel } = await import("../ui/pages/other.js");
+    assert.strictEqual(typeof otherPage, "function", "otherPage should be a function");
+    assert.strictEqual(typeof detailPanel, "function", "detailPanel should be a function");
+
+    const { renderReportSidebar } = await import("../ui/pages/reportSidebar.js");
+    assert.strictEqual(typeof renderReportSidebar, "function", "renderReportSidebar should be a function");
+
+    const { remoteAcqPage } = await import("../ui/tools/remote-acq/index.js");
+    assert.strictEqual(typeof remoteAcqPage, "function", "remoteAcqPage should be a function");
   });
 
   await t.test("icons module correctly hydrated and exports functions", async () => {

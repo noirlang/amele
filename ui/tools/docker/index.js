@@ -553,7 +553,7 @@ async function loadContainerLogs(containerId, apiRequest, render) {
       dockerState.containerLogs = res.logs;
     }
   } catch (e) {
-    console.error("Log error:", e);
+    dockerState.containerLogs = [`[HATA] ${e?.message || e}`];
   } finally {
     dockerState.loadingLogs = false;
     render();

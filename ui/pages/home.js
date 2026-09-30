@@ -17,7 +17,7 @@ export function homePage({ t, icon, assetPath, theme, state }) {
         : hour < 23
           ? "agent.greeting.evening"
           : "agent.greeting.night";
-  const userName = state?.activeProfile?.fullName || state?.activeProfile?.username || "melihemik";
+  const userName = state?.activeProfile?.fullName || state?.activeProfile?.username || (isEn ? "Analyst" : "Uzman");
   const greetingText = t(greetingKey, { name: userName });
 
   // 2. Yapay Zeka Ajan durumu
@@ -408,8 +408,9 @@ function getAgentDisplayName(agentId) {
 
 function renderChatMessage(msg, state, t, escapeHtml, iconFn) {
   const isUser = msg.role === "user";
+  const defaultUser = state?.language === "en" ? "Analyst" : "Uzman";
   const authorName = isUser
-    ? (state?.activeProfile?.fullName || state?.activeProfile?.username || "melihemik")
+    ? (state?.activeProfile?.fullName || state?.activeProfile?.username || defaultUser)
     : (msg.agent ? (msg.model ? `${getAgentDisplayName(msg.agent)} (${msg.model})` : getAgentDisplayName(msg.agent)) : "Amele Ajanı");
 
   const formattedContent = formatSimpleMarkdown(msg.content);

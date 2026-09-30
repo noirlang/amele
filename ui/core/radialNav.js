@@ -4,7 +4,7 @@
 
 export function buildRadialNavItems(state, t, icon, escapeHtml, getAvatarUrl) {
   const profile = state.activeProfile;
-  const username = profile?.username || profile?.display_name || profile?.full_name || "melihemik";
+  const username = profile?.username || profile?.display_name || profile?.full_name || (state.language === "en" ? "guest" : "misafir");
   const avatarUrl = typeof getAvatarUrl === "function" ? getAvatarUrl(profile) : "";
   const profileTooltip = `@${username} · ${t("profile.title") || "Profil"}`;
   const mobileAllowed = Boolean(state.mobileToolsAccess?.allowed);
