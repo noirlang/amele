@@ -6,6 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use crate::profile::record_active_profile_activity;
 use crate::server::{Response, json_error, json_ok};
 
 use super::{
@@ -210,6 +211,9 @@ pub fn update_download_endpoint(body: &[u8]) -> Response {
     if url.is_empty() {
         return json_error(400, "url is required");
     }
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return json_error(400, "url must start with http:// or https://");
+    }
     let output_dir = request
         .output_dir
         .as_deref()
@@ -227,8 +231,24 @@ pub fn update_download_endpoint(body: &[u8]) -> Response {
         .filter(|value| !value.is_empty())
         .map(sanitize_download_name)
         .filter(|value| !value.is_empty())
+        .or_else(|| {
+            url.split('?')
+                .next()
+                .unwrap_or(&url)
+                .rsplit('/')
+                .next()
+                .map(sanitize_download_name)
+                .filter(|s| !s.is_empty() && s.contains('.'))
+        })
         .unwrap_or_else(|| "amele-update.bin".to_string());
     let target = output_dir.join(&name);
+
+    let _ = record_active_profile_activity(
+        "update_download",
+        &url,
+        None,
+        Some(&name),
+    );
 
     let (job_id, _control) = create_acquisition_job("Amele güncelleme paketi indiriliyor");
     let job_id_clone = job_id.clone();
@@ -377,6 +397,21 @@ pub fn update_install_endpoint(body: &[u8]) -> Response {
     if !path.is_file() {
         return json_error(404, "update package not found");
     }
+
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+    if UpdatePackageKind::from_asset_name(file_name).is_none() {
+        return json_error(400, "unsupported update package format");
+    }
+
+    let _ = record_active_profile_activity(
+        "update_install",
+        &path.display().to_string(),
+        None,
+        None,
+    );
 
     match launch_update_installer(&path) {
         Ok(message) => json_ok(json!({ "path": path, "message": message })),
@@ -727,7 +762,7 @@ fn make_executable(path: &Path) -> Result<(), String> {
 fn linux_package_install_command(
     kind: UpdatePackageKind,
     path: &Path,
-) -> Result<(String, Vec<String>, String), String> {
+) -> Result<String, String> {
     let path = path
         .to_str()
         .ok_or_else(|| "update package path is not valid UTF-8".to_string())?
@@ -771,12 +806,12 @@ fn linux_package_install_command(
     };
 
     let (launcher, launcher_args) = elevate_command(program, args)?;
-    let preview = std::iter::once(launcher.clone())
-        .chain(launcher_args.iter().cloned())
+    let command_line = std::iter::once(launcher)
+        .chain(launcher_args)
         .map(|part| shell_quote(&part))
         .collect::<Vec<String>>()
         .join(" ");
-    Ok((launcher, launcher_args, preview))
+    Ok(command_line)
 }
 
 #[cfg(unix)]
@@ -856,19 +891,18 @@ fn launch_update_installer(path: &Path) -> Result<String, String> {
             return Ok("AppImage başlatıldı.".to_string());
         }
 
-        let (program, args, preview) = linux_package_install_command(package_kind, path)?;
-        let _ = (program, args);
+        let command_line = linux_package_install_command(package_kind, path)?;
         let log_path = update_install_log_path(path);
-        let script = linux_update_console_script(&preview, &log_path);
+        let script = linux_update_console_script(&command_line, &log_path);
         let (terminal, terminal_args) = terminal_command_for_script(&script).ok_or_else(|| {
-            format!("Kurulum terminali bulunamadı. Şu komutu terminalde elle çalıştırın: {preview}")
+            format!("Kurulum terminali bulunamadı. Şu komutu terminalde elle çalıştırın: {command_line}")
         })?;
         Command::new(&terminal)
             .args(&terminal_args)
             .spawn()
             .map_err(|err| format!("installer console could not be started: {err}"))?;
         Ok(format!(
-            "Kurulum konsolu açıldı: {preview}\nLog: {}",
+            "Kurulum konsolu açıldı: {command_line}\nLog: {}",
             log_path.display()
         ))
     }
@@ -919,6 +953,10 @@ fn terminal_command_for_script(script: &str) -> Option<(String, Vec<String>)> {
         "konsole",
         "alacritty",
         "kitty",
+        "ghostty",
+        "foot",
+        "wezterm",
+        "xfce4-terminal",
         "xterm",
     ];
     candidates.iter().find_map(|terminal| {
@@ -937,7 +975,11 @@ fn terminal_command_for_script(script: &str) -> Option<(String, Vec<String>)> {
 }
 
 fn sanitize_download_name(value: &str) -> String {
-    value
+    let clean = Path::new(value)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(value);
+    let sanitized = clean
         .chars()
         .map(|ch| {
             if ch.is_ascii_alphanumeric() || matches!(ch, '.' | '-' | '_') {
@@ -947,8 +989,13 @@ fn sanitize_download_name(value: &str) -> String {
             }
         })
         .collect::<String>()
-        .trim_matches('_')
-        .to_string()
+        .trim_matches(|c| c == '_' || c == '.')
+        .to_string();
+    if sanitized.is_empty() || sanitized == "." || sanitized == ".." {
+        String::new()
+    } else {
+        sanitized
+    }
 }
 
 fn default_download_dir() -> PathBuf {
@@ -1097,5 +1144,95 @@ mod tests {
             shell_quote("/tmp/amele package.deb"),
             "'/tmp/amele package.deb'"
         );
+    }
+
+    #[test]
+    fn test_update_target_endpoint() {
+        let response = super::update_target_endpoint();
+        assert_eq!(response.status, 200);
+        let val: serde_json::Value = serde_json::from_slice(&response.body).unwrap();
+        assert!(val.get("platform").is_some());
+        assert!(val.get("package_kind").is_some());
+        assert!(val.get("package_label").is_some());
+        assert!(val.get("detected_by").is_some());
+        assert!(val.get("install_command").is_some());
+    }
+
+    #[test]
+    fn test_update_download_endpoint_validation() {
+        assert_eq!(super::update_download_endpoint(b"").status, 400);
+        assert_eq!(super::update_download_endpoint(b"not json").status, 400);
+        assert_eq!(super::update_download_endpoint(br#"{"url":""}"#).status, 400);
+        assert_eq!(super::update_download_endpoint(br#"{"url":"ftp://bad.com"}"#).status, 400);
+        assert_eq!(super::update_download_endpoint(br#"{"url":"file:///etc/passwd"}"#).status, 400);
+    }
+
+    #[test]
+    fn test_update_install_endpoint_validation() {
+        assert_eq!(super::update_install_endpoint(b"").status, 400);
+        assert_eq!(super::update_install_endpoint(b"not json").status, 400);
+        assert_eq!(super::update_install_endpoint(br#"{"path":""}"#).status, 400);
+        assert_eq!(super::update_install_endpoint(br#"{"path":"/nonexistent/package.deb"}"#).status, 404);
+
+        let temp_dir = std::env::temp_dir();
+        let invalid_file = temp_dir.join("test_update_dummy.txt");
+        let _ = std::fs::write(&invalid_file, b"dummy content");
+        let req = serde_json::json!({ "path": invalid_file.to_str().unwrap() }).to_string();
+        let resp = super::update_install_endpoint(req.as_bytes());
+        let _ = std::fs::remove_file(&invalid_file);
+        assert_eq!(resp.status, 400);
+    }
+
+    #[test]
+    fn test_sanitize_download_name() {
+        assert_eq!(super::sanitize_download_name("amele-1.0.0.deb"), "amele-1.0.0.deb");
+        assert_eq!(super::sanitize_download_name("../../evil.deb"), "evil.deb");
+        assert_eq!(super::sanitize_download_name("/var/tmp/amele.AppImage"), "amele.AppImage");
+        assert_eq!(super::sanitize_download_name(".."), "");
+        assert_eq!(super::sanitize_download_name("..."), "");
+        assert_eq!(super::sanitize_download_name(".hidden.tar.gz"), "hidden.tar.gz");
+        assert_eq!(super::sanitize_download_name("valid_name-2.0.pkg.tar.zst"), "valid_name-2.0.pkg.tar.zst");
+    }
+
+    #[test]
+    fn test_update_package_kind_from_asset_name() {
+        assert_eq!(UpdatePackageKind::from_asset_name("setup.msi"), Some(UpdatePackageKind::WindowsMsi));
+        assert_eq!(UpdatePackageKind::from_asset_name("amele.AppImage"), Some(UpdatePackageKind::AppImage));
+        assert_eq!(UpdatePackageKind::from_asset_name("amele.deb"), Some(UpdatePackageKind::Deb));
+        assert_eq!(UpdatePackageKind::from_asset_name("amele.rpm"), Some(UpdatePackageKind::Rpm));
+        assert_eq!(UpdatePackageKind::from_asset_name("amele.pkg.tar.zst"), Some(UpdatePackageKind::Pacman));
+        assert_eq!(UpdatePackageKind::from_asset_name("amele-linux-x64.tar.zst"), Some(UpdatePackageKind::Pacman));
+        assert_eq!(UpdatePackageKind::from_asset_name("amele-forensic-tool-linux-x64.tar.zst"), Some(UpdatePackageKind::Pacman));
+        assert_eq!(UpdatePackageKind::from_asset_name("archive.tar.gz"), Some(UpdatePackageKind::Tarball));
+        assert_eq!(UpdatePackageKind::from_asset_name("archive.tgz"), Some(UpdatePackageKind::Tarball));
+        assert_eq!(UpdatePackageKind::from_asset_name("random.txt"), None);
+        assert_eq!(UpdatePackageKind::from_asset_name("unknown.bin"), None);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_parse_linux_update_kind() {
+        assert_eq!(super::parse_linux_update_kind("appimage"), Some(UpdatePackageKind::AppImage));
+        assert_eq!(super::parse_linux_update_kind("deb"), Some(UpdatePackageKind::Deb));
+        assert_eq!(super::parse_linux_update_kind("ubuntu"), Some(UpdatePackageKind::Deb));
+        assert_eq!(super::parse_linux_update_kind("debian"), Some(UpdatePackageKind::Deb));
+        assert_eq!(super::parse_linux_update_kind("rpm"), Some(UpdatePackageKind::Rpm));
+        assert_eq!(super::parse_linux_update_kind("fedora"), Some(UpdatePackageKind::Rpm));
+        assert_eq!(super::parse_linux_update_kind("opensuse"), Some(UpdatePackageKind::Rpm));
+        assert_eq!(super::parse_linux_update_kind("pacman"), Some(UpdatePackageKind::Pacman));
+        assert_eq!(super::parse_linux_update_kind("arch"), Some(UpdatePackageKind::Pacman));
+        assert_eq!(super::parse_linux_update_kind("tarball"), Some(UpdatePackageKind::Tarball));
+        assert_eq!(super::parse_linux_update_kind("unknown_distro"), None);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_terminal_command_for_script() {
+        let cmd = super::terminal_command_for_script("echo test");
+        if let Some((term, args)) = cmd {
+            assert!(!term.is_empty());
+            assert!(!args.is_empty());
+            assert!(args.iter().any(|arg| arg.contains("echo test")));
+        }
     }
 }

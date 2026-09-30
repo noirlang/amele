@@ -358,14 +358,18 @@ pub fn linux_mount_image_readonly(
 mod tests {
     use super::*;
 
+    static MOUNT_TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn test_image_unmount_current_when_empty() {
+        let _lock = MOUNT_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
         let _ = lock_current_image_mount().take();
         assert_eq!(image_unmount_current(), Ok(None));
     }
 
     #[test]
     fn test_lock_current_image_mount_state_flow() {
+        let _lock = MOUNT_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
         let mut guard = lock_current_image_mount();
         let _ = guard.take();
         assert!(guard.is_none());
@@ -383,6 +387,7 @@ mod tests {
 
     #[test]
     fn test_image_unmount_current_restores_state_on_failure() {
+        let _lock = MOUNT_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
         let fake_dir = PathBuf::from("/tmp/amele_mount_test_fail_dir");
         {
             let mut guard = lock_current_image_mount();
@@ -408,6 +413,7 @@ mod tests {
 
     #[test]
     fn test_image_unmount_current_cleans_up_on_success() {
+        let _lock = MOUNT_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
         let temp_dir = std::env::temp_dir().join(format!("amele_mount_test_succ_{}", std::process::id()));
         let _ = fs::create_dir_all(&temp_dir);
         assert!(temp_dir.exists());
