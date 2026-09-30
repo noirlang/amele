@@ -13,6 +13,7 @@ Amele'un Android modülü modüler bir altyapı üzerine inşa edilmiştir. Her 
 ```
 src/android/
 ├── adb.rs          — ADB sarmalayıcı, cihaz listeleme, komut çalıştırma
+├── app_catalog.rs  — Yüklü paket kataloglama, izinler, SHA-256 ve risk puanlama
 ├── session.rs      — AndroidSession: serial, transport tipi, API seviyesi, ADB yolu
 ├── capability.rs   — AndroidCapabilityReport: her özellik için destekleniyor/kısmi/yok
 ├── profile.rs      — AndroidDeviceProfile: model, build, root, şifreleme, SoC
@@ -24,6 +25,12 @@ src/android/
 ├── ram.rs          — Uçucu veri, Root süreç belleği, Lemon fiziksel RAM
 ├── remote.rs       — TCP/IP ADB + MESH relay bağlantı yönetimi, Lemon preflight
 └── orchestrator.rs — Tüm akışları koordine eder, profil + cihaz + manifest birleştirir
+
+src/android_mft/
+├── engine.rs       — Android MFT edinim ve analiz iş akışı motoru
+├── parser.rs       — Ham MFT / EXT4 / F2FS kayıt ayrıştırıcı
+├── records.rs      — MFT dosya meta verisi ve zaman damgası veri modelleri
+└── report.rs       — Adli MFT CSV ve JSON özet raporlama motoru
 ```
 
 ### Çıktı Klasör Yapısı
@@ -292,6 +299,7 @@ Amele's Android module is built on a modular architecture. Each collection job r
 ```
 src/android/
 ├── adb.rs          — ADB wrapper, device listing, command execution
+├── app_catalog.rs  — Package cataloging, permissions, SHA-256 hashes & risk scoring
 ├── session.rs      — AndroidSession: serial, transport kind, API level, ADB path
 ├── capability.rs   — AndroidCapabilityReport: supported/partial/unsupported per feature
 ├── profile.rs      — AndroidDeviceProfile: model, build, root, encryption, SoC
@@ -303,6 +311,12 @@ src/android/
 ├── ram.rs          — Volatile data, Root process memory, Lemon physical RAM
 ├── remote.rs       — TCP/IP ADB + MESH relay connection management, Lemon preflight
 └── orchestrator.rs — Coordinates all flows, merges profile + device + manifest
+
+src/android_mft/
+├── engine.rs       — Android MFT acquisition and analysis workflow engine
+├── parser.rs       — Raw MFT / EXT4 / F2FS record parser
+├── records.rs      — MFT file metadata and timestamp data models
+└── report.rs       — Forensic MFT CSV and JSON summary reporting engine
 ```
 
 ### Output Folder Structure

@@ -24,10 +24,7 @@ case "${1:-}" in
     shift
     run_ui "$@"
     ;;
-  settings-default|hash|disk-list|local-image|local-ram|remote-ram|image-analyze|ram-summary|ram-strings|ram-carve|ram-processes|adb-status|android-adb-status|android-devices|android-profile|android-logical|android-filesystem|android-ram|disk-list-helper|image-helper|ram-helper|avml-install-helper|winpmem-install-helper|mount-helper|disk-size|verify|remote-disks|remote-image|remote-tool-check|ram-status|wireguard-config|ui-browser )
-    exec "$APPDIR/usr/bin/amele-forensic-tool" "$@"
-    ;;
   * )
-    run_ui "$@"
+    exec "$APPDIR/usr/bin/amele-forensic-tool" "$@"
     ;;
 esac

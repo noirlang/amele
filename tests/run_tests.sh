@@ -27,7 +27,7 @@ I18N_PASS=0
 ROUTES_PASS=0
 
 # Phase 1: Rust Backend Unit Tests
-echo -e "${BOLD}${BLUE}📦 [1/3] Running Rust Backend Unit Tests...${RESET}"
+echo -e "${BOLD}${BLUE}📦 [1/4] Running Rust Backend Unit Tests...${RESET}"
 echo -e "${CYAN}------------------------------------------------${RESET}"
 if cargo test; then
   echo -e "\n${GREEN}✔ Rust backend tests completed successfully!${RESET}"
@@ -38,7 +38,7 @@ fi
 echo ""
 
 # Phase 2: Frontend Translation Key Check
-echo -e "${BOLD}${BLUE}🌐 [2/3] Running Translation Dictionary Tests...${RESET}"
+echo -e "${BOLD}${BLUE}🌐 [2/4] Running Translation Dictionary Tests...${RESET}"
 echo -e "${CYAN}------------------------------------------------${RESET}"
 if node --test tests/i18n.test.js; then
   echo -e "${GREEN}✔ Translation dictionaries are perfectly synchronized!${RESET}"
@@ -49,13 +49,32 @@ fi
 echo ""
 
 # Phase 3: Frontend ESM Modules & Router Check
-echo -e "${BOLD}${BLUE}🖥️ [3/3] Running ES Modules & Route Dispatcher Tests...${RESET}"
+echo -e "${BOLD}${BLUE}🖥️ [3/4] Running ES Modules & Route Dispatcher Tests...${RESET}"
 echo -e "${CYAN}------------------------------------------------${RESET}"
 if node --test tests/routes.test.js; then
   echo -e "${GREEN}✔ ES Modules and routing dispatcher loaded flawlessly!${RESET}"
   ROUTES_PASS=1
 else
   echo -e "${RED}✘ ES Modules check failed! Syntax or ReferenceError detected.${RESET}"
+fi
+echo ""
+
+# Phase 4: Packaging Scripts & Worker Tool Integrity Check
+TOOLS_PASS=0
+echo -e "${BOLD}${BLUE}🛠️ [4/4] Verifying Scripts, Packaging & Volatility Worker...${RESET}"
+echo -e "${CYAN}------------------------------------------------${RESET}"
+if bash -n scripts/build-appimage.sh \
+           scripts/build-linux-packages.sh \
+           scripts/ci-build-linux-packages.sh \
+           packaging/appimage/AppRun \
+           tests/run_tests.sh && \
+   python3 tools/amele_volatility_worker.py -h >/dev/null && \
+   python3 tools/amele_volatility_worker.py preflight --help >/dev/null && \
+   python3 tools/amele_volatility_worker.py plugin --help >/dev/null; then
+  echo -e "${GREEN}✔ Packaging scripts and volatility worker verified!${RESET}"
+  TOOLS_PASS=1
+else
+  echo -e "${RED}✘ Scripts or volatility worker verification failed!${RESET}"
 fi
 echo ""
 
@@ -82,9 +101,15 @@ else
   echo -e "  [${RED}FAIL${RESET}]  Phase 3: Frontend ES Modules & Routes Dispatcher"
 fi
 
+if [ $TOOLS_PASS -eq 1 ]; then
+  echo -e "  [${GREEN}PASS${RESET}]  Phase 4: Scripts, Packaging & Worker Verification"
+else
+  echo -e "  [${RED}FAIL${RESET}]  Phase 4: Scripts, Packaging & Worker Verification"
+fi
+
 echo -e "${CYAN}----------------------------------------------------------------------${RESET}"
 
-if [ $BACKEND_PASS -eq 1 ] && [ $I18N_PASS -eq 1 ] && [ $ROUTES_PASS -eq 1 ]; then
+if [ $BACKEND_PASS -eq 1 ] && [ $I18N_PASS -eq 1 ] && [ $ROUTES_PASS -eq 1 ] && [ $TOOLS_PASS -eq 1 ]; then
   echo -e "${BOLD}${GREEN}✨ ALL SYSTEMS NOMINAL: Amele Forensic Tool is 100% ready for deployment!${RESET}"
   exit 0
 else

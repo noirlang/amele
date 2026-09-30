@@ -115,18 +115,29 @@ test("Frontend Routing and Module Health", async (t) => {
     assert.ok(clickListener, "Click listener should be registered on document");
 
     const routesList = [
-      "home", 
-      "windows", 
-      "linux", 
-      "android", 
+      "home",
+      "tools",
+      "windows",
+      "linux",
+      "android",
       "ios",
-      "help", 
-      "analysis", 
-      "other", 
-      "settings", 
-      "about", 
-      "workflow:windows-remote-disk", 
-      "android:logical"
+      "docker",
+      "help",
+      "analysis",
+      "profile",
+      "remote-acq",
+      "other",
+      "settings",
+      "about",
+      "workflow:windows-remote-disk",
+      "workflow:linux-local-disk",
+      "workflow:windows-local-ram",
+      "workflow:linux-remote-ram",
+      "android:logical",
+      "android:filesystem",
+      "android:ram",
+      "android:diagnostics",
+      "android:mft"
     ];
 
     for (const route of routesList) {
