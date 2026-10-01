@@ -95,12 +95,36 @@ globalThis.document = {
     }
   }
 };
+const localStorageValues = new Map([["amele-language", "tr"]]);
 globalThis.localStorage = {
-  getItem: () => "tr",
-  setItem: () => {}
+  getItem: (key) => localStorageValues.get(key) ?? null,
+  setItem: (key, value) => localStorageValues.set(key, String(value)),
+  removeItem: (key) => localStorageValues.delete(key),
+  clear: () => localStorageValues.clear()
 };
 
 test("Frontend Routing and Module Health", async (t) => {
+  await t.test("AI agent preference is persisted and restored safely", async () => {
+    const {
+      SELECTED_AGENT_STORAGE_KEY,
+      getPersistedAgentId,
+      persistAgentId,
+      resolveAvailableAgent
+    } = await import("../ui/core/agent.js");
+    const agents = [
+      { id: "agy", installed: true },
+      { id: "codex", installed: true },
+      { id: "claude", installed: false }
+    ];
+
+    persistAgentId("codex");
+    assert.strictEqual(localStorageValues.get(SELECTED_AGENT_STORAGE_KEY), "codex");
+    assert.strictEqual(getPersistedAgentId(), "codex");
+    assert.strictEqual(resolveAvailableAgent(agents, getPersistedAgentId()).id, "codex");
+    assert.strictEqual(resolveAvailableAgent(agents, "claude").id, "agy");
+    assert.strictEqual(resolveAvailableAgent(agents, "missing").id, "agy");
+  });
+
   await t.test("pages modules can be imported and expose expected functions", async () => {
     const { homePage, metric } = await import("../ui/pages/home.js");
     assert.strictEqual(typeof homePage, "function", "homePage should be a function");

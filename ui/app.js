@@ -31,7 +31,8 @@ import {
   handleScopeChange,
   submitAgentPrompt,
   executeAmeleCommand,
-  getQuickChipPrompt
+  getQuickChipPrompt,
+  getPersistedAgentId
 } from "./core/agent.js";
 
 const APP_VERSION = "v0.1.1";
@@ -130,7 +131,7 @@ const state = {
   cachedDefaultCaseName: "",
   agent: {
     agents: [],
-    selectedAgent: "agy",
+    selectedAgent: getPersistedAgentId() || "agy",
     selectedModel: "",
     selectedScope: "all",
     selectedMode: "ask",
@@ -2099,8 +2100,10 @@ document.addEventListener("click", async (event) => {
     const prompt = relaunchBtn.dataset.prompt;
     const agentId = relaunchBtn.dataset.agentId;
     const modelId = relaunchBtn.dataset.modelId;
-    if (agentId && state.agent) state.agent.selectedAgent = agentId;
-    if (modelId && state.agent) state.agent.selectedModel = modelId;
+    if (agentId && state.agent) handleAgentChange(agentId, state, render);
+    if (modelId && state.agent && (!agentId || state.agent.selectedAgent === agentId)) {
+      state.agent.selectedModel = modelId;
+    }
     submitAgentPrompt(prompt, state, render, showToast, t);
     return;
   }
