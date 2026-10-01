@@ -6,7 +6,7 @@
 
 *Remote forensic acquisition agents for Linux and Windows targets.*
 
-[Back to Main Repo](../README.md) | [Releases](https://github.com/amele-next/amele-next/releases)
+[Back to Main Repo](../README.md) | [Releases](https://github.com/noirlang/amele/releases)
 
 <table width="100%">
   <tr>
