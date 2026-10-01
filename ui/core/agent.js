@@ -6,6 +6,30 @@ const apiRequest = createApiRequest({
   backendAvailable: typeof location !== "undefined" && (location.protocol === "http:" || location.protocol === "https:")
 });
 
+export const SELECTED_AGENT_STORAGE_KEY = "amele-ai-selected-agent";
+
+export function getPersistedAgentId(storage = typeof localStorage !== "undefined" ? localStorage : null) {
+  try {
+    return String(storage?.getItem(SELECTED_AGENT_STORAGE_KEY) || "").trim();
+  } catch (_) {
+    return "";
+  }
+}
+
+export function persistAgentId(agentId, storage = typeof localStorage !== "undefined" ? localStorage : null) {
+  const id = String(agentId || "").trim();
+  if (!id) return;
+  try {
+    storage?.setItem(SELECTED_AGENT_STORAGE_KEY, id);
+  } catch (_) {}
+}
+
+export function resolveAvailableAgent(agents, preferredAgentId) {
+  if (!Array.isArray(agents) || agents.length === 0) return null;
+  const preferred = agents.find((agent) => agent.id === preferredAgentId && agent.installed === true);
+  return preferred || agents.find((agent) => agent.installed === true) || agents[0];
+}
+
 export const DEFAULT_AGENTS = [
   {
     id: "agy",
@@ -62,7 +86,7 @@ export function initAgent(state, render) {
   if (!state.agent) {
     state.agent = {
       agents: [...DEFAULT_AGENTS],
-      selectedAgent: "agy",
+      selectedAgent: getPersistedAgentId() || "agy",
       selectedModel: "",
       selectedScope: "all",
       selectedMode: "ask",
@@ -100,12 +124,12 @@ export async function loadAgents(state, render) {
       if (!state.agent) initAgent(state, render);
       state.agent.agents = res.agents;
 
-      // Sistemde kurulu olan ilk ajanı seç
-      const installedAgent = res.agents.find((a) => a.installed);
-      const chosen = installedAgent || res.agents[0];
+      // kayitli ajan hala kuruluysa onu, degilse ilk kurulu ajani sec
+      const chosen = resolveAvailableAgent(res.agents, getPersistedAgentId() || state.agent.selectedAgent);
 
       if (chosen) {
         state.agent.selectedAgent = chosen.id;
+        if (chosen.installed === true) persistAgentId(chosen.id);
         if (chosen.models && chosen.models.length > 0) {
           state.agent.selectedModel = preferFastModel(chosen.models).id;
         }
@@ -154,6 +178,7 @@ export function handleAgentChange(agentId, state, render) {
   }
 
   state.agent.selectedAgent = agentId;
+  persistAgentId(agentId);
   if (targetAgent && targetAgent.models && targetAgent.models.length > 0) {
     state.agent.selectedModel = preferFastModel(targetAgent.models).id;
   } else {
