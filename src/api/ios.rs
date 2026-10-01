@@ -37,10 +37,16 @@ pub fn ios_backup_profile_endpoint(body: &[u8]) -> Response {
 
     let path = Path::new(backup_path);
     if !path.exists() {
-        return json_error(404, format!("iOS backup klasoru bulunamadi: {}", backup_path));
+        return json_error(
+            404,
+            format!("iOS backup klasoru bulunamadi: {}", backup_path),
+        );
     }
     if !path.is_dir() {
-        return json_error(400, format!("iOS backup yolu bir klasor olmalidir: {}", backup_path));
+        return json_error(
+            400,
+            format!("iOS backup yolu bir klasor olmalidir: {}", backup_path),
+        );
     }
 
     let _ = crate::profile::record_active_profile_activity(
@@ -73,10 +79,16 @@ pub fn ios_backup_normalize_endpoint(body: &[u8]) -> Response {
 
     let path = Path::new(backup_path_str);
     if !path.exists() {
-        return json_error(404, format!("iOS backup klasoru bulunamadi: {}", backup_path_str));
+        return json_error(
+            404,
+            format!("iOS backup klasoru bulunamadi: {}", backup_path_str),
+        );
     }
     if !path.is_dir() {
-        return json_error(400, format!("iOS backup yolu bir klasor olmalidir: {}", backup_path_str));
+        return json_error(
+            400,
+            format!("iOS backup yolu bir klasor olmalidir: {}", backup_path_str),
+        );
     }
 
     let _ = crate::profile::record_active_profile_activity(

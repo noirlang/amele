@@ -174,7 +174,10 @@ mod tests {
         props.insert("ro.product.model".to_string(), " Pixel 8 ".to_string());
         props.insert("empty".to_string(), "   ".to_string());
 
-        assert_eq!(super::prop(&props, "ro.product.model"), Some("Pixel 8".to_string()));
+        assert_eq!(
+            super::prop(&props, "ro.product.model"),
+            Some("Pixel 8".to_string())
+        );
         assert_eq!(super::prop(&props, "empty"), None);
         assert_eq!(super::prop(&props, "nonexistent"), None);
     }

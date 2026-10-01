@@ -643,4 +643,3 @@ mod tests {
         assert_eq!(matches[0].offset, 6);
     }
 }
-

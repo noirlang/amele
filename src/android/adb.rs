@@ -307,10 +307,18 @@ fn adb_install_command() -> Result<InstallCommand, String> {
             if !elevation.is_empty() {
                 args.push("pacman".to_string());
             }
-            args.extend(["-S".to_string(), "--noconfirm".to_string(), "android-tools".to_string()]);
+            args.extend([
+                "-S".to_string(),
+                "--noconfirm".to_string(),
+                "android-tools".to_string(),
+            ]);
             return Ok(InstallCommand {
                 manager: "pacman".to_string(),
-                program: if elevation.is_empty() { "pacman".to_string() } else { elevation.to_string() },
+                program: if elevation.is_empty() {
+                    "pacman".to_string()
+                } else {
+                    elevation.to_string()
+                },
                 args,
             });
         }
@@ -320,10 +328,18 @@ fn adb_install_command() -> Result<InstallCommand, String> {
             if !elevation.is_empty() {
                 args.push("apt".to_string());
             }
-            args.extend(["install".to_string(), "-y".to_string(), "android-tools-adb".to_string()]);
+            args.extend([
+                "install".to_string(),
+                "-y".to_string(),
+                "android-tools-adb".to_string(),
+            ]);
             return Ok(InstallCommand {
                 manager: "apt".to_string(),
-                program: if elevation.is_empty() { "apt".to_string() } else { elevation.to_string() },
+                program: if elevation.is_empty() {
+                    "apt".to_string()
+                } else {
+                    elevation.to_string()
+                },
                 args,
             });
         }
@@ -333,10 +349,18 @@ fn adb_install_command() -> Result<InstallCommand, String> {
             if !elevation.is_empty() {
                 args.push("dnf".to_string());
             }
-            args.extend(["install".to_string(), "-y".to_string(), "android-tools".to_string()]);
+            args.extend([
+                "install".to_string(),
+                "-y".to_string(),
+                "android-tools".to_string(),
+            ]);
             return Ok(InstallCommand {
                 manager: "dnf".to_string(),
-                program: if elevation.is_empty() { "dnf".to_string() } else { elevation.to_string() },
+                program: if elevation.is_empty() {
+                    "dnf".to_string()
+                } else {
+                    elevation.to_string()
+                },
                 args,
             });
         }
@@ -687,7 +711,10 @@ mod tests {
         );
 
         let fallback = "Version 34.0.5\nInstalled as /usr/bin/adb";
-        assert_eq!(parse_adb_version(fallback), Some("Version 34.0.5".to_string()));
+        assert_eq!(
+            parse_adb_version(fallback),
+            Some("Version 34.0.5".to_string())
+        );
         assert_eq!(parse_adb_version("unrecognized header"), None);
     }
 
@@ -702,13 +729,19 @@ mod tests {
     fn test_first_non_empty() {
         assert_eq!(first_non_empty(""), None);
         assert_eq!(first_non_empty("   \n\t\n  "), None);
-        assert_eq!(first_non_empty("\n  hello world \nnext"), Some("hello world".to_string()));
+        assert_eq!(
+            first_non_empty("\n  hello world \nnext"),
+            Some("hello world".to_string())
+        );
     }
 
     #[test]
     fn test_shell_display_arg() {
         assert_eq!(shell_display_arg("simple"), "simple");
-        assert_eq!(shell_display_arg("file with space.txt"), "'file with space.txt'");
+        assert_eq!(
+            shell_display_arg("file with space.txt"),
+            "'file with space.txt'"
+        );
         assert_eq!(shell_display_arg("don't"), "'don'\\''t'");
     }
 }

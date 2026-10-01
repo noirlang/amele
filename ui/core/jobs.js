@@ -95,13 +95,16 @@ let navigateHandler = null;
 
 function handleJobClick(jobId) {
   let targetRoute = "home";
-  const lower = String(jobId || "").toLowerCase();
-  if (lower.includes("android")) targetRoute = "android";
-  else if (lower.includes("ios")) targetRoute = "ios";
-  else if (lower.includes("docker")) targetRoute = "docker";
-  else if (lower.includes("windows")) targetRoute = "windows";
-  else if (lower.includes("linux")) targetRoute = "linux";
-  else if (lower.includes("disk") || lower.includes("ram")) targetRoute = "windows";
+  const job = currentJobs[jobId];
+  const text = `${jobId} ${job?.message || ""} ${(job?.logs || []).join(" ")}`.toLowerCase();
+
+  if (text.includes("android")) targetRoute = "android";
+  else if (text.includes("ios")) targetRoute = "ios";
+  else if (text.includes("docker")) targetRoute = "docker";
+  else if (text.includes("ram") || text.includes("bellek")) targetRoute = "linux";
+  else if (text.includes("disk") || text.includes("imaj")) targetRoute = "linux";
+  else if (text.includes("windows")) targetRoute = "windows";
+  else if (text.includes("linux")) targetRoute = "linux";
   else targetRoute = "other";
 
   if (typeof navigateHandler === "function") {

@@ -266,4 +266,3 @@ mod tests {
         assert!(fish.contains("subcommand"));
     }
 }
-

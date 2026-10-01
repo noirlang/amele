@@ -82,12 +82,7 @@ pub fn wireguard_start_endpoint(body: &[u8]) -> Response {
         return json_error(404, "wireguard config file not found");
     }
 
-    let _ = record_active_profile_activity(
-        "wireguard_start",
-        config_file,
-        None,
-        None,
-    );
+    let _ = record_active_profile_activity("wireguard_start", config_file, None, None);
 
     let mut guard = lock_manager();
     match guard.start(config_file) {
@@ -104,12 +99,7 @@ pub fn wireguard_stop_endpoint() -> Response {
     let mut guard = lock_manager();
     let interface_name = guard.interface_name.clone();
 
-    let _ = record_active_profile_activity(
-        "wireguard_stop",
-        &interface_name,
-        None,
-        None,
-    );
+    let _ = record_active_profile_activity("wireguard_stop", &interface_name, None, None);
 
     match guard.stop() {
         Ok(()) => json_ok(json!({ "active": guard.is_active() })),
@@ -184,7 +174,10 @@ mod tests {
     fn test_wireguard_start_endpoint_validation() {
         assert_eq!(wireguard_start_endpoint(b"").status, 400);
         assert_eq!(wireguard_start_endpoint(b"not json").status, 400);
-        assert_eq!(wireguard_start_endpoint(br#"{"config_file":""}"#).status, 400);
+        assert_eq!(
+            wireguard_start_endpoint(br#"{"config_file":""}"#).status,
+            400
+        );
         assert_eq!(
             wireguard_start_endpoint(br#"{"config_file":"/nonexistent/path/to/wg0.conf"}"#).status,
             404

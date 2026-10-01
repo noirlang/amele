@@ -618,17 +618,32 @@ mod tests {
 
     #[test]
     fn test_percent_decode() {
-        assert_eq!(super::percent_decode("hello%20world").unwrap(), "hello world");
+        assert_eq!(
+            super::percent_decode("hello%20world").unwrap(),
+            "hello world"
+        );
         assert_eq!(super::percent_decode("foo+bar").unwrap(), "foo bar");
         assert!(super::percent_decode("%ZZ").is_err());
     }
 
     #[test]
     fn test_mime_for() {
-        assert_eq!(super::mime_for(std::path::Path::new("index.html")), "text/html; charset=utf-8");
-        assert_eq!(super::mime_for(std::path::Path::new("script.js")), "text/javascript; charset=utf-8");
-        assert_eq!(super::mime_for(std::path::Path::new("style.css")), "text/css; charset=utf-8");
-        assert_eq!(super::mime_for(std::path::Path::new("data.json")), "application/json; charset=utf-8");
+        assert_eq!(
+            super::mime_for(std::path::Path::new("index.html")),
+            "text/html; charset=utf-8"
+        );
+        assert_eq!(
+            super::mime_for(std::path::Path::new("script.js")),
+            "text/javascript; charset=utf-8"
+        );
+        assert_eq!(
+            super::mime_for(std::path::Path::new("style.css")),
+            "text/css; charset=utf-8"
+        );
+        assert_eq!(
+            super::mime_for(std::path::Path::new("data.json")),
+            "application/json; charset=utf-8"
+        );
     }
 
     #[test]
@@ -644,4 +659,3 @@ mod tests {
         assert_eq!(err.status, 400);
     }
 }
-

@@ -594,7 +594,6 @@ Analiste adli bilişim incelemelerinde, disk/RAM/mobil/docker edinimlerinde ve A
     )
 }
 
-
 /// Yapay zeka ajanını varsayılan sistem terminalinde etkileşimli olarak başlatır.
 /// Amele adli bilişim skill kuralları ve kullanıcının prompt'u oturuma aktarılır.
 pub fn launch_terminal_endpoint(body: &[u8]) -> Response {
@@ -941,7 +940,36 @@ pub fn execute_command_endpoint(body: &[u8]) -> Response {
                 }
             }
 
-            // onbellek yoksa sistem penceresini ac (polkit)
+            // parola geldiyse sudo -S ile calistir
+            if let Some(password) = req.sudo_password.as_deref().filter(|p| !p.is_empty()) {
+                let mut child = match Command::new("sudo")
+                    .arg("-S")
+                    .arg("-p")
+                    .arg("")
+                    .arg("sh")
+                    .arg("-c")
+                    .arg(clean_cmd)
+                    .stdin(Stdio::piped())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .spawn()
+                {
+                    Ok(c) => c,
+                    Err(err) => return json_error(500, format!("Süreç başlatılamadı: {err}")),
+                };
+
+                if let Some(mut stdin) = child.stdin.take() {
+                    use std::io::Write;
+                    let _ = stdin.write_all(format!("{password}\n").as_bytes());
+                }
+
+                return match child.wait_with_output() {
+                    Ok(output) => cmd_result(output),
+                    Err(err) => json_error(500, format!("Komut tamamlanamadı: {err}")),
+                };
+            }
+
+            // parola yoksa sistem penceresini ac (polkit)
             match Command::new("pkexec")
                 .arg("sh")
                 .arg("-c")
@@ -1257,7 +1285,12 @@ mod tests {
         assert_eq!(resp.status, 400);
         let val: serde_json::Value = serde_json::from_slice(&resp.body).unwrap();
         assert_eq!(val["ok"], false);
-        assert!(val["error"].as_str().unwrap().contains("Aktif analist profili bulunamadı"));
+        assert!(
+            val["error"]
+                .as_str()
+                .unwrap()
+                .contains("Aktif analist profili bulunamadı")
+        );
     }
 
     #[test]

@@ -89,6 +89,12 @@ mod tests {
         let resp_since = developer_logs_endpoint(Some(999999));
         assert_eq!(resp_since.status, 200);
         let val_since: Value = serde_json::from_slice(&resp_since.body).expect("valid json");
-        assert_eq!(val_since.get("logs").and_then(|l| l.as_array()).map(|a| a.len()), Some(0));
+        assert_eq!(
+            val_since
+                .get("logs")
+                .and_then(|l| l.as_array())
+                .map(|a| a.len()),
+            Some(0)
+        );
     }
 }

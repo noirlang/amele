@@ -332,7 +332,10 @@ mod tests {
     fn test_runtime_log_snapshot() {
         runtime_log(LogLevel::Info, "test_scope", "runtime test msg");
         let entries = runtime_logs(10);
-        assert!(entries.iter().any(|e| e.message.contains("runtime test msg")));
+        assert!(
+            entries
+                .iter()
+                .any(|e| e.message.contains("runtime test msg"))
+        );
     }
 }
-

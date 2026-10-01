@@ -60,7 +60,8 @@ mod tests {
 
     #[test]
     fn test_write_logical_mft_bundle_empty_dir() {
-        let temp_dir = std::env::temp_dir().join(format!("amele_mft_bundle_test_{}", std::process::id()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("amele_mft_bundle_test_{}", std::process::id()));
         let res = write_logical_mft_bundle("test_serial", &temp_dir);
         assert!(res.is_ok());
         let info = res.unwrap();

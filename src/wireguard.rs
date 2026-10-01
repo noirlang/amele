@@ -327,4 +327,3 @@ mod tests {
         assert!(mgr.config_file.is_none());
     }
 }
-

@@ -895,7 +895,10 @@ mod tests {
         #[cfg(unix)]
         {
             let out_empty = std::process::Command::new("true").output().unwrap();
-            assert_eq!(command_error_message(&out_empty, "varsayilan hata"), "varsayilan hata");
+            assert_eq!(
+                command_error_message(&out_empty, "varsayilan hata"),
+                "varsayilan hata"
+            );
 
             let out_stderr = std::process::Command::new("sh")
                 .args(["-c", "echo 'ozel hata' >&2"])
@@ -945,7 +948,10 @@ mod tests {
         let read_val = read_helper_json(&json_file).unwrap();
         assert_eq!(read_val["done"], 1024);
 
-        assert_eq!(read_helper_error(&json_file), Some("kritik io hatasi".to_string()));
+        assert_eq!(
+            read_helper_error(&json_file),
+            Some("kritik io hatasi".to_string())
+        );
 
         let (done, total, msg, phase) = read_helper_progress(&json_file).unwrap();
         assert_eq!(done, 1024);

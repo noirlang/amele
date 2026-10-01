@@ -186,7 +186,8 @@ mod tests {
 
     #[test]
     fn test_manifest_creation_and_writing() {
-        let temp_dir = std::env::temp_dir().join(format!("amele_manifest_test_{}", std::process::id()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("amele_manifest_test_{}", std::process::id()));
         let session = dummy_session();
         let capabilities = dummy_capabilities();
 

@@ -159,7 +159,10 @@ mod tests {
         let resp = acquisition_status_endpoint(&body);
         assert_eq!(resp.status, 200);
         let val: Value = serde_json::from_slice(&resp.body).expect("valid json");
-        assert_eq!(val.get("job_id").and_then(|v| v.as_str()), Some(job_id.as_str()));
+        assert_eq!(
+            val.get("job_id").and_then(|v| v.as_str()),
+            Some(job_id.as_str())
+        );
     }
 
     #[test]
@@ -174,12 +177,14 @@ mod tests {
         let (job_id, _ctrl) = create_acquisition_job("Test job for control");
 
         // Test pause
-        let body_pause = serde_json::to_vec(&json!({ "job_id": job_id, "action": "pause" })).unwrap();
+        let body_pause =
+            serde_json::to_vec(&json!({ "job_id": job_id, "action": "pause" })).unwrap();
         let resp_pause = acquisition_control_endpoint(&body_pause);
         assert_eq!(resp_pause.status, 200);
 
         // Test resume
-        let body_resume = serde_json::to_vec(&json!({ "job_id": job_id, "action": "resume" })).unwrap();
+        let body_resume =
+            serde_json::to_vec(&json!({ "job_id": job_id, "action": "resume" })).unwrap();
         let resp_resume = acquisition_control_endpoint(&body_resume);
         assert_eq!(resp_resume.status, 200);
 
@@ -189,7 +194,8 @@ mod tests {
         assert_eq!(resp_stop.status, 200);
 
         // Test invalid action
-        let body_invalid = serde_json::to_vec(&json!({ "job_id": job_id, "action": "invalid" })).unwrap();
+        let body_invalid =
+            serde_json::to_vec(&json!({ "job_id": job_id, "action": "invalid" })).unwrap();
         let resp_invalid = acquisition_control_endpoint(&body_invalid);
         assert_eq!(resp_invalid.status, 400);
     }

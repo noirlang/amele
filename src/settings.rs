@@ -226,4 +226,3 @@ mod tests {
         assert_eq!(def.varsayilan_port, 4444);
     }
 }
-

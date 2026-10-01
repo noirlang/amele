@@ -244,10 +244,22 @@ mod tests {
 
     #[test]
     fn test_format_parsing() {
-        assert_eq!(AcquisitionOutputFormat::parse(None).unwrap(), AcquisitionOutputFormat::Raw);
-        assert_eq!(AcquisitionOutputFormat::parse(Some("raw")).unwrap(), AcquisitionOutputFormat::Raw);
-        assert_eq!(AcquisitionOutputFormat::parse(Some("dd")).unwrap(), AcquisitionOutputFormat::Raw);
-        assert_eq!(AcquisitionOutputFormat::parse(Some("aff4")).unwrap(), AcquisitionOutputFormat::Aff4);
+        assert_eq!(
+            AcquisitionOutputFormat::parse(None).unwrap(),
+            AcquisitionOutputFormat::Raw
+        );
+        assert_eq!(
+            AcquisitionOutputFormat::parse(Some("raw")).unwrap(),
+            AcquisitionOutputFormat::Raw
+        );
+        assert_eq!(
+            AcquisitionOutputFormat::parse(Some("dd")).unwrap(),
+            AcquisitionOutputFormat::Raw
+        );
+        assert_eq!(
+            AcquisitionOutputFormat::parse(Some("aff4")).unwrap(),
+            AcquisitionOutputFormat::Aff4
+        );
         assert!(AcquisitionOutputFormat::parse(Some("invalid")).is_err());
     }
 
@@ -283,4 +295,3 @@ mod tests {
         assert_eq!(fin_aff4.format, AcquisitionOutputFormat::Aff4);
     }
 }
-

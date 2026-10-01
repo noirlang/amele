@@ -252,11 +252,7 @@ pub fn profile_report_submit_endpoint(body: &[u8]) -> Response {
         return json_error(400, "description is required");
     }
 
-    match crate::profile::submit_online_report(
-        title,
-        description,
-        &request.image_urls,
-    ) {
+    match crate::profile::submit_online_report(title, description, &request.image_urls) {
         Ok(result) => json_ok(json!({ "ok": true, "result": result })),
         Err(err) => {
             let status = match err.code {
@@ -353,10 +349,12 @@ mod tests {
         let resp_empty = profile_online_login_endpoint(b"");
         assert_eq!(resp_empty.status, 400);
 
-        let resp_empty_ident = profile_online_login_endpoint(br#"{"identifier": "", "password": "pass"}"#);
+        let resp_empty_ident =
+            profile_online_login_endpoint(br#"{"identifier": "", "password": "pass"}"#);
         assert_eq!(resp_empty_ident.status, 400);
 
-        let resp_empty_pass = profile_online_login_endpoint(br#"{"identifier": "user", "password": ""}"#);
+        let resp_empty_pass =
+            profile_online_login_endpoint(br#"{"identifier": "user", "password": ""}"#);
         assert_eq!(resp_empty_pass.status, 400);
     }
 
@@ -365,10 +363,12 @@ mod tests {
         let resp_empty = profile_report_submit_endpoint(b"");
         assert_eq!(resp_empty.status, 400);
 
-        let resp_empty_title = profile_report_submit_endpoint(br#"{"title": "", "description": "desc"}"#);
+        let resp_empty_title =
+            profile_report_submit_endpoint(br#"{"title": "", "description": "desc"}"#);
         assert_eq!(resp_empty_title.status, 400);
 
-        let resp_empty_desc = profile_report_submit_endpoint(br#"{"title": "title", "description": ""}"#);
+        let resp_empty_desc =
+            profile_report_submit_endpoint(br#"{"title": "title", "description": ""}"#);
         assert_eq!(resp_empty_desc.status, 400);
     }
 
@@ -377,7 +377,8 @@ mod tests {
         let resp_empty = profile_report_upload_image_endpoint(b"");
         assert_eq!(resp_empty.status, 400);
 
-        let resp_invalid_b64 = profile_report_upload_image_endpoint(br#"{"imageBase64": "!!!not_base64!!!"}"#);
+        let resp_invalid_b64 =
+            profile_report_upload_image_endpoint(br#"{"imageBase64": "!!!not_base64!!!"}"#);
         assert_eq!(resp_invalid_b64.status, 400);
 
         let resp_empty_b64 = profile_report_upload_image_endpoint(br#"{"imageBase64": ""}"#);

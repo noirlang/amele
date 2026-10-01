@@ -98,7 +98,9 @@ mod tests {
 
     #[test]
     fn test_settings_get_endpoint() {
-        let _guard = SETTINGS_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = SETTINGS_TEST_MUTEX
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         let resp = settings_get_endpoint();
         assert_eq!(resp.status, 200);
         let val: serde_json::Value = serde_json::from_slice(&resp.body).expect("valid json");
@@ -108,7 +110,9 @@ mod tests {
 
     #[test]
     fn test_settings_save_endpoint_validation() {
-        let _guard = SETTINGS_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = SETTINGS_TEST_MUTEX
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         // Empty body
         let resp = settings_save_endpoint(b"");
         assert_eq!(resp.status, 400);
@@ -127,12 +131,19 @@ mod tests {
         let resp = settings_save_endpoint(br#"{"language":"fr"}"#);
         assert_eq!(resp.status, 400);
         let val: serde_json::Value = serde_json::from_slice(&resp.body).expect("valid json");
-        assert!(val["error"].as_str().unwrap().contains("unsupported language"));
+        assert!(
+            val["error"]
+                .as_str()
+                .unwrap()
+                .contains("unsupported language")
+        );
     }
 
     #[test]
     fn test_settings_save_endpoint_valid_updates() {
-        let _guard = SETTINGS_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = SETTINGS_TEST_MUTEX
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         // Save dark theme and Turkish
         let resp = settings_save_endpoint(br#"{"theme":"dark","language":"tr"}"#);
         assert_eq!(resp.status, 200);
@@ -148,4 +159,3 @@ mod tests {
         assert_eq!(val["settings"]["dil"], "en");
     }
 }
-

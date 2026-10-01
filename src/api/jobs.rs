@@ -227,7 +227,11 @@ pub fn format_job_eta(total_secs: u64) -> String {
     } else if total_secs < 86400 {
         format!("{} sa {} dk", total_secs / 3600, (total_secs % 3600) / 60)
     } else {
-        format!("{} gün {} sa", total_secs / 86400, (total_secs % 86400) / 3600)
+        format!(
+            "{} gün {} sa",
+            total_secs / 86400,
+            (total_secs % 86400) / 3600
+        )
     }
 }
 
@@ -369,13 +373,20 @@ mod tests {
 
         let jobs = lock_acquisition_jobs();
         let job = jobs.get(&job_id).expect("iş bulunmalı");
-        assert_eq!(job.logs, vec!["Log testi".to_string(), "Aynı log".to_string()]);
+        assert_eq!(
+            job.logs,
+            vec!["Log testi".to_string(), "Aynı log".to_string()]
+        );
     }
 
     #[test]
     fn test_finish_and_fail_job() {
         let (job1, _) = create_acquisition_job("Bitecek iş");
-        finish_acquisition_job_with_message(&job1, serde_json::json!({ "ok": true }), "Başarıyla bitti");
+        finish_acquisition_job_with_message(
+            &job1,
+            serde_json::json!({ "ok": true }),
+            "Başarıyla bitti",
+        );
         {
             let jobs = lock_acquisition_jobs();
             let job = jobs.get(&job1).expect("iş bulunmalı");
@@ -386,7 +397,11 @@ mod tests {
         }
 
         let (job2, _) = create_acquisition_job("Başarısız iş");
-        fail_acquisition_job_with_message(&job2, "Erişim reddedildi".to_string(), "Kopyalama hatası");
+        fail_acquisition_job_with_message(
+            &job2,
+            "Erişim reddedildi".to_string(),
+            "Kopyalama hatası",
+        );
         {
             let jobs = lock_acquisition_jobs();
             let job = jobs.get(&job2).expect("iş bulunmalı");

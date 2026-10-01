@@ -605,12 +605,30 @@ mod tests {
 
     #[test]
     fn test_android_ram_mode_from_id() {
-        assert_eq!(AndroidRamMode::from_id("root"), AndroidRamMode::RootProcessMemory);
-        assert_eq!(AndroidRamMode::from_id("root_process_memory"), AndroidRamMode::RootProcessMemory);
-        assert_eq!(AndroidRamMode::from_id("physical"), AndroidRamMode::PhysicalMemoryProbe);
-        assert_eq!(AndroidRamMode::from_id("physical_memory_probe"), AndroidRamMode::PhysicalMemoryProbe);
-        assert_eq!(AndroidRamMode::from_id("volatile"), AndroidRamMode::VolatileData);
-        assert_eq!(AndroidRamMode::from_id("unknown"), AndroidRamMode::VolatileData);
+        assert_eq!(
+            AndroidRamMode::from_id("root"),
+            AndroidRamMode::RootProcessMemory
+        );
+        assert_eq!(
+            AndroidRamMode::from_id("root_process_memory"),
+            AndroidRamMode::RootProcessMemory
+        );
+        assert_eq!(
+            AndroidRamMode::from_id("physical"),
+            AndroidRamMode::PhysicalMemoryProbe
+        );
+        assert_eq!(
+            AndroidRamMode::from_id("physical_memory_probe"),
+            AndroidRamMode::PhysicalMemoryProbe
+        );
+        assert_eq!(
+            AndroidRamMode::from_id("volatile"),
+            AndroidRamMode::VolatileData
+        );
+        assert_eq!(
+            AndroidRamMode::from_id("unknown"),
+            AndroidRamMode::VolatileData
+        );
     }
 
     #[test]
@@ -628,4 +646,3 @@ mod tests {
         let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }
-

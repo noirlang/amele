@@ -114,7 +114,8 @@ mod tests {
 
     #[test]
     fn test_write_android_session() {
-        let temp_dir = std::env::temp_dir().join(format!("amele_session_test_{}", std::process::id()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("amele_session_test_{}", std::process::id()));
         let session = AndroidSession {
             serial: "test_dev".to_string(),
             created_at: "now".to_string(),

@@ -183,7 +183,10 @@ pub fn local_image_endpoint(body: &[u8]) -> Response {
         "image",
         "local_acquisition",
         request.case_name.as_deref(),
-        Some(&format!("source={} output={}", request.source, request.output)),
+        Some(&format!(
+            "source={} output={}",
+            request.source, request.output
+        )),
     );
 
     let (job_id, control) = create_acquisition_job("Yerel imaj alma başlatıldı");
@@ -594,7 +597,11 @@ pub fn remote_image_endpoint(body: &[u8]) -> Response {
 }
 
 /// Uzak imaj alma işini çalıştırır ve indirilen dosyayı vaka klasörüne yazar.
-fn run_remote_image_job(job_id: String, request: RemoteImageRequest, format: AcquisitionOutputFormat) {
+fn run_remote_image_job(
+    job_id: String,
+    request: RemoteImageRequest,
+    format: AcquisitionOutputFormat,
+) {
     match RemoteConnection::connect(&request.ip, request.port, request.token) {
         Ok(mut connection) => {
             let remote_job_id = job_id.clone();
@@ -1211,12 +1218,7 @@ fn format_bytes_for_report(bytes: u64) -> String {
 pub fn image_unmount_endpoint() -> Response {
     let res = image_unmount_current();
     if res.is_ok() {
-        let _ = crate::profile::record_active_profile_activity(
-            "image",
-            "unmount",
-            None,
-            None,
-        );
+        let _ = crate::profile::record_active_profile_activity("image", "unmount", None, None);
     }
     match res {
         Ok(Some(mount_dir)) => json_ok(json!({ "mount_dir": mount_dir })),
@@ -1654,22 +1656,37 @@ fn local_image_error_can_retry_elevated(message: &str) -> bool {
 mod tests {
     use super::*;
 
+    // Mount durumunu değiştiren testler için mutex
+    static MOUNT_TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn test_connect_endpoint_validation() {
         assert_eq!(connect_endpoint(b"").status, 400);
         assert_eq!(connect_endpoint(b"not json").status, 400);
         assert_eq!(connect_endpoint(br#"{"ip":"","port":8080}"#).status, 400);
-        assert_eq!(connect_endpoint(br#"{"ip":"127.0.0.1","port":0}"#).status, 400);
+        assert_eq!(
+            connect_endpoint(br#"{"ip":"127.0.0.1","port":0}"#).status,
+            400
+        );
     }
 
     #[test]
     fn test_local_image_endpoint_validation() {
         assert_eq!(local_image_endpoint(b"").status, 400);
         assert_eq!(local_image_endpoint(b"not json").status, 400);
-        assert_eq!(local_image_endpoint(br#"{"source":"","output":"/tmp"}"#).status, 400);
-        assert_eq!(local_image_endpoint(br#"{"source":"/dev/sda","output":""}"#).status, 400);
         assert_eq!(
-            local_image_endpoint(br#"{"source":"/dev/sda","output":"/tmp","output_format":"invalid_xyz"}"#).status,
+            local_image_endpoint(br#"{"source":"","output":"/tmp"}"#).status,
+            400
+        );
+        assert_eq!(
+            local_image_endpoint(br#"{"source":"/dev/sda","output":""}"#).status,
+            400
+        );
+        assert_eq!(
+            local_image_endpoint(
+                br#"{"source":"/dev/sda","output":"/tmp","output_format":"invalid_xyz"}"#
+            )
+            .status,
             400
         );
     }
@@ -1678,9 +1695,21 @@ mod tests {
     fn test_remote_image_endpoint_validation() {
         assert_eq!(remote_image_endpoint(b"").status, 400);
         assert_eq!(remote_image_endpoint(b"not json").status, 400);
-        assert_eq!(remote_image_endpoint(br#"{"ip":"","port":8080,"disk_id":"sda","output":"/tmp"}"#).status, 400);
-        assert_eq!(remote_image_endpoint(br#"{"ip":"10.0.0.1","port":0,"disk_id":"sda","output":"/tmp"}"#).status, 400);
-        assert_eq!(remote_image_endpoint(br#"{"ip":"10.0.0.1","port":8080,"disk_id":"","output":"/tmp"}"#).status, 400);
+        assert_eq!(
+            remote_image_endpoint(br#"{"ip":"","port":8080,"disk_id":"sda","output":"/tmp"}"#)
+                .status,
+            400
+        );
+        assert_eq!(
+            remote_image_endpoint(br#"{"ip":"10.0.0.1","port":0,"disk_id":"sda","output":"/tmp"}"#)
+                .status,
+            400
+        );
+        assert_eq!(
+            remote_image_endpoint(br#"{"ip":"10.0.0.1","port":8080,"disk_id":"","output":"/tmp"}"#)
+                .status,
+            400
+        );
         assert_eq!(
             remote_image_endpoint(br#"{"ip":"10.0.0.1","port":8080,"disk_id":"sda","output":"/tmp","output_format":"invalid_xyz"}"#).status,
             400
@@ -1692,7 +1721,8 @@ mod tests {
         assert_eq!(remote_tool_check_endpoint(b"").status, 400);
         assert_eq!(remote_tool_check_endpoint(b"not json").status, 400);
         assert_eq!(
-            remote_tool_check_endpoint(br#"{"ip":"127.0.0.1","port":8080,"tool":"invalid_tool"}"#).status,
+            remote_tool_check_endpoint(br#"{"ip":"127.0.0.1","port":8080,"tool":"invalid_tool"}"#)
+                .status,
             400
         );
     }
@@ -1702,26 +1732,38 @@ mod tests {
         assert_eq!(image_mount_readonly_endpoint(b"").status, 400);
         assert_eq!(image_mount_readonly_endpoint(b"not json").status, 400);
         assert_eq!(image_mount_readonly_endpoint(br#"{"path":""}"#).status, 400);
-        assert_eq!(image_mount_readonly_endpoint(br#"{"path":"/nonexistent/image.raw"}"#).status, 404);
+        assert_eq!(
+            image_mount_readonly_endpoint(br#"{"path":"/nonexistent/image.raw"}"#).status,
+            404
+        );
     }
 
     #[test]
     fn test_image_analyze_endpoint_validation() {
+        let _lock = MOUNT_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
         let _ = lock_current_image_mount().take();
         assert_eq!(image_analyze_endpoint(b"{}").status, 400);
-        assert_eq!(image_analyze_endpoint(br#"{"path":"/nonexistent/disk.img"}"#).status, 404);
+        assert_eq!(
+            image_analyze_endpoint(br#"{"path":"/nonexistent/disk.img"}"#).status,
+            404
+        );
     }
 
     #[test]
     fn test_image_browse_endpoint_no_mount() {
+        let _lock = MOUNT_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
         let _ = lock_current_image_mount().take();
         assert_eq!(image_browse_endpoint(b"{}").status, 400);
     }
 
     #[test]
     fn test_image_read_file_endpoint_no_mount() {
+        let _lock = MOUNT_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
         let _ = lock_current_image_mount().take();
-        assert_eq!(image_read_file_endpoint(br#"{"path":"test.txt"}"#).status, 400);
+        assert_eq!(
+            image_read_file_endpoint(br#"{"path":"test.txt"}"#).status,
+            400
+        );
     }
 
     #[test]

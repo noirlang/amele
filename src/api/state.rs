@@ -219,12 +219,18 @@ mod tests {
         assert_eq!(sanitize_case_name(".."), "");
         assert_eq!(sanitize_case_name("."), "");
         assert_eq!(sanitize_case_name("---___..."), "");
-        assert_eq!(sanitize_case_name("Vaka 123 (Şüpheli)"), "Vaka_123____pheli");
+        assert_eq!(
+            sanitize_case_name("Vaka 123 (Şüpheli)"),
+            "Vaka_123____pheli"
+        );
     }
 
     #[test]
     fn test_sanitize_file_stem() {
-        assert_eq!(sanitize_file_stem("hello_world-123.txt"), "hello_world-123.txt");
+        assert_eq!(
+            sanitize_file_stem("hello_world-123.txt"),
+            "hello_world-123.txt"
+        );
         assert_eq!(sanitize_file_stem("___test___"), "test");
         assert_eq!(sanitize_file_stem("bad*chars?here"), "bad_chars_here");
     }
@@ -255,7 +261,9 @@ mod tests {
         let name = "Test_Case_001".to_string();
         set_current_evidence_case(base.clone(), name.clone());
 
-        let state = lock_current_evidence_case().clone().expect("case should be set");
+        let state = lock_current_evidence_case()
+            .clone()
+            .expect("case should be set");
         assert_eq!(state.base_dir, base);
         assert_eq!(state.case_name, name);
     }
@@ -278,14 +286,18 @@ mod tests {
         let temp_dir = std::env::temp_dir().join("amele_state_test_vault");
         let _ = std::fs::create_dir_all(&temp_dir);
 
-        *test_case_base_dir().lock().unwrap_or_else(|p| p.into_inner()) = Some(temp_dir.clone());
+        *test_case_base_dir()
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = Some(temp_dir.clone());
 
         let result = report_evidence_vault(Some("Direct_Case_Test"));
         assert!(result.is_ok());
         let vault = result.unwrap();
         assert_eq!(vault.case_name, "Direct_Case_Test");
 
-        *test_case_base_dir().lock().unwrap_or_else(|p| p.into_inner()) = None;
+        *test_case_base_dir()
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = None;
         let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

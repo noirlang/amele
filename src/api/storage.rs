@@ -80,13 +80,17 @@ mod tests {
     #[test]
     fn test_preflight_storage_check_endpoint_validation() {
         assert_eq!(preflight_storage_check_endpoint(b"").status, 400);
-        assert_eq!(preflight_storage_check_endpoint(b"invalid json").status, 400);
+        assert_eq!(
+            preflight_storage_check_endpoint(b"invalid json").status,
+            400
+        );
         assert_eq!(
             preflight_storage_check_endpoint(br#"{"source_path":"","source_type":"disk"}"#).status,
             400
         );
         assert_eq!(
-            preflight_storage_check_endpoint(br#"{"source_path":"/dev/sda","source_type":""}"#).status,
+            preflight_storage_check_endpoint(br#"{"source_path":"/dev/sda","source_type":""}"#)
+                .status,
             400
         );
     }
@@ -123,4 +127,3 @@ mod tests {
         assert!(val.get("cleaned_mounts").is_some());
     }
 }
-

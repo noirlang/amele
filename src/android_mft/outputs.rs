@@ -752,4 +752,3 @@ mod tests {
         assert!(temp.path().join("correlations.json").exists());
     }
 }
-

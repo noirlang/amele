@@ -233,4 +233,3 @@ mod tests {
         assert!(queue.pop_wait().is_none());
     }
 }
-

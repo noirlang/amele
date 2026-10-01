@@ -360,14 +360,26 @@ mod tests {
 
     #[test]
     fn test_to_params() {
-        let params = to_params("192.168.1.100".to_string(), None, "root".to_string(), Some("secret".to_string()), None);
+        let params = to_params(
+            "192.168.1.100".to_string(),
+            None,
+            "root".to_string(),
+            Some("secret".to_string()),
+            None,
+        );
         assert_eq!(params.ip, "192.168.1.100");
         assert_eq!(params.port, 22);
         assert_eq!(params.user, "root");
         assert_eq!(params.password.as_deref(), Some("secret"));
         assert!(params.key_path.is_none());
 
-        let params2 = to_params("10.0.0.1".to_string(), Some(2222), "admin".to_string(), None, Some("/id_rsa".to_string()));
+        let params2 = to_params(
+            "10.0.0.1".to_string(),
+            Some(2222),
+            "admin".to_string(),
+            None,
+            Some("/id_rsa".to_string()),
+        );
         assert_eq!(params2.port, 2222);
         assert_eq!(params2.key_path.as_deref(), Some("/id_rsa"));
     }
@@ -376,33 +388,60 @@ mod tests {
     fn test_ssh_connect_endpoint_validation() {
         assert_eq!(ssh_connect_endpoint(b"").status, 400);
         assert_eq!(ssh_connect_endpoint(b"invalid json").status, 400);
-        assert_eq!(ssh_connect_endpoint(br#"{"ip":"","user":"root"}"#).status, 400);
-        assert_eq!(ssh_connect_endpoint(br#"{"ip":"127.0.0.1","user":"   "}"#).status, 400);
+        assert_eq!(
+            ssh_connect_endpoint(br#"{"ip":"","user":"root"}"#).status,
+            400
+        );
+        assert_eq!(
+            ssh_connect_endpoint(br#"{"ip":"127.0.0.1","user":"   "}"#).status,
+            400
+        );
     }
 
     #[test]
     fn test_ssh_disks_endpoint_validation() {
         assert_eq!(ssh_disks_endpoint(b"").status, 400);
         assert_eq!(ssh_disks_endpoint(b"not json").status, 400);
-        assert_eq!(ssh_disks_endpoint(br#"{"ip":"","user":"root"}"#).status, 400);
-        assert_eq!(ssh_disks_endpoint(br#"{"ip":"127.0.0.1","user":""}"#).status, 400);
+        assert_eq!(
+            ssh_disks_endpoint(br#"{"ip":"","user":"root"}"#).status,
+            400
+        );
+        assert_eq!(
+            ssh_disks_endpoint(br#"{"ip":"127.0.0.1","user":""}"#).status,
+            400
+        );
     }
 
     #[test]
     fn test_ssh_tool_check_endpoint_validation() {
         assert_eq!(ssh_tool_check_endpoint(b"").status, 400);
         assert_eq!(ssh_tool_check_endpoint(b"not json").status, 400);
-        assert_eq!(ssh_tool_check_endpoint(br#"{"ip":"","user":"root"}"#).status, 400);
-        assert_eq!(ssh_tool_check_endpoint(br#"{"ip":"127.0.0.1","user":""}"#).status, 400);
+        assert_eq!(
+            ssh_tool_check_endpoint(br#"{"ip":"","user":"root"}"#).status,
+            400
+        );
+        assert_eq!(
+            ssh_tool_check_endpoint(br#"{"ip":"127.0.0.1","user":""}"#).status,
+            400
+        );
     }
 
     #[test]
     fn test_ssh_image_endpoint_validation() {
         assert_eq!(ssh_image_endpoint(b"").status, 400);
         assert_eq!(ssh_image_endpoint(b"not json").status, 400);
-        assert_eq!(ssh_image_endpoint(br#"{"ip":"","user":"root","disk_path":"/dev/sda"}"#).status, 400);
-        assert_eq!(ssh_image_endpoint(br#"{"ip":"10.0.0.1","user":"","disk_path":"/dev/sda"}"#).status, 400);
-        assert_eq!(ssh_image_endpoint(br#"{"ip":"10.0.0.1","user":"root","disk_path":""}"#).status, 400);
+        assert_eq!(
+            ssh_image_endpoint(br#"{"ip":"","user":"root","disk_path":"/dev/sda"}"#).status,
+            400
+        );
+        assert_eq!(
+            ssh_image_endpoint(br#"{"ip":"10.0.0.1","user":"","disk_path":"/dev/sda"}"#).status,
+            400
+        );
+        assert_eq!(
+            ssh_image_endpoint(br#"{"ip":"10.0.0.1","user":"root","disk_path":""}"#).status,
+            400
+        );
         let resp = ssh_image_endpoint(br#"{"ip":"10.0.0.1","user":"root","disk_path":"/dev/sda","output_format":"invalid_xyz"}"#);
         assert_eq!(resp.status, 400);
     }
@@ -412,8 +451,12 @@ mod tests {
         assert_eq!(ssh_ram_endpoint(b"").status, 400);
         assert_eq!(ssh_ram_endpoint(b"not json").status, 400);
         assert_eq!(ssh_ram_endpoint(br#"{"ip":"","user":"root"}"#).status, 400);
-        assert_eq!(ssh_ram_endpoint(br#"{"ip":"10.0.0.1","user":""}"#).status, 400);
-        let resp = ssh_ram_endpoint(br#"{"ip":"10.0.0.1","user":"root","output_format":"invalid_xyz"}"#);
+        assert_eq!(
+            ssh_ram_endpoint(br#"{"ip":"10.0.0.1","user":""}"#).status,
+            400
+        );
+        let resp =
+            ssh_ram_endpoint(br#"{"ip":"10.0.0.1","user":"root","output_format":"invalid_xyz"}"#);
         assert_eq!(resp.status, 400);
     }
 

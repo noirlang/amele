@@ -220,14 +220,38 @@ mod tests {
 
     #[test]
     fn test_profile_from_id() {
-        assert_eq!(AndroidAcquisitionProfile::from_id("quick"), AndroidAcquisitionProfile::QuickLogical);
-        assert_eq!(AndroidAcquisitionProfile::from_id("quick_logical"), AndroidAcquisitionProfile::QuickLogical);
-        assert_eq!(AndroidAcquisitionProfile::from_id("root"), AndroidAcquisitionProfile::RootLogical);
-        assert_eq!(AndroidAcquisitionProfile::from_id("root_logical"), AndroidAcquisitionProfile::RootLogical);
-        assert_eq!(AndroidAcquisitionProfile::from_id("volatile"), AndroidAcquisitionProfile::Volatile);
-        assert_eq!(AndroidAcquisitionProfile::from_id("ram"), AndroidAcquisitionProfile::Volatile);
-        assert_eq!(AndroidAcquisitionProfile::from_id("full_logical"), AndroidAcquisitionProfile::FullLogical);
-        assert_eq!(AndroidAcquisitionProfile::from_id("other"), AndroidAcquisitionProfile::FullLogical);
+        assert_eq!(
+            AndroidAcquisitionProfile::from_id("quick"),
+            AndroidAcquisitionProfile::QuickLogical
+        );
+        assert_eq!(
+            AndroidAcquisitionProfile::from_id("quick_logical"),
+            AndroidAcquisitionProfile::QuickLogical
+        );
+        assert_eq!(
+            AndroidAcquisitionProfile::from_id("root"),
+            AndroidAcquisitionProfile::RootLogical
+        );
+        assert_eq!(
+            AndroidAcquisitionProfile::from_id("root_logical"),
+            AndroidAcquisitionProfile::RootLogical
+        );
+        assert_eq!(
+            AndroidAcquisitionProfile::from_id("volatile"),
+            AndroidAcquisitionProfile::Volatile
+        );
+        assert_eq!(
+            AndroidAcquisitionProfile::from_id("ram"),
+            AndroidAcquisitionProfile::Volatile
+        );
+        assert_eq!(
+            AndroidAcquisitionProfile::from_id("full_logical"),
+            AndroidAcquisitionProfile::FullLogical
+        );
+        assert_eq!(
+            AndroidAcquisitionProfile::from_id("other"),
+            AndroidAcquisitionProfile::FullLogical
+        );
     }
 
     #[test]
@@ -245,7 +269,11 @@ mod tests {
         for step in super::FULL_LOGICAL_STEPS {
             assert!(!step.category.is_empty());
             assert!(!step.file_name.is_empty());
-            assert!(seen.insert(step.category), "Duplicate category: {}", step.category);
+            assert!(
+                seen.insert(step.category),
+                "Duplicate category: {}",
+                step.category
+            );
         }
     }
 }

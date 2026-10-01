@@ -307,9 +307,7 @@ pub fn docker_remote_acquire_endpoint(body: &[u8]) -> Response {
 
     let short_id = container_short_id(&req.container_id);
     let name = req.container_name.as_deref().unwrap_or("container");
-    let target_dir = vault
-        .docker_dir
-        .join(format!("{}_{}", name, short_id));
+    let target_dir = vault.docker_dir.join(format!("{}_{}", name, short_id));
 
     let target_tar_path = target_dir.join("docker_evidence.tar.gz");
 

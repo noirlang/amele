@@ -442,4 +442,3 @@ mod tests {
         assert_eq!(orch.output_file, PathBuf::from("/tmp/userdata.img"));
     }
 }
-

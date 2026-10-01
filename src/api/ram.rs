@@ -1683,13 +1683,16 @@ mod tests {
         let resp_empty = remote_ram_endpoint(b"");
         assert_eq!(resp_empty.status, 400);
 
-        let resp_empty_ip = remote_ram_endpoint(br#"{"ip": "  ", "port": 8080, "output": "/tmp/ram.raw"}"#);
+        let resp_empty_ip =
+            remote_ram_endpoint(br#"{"ip": "  ", "port": 8080, "output": "/tmp/ram.raw"}"#);
         assert_eq!(resp_empty_ip.status, 400);
 
-        let resp_zero_port = remote_ram_endpoint(br#"{"ip": "127.0.0.1", "port": 0, "output": "/tmp/ram.raw"}"#);
+        let resp_zero_port =
+            remote_ram_endpoint(br#"{"ip": "127.0.0.1", "port": 0, "output": "/tmp/ram.raw"}"#);
         assert_eq!(resp_zero_port.status, 400);
 
-        let resp_empty_out = remote_ram_endpoint(br#"{"ip": "127.0.0.1", "port": 8080, "output": "  "}"#);
+        let resp_empty_out =
+            remote_ram_endpoint(br#"{"ip": "127.0.0.1", "port": 8080, "output": "  "}"#);
         assert_eq!(resp_empty_out.status, 400);
     }
 
@@ -1701,7 +1704,8 @@ mod tests {
         let resp_empty_path = ram_analyze_strings_endpoint(br#"{"path": "  "}"#);
         assert_eq!(resp_empty_path.status, 400);
 
-        let resp_not_found = ram_analyze_strings_endpoint(br#"{"path": "/tmp/nonexistent_ram_dump_12345.raw"}"#);
+        let resp_not_found =
+            ram_analyze_strings_endpoint(br#"{"path": "/tmp/nonexistent_ram_dump_12345.raw"}"#);
         assert_eq!(resp_not_found.status, 404);
     }
 
@@ -1713,7 +1717,8 @@ mod tests {
         let resp_empty_path = ram_analyze_summary_endpoint(br#"{"path": "  "}"#);
         assert_eq!(resp_empty_path.status, 400);
 
-        let resp_not_found = ram_analyze_summary_endpoint(br#"{"path": "/tmp/nonexistent_ram_dump_12345.raw"}"#);
+        let resp_not_found =
+            ram_analyze_summary_endpoint(br#"{"path": "/tmp/nonexistent_ram_dump_12345.raw"}"#);
         assert_eq!(resp_not_found.status, 404);
     }
 
@@ -1722,13 +1727,17 @@ mod tests {
         let resp_empty = ram_process_search_endpoint(b"");
         assert_eq!(resp_empty.status, 400);
 
-        let resp_empty_query = ram_process_search_endpoint(br#"{"path": "/tmp/test.raw", "pid": "1", "query": "  "}"#);
+        let resp_empty_query =
+            ram_process_search_endpoint(br#"{"path": "/tmp/test.raw", "pid": "1", "query": "  "}"#);
         assert_eq!(resp_empty_query.status, 400);
 
-        let resp_empty_path = ram_process_search_endpoint(br#"{"path": "  ", "pid": "1", "query": "kernel"}"#);
+        let resp_empty_path =
+            ram_process_search_endpoint(br#"{"path": "  ", "pid": "1", "query": "kernel"}"#);
         assert_eq!(resp_empty_path.status, 400);
 
-        let resp_not_found = ram_process_search_endpoint(br#"{"path": "/tmp/nonexistent_ram_dump_12345.raw", "pid": "1", "query": "kernel"}"#);
+        let resp_not_found = ram_process_search_endpoint(
+            br#"{"path": "/tmp/nonexistent_ram_dump_12345.raw", "pid": "1", "query": "kernel"}"#,
+        );
         assert_eq!(resp_not_found.status, 404);
     }
 
@@ -1740,7 +1749,8 @@ mod tests {
         let resp_empty_path = ram_read_carved_endpoint(br#"{"path": "  "}"#);
         assert_eq!(resp_empty_path.status, 400);
 
-        let resp_not_found = ram_read_carved_endpoint(br#"{"path": "/tmp/nonexistent_carved_file_12345.txt"}"#);
+        let resp_not_found =
+            ram_read_carved_endpoint(br#"{"path": "/tmp/nonexistent_carved_file_12345.txt"}"#);
         assert_eq!(resp_not_found.status, 404);
     }
 }

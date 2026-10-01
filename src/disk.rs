@@ -735,8 +735,8 @@ mod tests {
         fs::write(&source, vec![0u8; 1024]).unwrap();
 
         let task = DiskAcquisitionTask::new(&source, &target);
-        let res = run_disk_acquisition_with_control(&task, |_, _| {}, || DiskAcquisitionControl::Cancel);
+        let res =
+            run_disk_acquisition_with_control(&task, |_, _| {}, || DiskAcquisitionControl::Cancel);
         assert!(res.is_err());
     }
 }
-

@@ -1126,9 +1126,11 @@ mod tests {
     #[test]
     fn test_value_string() {
         let item = json!({"ImageFileName": "proc.exe", "Offset": 0x1000u64, "Active": true});
-        assert_eq!(value_string(&item, &["ImageFileName"]), Some("proc.exe".to_string()));
+        assert_eq!(
+            value_string(&item, &["ImageFileName"]),
+            Some("proc.exe".to_string())
+        );
         assert_eq!(value_string(&item, &["Offset"]), Some("0x1000".to_string()));
         assert_eq!(value_string(&item, &["Active"]), Some("true".to_string()));
     }
 }
-

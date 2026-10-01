@@ -460,7 +460,8 @@ mod tests {
         {
             use std::os::unix::fs::PermissionsExt;
 
-            let tmp = std::env::temp_dir().join(format!("amele-desktop-fake-term-{}", std::process::id()));
+            let tmp = std::env::temp_dir()
+                .join(format!("amele-desktop-fake-term-{}", std::process::id()));
             let _ = std::fs::create_dir_all(&tmp);
             let fake = tmp.join("fake-desktop-term");
             std::fs::write(&fake, "#!/bin/sh\nexit 0\n").unwrap();

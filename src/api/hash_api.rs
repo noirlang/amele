@@ -16,7 +16,10 @@ pub fn hash_endpoint(body: &[u8]) -> Response {
     }
 
     if body.is_empty() {
-        return json_error(400, "istek govdesi bos olamaz (path parametresi gereklidir)");
+        return json_error(
+            400,
+            "istek govdesi bos olamaz (path parametresi gereklidir)",
+        );
     }
 
     let request: HashRequest = match serde_json::from_slice(body) {
@@ -34,7 +37,10 @@ pub fn hash_endpoint(body: &[u8]) -> Response {
         return json_error(404, format!("Hedef dosya bulunamadi: {}", target_path_str));
     }
     if target_path.is_dir() {
-        return json_error(400, format!("Hedef yol bir klasor, dosya degil: {}", target_path_str));
+        return json_error(
+            400,
+            format!("Hedef yol bir klasor, dosya degil: {}", target_path_str),
+        );
     }
 
     let algorithms = match parse_algorithms(request.algorithms) {
@@ -130,11 +136,14 @@ mod tests {
             "  Sha1  ".to_string(),
         ];
         let algs = parse_algorithms(Some(input)).unwrap();
-        assert_eq!(algs, vec![
-            HashAlgorithm::Sha256,
-            HashAlgorithm::Md5,
-            HashAlgorithm::Sha1,
-        ]);
+        assert_eq!(
+            algs,
+            vec![
+                HashAlgorithm::Sha256,
+                HashAlgorithm::Md5,
+                HashAlgorithm::Sha1,
+            ]
+        );
     }
 
     #[test]

@@ -98,4 +98,3 @@ mod tests {
         assert!(head.body.is_empty());
     }
 }
-

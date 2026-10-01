@@ -414,7 +414,8 @@ mod tests {
     #[test]
     fn test_image_unmount_current_cleans_up_on_success() {
         let _lock = MOUNT_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
-        let temp_dir = std::env::temp_dir().join(format!("amele_mount_test_succ_{}", std::process::id()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("amele_mount_test_succ_{}", std::process::id()));
         let _ = fs::create_dir_all(&temp_dir);
         assert!(temp_dir.exists());
 

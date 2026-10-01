@@ -240,4 +240,3 @@ mod tests {
         assert_eq!(last.source_line, 42);
     }
 }
-
