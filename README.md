@@ -6,7 +6,7 @@
 
 *Windows, Linux, Android, and iOS unified digital forensics platform. Disk, RAM, logical acquisition, and backup analysis.*
 
-[Website](https://amele.noirlang.tr) | [Releases](https://github.com/noirlang/amele/releases) | [Contributing](CONTRIBUTING.md) | [Security](SECURITY.md) | [Linux Agent](https://github.com/noirlang/amele-linux) | [Windows Agent](https://github.com/noirlang/amele-win)
+[Website](https://amele.noirlang.tr) | [Releases](https://github.com/noirlang/amele/releases) | [Contributing](CONTRIBUTING.md) | [Security](SECURITY.md) | [Linux Agent](agent/README.md) | [Windows Agent](agent/README.md)
 
 <img src="amele.gif" alt="Amele Forensic Tool Demo" width="700" />
 
