@@ -1,0 +1,2 @@
+# Linux agent currently uses only Python standard library modules.
+# Keep this file for future external dependencies.
