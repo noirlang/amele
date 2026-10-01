@@ -1,4 +1,4 @@
-//! işletim sistemi bilgisi ve yetki durumunu dönen api rotası.
+//! Sistem diskleri, yerel/uzak imaj edinimi ve imaj analiz/bağlama API uç noktaları.
 
 use chrono::Local;
 use serde::Deserialize;
@@ -27,7 +27,6 @@ use super::{
     SudoKeepalive,
     cleanup_helper_files,
     create_acquisition_job,
-    current_image_mount,
     default_case_base_dir,
     elevated_disk_list,
     elevation_error_wants_retry,
@@ -37,6 +36,7 @@ use super::{
     helper_owner_gid,
     helper_owner_uid,
     image_unmount_current,
+    lock_current_image_mount,
     // Shared helpers
     process_is_root,
     read_helper_json,
@@ -55,7 +55,7 @@ use crate::output_format::PHASE_HASH;
 #[cfg(target_os = "linux")]
 use super::linux_mount_image_readonly;
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 /// Yerel imaj alma isteğinde kaynak, çıktı ve vaka bilgisini taşır.
 pub struct LocalImageRequest {
     pub source: String,
@@ -65,7 +65,7 @@ pub struct LocalImageRequest {
     pub output_format: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 /// Uzak disk imajı alma isteğinde agent bağlantısı ve hedef disk bilgisini taşır.
 pub struct RemoteImageRequest {
     pub ip: String,
@@ -78,7 +78,7 @@ pub struct RemoteImageRequest {
     pub output_format: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 /// Uzak agent bağlantı bilgilerini taşır.
 pub struct RemoteRequest {
     pub ip: String,
@@ -174,9 +174,24 @@ pub fn local_image_endpoint(body: &[u8]) -> Response {
         return json_error(400, "output is required");
     }
 
+    let format = match AcquisitionOutputFormat::parse(request.output_format.as_deref()) {
+        Ok(format) => format,
+        Err(err) => return json_error(400, format!("Geçersiz çıktı formatı: {err}")),
+    };
+
+    let _ = crate::profile::record_active_profile_activity(
+        "image",
+        "local_acquisition",
+        request.case_name.as_deref(),
+        Some(&format!(
+            "source={} output={}",
+            request.source, request.output
+        )),
+    );
+
     let (job_id, control) = create_acquisition_job("Yerel imaj alma başlatıldı");
     let thread_job_id = job_id.clone();
-    thread::spawn(move || run_local_image_job(thread_job_id, request, control));
+    thread::spawn(move || run_local_image_job(thread_job_id, request, control, format));
 
     json_ok(json!({
         "job_id": job_id,
@@ -189,14 +204,8 @@ fn run_local_image_job(
     job_id: String,
     request: LocalImageRequest,
     control: ram::CancellationToken,
+    format: AcquisitionOutputFormat,
 ) {
-    let format = match AcquisitionOutputFormat::parse(request.output_format.as_deref()) {
-        Ok(format) => format,
-        Err(err) => {
-            fail_acquisition_job_with_message(&job_id, err, "Imaj alma basarisiz");
-            return;
-        }
-    };
     let output = match image_output_dir(&request.output, request.case_name.as_deref()) {
         Ok(output) => output,
         Err(err) => {
@@ -565,9 +574,21 @@ pub fn remote_image_endpoint(body: &[u8]) -> Response {
         return json_error(400, "output is required");
     }
 
+    let format = match AcquisitionOutputFormat::parse(request.output_format.as_deref()) {
+        Ok(format) => format,
+        Err(err) => return json_error(400, format!("Geçersiz çıktı formatı: {err}")),
+    };
+
+    let _ = crate::profile::record_active_profile_activity(
+        "image",
+        "remote_acquisition",
+        request.case_name.as_deref(),
+        Some(&format!("ip={} disk_id={}", request.ip, request.disk_id)),
+    );
+
     let (job_id, _control) = create_acquisition_job("Uzak imaj alma başlatıldı");
     let thread_job_id = job_id.clone();
-    thread::spawn(move || run_remote_image_job(thread_job_id, request));
+    thread::spawn(move || run_remote_image_job(thread_job_id, request, format));
 
     json_ok(json!({
         "job_id": job_id,
@@ -576,14 +597,11 @@ pub fn remote_image_endpoint(body: &[u8]) -> Response {
 }
 
 /// Uzak imaj alma işini çalıştırır ve indirilen dosyayı vaka klasörüne yazar.
-fn run_remote_image_job(job_id: String, request: RemoteImageRequest) {
-    let format = match AcquisitionOutputFormat::parse(request.output_format.as_deref()) {
-        Ok(format) => format,
-        Err(err) => {
-            fail_acquisition_job_with_message(&job_id, err, "Imaj alma basarisiz");
-            return;
-        }
-    };
+fn run_remote_image_job(
+    job_id: String,
+    request: RemoteImageRequest,
+    format: AcquisitionOutputFormat,
+) {
     match RemoteConnection::connect(&request.ip, request.port, request.token) {
         Ok(mut connection) => {
             let remote_job_id = job_id.clone();
@@ -671,12 +689,22 @@ pub fn remote_tool_check_endpoint(body: &[u8]) -> Response {
         Err(err) => return json_error(400, err.to_string()),
     };
 
+    if request.ip.trim().is_empty() {
+        return json_error(400, "ip is required");
+    }
+    if request.port == 0 {
+        return json_error(400, "port is required");
+    }
+    if !matches!(request.tool.as_str(), "winpmem" | "avml") {
+        return json_error(400, "tool must be winpmem or avml");
+    }
+
     match RemoteConnection::connect(&request.ip, request.port, request.token) {
         Ok(mut connection) => {
             let status = match request.tool.as_str() {
                 "winpmem" => connection.check_winpmem(),
                 "avml" => connection.check_avml(),
-                _ => return json_error(400, "tool must be winpmem or avml"),
+                _ => unreachable!(),
             };
             match status {
                 Ok(status) => json_ok(json!({ "status": status })),
@@ -719,6 +747,13 @@ pub fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
         return json_error(404, "image file not found");
     }
 
+    let _ = crate::profile::record_active_profile_activity(
+        "image",
+        "mount_readonly",
+        None,
+        Some(&format!("path={}", image_path.display())),
+    );
+
     #[cfg(target_os = "linux")]
     {
         let _ = image_unmount_current();
@@ -738,9 +773,8 @@ pub fn image_mount_readonly_endpoint(body: &[u8]) -> Response {
                     mount_dir: mount_dir.clone(),
                     loop_device,
                 };
-                if let Ok(mut current) = current_image_mount().lock() {
-                    *current = Some(state);
-                }
+                let mut current = lock_current_image_mount();
+                *current = Some(state);
                 json_ok(json!({
                     "image_path": image_path,
                     "mount_dir": mount_dir,
@@ -848,9 +882,8 @@ fn windows_mount_success_response(image_path: &Path, mount_dir: PathBuf) -> Resp
         image_path: image_path.to_path_buf(),
         mount_dir: mount_dir.clone(),
     };
-    if let Ok(mut current) = current_image_mount().lock() {
-        *current = Some(state);
-    }
+    let mut current = lock_current_image_mount();
+    *current = Some(state);
     json_ok(json!({
         "image_path": image_path,
         "mount_dir": mount_dir,
@@ -1183,7 +1216,11 @@ fn format_bytes_for_report(bytes: u64) -> String {
 
 /// Bağlı imajı kaldırır ve loop/helper temizliğini yapar.
 pub fn image_unmount_endpoint() -> Response {
-    match image_unmount_current() {
+    let res = image_unmount_current();
+    if res.is_ok() {
+        let _ = crate::profile::record_active_profile_activity("image", "unmount", None, None);
+    }
+    match res {
         Ok(Some(mount_dir)) => json_ok(json!({ "mount_dir": mount_dir })),
         Ok(None) => json_ok(json!({ "mount_dir": Value::Null })),
         Err(err) => json_error(500, err),
@@ -1202,10 +1239,7 @@ pub fn image_analyze_endpoint(body: &[u8]) -> Response {
         Err(err) => return json_error(400, err.to_string()),
     };
 
-    let current_mount = current_image_mount()
-        .lock()
-        .ok()
-        .and_then(|state| state.clone());
+    let current_mount = lock_current_image_mount().clone();
     let image_path = request
         .path
         .as_deref()
@@ -1244,14 +1278,11 @@ pub fn image_browse_endpoint(body: &[u8]) -> Response {
         Err(err) => return json_error(400, err.to_string()),
     };
 
-    let mount_dir = match current_image_mount().lock() {
-        Ok(current) => match &*current {
-            Some(state) => state.mount_dir.clone(),
-            None => {
-                return json_error(400, "Aktif bir imaj bağlantısı yok / No active image mount");
-            }
-        },
-        Err(_) => return json_error(500, "Mutex lock hatası / Mutex lock error"),
+    let mount_dir = match lock_current_image_mount().as_ref() {
+        Some(state) => state.mount_dir.clone(),
+        None => {
+            return json_error(400, "Aktif bir imaj bağlantısı yok / No active image mount");
+        }
     };
 
     let target_path = if let Some(sub) = request.path {
@@ -1313,14 +1344,11 @@ pub fn image_read_file_endpoint(body: &[u8]) -> Response {
         Err(err) => return json_error(400, err.to_string()),
     };
 
-    let mount_dir = match current_image_mount().lock() {
-        Ok(current) => match &*current {
-            Some(state) => state.mount_dir.clone(),
-            None => {
-                return json_error(400, "Aktif bir imaj bağlantısı yok / No active image mount");
-            }
-        },
-        Err(_) => return json_error(500, "Mutex lock hatası / Mutex lock error"),
+    let mount_dir = match lock_current_image_mount().as_ref() {
+        Some(state) => state.mount_dir.clone(),
+        None => {
+            return json_error(400, "Aktif bir imaj bağlantısı yok / No active image mount");
+        }
     };
 
     let sub = request.path.trim().replace("..", "");
@@ -1622,4 +1650,140 @@ fn local_image_error_can_retry_elevated(message: &str) -> bool {
         || message.contains("erişim engellendi")
         || message.contains("os error 5")
         || crate::diagnostics::is_os_error_13(&message)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Mount durumunu değiştiren testler için mutex
+    static MOUNT_TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[test]
+    fn test_connect_endpoint_validation() {
+        assert_eq!(connect_endpoint(b"").status, 400);
+        assert_eq!(connect_endpoint(b"not json").status, 400);
+        assert_eq!(connect_endpoint(br#"{"ip":"","port":8080}"#).status, 400);
+        assert_eq!(
+            connect_endpoint(br#"{"ip":"127.0.0.1","port":0}"#).status,
+            400
+        );
+    }
+
+    #[test]
+    fn test_local_image_endpoint_validation() {
+        assert_eq!(local_image_endpoint(b"").status, 400);
+        assert_eq!(local_image_endpoint(b"not json").status, 400);
+        assert_eq!(
+            local_image_endpoint(br#"{"source":"","output":"/tmp"}"#).status,
+            400
+        );
+        assert_eq!(
+            local_image_endpoint(br#"{"source":"/dev/sda","output":""}"#).status,
+            400
+        );
+        assert_eq!(
+            local_image_endpoint(
+                br#"{"source":"/dev/sda","output":"/tmp","output_format":"invalid_xyz"}"#
+            )
+            .status,
+            400
+        );
+    }
+
+    #[test]
+    fn test_remote_image_endpoint_validation() {
+        assert_eq!(remote_image_endpoint(b"").status, 400);
+        assert_eq!(remote_image_endpoint(b"not json").status, 400);
+        assert_eq!(
+            remote_image_endpoint(br#"{"ip":"","port":8080,"disk_id":"sda","output":"/tmp"}"#)
+                .status,
+            400
+        );
+        assert_eq!(
+            remote_image_endpoint(br#"{"ip":"10.0.0.1","port":0,"disk_id":"sda","output":"/tmp"}"#)
+                .status,
+            400
+        );
+        assert_eq!(
+            remote_image_endpoint(br#"{"ip":"10.0.0.1","port":8080,"disk_id":"","output":"/tmp"}"#)
+                .status,
+            400
+        );
+        assert_eq!(
+            remote_image_endpoint(br#"{"ip":"10.0.0.1","port":8080,"disk_id":"sda","output":"/tmp","output_format":"invalid_xyz"}"#).status,
+            400
+        );
+    }
+
+    #[test]
+    fn test_remote_tool_check_endpoint_validation() {
+        assert_eq!(remote_tool_check_endpoint(b"").status, 400);
+        assert_eq!(remote_tool_check_endpoint(b"not json").status, 400);
+        assert_eq!(
+            remote_tool_check_endpoint(br#"{"ip":"127.0.0.1","port":8080,"tool":"invalid_tool"}"#)
+                .status,
+            400
+        );
+    }
+
+    #[test]
+    fn test_image_mount_readonly_endpoint_validation() {
+        assert_eq!(image_mount_readonly_endpoint(b"").status, 400);
+        assert_eq!(image_mount_readonly_endpoint(b"not json").status, 400);
+        assert_eq!(image_mount_readonly_endpoint(br#"{"path":""}"#).status, 400);
+        assert_eq!(
+            image_mount_readonly_endpoint(br#"{"path":"/nonexistent/image.raw"}"#).status,
+            404
+        );
+    }
+
+    #[test]
+    fn test_image_analyze_endpoint_validation() {
+        let _lock = MOUNT_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
+        let _ = lock_current_image_mount().take();
+        assert_eq!(image_analyze_endpoint(b"{}").status, 400);
+        assert_eq!(
+            image_analyze_endpoint(br#"{"path":"/nonexistent/disk.img"}"#).status,
+            404
+        );
+    }
+
+    #[test]
+    fn test_image_browse_endpoint_no_mount() {
+        let _lock = MOUNT_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
+        let _ = lock_current_image_mount().take();
+        assert_eq!(image_browse_endpoint(b"{}").status, 400);
+    }
+
+    #[test]
+    fn test_image_read_file_endpoint_no_mount() {
+        let _lock = MOUNT_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
+        let _ = lock_current_image_mount().take();
+        assert_eq!(
+            image_read_file_endpoint(br#"{"path":"test.txt"}"#).status,
+            400
+        );
+    }
+
+    #[test]
+    fn test_canonical_image_file_name() {
+        let name = canonical_image_file_name(Some("192.168.1.1"), "sda", Some("Samsung_SSD"));
+        assert!(name.starts_with("192.168.1.1_sda_Samsung_SSD_"));
+        assert!(name.ends_with(".img"));
+
+        let simple = canonical_image_file_name(None, "loop0", None);
+        assert!(simple.starts_with("loop0_"));
+        assert!(simple.ends_with(".img"));
+    }
+
+    #[test]
+    fn test_local_image_error_can_retry_elevated() {
+        assert!(local_image_error_can_retry_elevated("Permission denied"));
+        assert!(local_image_error_can_retry_elevated("Access is denied"));
+        assert!(local_image_error_can_retry_elevated("os error 5"));
+        assert!(local_image_error_can_retry_elevated("os error 13"));
+        assert!(!local_image_error_can_retry_elevated("device is corrupted"));
+        assert!(!local_image_error_can_retry_elevated("error 1392"));
+    }
 }

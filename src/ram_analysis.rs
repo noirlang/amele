@@ -607,3 +607,39 @@ pub fn search_raw_memory(file_path: &Path, query: &str) -> io::Result<Vec<RamStr
 
     Ok(results)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sample_entropy() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("zeros.bin");
+        fs::write(&path, vec![0u8; 1024]).unwrap();
+
+        let entropy = sample_entropy(&path).unwrap();
+        assert_eq!(entropy, 0.0);
+    }
+
+    #[test]
+    fn test_ram_warnings_and_recommendations() {
+        let warnings = ram_warnings(1024, 8.0, &[]);
+        assert!(warnings.iter().any(|w| w.contains("çok küçük")));
+
+        let recs = ram_recommendations(5);
+        assert!(recs.iter().any(|r| r.contains("IOC")));
+    }
+
+    #[test]
+    fn test_search_ram_raw() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("mem.raw");
+        fs::write(&path, b"hello secret token world").unwrap();
+
+        let matches = search_raw_memory(&path, "secret").unwrap();
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].value, "secret");
+        assert_eq!(matches[0].offset, 6);
+    }
+}

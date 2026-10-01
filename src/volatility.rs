@@ -1097,3 +1097,40 @@ fn value_string(item: &Value, keys: &[&str]) -> Option<String> {
         }
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_json_rows() {
+        let arr = json!([{"PID": 100}]);
+        assert_eq!(json_rows(&arr).unwrap().len(), 1);
+
+        let wrapped = json!({"rows": [{"PID": 200}, {"PID": 300}]});
+        assert_eq!(json_rows(&wrapped).unwrap().len(), 2);
+
+        let invalid = json!({"other": 123});
+        assert!(json_rows(&invalid).is_err());
+    }
+
+    #[test]
+    fn test_value_i64() {
+        let item = json!({"PID": 1234, "PPID": "5678", "name": "test"});
+        assert_eq!(value_i64(&item, &["PID"]), Some(1234));
+        assert_eq!(value_i64(&item, &["PPID"]), Some(5678));
+        assert_eq!(value_i64(&item, &["NonExistent"]), None);
+    }
+
+    #[test]
+    fn test_value_string() {
+        let item = json!({"ImageFileName": "proc.exe", "Offset": 0x1000u64, "Active": true});
+        assert_eq!(
+            value_string(&item, &["ImageFileName"]),
+            Some("proc.exe".to_string())
+        );
+        assert_eq!(value_string(&item, &["Offset"]), Some("0x1000".to_string()));
+        assert_eq!(value_string(&item, &["Active"]), Some("true".to_string()));
+    }
+}

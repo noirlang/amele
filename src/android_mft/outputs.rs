@@ -14,6 +14,7 @@ pub fn write_logical_analysis_outputs(
     serial: &str,
     dir: &Path,
 ) -> Result<Vec<MftBundleInfo>, String> {
+    let _ = fs::create_dir_all(dir);
     let mut records = build_logical_records(dir);
     if records.is_empty() {
         records.push(Record::new(
@@ -717,4 +718,37 @@ fn bytes_to_hex(bytes: &[u8]) -> String {
         out.push(HEX[(byte & 0x0f) as usize] as char);
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bytes_to_hex() {
+        assert_eq!(bytes_to_hex(b""), "");
+        assert_eq!(bytes_to_hex(b"hello"), "68656c6c6f");
+        assert_eq!(bytes_to_hex(&[0x00, 0x0f, 0xf0, 0xff]), "000ff0ff");
+    }
+
+    #[test]
+    fn test_field_name_mapping() {
+        assert_eq!(field_name(RecordType::Call, 0x01), "number");
+        assert_eq!(field_name(RecordType::Sms, 0x01), "address");
+        assert_eq!(field_name(RecordType::ProcInfo, 0x01), "pid");
+        assert_eq!(field_name(RecordType::ProcInfo, 0xfe), "field_0xfe");
+    }
+
+    #[test]
+    fn test_write_logical_analysis_outputs() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let outputs = write_logical_analysis_outputs("TEST_SERIAL", temp.path())
+            .expect("write_logical_analysis_outputs");
+        assert!(!outputs.is_empty());
+        assert!(temp.path().join("evidence.json").exists());
+        assert!(temp.path().join("evidence.json.sha256").exists());
+        assert!(temp.path().join("mobile_report.txt").exists());
+        assert!(temp.path().join("timeline.json").exists());
+        assert!(temp.path().join("correlations.json").exists());
+    }
 }

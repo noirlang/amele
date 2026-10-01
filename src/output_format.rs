@@ -237,3 +237,61 @@ fn package_aff4(
         .finish()
         .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "AFF4 paket kapatılamadı", err))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_parsing() {
+        assert_eq!(
+            AcquisitionOutputFormat::parse(None).unwrap(),
+            AcquisitionOutputFormat::Raw
+        );
+        assert_eq!(
+            AcquisitionOutputFormat::parse(Some("raw")).unwrap(),
+            AcquisitionOutputFormat::Raw
+        );
+        assert_eq!(
+            AcquisitionOutputFormat::parse(Some("dd")).unwrap(),
+            AcquisitionOutputFormat::Raw
+        );
+        assert_eq!(
+            AcquisitionOutputFormat::parse(Some("aff4")).unwrap(),
+            AcquisitionOutputFormat::Aff4
+        );
+        assert!(AcquisitionOutputFormat::parse(Some("invalid")).is_err());
+    }
+
+    #[test]
+    fn test_plan_output() {
+        let p = Path::new("/tmp/test.raw");
+        let plan_raw = plan_output(p, AcquisitionOutputFormat::Raw);
+        assert_eq!(plan_raw.final_path, PathBuf::from("/tmp/test.raw"));
+        assert_eq!(plan_raw.working_path, PathBuf::from("/tmp/test.raw"));
+
+        let plan_aff4 = plan_output(p, AcquisitionOutputFormat::Aff4);
+        assert_eq!(plan_aff4.final_path, PathBuf::from("/tmp/test.aff4"));
+        assert_eq!(plan_aff4.working_path, PathBuf::from("/tmp/test.aff4.raw"));
+    }
+
+    #[test]
+    fn test_finalize_output_raw_and_aff4() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("mem.raw");
+        fs::write(&target, b"raw forensic data").unwrap();
+
+        let plan = plan_output(&target, AcquisitionOutputFormat::Raw);
+        let fin = finalize_output(&plan, "ram", "mem", "case1", None).unwrap();
+        assert_eq!(fin.target_path, target);
+        assert!(!fin.sha256.is_empty());
+        assert!(dir.path().join("mem.raw.sha256").exists());
+
+        // Test Aff4
+        let aff4_plan = plan_output(dir.path().join("dump"), AcquisitionOutputFormat::Aff4);
+        fs::write(&aff4_plan.working_path, b"some memory").unwrap();
+        let fin_aff4 = finalize_output(&aff4_plan, "ram", "mem", "case1", None).unwrap();
+        assert!(fin_aff4.target_path.exists());
+        assert_eq!(fin_aff4.format, AcquisitionOutputFormat::Aff4);
+    }
+}

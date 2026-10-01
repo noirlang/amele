@@ -76,4 +76,3 @@ fn collect_ui_files(
         }
     }
 }
-// dostum ben hayal kırıklığıyla savaşıyorum

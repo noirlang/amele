@@ -8,6 +8,7 @@ use std::path::Path;
 
 /// Mantıksal Android kayıtlarından binary evidence.mft paketi ve hash dosyası üretir.
 pub fn write_logical_mft_bundle(serial: &str, dir: &Path) -> Result<MftBundleInfo, String> {
+    let _ = fs::create_dir_all(dir);
     let file_name = "evidence.mft";
     let output_path = dir.join(file_name);
     let file = File::create(&output_path).map_err(|err| format!("MFT olusturulamadi: {err}"))?;
@@ -51,4 +52,24 @@ pub fn write_logical_mft_bundle(serial: &str, dir: &Path) -> Result<MftBundleInf
         sha256,
         record_count,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_write_logical_mft_bundle_empty_dir() {
+        let temp_dir =
+            std::env::temp_dir().join(format!("amele_mft_bundle_test_{}", std::process::id()));
+        let res = write_logical_mft_bundle("test_serial", &temp_dir);
+        assert!(res.is_ok());
+        let info = res.unwrap();
+        assert_eq!(info.record_count, 1);
+        assert!(info.size > 0);
+        assert!(!info.sha256.is_empty());
+        assert!(temp_dir.join("evidence.mft").is_file());
+        assert!(temp_dir.join("evidence.mft.sha256").is_file());
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
 }

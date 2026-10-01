@@ -112,6 +112,7 @@ pub fn write_android_manifest(
 ) -> Result<String, String> {
     use sha2::{Digest, Sha256};
 
+    let _ = std::fs::create_dir_all(output_dir);
     let content = serde_json::to_string_pretty(manifest)
         .map_err(|err| format!("Android manifest olusturulamadi: {err}"))?;
     let path = output_dir.join("android_manifest.json");
@@ -121,4 +122,99 @@ pub fn write_android_manifest(
     let sidecar = output_dir.join("android_manifest.json.sha256");
     let _ = std::fs::write(&sidecar, format!("{hash}  android_manifest.json\n"));
     Ok(hash)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::android::session::{AndroidTransport, AndroidTransportKind};
+
+    fn dummy_session() -> AndroidSession {
+        AndroidSession {
+            serial: "test_device_1".to_string(),
+            created_at: "now".to_string(),
+            adb_state: Some("device".to_string()),
+            connected: true,
+            transport: AndroidTransport {
+                kind: AndroidTransportKind::Usb,
+                label: "USB".to_string(),
+            },
+            device_profile: crate::android::profile::AndroidDeviceProfile {
+                serial: "test_device_1".to_string(),
+                product: Some("pixel8".to_string()),
+                model: Some("Pixel 8".to_string()),
+                device: Some("shiba".to_string()),
+                abi: Some("arm64-v8a".to_string()),
+                api_level: Some(34),
+                build: Some("UQ1A.240205.004".to_string()),
+                fingerprint: None,
+                security_patch: Some("2024-02-05".to_string()),
+                selinux: Some("Enforcing".to_string()),
+                encryption: Some("file".to_string()),
+                kernel_version: None,
+                is_rooted: false,
+                adb_root: false,
+                su_available: false,
+            },
+        }
+    }
+
+    fn dummy_capabilities() -> AndroidCapabilityReport {
+        let check = crate::android::capability::AndroidCapabilityCheck {
+            level: crate::android::capability::AndroidCapabilityLevel::Supported,
+            available: true,
+            reason: "ok".to_string(),
+            recommendation: None,
+        };
+        AndroidCapabilityReport {
+            serial: "test_device_1".to_string(),
+            generated_at: "now".to_string(),
+            adb_authorized: check.clone(),
+            logical_acquisition: check.clone(),
+            shared_storage: check.clone(),
+            bugreport: check.clone(),
+            adb_backup: check.clone(),
+            filesystem_non_root: check.clone(),
+            filesystem_root: check.clone(),
+            volatile_memory: check.clone(),
+            process_memory_root: check.clone(),
+            physical_memory_probe: check.clone(),
+            lemon_physical_memory: check.clone(),
+            remote_mesh_transport: check,
+        }
+    }
+
+    #[test]
+    fn test_manifest_creation_and_writing() {
+        let temp_dir =
+            std::env::temp_dir().join(format!("amele_manifest_test_{}", std::process::id()));
+        let session = dummy_session();
+        let capabilities = dummy_capabilities();
+
+        let artifact_path = temp_dir.join("userdata.img");
+        let manifest = manifest_from_single_artifact(
+            "filesystem",
+            &session,
+            &capabilities,
+            "filesystem_image",
+            &artifact_path,
+            1024,
+            "dummy_sha256_hash",
+        );
+
+        assert_eq!(manifest.schema_version, 1);
+        assert_eq!(manifest.total_bytes, 1024);
+        assert_eq!(manifest.artifacts.len(), 1);
+        assert_eq!(manifest.artifacts[0].file_name, "userdata.img");
+
+        let hash_res = write_android_manifest(&temp_dir, &manifest);
+        assert!(hash_res.is_ok());
+
+        let manifest_file = temp_dir.join("android_manifest.json");
+        let sidecar_file = temp_dir.join("android_manifest.json.sha256");
+        assert!(manifest_file.is_file());
+        assert!(sidecar_file.is_file());
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
 }

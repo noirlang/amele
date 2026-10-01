@@ -392,4 +392,36 @@ mod tests {
             "ADB_DEVICE_NOT_READY"
         );
     }
+
+    #[test]
+    fn test_is_os_error_13() {
+        assert!(super::is_os_error_13("Access denied (os error 13)"));
+        assert!(!super::is_os_error_13("os error 1392"));
+        assert!(!super::is_os_error_13("other error"));
+    }
+
+    #[test]
+    fn test_error_with_advice_and_structured_check() {
+        let msg = super::error_with_advice("webview2 error occurred");
+        assert!(super::has_structured_advice(&msg));
+        assert!(msg.contains("Kod: WEBVIEW2_RUNTIME"));
+
+        // If already structured, returns as-is
+        let same = super::error_with_advice(&msg);
+        assert_eq!(same, msg);
+
+        assert_eq!(super::error_with_advice(""), "");
+    }
+
+    #[test]
+    fn test_panic_payload_and_startup_error() {
+        let str_payload: Box<dyn std::any::Any + Send> = Box::new("something crashed");
+        assert_eq!(super::panic_payload(&*str_payload), "something crashed");
+
+        let string_payload: Box<dyn std::any::Any + Send> = Box::new(String::from("string crash"));
+        assert_eq!(super::panic_payload(&*string_payload), "string crash");
+
+        let err = super::startup_error("Init", "missing dll");
+        assert!(err.contains("Init\n\nAyrinti: missing dll"));
+    }
 }

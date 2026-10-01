@@ -217,4 +217,63 @@ mod tests {
         assert!(steps.iter().any(|step| step.category == "debug_heap_dumps"));
         assert!(!steps.iter().any(|step| step.category == "content_contacts"));
     }
+
+    #[test]
+    fn test_profile_from_id() {
+        assert_eq!(
+            AndroidAcquisitionProfile::from_id("quick"),
+            AndroidAcquisitionProfile::QuickLogical
+        );
+        assert_eq!(
+            AndroidAcquisitionProfile::from_id("quick_logical"),
+            AndroidAcquisitionProfile::QuickLogical
+        );
+        assert_eq!(
+            AndroidAcquisitionProfile::from_id("root"),
+            AndroidAcquisitionProfile::RootLogical
+        );
+        assert_eq!(
+            AndroidAcquisitionProfile::from_id("root_logical"),
+            AndroidAcquisitionProfile::RootLogical
+        );
+        assert_eq!(
+            AndroidAcquisitionProfile::from_id("volatile"),
+            AndroidAcquisitionProfile::Volatile
+        );
+        assert_eq!(
+            AndroidAcquisitionProfile::from_id("ram"),
+            AndroidAcquisitionProfile::Volatile
+        );
+        assert_eq!(
+            AndroidAcquisitionProfile::from_id("full_logical"),
+            AndroidAcquisitionProfile::FullLogical
+        );
+        assert_eq!(
+            AndroidAcquisitionProfile::from_id("other"),
+            AndroidAcquisitionProfile::FullLogical
+        );
+    }
+
+    #[test]
+    fn test_root_profile_contains_root_extras() {
+        let root = logical_steps_for_profile(AndroidAcquisitionProfile::RootLogical);
+        assert!(root.iter().any(|step| step.category == "root_status"));
+        assert!(root.iter().any(|step| step.category == "selinux_status"));
+        assert!(root.iter().any(|step| step.category == "content_sms"));
+    }
+
+    #[test]
+    fn test_full_logical_steps_uniqueness() {
+        use std::collections::HashSet;
+        let mut seen = HashSet::new();
+        for step in super::FULL_LOGICAL_STEPS {
+            assert!(!step.category.is_empty());
+            assert!(!step.file_name.is_empty());
+            assert!(
+                seen.insert(step.category),
+                "Duplicate category: {}",
+                step.category
+            );
+        }
+    }
 }

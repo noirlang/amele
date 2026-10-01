@@ -522,4 +522,22 @@ mod tests {
         assert_eq!(report.partitions.len(), 1);
         assert_eq!(report.partitions[0].type_name, "Linux filesystem");
     }
+
+    #[test]
+    fn test_guid_to_string_and_type_name() {
+        let raw = [
+            0xaf, 0x3d, 0xc6, 0x0f, 0x83, 0x84, 0x72, 0x47, 0x8e, 0x79, 0x3d, 0x69, 0xd8, 0x47,
+            0x7d, 0xe4,
+        ];
+        let guid = guid_to_string(&raw);
+        assert_eq!(guid, "0FC63DAF-8483-4772-8E79-3D69D8477DE4");
+        assert_eq!(gpt_type_name(&raw), "Linux filesystem");
+    }
+
+    #[test]
+    fn test_utf16le_name() {
+        // "EFI\0" in UTF-16LE
+        let bytes = [b'E', 0, b'F', 0, b'I', 0, 0, 0];
+        assert_eq!(utf16le_name(&bytes), "EFI");
+    }
 }

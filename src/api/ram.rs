@@ -1,4 +1,4 @@
-//! canlı bellek dökümü başlatma api rotası.
+//! Yerel ve uzak RAM edinimi, Volatility analizi ve carving işlemlerini yöneten API rotaları.
 
 use chrono::Local;
 use serde::Deserialize;
@@ -83,7 +83,8 @@ pub fn local_ram_endpoint(body: &[u8]) -> Response {
         Err(err) => return json_error(400, err.to_string()),
     };
 
-    if request.output.trim().is_empty() {
+    let output = request.output.trim();
+    if output.is_empty() {
         return json_error(400, "output is required");
     }
 
@@ -91,6 +92,13 @@ pub fn local_ram_endpoint(body: &[u8]) -> Response {
     if !matches!(tool, "avml" | "winpmem") {
         return json_error(400, "tool must be avml or winpmem");
     }
+
+    let _ = crate::profile::record_active_profile_activity(
+        "ram",
+        "local_acquisition",
+        request.case_name.as_deref(),
+        Some(output),
+    );
 
     let (job_id, control) = create_acquisition_job("Yerel RAM edinimi başlatıldı");
     let thread_job_id = job_id.clone();
@@ -109,15 +117,24 @@ pub fn remote_ram_endpoint(body: &[u8]) -> Response {
         Err(err) => return json_error(400, err.to_string()),
     };
 
-    if request.ip.trim().is_empty() {
+    let ip = request.ip.trim();
+    if ip.is_empty() {
         return json_error(400, "ip is required");
     }
     if request.port == 0 {
         return json_error(400, "port is required");
     }
-    if request.output.trim().is_empty() {
+    let output = request.output.trim();
+    if output.is_empty() {
         return json_error(400, "output is required");
     }
+
+    let _ = crate::profile::record_active_profile_activity(
+        "ram",
+        "remote_acquisition",
+        request.case_name.as_deref(),
+        Some(output),
+    );
 
     let (job_id, _control) = create_acquisition_job("Uzak RAM edinimi başlatıldı");
     let thread_job_id = job_id.clone();
@@ -754,7 +771,11 @@ pub fn ram_analyze_strings_endpoint(body: &[u8]) -> Response {
         Ok(req) => req,
         Err(err) => return json_error(400, err.to_string()),
     };
-    let path = Path::new(&request.path);
+    let path_str = request.path.trim();
+    if path_str.is_empty() {
+        return json_error(400, "path is required");
+    }
+    let path = Path::new(path_str);
     if !path.exists() {
         return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
@@ -776,7 +797,11 @@ pub fn ram_analyze_summary_endpoint(body: &[u8]) -> Response {
         Ok(req) => req,
         Err(err) => return json_error(400, err.to_string()),
     };
-    let path = Path::new(&request.path);
+    let path_str = request.path.trim();
+    if path_str.is_empty() {
+        return json_error(400, "path is required");
+    }
+    let path = Path::new(path_str);
     if !path.exists() {
         return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
@@ -807,7 +832,11 @@ pub fn ram_volatility_preflight_endpoint(body: &[u8]) -> Response {
         Ok(req) => req,
         Err(err) => return json_error(400, err.to_string()),
     };
-    let path = Path::new(&request.path);
+    let path_str = request.path.trim();
+    if path_str.is_empty() {
+        return json_error(400, "path is required");
+    }
+    let path = Path::new(path_str);
     if !path.exists() {
         return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
@@ -834,7 +863,11 @@ pub fn ram_volatility_symbol_install_endpoint(body: &[u8]) -> Response {
         Ok(req) => req,
         Err(err) => return json_error(400, err.to_string()),
     };
-    let path = Path::new(&request.path);
+    let path_str = request.path.trim();
+    if path_str.is_empty() {
+        return json_error(400, "path is required");
+    }
+    let path = Path::new(path_str);
     if !path.exists() {
         return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
@@ -999,7 +1032,11 @@ pub fn ram_analyze_summary_start_endpoint(body: &[u8]) -> Response {
         Ok(req) => req,
         Err(err) => return json_error(400, err.to_string()),
     };
-    let path = PathBuf::from(&request.path);
+    let path_str = request.path.trim();
+    if path_str.is_empty() {
+        return json_error(400, "path is required");
+    }
+    let path = PathBuf::from(path_str);
     if !path.exists() {
         return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
@@ -1007,6 +1044,13 @@ pub fn ram_analyze_summary_start_endpoint(body: &[u8]) -> Response {
         Ok(dir) => dir,
         Err(err) => return json_error(404, err),
     };
+
+    let _ = crate::profile::record_active_profile_activity(
+        "ram",
+        "summary_analysis",
+        None,
+        Some(path_str),
+    );
 
     let os_type = sanitize_ram_os_type(request.os_type.as_deref());
     let (job_id, _control) = create_acquisition_job("RAM analizi başlatıldı");
@@ -1062,7 +1106,11 @@ pub fn ram_carve_files_endpoint(body: &[u8]) -> Response {
         Ok(req) => req,
         Err(err) => return json_error(400, err.to_string()),
     };
-    let path = Path::new(&request.path);
+    let path_str = request.path.trim();
+    if path_str.is_empty() {
+        return json_error(400, "path is required");
+    }
+    let path = Path::new(path_str);
     if !path.exists() {
         return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
@@ -1088,7 +1136,11 @@ pub fn ram_list_processes_endpoint(body: &[u8]) -> Response {
         Ok(req) => req,
         Err(err) => return json_error(400, err.to_string()),
     };
-    let path = Path::new(&request.path);
+    let path_str = request.path.trim();
+    if path_str.is_empty() {
+        return json_error(400, "path is required");
+    }
+    let path = Path::new(path_str);
     if !path.exists() {
         return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
@@ -1133,7 +1185,11 @@ pub fn ram_list_processes_start_endpoint(body: &[u8]) -> Response {
         Ok(req) => req,
         Err(err) => return json_error(400, err.to_string()),
     };
-    let path = PathBuf::from(&request.path);
+    let path_str = request.path.trim();
+    if path_str.is_empty() {
+        return json_error(400, "path is required");
+    }
+    let path = PathBuf::from(path_str);
     if !path.exists() {
         return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
@@ -1289,7 +1345,11 @@ pub fn ram_process_details_endpoint(body: &[u8]) -> Response {
         Ok(req) => req,
         Err(err) => return json_error(400, err.to_string()),
     };
-    let path = Path::new(&request.path);
+    let path_str = request.path.trim();
+    if path_str.is_empty() {
+        return json_error(400, "path is required");
+    }
+    let path = Path::new(path_str);
     if !path.exists() {
         return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
@@ -1331,7 +1391,11 @@ pub fn ram_process_details_start_endpoint(body: &[u8]) -> Response {
         Ok(req) => req,
         Err(err) => return json_error(400, err.to_string()),
     };
-    let path = PathBuf::from(&request.path);
+    let path_str = request.path.trim();
+    if path_str.is_empty() {
+        return json_error(400, "path is required");
+    }
+    let path = PathBuf::from(path_str);
     if !path.exists() {
         return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
@@ -1408,7 +1472,11 @@ pub fn ram_process_search_endpoint(body: &[u8]) -> Response {
     if request.query.trim().is_empty() {
         return json_error(400, "Arama sorgusu gerekli / Search query required");
     }
-    let path = Path::new(&request.path);
+    let path_str = request.path.trim();
+    if path_str.is_empty() {
+        return json_error(400, "path is required");
+    }
+    let path = Path::new(path_str);
     if !path.exists() {
         return json_error(404, "Bellek dosyası bulunamadı / Memory file not found");
     }
@@ -1431,7 +1499,11 @@ pub fn ram_read_carved_endpoint(body: &[u8]) -> Response {
         Err(err) => return json_error(400, err.to_string()),
     };
 
-    let target_path = PathBuf::from(request.path.trim());
+    let path_str = request.path.trim();
+    if path_str.is_empty() {
+        return json_error(400, "path is required");
+    }
+    let target_path = PathBuf::from(path_str);
     if !target_path.exists() {
         return json_error(404, "Dosya bulunamadı / File not found");
     }
@@ -1563,7 +1635,10 @@ mod tests {
     fn test_update_acquisition_message() {
         let (job_id, _control) = create_acquisition_job("Job initial");
         update_acquisition_message(&job_id, "Job updated");
-        let jobs = acquisition_jobs().lock().unwrap();
+        let jobs = match acquisition_jobs().lock() {
+            Ok(g) => g,
+            Err(p) => p.into_inner(),
+        };
         let job = jobs.get(&job_id).unwrap();
         assert_eq!(job.message, "Job updated");
         assert_eq!(job.logs.len(), 2);
@@ -1583,8 +1658,99 @@ mod tests {
         };
         control.cancel();
         run_local_ram_job(job_id.clone(), req, control);
-        let jobs = acquisition_jobs().lock().unwrap();
+        let jobs = match acquisition_jobs().lock() {
+            Ok(g) => g,
+            Err(p) => p.into_inner(),
+        };
         let job = jobs.get(&job_id).unwrap();
         assert_eq!(job.status, "failed");
+    }
+
+    #[test]
+    fn test_local_ram_endpoint_validation() {
+        let resp_empty = local_ram_endpoint(b"");
+        assert_eq!(resp_empty.status, 400);
+
+        let resp_empty_out = local_ram_endpoint(br#"{"output": "  ", "tool": "avml"}"#);
+        assert_eq!(resp_empty_out.status, 400);
+
+        let resp_bad_tool = local_ram_endpoint(br#"{"output": "/tmp/ram.raw", "tool": "invalid"}"#);
+        assert_eq!(resp_bad_tool.status, 400);
+    }
+
+    #[test]
+    fn test_remote_ram_endpoint_validation() {
+        let resp_empty = remote_ram_endpoint(b"");
+        assert_eq!(resp_empty.status, 400);
+
+        let resp_empty_ip =
+            remote_ram_endpoint(br#"{"ip": "  ", "port": 8080, "output": "/tmp/ram.raw"}"#);
+        assert_eq!(resp_empty_ip.status, 400);
+
+        let resp_zero_port =
+            remote_ram_endpoint(br#"{"ip": "127.0.0.1", "port": 0, "output": "/tmp/ram.raw"}"#);
+        assert_eq!(resp_zero_port.status, 400);
+
+        let resp_empty_out =
+            remote_ram_endpoint(br#"{"ip": "127.0.0.1", "port": 8080, "output": "  "}"#);
+        assert_eq!(resp_empty_out.status, 400);
+    }
+
+    #[test]
+    fn test_ram_analyze_strings_validation() {
+        let resp_empty = ram_analyze_strings_endpoint(b"");
+        assert_eq!(resp_empty.status, 400);
+
+        let resp_empty_path = ram_analyze_strings_endpoint(br#"{"path": "  "}"#);
+        assert_eq!(resp_empty_path.status, 400);
+
+        let resp_not_found =
+            ram_analyze_strings_endpoint(br#"{"path": "/tmp/nonexistent_ram_dump_12345.raw"}"#);
+        assert_eq!(resp_not_found.status, 404);
+    }
+
+    #[test]
+    fn test_ram_analyze_summary_validation() {
+        let resp_empty = ram_analyze_summary_endpoint(b"");
+        assert_eq!(resp_empty.status, 400);
+
+        let resp_empty_path = ram_analyze_summary_endpoint(br#"{"path": "  "}"#);
+        assert_eq!(resp_empty_path.status, 400);
+
+        let resp_not_found =
+            ram_analyze_summary_endpoint(br#"{"path": "/tmp/nonexistent_ram_dump_12345.raw"}"#);
+        assert_eq!(resp_not_found.status, 404);
+    }
+
+    #[test]
+    fn test_ram_process_search_validation() {
+        let resp_empty = ram_process_search_endpoint(b"");
+        assert_eq!(resp_empty.status, 400);
+
+        let resp_empty_query =
+            ram_process_search_endpoint(br#"{"path": "/tmp/test.raw", "pid": "1", "query": "  "}"#);
+        assert_eq!(resp_empty_query.status, 400);
+
+        let resp_empty_path =
+            ram_process_search_endpoint(br#"{"path": "  ", "pid": "1", "query": "kernel"}"#);
+        assert_eq!(resp_empty_path.status, 400);
+
+        let resp_not_found = ram_process_search_endpoint(
+            br#"{"path": "/tmp/nonexistent_ram_dump_12345.raw", "pid": "1", "query": "kernel"}"#,
+        );
+        assert_eq!(resp_not_found.status, 404);
+    }
+
+    #[test]
+    fn test_ram_read_carved_validation() {
+        let resp_empty = ram_read_carved_endpoint(b"");
+        assert_eq!(resp_empty.status, 400);
+
+        let resp_empty_path = ram_read_carved_endpoint(br#"{"path": "  "}"#);
+        assert_eq!(resp_empty_path.status, 400);
+
+        let resp_not_found =
+            ram_read_carved_endpoint(br#"{"path": "/tmp/nonexistent_carved_file_12345.txt"}"#);
+        assert_eq!(resp_not_found.status, 404);
     }
 }

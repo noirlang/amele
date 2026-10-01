@@ -1,9 +1,9 @@
-//! arkadaki işlerin durumunu ve hızını dönen api rotası.
+//! Edinim işlerinin (disk, ram, ios vb.) durumunu, ilerlemesini, loglarını ve hızını yöneten durum modülü.
 
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
 
 pub static NEXT_ACQUISITION_JOB_ID: AtomicU64 = AtomicU64::new(1);
@@ -28,6 +28,14 @@ pub fn acquisition_jobs() -> &'static Mutex<HashMap<String, AcquisitionJob>> {
     ACQUISITION_JOBS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// Mutex zehirlenmesine dayanıklı iş kilidi edinir.
+fn lock_acquisition_jobs() -> MutexGuard<'static, HashMap<String, AcquisitionJob>> {
+    match acquisition_jobs().lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    }
+}
+
 /// Yeni bir arka plan edinim işi oluşturur ve kontrol token'ını döndürür.
 pub fn create_acquisition_job(message: &str) -> (String, crate::ram::CancellationToken) {
     let id = NEXT_ACQUISITION_JOB_ID.fetch_add(1, Ordering::SeqCst);
@@ -44,9 +52,7 @@ pub fn create_acquisition_job(message: &str) -> (String, crate::ram::Cancellatio
         phase: None,
         control: control.clone(),
     };
-    if let Ok(mut jobs) = acquisition_jobs().lock() {
-        jobs.insert(job_id.clone(), job);
-    }
+    lock_acquisition_jobs().insert(job_id.clone(), job);
     crate::logging::runtime_log(
         crate::logging::LogLevel::Info,
         "job",
@@ -62,9 +68,8 @@ pub fn update_acquisition_progress(job_id: &str, done: u64, total: u64) {
 
 /// İşin ilerlemesini özel mesajla günceller.
 pub fn update_acquisition_progress_message(job_id: &str, done: u64, total: u64, label: &str) {
-    if let Ok(mut jobs) = acquisition_jobs().lock()
-        && let Some(job) = jobs.get_mut(job_id)
-    {
+    let mut jobs = lock_acquisition_jobs();
+    if let Some(job) = jobs.get_mut(job_id) {
         let effective_total = total.max(done);
         let effective_done = done.min(effective_total);
         let previous_percent = progress_percent(job.done, job.total);
@@ -97,18 +102,16 @@ pub fn update_acquisition_progress_message(job_id: &str, done: u64, total: u64, 
 
 /// İşin aktif fazını (örn. "RAM edinimi", "SHA-256 hesaplanıyor") günceller.
 pub fn update_acquisition_phase(job_id: &str, phase: &str) {
-    if let Ok(mut jobs) = acquisition_jobs().lock()
-        && let Some(job) = jobs.get_mut(job_id)
-    {
+    let mut jobs = lock_acquisition_jobs();
+    if let Some(job) = jobs.get_mut(job_id) {
         job.phase = Some(phase.to_string());
     }
 }
 
 /// İşin anlık durum mesajını log'a da ekleyerek değiştirir.
 pub fn update_acquisition_message(job_id: &str, message: &str) {
-    if let Ok(mut jobs) = acquisition_jobs().lock()
-        && let Some(job) = jobs.get_mut(job_id)
-    {
+    let mut jobs = lock_acquisition_jobs();
+    if let Some(job) = jobs.get_mut(job_id) {
         job.message = message.to_string();
         push_log(job, message);
         crate::logging::runtime_log(
@@ -121,9 +124,8 @@ pub fn update_acquisition_message(job_id: &str, message: &str) {
 
 /// Canlı konsola ek bir satır yazmak için iş log'una mesaj ekler.
 pub fn append_acquisition_log(job_id: &str, message: &str) {
-    if let Ok(mut jobs) = acquisition_jobs().lock()
-        && let Some(job) = jobs.get_mut(job_id)
-    {
+    let mut jobs = lock_acquisition_jobs();
+    if let Some(job) = jobs.get_mut(job_id) {
         push_log(job, message);
         crate::logging::runtime_log(
             crate::logging::LogLevel::Debug,
@@ -135,9 +137,8 @@ pub fn append_acquisition_log(job_id: &str, message: &str) {
 
 /// İşi başarılı tamamlanmış olarak işaretler ve sonucu saklar.
 pub fn finish_acquisition_job_with_message(job_id: &str, result: Value, message: &str) {
-    if let Ok(mut jobs) = acquisition_jobs().lock()
-        && let Some(job) = jobs.get_mut(job_id)
-    {
+    let mut jobs = lock_acquisition_jobs();
+    if let Some(job) = jobs.get_mut(job_id) {
         job.status = "completed".to_string();
         if job.total == 0 {
             job.total = 1;
@@ -160,9 +161,8 @@ pub fn finish_acquisition_job_with_message(job_id: &str, result: Value, message:
 /// İşi başarısız olarak işaretler ve hata mesajını log'a yazar.
 pub fn fail_acquisition_job_with_message(job_id: &str, error: String, message: &str) {
     let error = crate::diagnostics::error_with_advice(&error);
-    if let Ok(mut jobs) = acquisition_jobs().lock()
-        && let Some(job) = jobs.get_mut(job_id)
-    {
+    let mut jobs = lock_acquisition_jobs();
+    if let Some(job) = jobs.get_mut(job_id) {
         job.status = "failed".to_string();
         job.message = message.to_string();
         push_log(job, message);
@@ -224,8 +224,14 @@ pub fn format_job_eta(total_secs: u64) -> String {
         format!("{total_secs} sn")
     } else if total_secs < 3600 {
         format!("{} dk {} sn", total_secs / 60, total_secs % 60)
-    } else {
+    } else if total_secs < 86400 {
         format!("{} sa {} dk", total_secs / 3600, (total_secs % 3600) / 60)
+    } else {
+        format!(
+            "{} gün {} sa",
+            total_secs / 86400,
+            (total_secs % 86400) / 3600
+        )
     }
 }
 
@@ -247,7 +253,7 @@ impl PhaseProgress {
             job_id: job_id.to_string(),
             phase,
             started: Instant::now(),
-            last_log: Instant::now() - Duration::from_secs(10),
+            last_log: Instant::now(),
             logged_start: false,
         };
         if total > 0 {
@@ -318,4 +324,119 @@ fn should_log_progress(previous: u64, next: u64, done: u64, total: u64) -> bool 
         return false;
     }
     done == 0 || done >= total || previous / 10 != next / 10
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_create_and_lifecycle_job() {
+        let (job_id, control) = create_acquisition_job("Test edinim işi");
+        assert!(job_id.starts_with("acq-"));
+        assert!(!control.is_cancelled());
+
+        let jobs = lock_acquisition_jobs();
+        let job = jobs.get(&job_id).expect("iş bulunmalı");
+        assert_eq!(job.status, "running");
+        assert_eq!(job.message, "Test edinim işi");
+        assert_eq!(job.logs, vec!["Test edinim işi".to_string()]);
+    }
+
+    #[test]
+    fn test_progress_updates_and_percent() {
+        let (job_id, _) = create_acquisition_job("Ilerleme testi");
+        update_acquisition_progress(&job_id, 50, 100);
+
+        {
+            let jobs = lock_acquisition_jobs();
+            let job = jobs.get(&job_id).expect("iş bulunmalı");
+            assert_eq!(job.done, 50);
+            assert_eq!(job.total, 100);
+            assert_eq!(job.message, "Imaj alma sürüyor: 50%");
+        }
+
+        update_acquisition_phase(&job_id, "Hash hesaplama");
+        {
+            let jobs = lock_acquisition_jobs();
+            let job = jobs.get(&job_id).expect("iş bulunmalı");
+            assert_eq!(job.phase.as_deref(), Some("Hash hesaplama"));
+        }
+    }
+
+    #[test]
+    fn test_push_log_dedup_and_overflow() {
+        let (job_id, _) = create_acquisition_job("Log testi");
+        append_acquisition_log(&job_id, "Aynı log");
+        append_acquisition_log(&job_id, "Aynı log");
+        append_acquisition_log(&job_id, "  ");
+
+        let jobs = lock_acquisition_jobs();
+        let job = jobs.get(&job_id).expect("iş bulunmalı");
+        assert_eq!(
+            job.logs,
+            vec!["Log testi".to_string(), "Aynı log".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_finish_and_fail_job() {
+        let (job1, _) = create_acquisition_job("Bitecek iş");
+        finish_acquisition_job_with_message(
+            &job1,
+            serde_json::json!({ "ok": true }),
+            "Başarıyla bitti",
+        );
+        {
+            let jobs = lock_acquisition_jobs();
+            let job = jobs.get(&job1).expect("iş bulunmalı");
+            assert_eq!(job.status, "completed");
+            assert_eq!(job.done, 1);
+            assert_eq!(job.total, 1);
+            assert_eq!(job.result, Some(serde_json::json!({ "ok": true })));
+        }
+
+        let (job2, _) = create_acquisition_job("Başarısız iş");
+        fail_acquisition_job_with_message(
+            &job2,
+            "Erişim reddedildi".to_string(),
+            "Kopyalama hatası",
+        );
+        {
+            let jobs = lock_acquisition_jobs();
+            let job = jobs.get(&job2).expect("iş bulunmalı");
+            assert_eq!(job.status, "failed");
+            assert!(job.error.as_deref().unwrap().contains("Erişim reddedildi"));
+        }
+    }
+
+    #[test]
+    fn test_format_job_bytes() {
+        assert_eq!(format_job_bytes(0), "0 B");
+        assert_eq!(format_job_bytes(512), "512 B");
+        assert_eq!(format_job_bytes(1024), "1,0 KB");
+        assert_eq!(format_job_bytes(1_572_864), "1,5 MB");
+        assert_eq!(format_job_bytes(16_106_127_360), "15,0 GB");
+    }
+
+    #[test]
+    fn test_format_job_eta() {
+        assert_eq!(format_job_eta(30), "30 sn");
+        assert_eq!(format_job_eta(150), "2 dk 30 sn");
+        assert_eq!(format_job_eta(3720), "1 sa 2 dk");
+        assert_eq!(format_job_eta(90000), "1 gün 1 sa");
+    }
+
+    #[test]
+    fn test_phase_progress() {
+        let (job_id, _) = create_acquisition_job("Faz testi");
+        let mut phase = PhaseProgress::start(&job_id, "SHA-256", 1000);
+        phase.report(500, 1000, "SHA-256");
+
+        let jobs = lock_acquisition_jobs();
+        let job = jobs.get(&job_id).expect("iş bulunmalı");
+        assert_eq!(job.phase.as_deref(), Some("SHA-256"));
+        assert_eq!(job.done, 500);
+        assert_eq!(job.total, 1000);
+    }
 }

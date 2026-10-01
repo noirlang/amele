@@ -26,19 +26,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgtk-3-0 \
     libwebkit2gtk-4.1-0 \
     libglib2.0-0 \
+    python3 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY --from=builder /build/target/release/amele /usr/local/bin/amele
+COPY tools/ /usr/local/share/amele/tools/
 
 RUN mkdir -p /root/.config/amele /cases /evidence
 
 ENV AMELE_HOST=0.0.0.0 \
     AMELE_PORT=8080 \
     AMELE_NO_BROWSER=1 \
-    AMELE_ALLOW_REMOTE=1
+    AMELE_ALLOW_REMOTE=1 \
+    AMELE_VOLATILITY_WORKER_PATH=/usr/local/share/amele/tools/amele_volatility_worker.py
 
 EXPOSE 8080
 

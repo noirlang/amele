@@ -872,13 +872,30 @@ fn windows_check_token_admin() -> bool {
     false
 }
 
-#[cfg(all(test, target_os = "linux"))]
+#[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
+    #[cfg(target_os = "linux")]
     fn linux_ram_size_is_nonzero_on_linux() {
-        #[cfg(target_os = "linux")]
         assert!(physical_ram_size() > 0);
+    }
+
+    #[test]
+    fn test_cancellation_token() {
+        let token = CancellationToken::default();
+        assert!(!token.is_cancelled());
+        assert!(!token.is_paused());
+
+        token.pause();
+        assert!(token.is_paused());
+        assert!(!token.is_cancelled());
+
+        token.resume();
+        assert!(!token.is_paused());
+
+        token.cancel();
+        assert!(token.is_cancelled());
     }
 }

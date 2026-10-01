@@ -1,26 +1,54 @@
-//! alınan disk imajını bağlama ve ayırma api rotası.
+//! Disk imajlarını bağlama (salt-okunur), bölüm tarama ve ayırma işlemlerini yöneten yardımcı modül.
 
 use serde_json::json;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::MutexGuard;
 use std::thread;
 
 use super::{
-    cleanup_helper_files, command_error_message, current_image_mount, helper_file_stem,
-    process_is_root, read_helper_json, run_elevated_helper_wait, write_json_file,
+    ImageMountState, cleanup_helper_files, command_error_message, current_image_mount,
+    helper_file_stem, process_is_root, read_helper_json, run_elevated_helper_wait, write_json_file,
 };
+
+/// Aktif imaj mount mutex'ini zehirlenmeye dirençli kilitler.
+fn lock_current_image_mount() -> MutexGuard<'static, Option<ImageMountState>> {
+    match current_image_mount().lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    }
+}
 
 /// Aktif bağlı imaj varsa platforma uygun şekilde unmount eder ve state'i temizler.
 pub fn image_unmount_current() -> Result<Option<PathBuf>, String> {
-    let state = current_image_mount()
-        .lock()
-        .ok()
-        .and_then(|mut current| current.take());
+    image_unmount_current_internal(perform_unmount)
+}
+
+/// Unmount işlemini yürütür, hata durumunda durumu geri yükler.
+fn image_unmount_current_internal<F>(unmounter: F) -> Result<Option<PathBuf>, String>
+where
+    F: FnOnce(&ImageMountState) -> Result<(), String>,
+{
+    let state = lock_current_image_mount().take();
     let Some(state) = state else {
         return Ok(None);
     };
 
+    if let Err(err) = unmounter(&state) {
+        let mut current = lock_current_image_mount();
+        if current.is_none() {
+            *current = Some(state);
+        }
+        return Err(err);
+    }
+
+    #[cfg(target_os = "linux")]
+    let _ = fs::remove_dir_all(&state.mount_dir);
+    Ok(Some(state.mount_dir))
+}
+
+fn perform_unmount(state: &ImageMountState) -> Result<(), String> {
     #[cfg(target_os = "linux")]
     {
         if !process_is_root() {
@@ -85,9 +113,7 @@ pub fn image_unmount_current() -> Result<Option<PathBuf>, String> {
         }
     }
 
-    #[cfg(target_os = "linux")]
-    let _ = fs::remove_dir_all(&state.mount_dir);
-    Ok(Some(state.mount_dir))
+    Ok(())
 }
 
 #[cfg(target_os = "linux")]
@@ -325,5 +351,98 @@ pub fn linux_mount_image_readonly(
             linux_mount_partitioned_image(image_path, mount_dir)
                 .map_err(|scan_err| format!("{err}; partition scan failed: {scan_err}"))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    static MOUNT_TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[test]
+    fn test_image_unmount_current_when_empty() {
+        let _lock = MOUNT_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
+        let _ = lock_current_image_mount().take();
+        assert_eq!(image_unmount_current(), Ok(None));
+    }
+
+    #[test]
+    fn test_lock_current_image_mount_state_flow() {
+        let _lock = MOUNT_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
+        let mut guard = lock_current_image_mount();
+        let _ = guard.take();
+        assert!(guard.is_none());
+        *guard = Some(ImageMountState {
+            image_path: PathBuf::from("/tmp/test.dd"),
+            mount_dir: PathBuf::from("/tmp/test_mount"),
+            #[cfg(target_os = "linux")]
+            loop_device: None,
+        });
+        assert!(guard.is_some());
+        let taken = guard.take();
+        assert!(taken.is_some());
+        assert!(guard.is_none());
+    }
+
+    #[test]
+    fn test_image_unmount_current_restores_state_on_failure() {
+        let _lock = MOUNT_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
+        let fake_dir = PathBuf::from("/tmp/amele_mount_test_fail_dir");
+        {
+            let mut guard = lock_current_image_mount();
+            *guard = Some(ImageMountState {
+                image_path: PathBuf::from("/tmp/test.dd"),
+                mount_dir: fake_dir.clone(),
+                #[cfg(target_os = "linux")]
+                loop_device: None,
+            });
+        }
+
+        let res = image_unmount_current_internal(|_state| Err("unmount mock failure".to_string()));
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err(), "unmount mock failure");
+
+        let guard = lock_current_image_mount();
+        assert!(guard.is_some());
+        assert_eq!(guard.as_ref().unwrap().mount_dir, fake_dir);
+        drop(guard);
+
+        let _ = lock_current_image_mount().take();
+    }
+
+    #[test]
+    fn test_image_unmount_current_cleans_up_on_success() {
+        let _lock = MOUNT_TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
+        let temp_dir =
+            std::env::temp_dir().join(format!("amele_mount_test_succ_{}", std::process::id()));
+        let _ = fs::create_dir_all(&temp_dir);
+        assert!(temp_dir.exists());
+
+        {
+            let mut guard = lock_current_image_mount();
+            *guard = Some(ImageMountState {
+                image_path: PathBuf::from("/tmp/test.dd"),
+                mount_dir: temp_dir.clone(),
+                #[cfg(target_os = "linux")]
+                loop_device: None,
+            });
+        }
+
+        let res = image_unmount_current_internal(|_state| Ok(()));
+        assert_eq!(res, Ok(Some(temp_dir.clone())));
+
+        let guard = lock_current_image_mount();
+        assert!(guard.is_none());
+        #[cfg(target_os = "linux")]
+        assert!(!temp_dir.exists());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_linux_loop_mount_candidates() {
+        let fake_loop = Path::new("/dev/loop99999");
+        let candidates = linux_loop_mount_candidates(fake_loop);
+        assert!(candidates.contains(&fake_loop.to_path_buf()));
     }
 }

@@ -598,3 +598,51 @@ where
         mode: AndroidRamMode::VolatileData,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_android_ram_mode_from_id() {
+        assert_eq!(
+            AndroidRamMode::from_id("root"),
+            AndroidRamMode::RootProcessMemory
+        );
+        assert_eq!(
+            AndroidRamMode::from_id("root_process_memory"),
+            AndroidRamMode::RootProcessMemory
+        );
+        assert_eq!(
+            AndroidRamMode::from_id("physical"),
+            AndroidRamMode::PhysicalMemoryProbe
+        );
+        assert_eq!(
+            AndroidRamMode::from_id("physical_memory_probe"),
+            AndroidRamMode::PhysicalMemoryProbe
+        );
+        assert_eq!(
+            AndroidRamMode::from_id("volatile"),
+            AndroidRamMode::VolatileData
+        );
+        assert_eq!(
+            AndroidRamMode::from_id("unknown"),
+            AndroidRamMode::VolatileData
+        );
+    }
+
+    #[test]
+    fn test_collect_volatile_data_cancelled() {
+        let temp_dir = std::env::temp_dir().join(format!("amele_ram_test_{}", std::process::id()));
+        let res = collect_volatile_data(
+            "dummy_serial",
+            &temp_dir,
+            |_p, _t, _msg| {},
+            || true, // immediately cancelled
+        );
+
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err(), "Kullanici tarafindan iptal edildi");
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+}

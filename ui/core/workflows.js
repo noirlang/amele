@@ -121,7 +121,7 @@ export const workflows = {
     title: L("Uzak Windows Sunucu Bağlantısı", "Remote Windows Server Connection"),
     desc: L("Bağlanın, disk seçin, imaj alın.", "Connect, select a disk, acquire an image."),
     mode: "remote-disk",
-    output: "/home/raodrin/Amele/Ciktilar",
+    output: "~/Amele/Ciktilar",
     diskLabel: L("Disk seçilmedi", "No disk selected")
   },
   "linux-remote-disk": {
@@ -130,7 +130,7 @@ export const workflows = {
     title: L("Uzak Linux Disk Bağlantısı", "Remote Linux Disk Connection"),
     desc: L("Bağlanın, /dev disk seçin, imaj alın.", "Connect, select a /dev disk, acquire an image."),
     mode: "remote-disk",
-    output: "/home/raodrin/Amele/Ciktilar",
+    output: "~/Amele/Ciktilar",
     diskLabel: L("Disk seçilmedi", "No disk selected")
   },
   "windows-local-disk": {
@@ -148,7 +148,7 @@ export const workflows = {
     title: L("Linux Yerel Disk İmajı", "Linux Local Disk Image"),
     desc: L("Blok cihaz seçin ve imaj alın.", "Select a block device and acquire an image."),
     mode: "local-disk",
-    output: "/home/raodrin/Amele/Ciktilar",
+    output: "~/Amele/Ciktilar",
     diskLabel: L("Disk seçilmedi", "No disk selected")
   },
   "windows-remote-ram": {
@@ -191,7 +191,7 @@ export const workflows = {
     title: L("SSH ile Agent'sız Linux Disk", "Agentless Linux Disk via SSH"),
     desc: L("Hedef IP, port, kullanıcı adı ve disk seçin; dd pipe ile imaj alınır.", "Enter target IP, port, username and disk; image is acquired via dd pipe."),
     mode: "ssh-disk",
-    output: "/home/raodrin/Amele/Ciktilar",
+    output: "~/Amele/Ciktilar",
     diskLabel: L("Disk seçilmedi", "No disk selected")
   },
   "linux-ssh-ram": {
@@ -200,7 +200,7 @@ export const workflows = {
     title: L("SSH ile Agent'sız Linux RAM", "Agentless Linux RAM via SSH"),
     desc: L("Hedef IP, port ve kullanıcı adıyla SSH bağlan; AVML pipe ile RAM alınır.", "SSH into the target with IP, port and username; RAM is dumped via AVML pipe."),
     mode: "ssh-ram",
-    output: "/home/raodrin/Amele/Ciktilar"
+    output: "~/Amele/Ciktilar"
   },
   "windows-ssh-disk": {
     platform: "Windows",

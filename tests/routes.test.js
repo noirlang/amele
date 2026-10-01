@@ -4,32 +4,66 @@ import test from "node:test";
 import assert from "node:assert";
 
 // Mock Browser environment for import testing
-const mockElement = {
-  classList: {
-    add: () => {},
-    toggle: () => {},
-    remove: () => {}
-  },
-  querySelectorAll: () => [],
-  querySelector: () => mockElement,
-  addEventListener: () => {},
-  focus: () => {},
-  dataset: {},
-  set innerHTML(val) {},
-  get innerHTML() { return ""; }
+const createMockElement = () => {
+  const el = {
+    classList: {
+      add: () => {},
+      toggle: () => {},
+      remove: () => {}
+    },
+    querySelectorAll: () => [],
+    querySelector: () => el,
+    addEventListener: () => {},
+    focus: () => {},
+    dataset: {},
+    appendChild: (child) => child,
+    removeChild: (child) => child,
+    setAttribute: () => {},
+    getAttribute: () => null,
+    style: {},
+    set innerHTML(val) {},
+    get innerHTML() { return ""; }
+  };
+  return el;
 };
+
+const mockElement = createMockElement();
 
 let clickListener = null;
 
+const origSetTimeout = globalThis.setTimeout;
+const unrefSetTimeout = (...args) => {
+  const tid = origSetTimeout(...args);
+  if (typeof tid?.unref === "function") tid.unref();
+  return tid;
+};
+globalThis.setTimeout = unrefSetTimeout;
+
 globalThis.window = {
   location: {
+    origin: "http://127.0.0.1:8080",
+    protocol: "http:",
+    host: "127.0.0.1:8080",
     search: "?native=0&route=home"
   },
   addEventListener: () => {},
   clearTimeout: (...args) => globalThis.clearTimeout(...args),
-  setTimeout: (...args) => globalThis.setTimeout(...args)
+  setTimeout: unrefSetTimeout
 };
 globalThis.location = globalThis.window.location;
+globalThis.fetch = async (url) => {
+  const dummy = { ok: true, agents: [], jobs: {} };
+  return {
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify(dummy),
+    json: async () => dummy,
+    clone: () => ({
+      text: async () => JSON.stringify(dummy)
+    })
+  };
+};
+globalThis.window.fetch = globalThis.fetch;
 if (typeof globalThis.navigator === "undefined") {
   globalThis.navigator = { userAgent: "Mozilla/5.0 (X11; Linux x86_64)", platform: "Linux x86_64" };
 } else {
@@ -48,6 +82,10 @@ globalThis.document = {
     lang: "tr",
     set lang(v) {}
   },
+  body: {
+    appendChild: () => {}
+  },
+  createElement: () => mockElement,
   querySelector: () => mockElement,
   querySelectorAll: () => [],
   getElementById: () => mockElement,
@@ -103,6 +141,25 @@ test("Frontend Routing and Module Health", async (t) => {
     const { iosPage, handleIosAction } = await import("../ui/ios.js");
     assert.strictEqual(typeof iosPage, "function", "iosPage should be a function");
     assert.strictEqual(typeof handleIosAction, "function", "handleIosAction should be a function");
+
+    const { dockerPage } = await import("../ui/docker.js");
+    assert.strictEqual(typeof dockerPage, "function", "dockerPage should be a function");
+
+    const { toolsPage } = await import("../ui/pages/tools.js");
+    assert.strictEqual(typeof toolsPage, "function", "toolsPage should be a function");
+
+    const { helpPage } = await import("../ui/pages/help.js");
+    assert.strictEqual(typeof helpPage, "function", "helpPage should be a function");
+
+    const { otherPage, detailPanel } = await import("../ui/pages/other.js");
+    assert.strictEqual(typeof otherPage, "function", "otherPage should be a function");
+    assert.strictEqual(typeof detailPanel, "function", "detailPanel should be a function");
+
+    const { renderReportSidebar } = await import("../ui/pages/reportSidebar.js");
+    assert.strictEqual(typeof renderReportSidebar, "function", "renderReportSidebar should be a function");
+
+    const { remoteAcqPage } = await import("../ui/tools/remote-acq/index.js");
+    assert.strictEqual(typeof remoteAcqPage, "function", "remoteAcqPage should be a function");
   });
 
   await t.test("icons module correctly hydrated and exports functions", async () => {
@@ -139,18 +196,29 @@ test("Frontend Routing and Module Health", async (t) => {
     assert.ok(clickListener, "Click listener should be registered on document");
 
     const routesList = [
-      "home", 
-      "windows", 
-      "linux", 
-      "android", 
+      "home",
+      "tools",
+      "windows",
+      "linux",
+      "android",
       "ios",
-      "help", 
-      "analysis", 
-      "other", 
-      "settings", 
-      "about", 
-      "workflow:windows-remote-disk", 
-      "android:logical"
+      "docker",
+      "help",
+      "analysis",
+      "profile",
+      "remote-acq",
+      "other",
+      "settings",
+      "about",
+      "workflow:windows-remote-disk",
+      "workflow:linux-local-disk",
+      "workflow:windows-local-ram",
+      "workflow:linux-remote-ram",
+      "android:logical",
+      "android:filesystem",
+      "android:ram",
+      "android:diagnostics",
+      "android:mft"
     ];
 
     for (const route of routesList) {
@@ -171,5 +239,56 @@ test("Frontend Routing and Module Health", async (t) => {
         clickListener(mockEvent);
       }, `Route "${route}" should navigate and render without throwing exceptions`);
     }
+  });
+
+  await t.test("developer panel functions can be invoked without crashing", async () => {
+    const { openDevPanel, closeDevPanel, toggleDevPanel, handleDevTrigger, devLog } = await import("../ui/developer.js");
+    assert.strictEqual(typeof openDevPanel, "function", "openDevPanel should be a function");
+    assert.strictEqual(typeof closeDevPanel, "function", "closeDevPanel should be a function");
+    assert.strictEqual(typeof toggleDevPanel, "function", "toggleDevPanel should be a function");
+    assert.strictEqual(typeof handleDevTrigger, "function", "handleDevTrigger should be a function");
+    assert.strictEqual(typeof devLog, "function", "devLog should be a function");
+
+    assert.doesNotThrow(() => {
+      devLog("info", "test-scope", "test message", () => Promise.resolve({}), () => false);
+      handleDevTrigger(() => Promise.resolve({}), () => false);
+    });
+  });
+
+  await t.test("tools modules and action handlers execute without crashing", async () => {
+    const { windowsPage } = await import("../ui/tools/windows/index.js");
+    const { linuxPage } = await import("../ui/tools/linux/index.js");
+    const { dockerPage, handleDockerAction, dockerState } = await import("../ui/tools/docker/index.js");
+    const { handleAndroidAction, syncAndroidDeviceSelection } = await import("../ui/tools/android/index.js");
+    const { handleIosAction, syncIosBackupPathInput } = await import("../ui/tools/ios/index.js");
+
+    assert.strictEqual(typeof windowsPage, "function", "windowsPage should be a function");
+    assert.strictEqual(typeof linuxPage, "function", "linuxPage should be a function");
+    assert.strictEqual(typeof dockerPage, "function", "dockerPage should be a function");
+    assert.strictEqual(typeof handleDockerAction, "function", "handleDockerAction should be a function");
+    assert.strictEqual(typeof handleAndroidAction, "function", "handleAndroidAction should be a function");
+    assert.strictEqual(typeof handleIosAction, "function", "handleIosAction should be a function");
+
+    // Test docker filter & mode changes
+    const fakeEvent = {
+      target: {
+        closest: (sel) => {
+          if (sel === "[data-docker-action]") {
+            return { dataset: { dockerAction: "set-filter", filter: "running" } };
+          }
+          return null;
+        }
+      }
+    };
+    await handleDockerAction(fakeEvent, {
+      apiRequest: () => Promise.resolve({}),
+      setRoute: () => {},
+      render: () => {},
+      state: {}
+    });
+    assert.strictEqual(dockerState.filter, "running");
+
+    // Reset filter
+    dockerState.filter = "all";
   });
 });

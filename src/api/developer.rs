@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 
 use crate::server::{Response, json_error, json_ok};
 
-use super::{acquisition_jobs, process_is_root};
+use super::acquisition_jobs;
 
 #[derive(Deserialize)]
 /// UI veya frontend tarafının developer log'a eklemek istediği satırı taşır.
@@ -15,51 +15,17 @@ struct DeveloperLogRequest {
     message: String,
 }
 
-/// Developer mod penceresinin okuyacağı runtime log, job ve sistem özetini döndürür.
-pub fn developer_logs_endpoint() -> Response {
+/// Developer mod penceresinin okuyacağı runtime log ve iş özetini döndürür.
+/// `since_seq` verilirse yalnızca o sıra numarasından sonraki yeni log satırları döndürülür.
+pub fn developer_logs_endpoint(since_seq: Option<u64>) -> Response {
+    let logs = match since_seq {
+        Some(seq) if seq > 0 => crate::logging::runtime_logs_since(seq, 200),
+        _ => crate::logging::runtime_logs(200),
+    };
     json_ok(json!({
-        "logs": crate::logging::runtime_logs(1000),
+        "logs": logs,
         "log_file": crate::logging::runtime_log_file_path(),
         "jobs": developer_job_snapshot(),
-        "system": developer_system_snapshot(),
-    }))
-}
-
-/// download.amele.noirlang.tr üzerinden developers.json çeker.
-pub fn developers_endpoint() -> Response {
-    let url = "https://download.amele.noirlang.tr/developers.json";
-    let bust_url = format!("{url}?t={}", chrono::Utc::now().timestamp());
-    let output = std::process::Command::new("curl")
-        .arg("-L")
-        .arg("--fail")
-        .arg("--silent")
-        .arg("--show-error")
-        .arg("--max-time")
-        .arg("10")
-        .arg(&bust_url)
-        .output();
-
-    if let Ok(out) = output {
-        if out.status.success() {
-            if let Ok(val) = serde_json::from_slice::<Value>(&out.stdout) {
-                return json_ok(val);
-            }
-        }
-    }
-
-    // Fallback varsayılan geliştirici
-    json_ok(json!({
-        "developers": [
-            {
-                "id": "melih-emik",
-                "name": "Melih Emik",
-                "role": "BDFL & Maintainer",
-                "avatar_url": "https://amele.noirlang.tr/contributors/melih-emik.webp",
-                "website": "https://melihemik.com.tr",
-                "github": "https://github.com/melihemik",
-                "linkedin": "https://linkedin.com/in/melihemik"
-            }
-        ]
     }))
 }
 
@@ -108,124 +74,27 @@ fn developer_job_snapshot() -> Vec<Value> {
         .unwrap_or_default()
 }
 
-/// Platform, yetki, yol ve paket bilgilerini tek yerde özetler.
-fn developer_system_snapshot() -> Value {
-    let env_keys = [
-        "APPDIR",
-        "DISPLAY",
-        "WAYLAND_DISPLAY",
-        "XDG_CURRENT_DESKTOP",
-        "GDK_BACKEND",
-        "WEBKIT_DISABLE_DMABUF_RENDERER",
-        "WEBKIT_EXEC_PATH",
-        "WEBVIEW2_USER_DATA_FOLDER",
-        "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER",
-        "PATH",
-        "HOME",
-        "USER",
-        "USERNAME",
-        "SHELL",
-        "LANG",
-        "LC_ALL",
-        "TZ",
-        "LOGNAME",
-        "HOSTNAME",
-    ];
-    let env = env_keys
-        .iter()
-        .map(|key| {
-            let value = std::env::var(key)
-                .ok()
-                .map(|value| {
-                    if *key == "PATH" && value.len() > 280 {
-                        format!("{}...", &value[..280])
-                    } else {
-                        value
-                    }
-                })
-                .unwrap_or_else(|| "(yok)".to_string());
-            json!({ "key": key, "value": value })
-        })
-        .collect::<Vec<_>>();
-
-    let hostname = std::env::var("HOSTNAME")
-        .or_else(|_| std::env::var("COMPUTERNAME"))
-        .ok();
-    let username = std::env::var("USER")
-        .or_else(|_| std::env::var("USERNAME"))
-        .ok();
-    let timezone = std::env::var("TZ").ok().or_else(|| {
-        std::panic::catch_unwind(|| chrono::Local::now().format("%Z").to_string()).ok()
-    });
-
-    let server_port = crate::api::current_server_port();
-    let (total_memory, free_memory) = get_system_memory();
-
-    json!({
-        "version": env!("CARGO_PKG_VERSION"),
-        "os": std::env::consts::OS,
-        "family": std::env::consts::FAMILY,
-        "arch": std::env::consts::ARCH,
-        "pid": std::process::id(),
-        "cwd": std::env::current_dir().ok(),
-        "exe": std::env::current_exe().ok(),
-        "ui_root": crate::server::ui_root(),
-        "is_elevated": process_is_root(),
-        "runtime_log_file": crate::logging::runtime_log_file_path(),
-        "server_port": server_port,
-        "hostname": hostname,
-        "username": username,
-        "timezone": timezone,
-        "total_memory": total_memory,
-        "free_memory": free_memory,
-        "env": env,
-    })
-}
-
-/// Linux /proc/meminfo'dan sistem belleği bilgisi alır.
-fn get_system_memory() -> (Option<u64>, Option<u64>) {
-    #[cfg(target_os = "linux")]
-    {
-        let content = match std::fs::read_to_string("/proc/meminfo") {
-            Ok(c) => c,
-            Err(_) => return (None, None),
-        };
-        let mut total = None;
-        let mut free = None;
-        for line in content.lines() {
-            if let Some(val) = line.strip_prefix("MemTotal:") {
-                total = val
-                    .trim()
-                    .split_whitespace()
-                    .next()
-                    .and_then(|v| v.parse::<u64>().ok())
-                    .map(|kb| kb * 1024);
-            } else if let Some(val) = line.strip_prefix("MemAvailable:") {
-                free = val
-                    .trim()
-                    .split_whitespace()
-                    .next()
-                    .and_then(|v| v.parse::<u64>().ok())
-                    .map(|kb| kb * 1024);
-            }
-        }
-        (total, free)
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        (None, None)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_developers_endpoint_returns_json() {
-        let resp = developers_endpoint();
+    fn test_developer_logs_endpoint_returns_json() {
+        let resp = developer_logs_endpoint(None);
         assert_eq!(resp.status, 200);
         let val: Value = serde_json::from_slice(&resp.body).expect("valid json");
-        assert!(val.get("developers").is_some() || val.is_array());
+        assert!(val.get("logs").is_some());
+        assert!(val.get("jobs").is_some());
+
+        let resp_since = developer_logs_endpoint(Some(999999));
+        assert_eq!(resp_since.status, 200);
+        let val_since: Value = serde_json::from_slice(&resp_since.body).expect("valid json");
+        assert_eq!(
+            val_since
+                .get("logs")
+                .and_then(|l| l.as_array())
+                .map(|a| a.len()),
+            Some(0)
+        );
     }
 }

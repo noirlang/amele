@@ -35,7 +35,15 @@ export function initDeveloperMode({ apiRequest, backendReady }) {
     return;
   }
 
-  _installBrandClickCounter(apiRequest, backendReady);
+  window.addEventListener("keydown", (e) => {
+    const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.platform);
+    const modKey = isMac ? e.metaKey : e.ctrlKey;
+    if (modKey && e.shiftKey && (e.key === "D" || e.key === "d")) {
+      e.preventDefault();
+      toggleDevPanel(apiRequest, backendReady);
+    }
+  });
+
   _logBrowserEnv(apiRequest, backendReady);
   _installApiInterceptor(apiRequest, backendReady);
 }
@@ -47,67 +55,60 @@ export function devLog(level, scope, message, apiRequest, backendReady, extra = 
   _refreshIfOpen();
 }
 
-function _installBrandClickCounter(apiRequest, backendReady) {
-  document.addEventListener("click", (e) => {
-    const logo = e.target.closest("#brand-logo");
-    if (!logo) return;
-    try { window.getSelection()?.removeAllRanges(); } catch (_) {}
+export function openDevPanel(apiRequest, backendReady) {
+  if (devOpen) return;
+  devOpen = true;
 
-    clickCount++;
-    if (clickTimer) clearTimeout(clickTimer);
+  let overlay = document.getElementById("dev-overlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "dev-overlay";
+    overlay.className = "dev-overlay";
+    overlay.innerHTML = _buildPanelHtml();
+    document.body.appendChild(overlay);
+  }
 
-    logo.classList.add("dev-click-pulse");
-    setTimeout(() => logo.classList.remove("dev-click-pulse"), 300);
+  requestAnimationFrame(() => {
+    overlay.classList.add("open");
+  });
 
-    if (clickCount >= DEV_CLICK_TARGET) {
-      clickCount = 0;
-      clearTimeout(clickTimer);
-      _openStandaloneWindow(apiRequest, backendReady);
-      return;
-    }
+  const panel = document.getElementById("dev-panel");
+  _applyGeometry(panel);
+  _makeDraggable(panel);
+  _bindPanelEvents(overlay, apiRequest, backendReady);
+  _startPolling(apiRequest, backendReady);
+  _refreshPanel();
+}
 
-    _showClickHint(logo, DEV_CLICK_TARGET - clickCount);
+export function closeDevPanel() {
+  if (!devOpen) return;
+  devOpen = false;
+  _stopPolling();
+  const overlayEl = document.getElementById("dev-overlay");
+  if (overlayEl) {
+    overlayEl.classList.remove("open");
+    overlayEl.addEventListener("transitionend", () => overlayEl.remove(), { once: true });
+  }
+}
 
+export function toggleDevPanel(apiRequest, backendReady) {
+  if (devOpen) {
+    closeDevPanel();
+  } else {
+    openDevPanel(apiRequest, backendReady);
+  }
+}
+
+export function handleDevTrigger(apiRequest, backendReady) {
+  clickCount++;
+  clearTimeout(clickTimer);
+  if (clickCount >= DEV_CLICK_TARGET) {
+    clickCount = 0;
+    openDevPanel(apiRequest, backendReady);
+  } else {
     clickTimer = setTimeout(() => {
       clickCount = 0;
     }, DEV_CLICK_TIMEOUT);
-  });
-}
-
-function _showClickHint(logo, remaining) {
-  let hint = document.getElementById("dev-click-hint");
-  if (!hint) {
-    hint = document.createElement("div");
-    hint.id = "dev-click-hint";
-    hint.className = "dev-click-hint";
-    document.body.appendChild(hint);
-  }
-  hint.textContent = `🗄 ${remaining}`;
-  hint.classList.add("visible");
-  clearTimeout(hint._timer);
-  hint._timer = setTimeout(() => hint.classList.remove("visible"), 800);
-}
-
-function _openStandaloneWindow(apiRequest, backendReady) {
-  if (isNativeWebView) {
-    const url = window.location.origin + window.location.pathname + "?route=devlogs&native=1";
-    if (backendReady()) {
-      apiRequest("/api/open-dev-console", {
-        method: "POST",
-        body: JSON.stringify({})
-      }).catch(() => {
-        window.location.href = url;
-      });
-    } else {
-      const win = window.open(url, "AmeleDevConsole", "width=950,height=650,menubar=no,status=no,toolbar=no,location=no,personalbar=no");
-      if (win) win.focus();
-    }
-  } else {
-    const url = window.location.origin + window.location.pathname + "?route=devlogs";
-    const win = window.open(url, "AmeleDevConsole", "width=950,height=650,menubar=no,status=no,toolbar=no,location=no,personalbar=no");
-    if (win) {
-      win.focus();
-    }
   }
 }
 
@@ -176,18 +177,12 @@ function _buildPanelHtml() {
 
       <div class="dev-tabs">
         <button class="dev-tab active" data-dev-tab="logs">📋 Loglar</button>
-        <button class="dev-tab" data-dev-tab="system">🖥 Sistem</button>
         <button class="dev-tab" data-dev-tab="jobs">⚙ İşler</button>
       </div>
 
       <div class="dev-body">
         <div class="dev-tab-content active" id="dev-tab-logs">
           <div class="dev-log-area" id="dev-log-area"></div>
-        </div>
-        <div class="dev-tab-content" id="dev-tab-system">
-          <div class="dev-info-area" id="dev-system-area">
-            <span class="dev-loading">Sistem bilgisi yükleniyor...</span>
-          </div>
         </div>
         <div class="dev-tab-content" id="dev-tab-jobs">
           <div class="dev-info-area" id="dev-jobs-area">
@@ -304,13 +299,7 @@ function _bindPanelEvents(overlay, apiRequest, backendReady) {
 
   if (!isStandaloneMode) {
     document.getElementById("dev-close-btn")?.addEventListener("click", () => {
-      devOpen = false;
-      _stopPolling();
-      const overlayEl = document.getElementById("dev-overlay");
-      if (overlayEl) {
-        overlayEl.classList.remove("open");
-        overlayEl.addEventListener("transitionend", () => overlayEl.remove(), { once: true });
-      }
+      closeDevPanel();
     });
 
     document.getElementById("dev-maximize-btn")?.addEventListener("click", () => {
@@ -319,13 +308,7 @@ function _bindPanelEvents(overlay, apiRequest, backendReady) {
 
     const keyHandler = (e) => {
       if (e.key === "Escape" && devOpen) {
-        devOpen = false;
-        _stopPolling();
-        const overlayEl = document.getElementById("dev-overlay");
-        if (overlayEl) {
-          overlayEl.classList.remove("open");
-          overlayEl.addEventListener("transitionend", () => overlayEl.remove(), { once: true });
-        }
+        closeDevPanel();
         document.removeEventListener("keydown", keyHandler);
       }
     };
@@ -396,7 +379,8 @@ async function _fetchLogs(apiRequest, backendReady) {
 
   try {
     if (backendReady()) {
-      const data = await apiRequest("/api/developer-logs");
+      const endpoint = lastLogSeq > 0 ? `/api/developer-logs?since=${lastLogSeq}` : "/api/developer-logs";
+      const data = await apiRequest(endpoint);
 
       if (Array.isArray(data.logs)) {
         const newEntries = data.logs
@@ -421,7 +405,6 @@ async function _fetchLogs(apiRequest, backendReady) {
         }
       }
 
-      if (data.system) _renderSystemInfo(data.system);
       if (data.jobs) _renderJobs(data.jobs);
 
       _updateStatusBar();
@@ -543,68 +526,6 @@ function _formatLogLine(entry) {
   const dur  = entry.duration_ms !== undefined ? ` (${entry.duration_ms.toFixed(0)}ms)` : "";
   const extra = entry.extra ? ` | extra: ${JSON.stringify(entry.extra)}` : "";
   return `${ts} | ${lvl} | ${src} | ${thr} ${entry.message}${dur}${extra}`;
-}
-
-function _renderSystemInfo(system) {
-  const area = document.getElementById("dev-system-area");
-  if (!area) return;
-
-  const rows = [
-    ["Uygulama Versiyonu", system.version],
-    ["İşletim Sistemi", `${system.os} / ${system.family} / ${system.arch}`],
-    ["PID", system.pid],
-    ["Yürütülebilir", system.exe],
-    ["Çalışma Dizini", system.cwd],
-    ["UI Kök", system.ui_root],
-    ["Yükseltilmiş (root)", system.is_elevated ? "Evet" : "Hayır"],
-    ["Log Dosyası", system.runtime_log_file || "—"],
-    ["User Agent", navigator.userAgent],
-    ["Ekran Çözünürlüğü", `${screen.width}×${screen.height} (${window.devicePixelRatio}x)`],
-    ["Pencere Boyutu", `${window.innerWidth}×${window.innerHeight}`],
-    ["Bellek (JS heap)", _jsHeapInfo()],
-    ["Dil", navigator.language],
-    ["Online", navigator.onLine ? "Evet" : "Hayır"],
-    ["Native WebView", isNativeWebView ? "Evet" : "Hayır"],
-    ["Backend Port", system.server_port || "?"],
-    ["Sunucu Süresi (uptime)", system.uptime_secs ? `${system.uptime_secs}s` : "—"],
-    ["Donanım Mimarisi", `${system.arch}`],
-    ["Kullanıcı", system.username || "—"],
-    ["Hostname", system.hostname || "—"],
-    ["Zaman Dilimi", system.timezone || "—"],
-    ["RAM (sistem)", system.total_memory ? `${(system.total_memory / 1024 / 1024 / 1024).toFixed(1)} GB` : "—"],
-    ["Boş RAM", system.free_memory ? `${(system.free_memory / 1024 / 1024 / 1024).toFixed(1)} GB` : "—"],
-  ];
-
-  const envRows = Array.isArray(system.env) ? system.env.map(e => [e.key, e.value || "(yok)"]) : [];
-
-  area.innerHTML = `
-    <table class="dev-table">
-      <thead><tr><th>Alan</th><th>Değer</th></tr></thead>
-      <tbody>
-        ${rows.map(([k, v]) => `<tr><td class="dev-td-key">${_escHtml(k)}</td><td class="dev-td-val">${_escHtml(String(v ?? "—"))}</td></tr>`).join("")}
-      </tbody>
-    </table>
-    ${envRows.length > 0 ? `
-      <div class="dev-section-title" style="margin-top:12px">Ortam Değişkenleri</div>
-      <table class="dev-table">
-        <thead><tr><th>Değişken</th><th>Değer</th></tr></thead>
-        <tbody>
-          ${envRows.map(([k, v]) => `<tr><td class="dev-td-key">${_escHtml(k)}</td><td class="dev-td-val dev-env-val">${_escHtml(String(v))}</td></tr>`).join("")}
-        </tbody>
-      </table>
-    ` : ""}
-  `;
-}
-
-function _jsHeapInfo() {
-  try {
-    const mem = typeof performance !== "undefined" ? performance?.memory : null;
-    if (!mem) return "—";
-    const mb = (bytes) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-    return `kullanılan ${mb(mem.usedJSHeapSize)} / toplam ${mb(mem.totalJSHeapSize)} / limit ${mb(mem.jsHeapSizeLimit)}`;
-  } catch {
-    return "—";
-  }
 }
 
 function _renderJobs(jobs) {

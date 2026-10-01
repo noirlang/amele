@@ -90,7 +90,7 @@ export function remoteAcqPage({ t, icon, pageTitle }) {
             t("remote.winrm.ram.step3"),
             t("remote.winrm.ram.step4")
           ],
-          command: `# WinPMEM ile uzak RAM dökümü\nssh Admin@<IP> "winpmem_mini.exe -" ^\n  | dd of=./remote_win_ram.aff4\n\n# WinRM ile:\nInvoke-Command -ComputerName <IP> {\n  & winpmem_mini.exe C:\\Temp\\ram.aff4\n}`
+          command: `# WinPMEM ile uzak RAM dökümü\nssh Admin@<IP> "winpmem.exe -o -" ^\n  | dd of=./remote_win_ram.raw\n\n# WinRM ile:\nInvoke-Command -ComputerName <IP> {\n  & winpmem.exe -o C:\\Temp\\ram.raw\n}`
         }, icon)}
       </div>
     </section>

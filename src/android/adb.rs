@@ -294,6 +294,77 @@ fn adb_install_command() -> Result<InstallCommand, String> {
 
     #[cfg(target_os = "linux")]
     {
+        let elevation = if command_path("pkexec").is_some() {
+            "pkexec"
+        } else if command_path("sudo").is_some() {
+            "sudo"
+        } else {
+            ""
+        };
+
+        if command_path("pacman").is_some() {
+            let mut args = Vec::new();
+            if !elevation.is_empty() {
+                args.push("pacman".to_string());
+            }
+            args.extend([
+                "-S".to_string(),
+                "--noconfirm".to_string(),
+                "android-tools".to_string(),
+            ]);
+            return Ok(InstallCommand {
+                manager: "pacman".to_string(),
+                program: if elevation.is_empty() {
+                    "pacman".to_string()
+                } else {
+                    elevation.to_string()
+                },
+                args,
+            });
+        }
+
+        if command_path("apt").is_some() {
+            let mut args = Vec::new();
+            if !elevation.is_empty() {
+                args.push("apt".to_string());
+            }
+            args.extend([
+                "install".to_string(),
+                "-y".to_string(),
+                "android-tools-adb".to_string(),
+            ]);
+            return Ok(InstallCommand {
+                manager: "apt".to_string(),
+                program: if elevation.is_empty() {
+                    "apt".to_string()
+                } else {
+                    elevation.to_string()
+                },
+                args,
+            });
+        }
+
+        if command_path("dnf").is_some() {
+            let mut args = Vec::new();
+            if !elevation.is_empty() {
+                args.push("dnf".to_string());
+            }
+            args.extend([
+                "install".to_string(),
+                "-y".to_string(),
+                "android-tools".to_string(),
+            ]);
+            return Ok(InstallCommand {
+                manager: "dnf".to_string(),
+                program: if elevation.is_empty() {
+                    "dnf".to_string()
+                } else {
+                    elevation.to_string()
+                },
+                args,
+            });
+        }
+
         let cmd_str = "(curl -L -o /tmp/platform-tools.zip https://dl.google.com/android/repository/platform-tools-latest-linux.zip || \
                        wget -O /tmp/platform-tools.zip https://dl.google.com/android/repository/platform-tools-latest-linux.zip) && \
                        unzip -o /tmp/platform-tools.zip -d /tmp && \
@@ -302,15 +373,13 @@ fn adb_install_command() -> Result<InstallCommand, String> {
                        chmod +x /usr/bin/adb /usr/bin/fastboot && \
                        rm -rf /tmp/platform-tools.zip /tmp/platform-tools";
 
-        let program = if command_path("pkexec").is_some() {
-            "pkexec".to_string()
-        } else if command_path("sudo").is_some() {
-            "sudo".to_string()
+        let program = if !elevation.is_empty() {
+            elevation.to_string()
         } else {
             "sh".to_string()
         };
 
-        let args = if program == "pkexec" || program == "sudo" {
+        let args = if !elevation.is_empty() {
             vec!["sh".to_string(), "-c".to_string(), cmd_str.to_string()]
         } else {
             vec!["-c".to_string(), cmd_str.to_string()]
@@ -616,15 +685,64 @@ mod tests {
         let devices = parse_adb_devices(
             "List of devices attached\n\
              emulator-5554 device product:sdk_gphone_x86 model:sdk_gphone_x86 device:generic_x86 transport_id:1\n\
-             R58M123ABC unauthorized usb:1-2 product:a52 model:SM_A525F device:a52q transport_id:2\n",
+             R58M123ABC unauthorized usb:1-2 product:a52 model:SM_A525F device:a52q transport_id:2\n\
+             offline_dev offline\n\
+             rec_dev recovery\n",
         );
 
-        assert_eq!(devices.len(), 2);
+        assert_eq!(devices.len(), 4);
         assert_eq!(devices[0].serial, "emulator-5554");
         assert_eq!(devices[0].state, "device");
         assert_eq!(devices[0].model.as_deref(), Some("sdk gphone x86"));
         assert_eq!(devices[1].state, "unauthorized");
         assert_eq!(devices[1].transport_id.as_deref(), Some("2"));
+        assert_eq!(devices[2].serial, "offline_dev");
+        assert_eq!(devices[2].state, "offline");
+        assert_eq!(devices[3].serial, "rec_dev");
+        assert_eq!(devices[3].state, "recovery");
+    }
+
+    #[test]
+    fn test_parse_adb_version() {
+        let sample = "Android Debug Bridge version 1.0.41\nVersion 34.0.5-10900870\nInstalled as /usr/bin/adb";
+        assert_eq!(
+            parse_adb_version(sample),
+            Some("Android Debug Bridge version 1.0.41".to_string())
+        );
+
+        let fallback = "Version 34.0.5\nInstalled as /usr/bin/adb";
+        assert_eq!(
+            parse_adb_version(fallback),
+            Some("Version 34.0.5".to_string())
+        );
+        assert_eq!(parse_adb_version("unrecognized header"), None);
+    }
+
+    #[test]
+    fn test_parse_adb_path() {
+        let sample = "Android Debug Bridge version 1.0.41\nInstalled as /usr/bin/adb\n";
+        assert_eq!(parse_adb_path(sample), Some("/usr/bin/adb".to_string()));
+        assert_eq!(parse_adb_path("no path here"), None);
+    }
+
+    #[test]
+    fn test_first_non_empty() {
+        assert_eq!(first_non_empty(""), None);
+        assert_eq!(first_non_empty("   \n\t\n  "), None);
+        assert_eq!(
+            first_non_empty("\n  hello world \nnext"),
+            Some("hello world".to_string())
+        );
+    }
+
+    #[test]
+    fn test_shell_display_arg() {
+        assert_eq!(shell_display_arg("simple"), "simple");
+        assert_eq!(
+            shell_display_arg("file with space.txt"),
+            "'file with space.txt'"
+        );
+        assert_eq!(shell_display_arg("don't"), "'don'\\''t'");
     }
 }
 

@@ -197,6 +197,9 @@ pub fn write_sha256_sidecar(target: &Path, hash: &str) -> AmeleResult<()> {
             .map(|ext| format!("{ext}."))
             .unwrap_or_default()
     ));
+    if let Some(parent) = sidecar.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
     let mut file = File::create(&sidecar)
         .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "Hash dosyasi olusturulamadi", err))?;
     let name = target
@@ -248,5 +251,38 @@ mod tests {
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
         assert_eq!(results[3].value.len(), 128);
+    }
+
+    #[test]
+    fn test_hash_algorithm_parse_and_name() {
+        assert_eq!(HashAlgorithm::parse("md5"), Some(HashAlgorithm::Md5));
+        assert_eq!(HashAlgorithm::parse("SHA256"), Some(HashAlgorithm::Sha256));
+        assert_eq!(HashAlgorithm::parse("unknown"), None);
+
+        assert_eq!(HashAlgorithm::Sha256.name(), "SHA256");
+    }
+
+    #[test]
+    fn test_calculate_file_hash_and_sidecar() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sample.txt");
+        std::fs::write(&path, b"test").unwrap();
+
+        let hash = calculate_file_hash(&path, HashAlgorithm::Sha256).unwrap();
+        assert_eq!(
+            hash,
+            "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+        );
+
+        write_sha256_sidecar(&path, &hash).unwrap();
+        let sidecar = dir.path().join("sample.txt.sha256");
+        assert!(sidecar.exists());
+        let content = std::fs::read_to_string(&sidecar).unwrap();
+        assert!(content.starts_with(&hash));
+    }
+
+    #[test]
+    fn test_to_hex() {
+        assert_eq!(to_hex(&[0x00, 0xab, 0xff]), "00abff");
     }
 }

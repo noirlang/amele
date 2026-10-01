@@ -6,21 +6,6 @@ use std::process::{Command, Stdio};
 
 use crate::server::{Response, json_error, json_ok};
 
-/// Developer konsolunu sistem tarayıcısında açar (native WebView'da window.open çalışmaz).
-pub fn open_dev_console_endpoint() -> Response {
-    let port = crate::api::current_server_port();
-    let url = format!("http://127.0.0.1:{}/?route=devlogs", port);
-    crate::logging::runtime_log(
-        crate::logging::LogLevel::Info,
-        "api:devconsole",
-        format!("Developer konsolu aciliyor: {}", url),
-    );
-    match open_external_url(&url) {
-        Ok(()) => json_ok(json!({ "opened": true, "url": url })),
-        Err(err) => json_error(500, err),
-    }
-}
-
 /// Güvenli harici URL'yi sistem tarayıcısında açar.
 pub fn open_url_endpoint(body: &[u8]) -> Response {
     #[derive(Deserialize)]
@@ -72,11 +57,13 @@ fn pick_path_unix(directory: bool) -> Result<Option<String>, String> {
         &[
             ("zenity", &["--file-selection", "--directory"]),
             ("kdialog", &["--getexistingdirectory"]),
+            ("yad", &["--file", "--directory"]),
         ]
     } else {
         &[
             ("zenity", &["--file-selection"]),
             ("kdialog", &["--getopenfilename"]),
+            ("yad", &["--file"]),
         ]
     };
 
@@ -91,7 +78,7 @@ fn pick_path_unix(directory: bool) -> Result<Option<String>, String> {
                 return Ok(Some(path));
             }
             Ok(output) => {
-                if output.status.code() == Some(1) {
+                if output.status.code() == Some(1) || output.status.code() == Some(252) {
                     return Ok(None);
                 }
                 last_error = String::from_utf8_lossy(&output.stderr).trim().to_string();
@@ -236,5 +223,273 @@ fn validate_external_url(value: &str) -> Result<String, String> {
         Ok(url.to_string())
     } else {
         Err("only http, https and mailto links can be opened".to_string())
+    }
+}
+
+/// Sistemde kurulu olan CLI araçlarını tespit eder.
+pub fn check_binary(binary_name: &str) -> Option<String> {
+    let clean = binary_name.trim();
+    if clean.is_empty() {
+        return None;
+    }
+
+    // 1. Doğrudan dosya yolu verilmişse kontrol et
+    let direct_path = std::path::Path::new(clean);
+    if direct_path.is_file() {
+        return Some(clean.to_string());
+    }
+
+    // 2. PATH ortam değişkeni üzerinden tara
+    if let Some(paths) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&paths) {
+            let candidate = dir.join(clean);
+            if candidate.is_file() {
+                return Some(candidate.to_string_lossy().to_string());
+            }
+            #[cfg(windows)]
+            {
+                let candidate_exe = dir.join(format!("{clean}.exe"));
+                if candidate_exe.is_file() {
+                    return Some(candidate_exe.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+
+    // 3. which / where komutu
+    #[cfg(unix)]
+    {
+        if let Ok(output) = Command::new("which").arg(clean).output() {
+            if output.status.success() {
+                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !path.is_empty() && std::path::Path::new(&path).is_file() {
+                    return Some(path);
+                }
+            }
+        }
+    }
+    #[cfg(windows)]
+    {
+        if let Ok(output) = Command::new("where").arg(clean).output() {
+            if output.status.success() {
+                let first_line = String::from_utf8_lossy(&output.stdout)
+                    .lines()
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
+                if !first_line.is_empty() && std::path::Path::new(&first_line).is_file() {
+                    return Some(first_line);
+                }
+            }
+        }
+    }
+
+    // 4. Standart kullanıcı ikili dizinleri fallback
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(std::path::PathBuf::from);
+
+    if let Some(h) = home {
+        let fallbacks = [
+            h.join(".local/bin").join(clean),
+            h.join(".cargo/bin").join(clean),
+            h.join(".local/share/mise/shims").join(clean),
+            std::path::PathBuf::from("/usr/local/bin").join(clean),
+            std::path::PathBuf::from("/usr/bin").join(clean),
+        ];
+        for fb in fallbacks {
+            if fb.is_file() {
+                return Some(fb.to_string_lossy().to_string());
+            }
+        }
+    }
+
+    None
+}
+
+/// Uygun sistem terminal emülatörünü tespit eder.
+pub fn find_terminal_command(script_path: &str) -> Option<(String, Vec<String>)> {
+    #[cfg(unix)]
+    {
+        // 1. $TERMINAL ortam değişkeni
+        if let Ok(term) = std::env::var("TERMINAL") {
+            let term_clean = term.trim().to_string();
+            if !term_clean.is_empty() && check_binary(&term_clean).is_some() {
+                let args = if term_clean.contains("xdg-terminal-exec")
+                    || term_clean.contains("gnome-terminal")
+                    || term_clean.contains("kgx")
+                {
+                    vec![
+                        "--".to_string(),
+                        "bash".to_string(),
+                        script_path.to_string(),
+                    ]
+                } else {
+                    vec![
+                        "-e".to_string(),
+                        "bash".to_string(),
+                        script_path.to_string(),
+                    ]
+                };
+                return Some((term_clean, args));
+            }
+        }
+
+        // 2. xdg-terminal-exec (standart masaüstü terminal başlatıcısı)
+        if check_binary("xdg-terminal-exec").is_some() {
+            return Some((
+                "xdg-terminal-exec".to_string(),
+                vec![
+                    "--".to_string(),
+                    "bash".to_string(),
+                    script_path.to_string(),
+                ],
+            ));
+        }
+
+        // 3. Bilinen popüler Linux terminal emülatörleri
+        let candidates = [
+            ("alacritty", vec!["-e", "bash", script_path]),
+            ("kitty", vec!["-e", "bash", script_path]),
+            ("ghostty", vec!["-e", "bash", script_path]),
+            ("foot", vec!["bash", script_path]),
+            ("wezterm", vec!["start", "--", "bash", script_path]),
+            ("gnome-terminal", vec!["--", "bash", script_path]),
+            ("konsole", vec!["-e", "bash", script_path]),
+            ("xfce4-terminal", vec!["--", "bash", script_path]),
+            ("kgx", vec!["--", "bash", script_path]),
+            ("x-terminal-emulator", vec!["-e", "bash", script_path]),
+            ("xterm", vec!["-e", "bash", script_path]),
+        ];
+
+        for (bin, args) in candidates {
+            if check_binary(bin).is_some() {
+                return Some((
+                    bin.to_string(),
+                    args.into_iter().map(String::from).collect(),
+                ));
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        if check_binary("wt.exe").is_some() || check_binary("wt").is_some() {
+            return Some((
+                "wt.exe".to_string(),
+                vec![
+                    "cmd.exe".to_string(),
+                    "/k".to_string(),
+                    script_path.to_string(),
+                ],
+            ));
+        }
+        return Some((
+            "cmd.exe".to_string(),
+            vec!["/k".to_string(), script_path.to_string()],
+        ));
+    }
+
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_external_url_valid() {
+        assert_eq!(
+            validate_external_url("https://github.com/noirlang/amele").unwrap(),
+            "https://github.com/noirlang/amele"
+        );
+        assert_eq!(
+            validate_external_url("https://amele.noirlang.tr").unwrap(),
+            "https://amele.noirlang.tr"
+        );
+        assert_eq!(
+            validate_external_url("mailto:info@noirlang.tr").unwrap(),
+            "mailto:info@noirlang.tr"
+        );
+    }
+
+    #[test]
+    fn test_validate_external_url_invalid() {
+        assert!(validate_external_url("").is_err());
+        assert!(validate_external_url("   ").is_err());
+        assert!(validate_external_url("ftp://example.com").is_err());
+        assert!(validate_external_url("javascript:alert(1)").is_err());
+        assert!(validate_external_url("file:///etc/passwd").is_err());
+        assert!(validate_external_url("https://example.com/test\x00evil").is_err());
+    }
+
+    #[test]
+    fn test_open_url_endpoint_invalid() {
+        let req = serde_json::json!({
+            "url": "ftp://invalid-scheme.com"
+        });
+        let body = serde_json::to_vec(&req).unwrap();
+        let resp = open_url_endpoint(&body);
+        assert_eq!(resp.status, 400);
+
+        let req_invalid_json = b"invalid json";
+        let resp_err = open_url_endpoint(req_invalid_json);
+        assert_eq!(resp_err.status, 400);
+    }
+
+    #[test]
+    fn test_check_binary() {
+        assert!(check_binary("").is_none());
+        assert!(check_binary("   ").is_none());
+        assert!(check_binary("this_binary_definitely_does_not_exist_xyz123").is_none());
+
+        #[cfg(unix)]
+        {
+            assert!(check_binary("sh").is_some());
+        }
+        #[cfg(windows)]
+        {
+            assert!(check_binary("cmd").is_some() || check_binary("cmd.exe").is_some());
+        }
+    }
+
+    #[test]
+    fn test_find_terminal_command() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            let tmp = std::env::temp_dir()
+                .join(format!("amele-desktop-fake-term-{}", std::process::id()));
+            let _ = std::fs::create_dir_all(&tmp);
+            let fake = tmp.join("fake-desktop-term");
+            std::fs::write(&fake, "#!/bin/sh\nexit 0\n").unwrap();
+            if let Ok(meta) = std::fs::metadata(&fake) {
+                let mut perms = meta.permissions();
+                perms.set_mode(0o755);
+                let _ = std::fs::set_permissions(&fake, perms);
+            }
+
+            let old = std::env::var("TERMINAL").ok();
+            unsafe {
+                std::env::set_var("TERMINAL", fake.to_string_lossy().to_string());
+            }
+
+            let res = find_terminal_command("/tmp/run.sh");
+            assert!(res.is_some());
+            let (bin, args) = res.unwrap();
+            assert_eq!(bin, fake.to_string_lossy());
+            assert!(!args.is_empty());
+
+            unsafe {
+                if let Some(v) = old {
+                    std::env::set_var("TERMINAL", v);
+                } else {
+                    std::env::remove_var("TERMINAL");
+                }
+            }
+            let _ = std::fs::remove_file(&fake);
+        }
     }
 }

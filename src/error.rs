@@ -196,3 +196,47 @@ macro_rules! hata_kaydet {
         $crate::error::record_error($code, Some($message), Some($detail), file!(), line!())
     };
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hata_kodu_and_severe() {
+        assert_eq!(HataKodu::Ok.text(), "Basarili");
+        assert_eq!(HataKodu::Genel.text(), "Genel hata");
+        assert!(HataKodu::DiskErisim.is_severe());
+        assert!(!HataKodu::Ok.is_severe());
+    }
+
+    #[test]
+    fn test_amele_error_constructors() {
+        let err = AmeleError::new(HataKodu::Dosya, "test message");
+        assert_eq!(err.code, HataKodu::Dosya);
+        assert_eq!(err.to_string(), "Dosya hatasi: test message");
+
+        let genel = AmeleError::genel("genel hata olustu");
+        assert_eq!(genel.code, HataKodu::Genel);
+
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file missing");
+        let from_io: AmeleError = io_err.into();
+        assert_eq!(from_io.code, HataKodu::Dosya);
+    }
+
+    #[test]
+    fn test_record_error_and_last_error() {
+        record_error(
+            HataKodu::Ag,
+            Some("network down"),
+            Some("timeout details"),
+            "test.rs",
+            42,
+        );
+        let last = last_error();
+        assert_eq!(last.code, HataKodu::Ag);
+        assert_eq!(last.message, "network down");
+        assert_eq!(last.detail, "timeout details");
+        assert_eq!(last.source_file, "test.rs");
+        assert_eq!(last.source_line, 42);
+    }
+}

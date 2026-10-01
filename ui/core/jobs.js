@@ -45,6 +45,7 @@ function truncate(str, maxLength = 30) {
 
 // stiller styles/jobs.css dosyasindan gelir, burada gomulu stil yok.
 function createDOM() {
+  if (typeof document === "undefined" || typeof document.createElement !== "function" || !document.body) return;
   widgetElement = document.createElement("div");
   widgetElement.id = "amele-jobs-widget";
   widgetElement.className = "hidden-state";
@@ -90,19 +91,30 @@ function createDOM() {
   document.body.appendChild(widgetElement);
 }
 
+let navigateHandler = null;
+
 function handleJobClick(jobId) {
-  // Navigate to tool page based on jobId or some generic approach
-  let targetPath = '';
-  if (jobId.includes('disk')) targetPath = '#/disk';
-  else if (jobId.includes('android')) targetPath = '#/android';
-  else if (jobId.includes('ios')) targetPath = '#/ios';
-  else if (jobId.includes('docker')) targetPath = '#/docker';
-  else if (jobId.includes('ram')) targetPath = '#/ram';
-  else targetPath = '#/jobs'; // fallback
-  
-  window.location.hash = targetPath;
-  // Trigger hashchange manually just in case
-  window.dispatchEvent(new Event('hashchange'));
+  let targetRoute = "home";
+  const job = currentJobs[jobId];
+  const text = `${jobId} ${job?.message || ""} ${(job?.logs || []).join(" ")}`.toLowerCase();
+
+  if (text.includes("android")) targetRoute = "android";
+  else if (text.includes("ios")) targetRoute = "ios";
+  else if (text.includes("docker")) targetRoute = "docker";
+  else if (text.includes("ram") || text.includes("bellek")) targetRoute = "linux";
+  else if (text.includes("disk") || text.includes("imaj")) targetRoute = "linux";
+  else if (text.includes("windows")) targetRoute = "windows";
+  else if (text.includes("linux")) targetRoute = "linux";
+  else targetRoute = "other";
+
+  if (typeof navigateHandler === "function") {
+    navigateHandler(targetRoute);
+  } else {
+    const el = document.querySelector(`[data-route="${targetRoute}"]`);
+    if (el) {
+      el.click();
+    }
+  }
 }
 
 function render() {
@@ -175,11 +187,17 @@ async function pollJobs() {
   }
 }
 
-export function initJobWidget() {
+export function initJobWidget(options = {}) {
+  if (options && typeof options.onNavigate === "function") {
+    navigateHandler = options.onNavigate;
+  }
   if (widgetElement) return;
   createDOM();
   pollJobs();
   pollingInterval = setInterval(pollJobs, 800);
+  if (typeof pollingInterval?.unref === "function") {
+    pollingInterval.unref();
+  }
 }
 
 export function getActiveJobs() {

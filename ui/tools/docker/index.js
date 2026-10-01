@@ -387,7 +387,7 @@ function renderLogsTab(d, t, escapeHtml) {
   `;
 }
 
-export async function handleDockerAction(e, { apiRequest, setRoute, render, state }) {
+export async function handleDockerAction(e, { apiRequest, setRoute, render, state, resolveCase }) {
   const target = e.target.closest("[data-docker-action]");
   if (!target) return;
 
@@ -435,7 +435,7 @@ export async function handleDockerAction(e, { apiRequest, setRoute, render, stat
   } else if (action === "acquire") {
     const cid = target.dataset.id;
     const cname = target.dataset.name || "container";
-    await startDockerAcquisition(cid, cname, { apiRequest, setRoute, render, state });
+    await startDockerAcquisition(cid, cname, { apiRequest, setRoute, render, state, resolveCase });
   }
 }
 
@@ -448,15 +448,21 @@ async function scanLocalDocker({ apiRequest, render }) {
   render();
 
   try {
-    const statusRes = await apiRequest("/api/docker-status", "POST", {
-      custom_docker_root: dockerState.customRoot || null,
+    const statusRes = await apiRequest("/api/docker-status", {
+      method: "POST",
+      body: JSON.stringify({
+        custom_docker_root: dockerState.customRoot || null,
+      }),
     });
     if (statusRes?.status) {
       dockerState.localStatus = statusRes.status;
     }
 
-    const containersRes = await apiRequest("/api/docker-containers", "POST", {
-      custom_docker_root: dockerState.customRoot || null,
+    const containersRes = await apiRequest("/api/docker-containers", {
+      method: "POST",
+      body: JSON.stringify({
+        custom_docker_root: dockerState.customRoot || null,
+      }),
     });
 
     dockerState.localScanned = true;
@@ -503,12 +509,18 @@ async function scanRemoteDocker({ apiRequest, render }) {
       token: dockerState.remote.token || null,
     };
 
-    const statusRes = await apiRequest("/api/docker-remote-status", "POST", payload);
+    const statusRes = await apiRequest("/api/docker-remote-status", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
     if (statusRes?.status) {
       dockerState.remoteStatus = statusRes.status;
     }
 
-    const containersRes = await apiRequest("/api/docker-remote-containers", "POST", payload);
+    const containersRes = await apiRequest("/api/docker-remote-containers", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
     dockerState.remoteScanned = true;
     dockerState.remote.connected = true;
 
@@ -548,25 +560,28 @@ async function loadContainerLogs(containerId, apiRequest, render) {
       tail: 200,
     };
 
-    const res = await apiRequest(endpoint, "POST", payload);
+    const res = await apiRequest(endpoint, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
     if (res?.logs) {
       dockerState.containerLogs = res.logs;
     }
   } catch (e) {
-    console.error("Log error:", e);
+    dockerState.containerLogs = [`[HATA] ${e?.message || e}`];
   } finally {
     dockerState.loadingLogs = false;
     render();
   }
 }
 
-async function startDockerAcquisition(containerId, containerName, { apiRequest, setRoute, render, state }) {
+async function startDockerAcquisition(containerId, containerName, { apiRequest, setRoute, render, state, resolveCase }) {
   dockerState.isAcquiring = true;
   dockerState.lastAction = `Edinim başlatılıyor: ${containerName}`;
   try {
     const isRemote = dockerState.mode === "remote";
     const endpoint = isRemote ? "/api/docker-remote-acquire" : "/api/docker-acquire-local";
-    const activeCaseName = state?.activeCase || null;
+    const activeCaseName = resolveCase?.() || state?.activeCase || null;
     const payload = isRemote ? {
       ip: dockerState.remote.ip,
       port: dockerState.remote.port,
@@ -586,10 +601,13 @@ async function startDockerAcquisition(containerId, containerName, { apiRequest, 
       custom_docker_root: dockerState.customRoot || null,
     };
 
-    const res = await apiRequest(endpoint, "POST", payload);
+    const res = await apiRequest(endpoint, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
     if (res?.durum === "ok" || res?.is_id) {
       dockerState.lastAction = `Delil edinildi: ${containerName}`;
-      showToast(`Docker delil edinimi tamamlandı/başlatıldı (İş ID: ${res.is_id})`, "success");
+      showToast(`Docker delil edinimi tamamlandı/başlatıldı (İş ID: ${res.is_id || res.job_id || "OK"})`, "success");
       dockerState.selectedContainer = null;
       render();
     } else {

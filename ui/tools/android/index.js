@@ -1,8 +1,6 @@
 // android edinim araçları bileşeni.
 
 export function androidPage({ t, icon, pageTitle, state, escapeHtml, backendReady }) {
-  // TODO: Enable physical acquisition card, implement EDL/BROM device scan dropdown and physical image trigger
-  // ${androidImageModeCard("physical", t("android.mode.physical.title"), t("android.mode.physical.desc"), "disk", "var(--text)", t("android.mode.soon"), icon, escapeHtml, { disabled: true })}
   return `
     <section class="page">
       ${pageTitle(t("hub.android.title"), t("hub.android.desc"), "android")}
@@ -679,6 +677,7 @@ function pollLogicalJob(jobId, { apiRequest, state, t, showToast, render }) {
       // Silently retry on network hiccup
     }
   }, 1500);
+  interval.unref?.();
 }
 
 async function startFilesystemAcquisition(button, { apiRequest, backendReady, state, t, showToast, render, resolveCase }) {
@@ -772,6 +771,7 @@ function pollFilesystemJob(jobId, { apiRequest, state, t, showToast, render }) {
       // Silently retry
     }
   }, 1500);
+  interval.unref?.();
 }
 
 async function startRamAcquisition(button, { apiRequest, backendReady, state, t, showToast, render, resolveCase }) {
@@ -889,6 +889,7 @@ function pollRamJob(jobId, { apiRequest, state, t, showToast, render }) {
       // Silently retry
     }
   }, 1500);
+  interval.unref?.();
 }
 
 function deviceOptions(devices, selected, t, escapeHtml) {

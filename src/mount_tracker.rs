@@ -109,4 +109,20 @@ mod tests {
         unregister_mount(&id);
         assert!(!list_active_mounts().iter().any(|m| m.mount_id == id));
     }
+
+    #[test]
+    fn test_mount_serialization() {
+        let mount = ActiveMount {
+            mount_id: "m-123".into(),
+            case_name: "case-xyz".into(),
+            image_path: PathBuf::from("/evidence/disk.dd"),
+            mount_point: PathBuf::from("/mnt/analysis"),
+            loop_device: Some("/dev/loop5".into()),
+            mounted_at: "2026-09-30T12:00:00".into(),
+        };
+        let json = serde_json::to_string(&mount).unwrap();
+        let parsed: ActiveMount = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.mount_id, "m-123");
+        assert_eq!(parsed.loop_device, Some("/dev/loop5".into()));
+    }
 }

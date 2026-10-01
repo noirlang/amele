@@ -103,7 +103,7 @@ fn detect_root(serial: &str) -> (bool, bool) {
         .map(|output| output_has_root(&output))
         .unwrap_or(false);
     let su_available =
-        run_adb_command_timeout(serial, &["shell", "su -c id"], Duration::from_secs(8))
+        run_adb_command_timeout(serial, &["shell", "su", "-c", "id"], Duration::from_secs(8))
             .map(|output| output_has_root(&output))
             .unwrap_or(false);
     (adb_root, su_available)
@@ -158,5 +158,27 @@ mod tests {
     fn detects_root_id_output() {
         assert!(output_has_root("uid=0(root) gid=0(root) groups=0(root)"));
         assert!(!output_has_root("uid=2000(shell) gid=2000(shell)"));
+    }
+
+    #[test]
+    fn test_detect_device_profile_empty_serial() {
+        let res = super::detect_device_profile("");
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err(), "serial is required");
+    }
+
+    #[test]
+    fn test_prop_lookup() {
+        use std::collections::BTreeMap;
+        let mut props = BTreeMap::new();
+        props.insert("ro.product.model".to_string(), " Pixel 8 ".to_string());
+        props.insert("empty".to_string(), "   ".to_string());
+
+        assert_eq!(
+            super::prop(&props, "ro.product.model"),
+            Some("Pixel 8".to_string())
+        );
+        assert_eq!(super::prop(&props, "empty"), None);
+        assert_eq!(super::prop(&props, "nonexistent"), None);
     }
 }

@@ -54,6 +54,7 @@ pub fn build_android_session(serial: &str, device_profile: AndroidDeviceProfile)
 
 /// Oturum bilgisini Android çıktı klasörüne yazar.
 pub fn write_android_session(output_dir: &Path, session: &AndroidSession) -> Result<(), String> {
+    let _ = std::fs::create_dir_all(output_dir);
     let path = output_dir.join("android_session.json");
     let content = serde_json::to_vec_pretty(session)
         .map_err(|err| format!("Android oturumu JSON'a cevrilemedi: {err}"))?;
@@ -88,7 +89,7 @@ pub fn detect_transport(serial: &str) -> AndroidTransport {
 
 #[cfg(test)]
 mod tests {
-    use super::{AndroidTransportKind, detect_transport};
+    use super::*;
 
     #[test]
     fn detects_tcp_adb_transport() {
@@ -100,5 +101,48 @@ mod tests {
     fn detects_usb_transport() {
         let transport = detect_transport("R5CT123ABC");
         assert_eq!(transport.kind, AndroidTransportKind::Usb);
+    }
+
+    #[test]
+    fn detects_mesh_and_unknown_transport() {
+        let mesh = detect_transport("mesh://remote-node:1234");
+        assert_eq!(mesh.kind, AndroidTransportKind::Mesh);
+
+        let unknown = detect_transport("");
+        assert_eq!(unknown.kind, AndroidTransportKind::Unknown);
+    }
+
+    #[test]
+    fn test_write_android_session() {
+        let temp_dir =
+            std::env::temp_dir().join(format!("amele_session_test_{}", std::process::id()));
+        let session = AndroidSession {
+            serial: "test_dev".to_string(),
+            created_at: "now".to_string(),
+            adb_state: Some("device".to_string()),
+            connected: true,
+            transport: detect_transport("test_dev"),
+            device_profile: crate::android::profile::AndroidDeviceProfile {
+                serial: "test_dev".to_string(),
+                product: None,
+                model: None,
+                device: None,
+                abi: None,
+                api_level: None,
+                build: None,
+                fingerprint: None,
+                security_patch: None,
+                selinux: None,
+                encryption: None,
+                kernel_version: None,
+                is_rooted: false,
+                adb_root: false,
+                su_available: false,
+            },
+        };
+
+        assert!(write_android_session(&temp_dir, &session).is_ok());
+        assert!(temp_dir.join("android_session.json").is_file());
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

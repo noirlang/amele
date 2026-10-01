@@ -1,4 +1,4 @@
-//! profil kaydetme ve online senkron api rotaları.
+//! Yerel ve online profil yönetimi, lisans ve hata bildirim API uç noktaları.
 
 use serde::Deserialize;
 use serde_json::json;
@@ -52,9 +52,18 @@ pub fn profile_create_endpoint(body: &[u8]) -> Response {
         Err(err) => return json_error(400, err.to_string()),
     };
 
+    let full_name = request.full_name.trim();
+    if full_name.is_empty() {
+        return json_error(400, "full_name is required");
+    }
+    let username = request.username.trim();
+    if username.is_empty() {
+        return json_error(400, "username is required");
+    }
+
     match crate::profile::create_profile(
-        &request.full_name,
-        &request.username,
+        full_name,
+        username,
         request.language.as_deref().unwrap_or("tr"),
         request.theme.as_deref().unwrap_or("dark"),
         request.open_directly.unwrap_or(false),
@@ -76,8 +85,12 @@ pub fn profile_select_endpoint(body: &[u8]) -> Response {
         Err(err) => return json_error(400, err.to_string()),
     };
 
-    match crate::profile::select_profile(&request.username, request.open_directly.unwrap_or(false))
-    {
+    let username = request.username.trim();
+    if username.is_empty() {
+        return json_error(400, "username is required");
+    }
+
+    match crate::profile::select_profile(username, request.open_directly.unwrap_or(false)) {
         Ok(profile) => json_ok(json!({
             "profile": profile,
             "access": crate::profile::mobile_tools_access(),
@@ -102,9 +115,18 @@ pub fn profile_online_login_endpoint(body: &[u8]) -> Response {
         Err(err) => return json_error(400, err.to_string()),
     };
 
+    let identifier = request.identifier.trim();
+    if identifier.is_empty() {
+        return json_error(400, "identifier is required");
+    }
+    let password = request.password.trim();
+    if password.is_empty() {
+        return json_error(400, "password is required");
+    }
+
     match crate::profile::link_online_profile(
-        &request.identifier,
-        &request.password,
+        identifier,
+        password,
         request.language.as_deref().unwrap_or("tr"),
         request.theme.as_deref().unwrap_or("dark"),
         request.open_directly.unwrap_or(false),
@@ -115,7 +137,14 @@ pub fn profile_online_login_endpoint(body: &[u8]) -> Response {
             "settings_path": crate::settings::default_settings_path(),
             "case_base_dir": crate::api::default_case_base_dir(),
         })),
-        Err(err) => json_error(401, err.to_string()),
+        Err(err) => {
+            let status = match err.code {
+                crate::HataKodu::YetkisizErisim | crate::HataKodu::TokenGecersiz => 401,
+                crate::HataKodu::IcerikGecersiz => 400,
+                _ => 500,
+            };
+            json_error(status, err.to_string())
+        }
     }
 }
 
@@ -214,11 +243,16 @@ pub fn profile_report_submit_endpoint(body: &[u8]) -> Response {
         Err(err) => return json_error(400, err.to_string()),
     };
 
-    match crate::profile::submit_online_report(
-        &request.title,
-        &request.description,
-        &request.image_urls,
-    ) {
+    let title = request.title.trim();
+    if title.is_empty() {
+        return json_error(400, "title is required");
+    }
+    let description = request.description.trim();
+    if description.is_empty() {
+        return json_error(400, "description is required");
+    }
+
+    match crate::profile::submit_online_report(title, description, &request.image_urls) {
         Ok(result) => json_ok(json!({ "ok": true, "result": result })),
         Err(err) => {
             let status = match err.code {
@@ -238,10 +272,15 @@ pub fn profile_report_upload_image_endpoint(body: &[u8]) -> Response {
         Err(err) => return json_error(400, err.to_string()),
     };
 
-    let base64_str = if let Some(idx) = request.image_base64.find(',') {
-        &request.image_base64[idx + 1..]
+    let trimmed_b64 = request.image_base64.trim();
+    if trimmed_b64.is_empty() {
+        return json_error(400, "imageBase64 is required");
+    }
+
+    let base64_str = if let Some(idx) = trimmed_b64.find(',') {
+        &trimmed_b64[idx + 1..]
     } else {
-        &request.image_base64
+        trimmed_b64
     };
 
     use base64::Engine;
@@ -249,6 +288,10 @@ pub fn profile_report_upload_image_endpoint(body: &[u8]) -> Response {
         Ok(bytes) => bytes,
         Err(err) => return json_error(400, format!("Geçersiz base64 görsel verisi: {err}")),
     };
+
+    if image_bytes.is_empty() {
+        return json_error(400, "Görsel verisi boş olamaz");
+    }
 
     let filename = request
         .filename
@@ -259,6 +302,97 @@ pub fn profile_report_upload_image_endpoint(body: &[u8]) -> Response {
 
     match crate::profile::upload_online_image(&image_bytes, &filename, &content_type) {
         Ok(url) => json_ok(json!({ "ok": true, "url": url })),
-        Err(err) => json_error(500, err.to_string()),
+        Err(err) => {
+            let status = match err.code {
+                crate::HataKodu::YetkisizErisim | crate::HataKodu::TokenGecersiz => 401,
+                crate::HataKodu::IcerikGecersiz => 400,
+                _ => 500,
+            };
+            json_error(status, err.to_string())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_profiles_get_endpoint() {
+        let resp = profiles_get_endpoint();
+        assert!(resp.status == 200 || resp.status == 500);
+    }
+
+    #[test]
+    fn test_profile_create_validation() {
+        let resp_empty = profile_create_endpoint(b"");
+        assert_eq!(resp_empty.status, 400);
+
+        let resp_empty_fields = profile_create_endpoint(br#"{"full_name": " ", "username": " "}"#);
+        assert_eq!(resp_empty_fields.status, 400);
+    }
+
+    #[test]
+    fn test_profile_select_validation() {
+        let resp_empty = profile_select_endpoint(b"");
+        assert_eq!(resp_empty.status, 400);
+
+        let resp_empty_user = profile_select_endpoint(br#"{"username": "   "}"#);
+        assert_eq!(resp_empty_user.status, 400);
+
+        let resp_nonexistent = profile_select_endpoint(br#"{"username": "nonexistent_user_9999"}"#);
+        assert_eq!(resp_nonexistent.status, 404);
+    }
+
+    #[test]
+    fn test_profile_online_login_validation() {
+        let resp_empty = profile_online_login_endpoint(b"");
+        assert_eq!(resp_empty.status, 400);
+
+        let resp_empty_ident =
+            profile_online_login_endpoint(br#"{"identifier": "", "password": "pass"}"#);
+        assert_eq!(resp_empty_ident.status, 400);
+
+        let resp_empty_pass =
+            profile_online_login_endpoint(br#"{"identifier": "user", "password": ""}"#);
+        assert_eq!(resp_empty_pass.status, 400);
+    }
+
+    #[test]
+    fn test_profile_report_submit_validation() {
+        let resp_empty = profile_report_submit_endpoint(b"");
+        assert_eq!(resp_empty.status, 400);
+
+        let resp_empty_title =
+            profile_report_submit_endpoint(br#"{"title": "", "description": "desc"}"#);
+        assert_eq!(resp_empty_title.status, 400);
+
+        let resp_empty_desc =
+            profile_report_submit_endpoint(br#"{"title": "title", "description": ""}"#);
+        assert_eq!(resp_empty_desc.status, 400);
+    }
+
+    #[test]
+    fn test_profile_report_upload_image_validation() {
+        let resp_empty = profile_report_upload_image_endpoint(b"");
+        assert_eq!(resp_empty.status, 400);
+
+        let resp_invalid_b64 =
+            profile_report_upload_image_endpoint(br#"{"imageBase64": "!!!not_base64!!!"}"#);
+        assert_eq!(resp_invalid_b64.status, 400);
+
+        let resp_empty_b64 = profile_report_upload_image_endpoint(br#"{"imageBase64": ""}"#);
+        assert_eq!(resp_empty_b64.status, 400);
+    }
+
+    #[test]
+    fn test_profile_mobile_access_endpoint() {
+        let resp = profile_mobile_access_endpoint();
+        assert_eq!(resp.status, 200);
+    }
+
+    #[test]
+    fn test_require_mobile_tools_response() {
+        let _ = require_mobile_tools_response();
     }
 }

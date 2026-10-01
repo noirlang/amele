@@ -274,6 +274,9 @@ pub fn create_config(path: impl AsRef<Path>, config: &WireGuardConfig<'_>) -> Am
             path.display()
         ),
     );
+    if let Some(parent) = path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
     fs::write(path, content).map_err(|err| {
         let w_err = AmeleError::io(HataKodu::DosyaYazma, "WireGuard config yazilamadi", err);
         runtime_log(
@@ -303,10 +306,24 @@ mod tests {
     #[test]
     fn creates_wireguard_config() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("wg0.conf");
+        let path = dir.path().join("nested").join("wg0.conf");
         create_config(&path, &WireGuardConfig::default()).unwrap();
         let content = std::fs::read_to_string(path).unwrap();
         assert!(content.contains("[Interface]"));
         assert!(content.contains("[Peer]"));
+    }
+
+    #[test]
+    fn test_fallback() {
+        assert_eq!(fallback("", "default_val"), "default_val");
+        assert_eq!(fallback("custom_val", "default_val"), "custom_val");
+    }
+
+    #[test]
+    fn test_wireguard_manager_default() {
+        let mgr = WireGuardManager::new();
+        assert_eq!(mgr.interface_name, "wg0");
+        assert!(!mgr.active);
+        assert!(mgr.config_file.is_none());
     }
 }

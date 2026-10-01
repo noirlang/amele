@@ -292,3 +292,29 @@ pub(super) const ANDROID_APP_TARGETS: &[AndroidAppTarget] = &[
         storage_hint: "Oturum private storage tarafındadır; non-root paket, süreç ve bildirim izleri raporlanır.",
     },
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn test_app_catalog_integrity() {
+        assert!(!ANDROID_APP_TARGETS.is_empty());
+        let mut packages = HashSet::new();
+
+        for target in ANDROID_APP_TARGETS {
+            assert!(!target.platform.trim().is_empty());
+            assert!(!target.package.trim().is_empty());
+            assert!(!target.category.trim().is_empty());
+            assert!(!target.priority.trim().is_empty());
+            assert!(!target.storage_hint.trim().is_empty());
+
+            assert!(
+                packages.insert(target.package),
+                "Duplicate package found in catalog: {}",
+                target.package
+            );
+        }
+    }
+}

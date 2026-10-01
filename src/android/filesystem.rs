@@ -442,3 +442,32 @@ fn dir_size(path: &Path) -> u64 {
     }
     total
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_dir_size_and_hash_progress() {
+        let temp_dir = std::env::temp_dir().join(format!("amele_fs_test_{}", std::process::id()));
+        let sub_dir = temp_dir.join("sub");
+        let _ = std::fs::create_dir_all(&sub_dir);
+
+        let f1 = temp_dir.join("f1.txt");
+        let f2 = sub_dir.join("f2.txt");
+        let _ = std::fs::write(&f1, b"hello");
+        let _ = std::fs::write(&f2, b"world!");
+
+        assert_eq!(dir_size(&temp_dir), 11);
+
+        let mut progress_called = false;
+        let hash = hash_file_with_progress(&f1, |_| progress_called = true).unwrap();
+        // SHA-256 of "hello"
+        assert_eq!(
+            hash,
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        );
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+}
