@@ -91,6 +91,21 @@ fn with_quiet(cmd: &str) -> String {
     }
 }
 
+/// Çalıştırılabilir amele ikili dosyasını belirler.
+fn resolve_amele_binary() -> String {
+    if let Ok(exe) = std::env::current_exe() {
+        if exe
+            .file_name()
+            .map(|n| n.to_string_lossy().starts_with("amele"))
+            .unwrap_or(false)
+            && exe.is_file()
+        {
+            return exe.to_string_lossy().to_string();
+        }
+    }
+    check_binary("amele").unwrap_or_else(|| "amele".to_string())
+}
+
 /// Arayuzde secili analist profilini CLI tarafinda aktif yapar.
 /// CLI profilsiz komut calistirmadigi icin ajan komutlari Profile bulunamadi
 /// hatasiyla dusuyordu, bunu onlemek icin eklendi. en fazla ~20sn surer.
@@ -105,22 +120,23 @@ fn ensure_cli_profile(username: Option<&str>, full_name: Option<&str>) {
     {
         return;
     }
-    if let Some(out) = run_cli_with_timeout("amele", &["profile", "use", u, "--direct"], 10) {
+    let amele_bin = resolve_amele_binary();
+    if let Some(out) = run_cli_with_timeout(&amele_bin, &["profile", "use", u, "--direct"], 10) {
         if out.status.success() {
             return;
         }
     }
     if let Some(name) = full_name {
         let name = name.trim();
-        if !name.is_empty() {
+        if !name.is_empty() && !name.chars().any(|c| matches!(c, '\0' | '\n' | '\r')) {
             if let Some(out) =
-                run_cli_with_timeout("amele", &["profile", "create", name, u, "--direct"], 10)
+                run_cli_with_timeout(&amele_bin, &["profile", "create", name, u, "--direct"], 10)
             {
                 if out.status.success() {
                     return;
                 }
             }
-            let _ = run_cli_with_timeout("amele", &["profile", "use", u, "--direct"], 10);
+            let _ = run_cli_with_timeout(&amele_bin, &["profile", "use", u, "--direct"], 10);
         }
     }
 }
@@ -611,6 +627,28 @@ pub fn launch_terminal_endpoint(body: &[u8]) -> Response {
     let model_id = req.model.as_deref().unwrap_or("");
     let case_name = req.case_name.as_deref().unwrap_or("varsayilan_vaka");
 
+    if !agent_id
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    {
+        return json_error(400, "Geçersiz ajan tanımlayıcısı.");
+    }
+
+    if !model_id.is_empty()
+        && !model_id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' || c == ':' || c == '/')
+    {
+        return json_error(400, "Geçersiz model tanımlayıcısı.");
+    }
+
+    if case_name
+        .chars()
+        .any(|c| matches!(c, '"' | '\'' | '$' | '`' | '\n' | '\r' | ';' | '&' | '|' | '\\'))
+    {
+        return json_error(400, "Vaka adında geçersiz özel karakterler bulunamaz.");
+    }
+
     // Profil kontrolü (kullanıcı adı ve tam ad)
     let (mut username, mut full_name) = (
         req.profile_username
@@ -720,11 +758,29 @@ pub fn launch_terminal_endpoint(body: &[u8]) -> Response {
         }
     };
 
-    // Güvenli runtime dizini
+    // Güvenli runtime dizini (XDG_RUNTIME_DIR veya kullanıcıya özel amele klasörü)
     let run_dir = std::env::var("XDG_RUNTIME_DIR")
         .map(|p| std::path::PathBuf::from(p).join("amele"))
-        .unwrap_or_else(|_| std::env::temp_dir().join("amele"));
+        .unwrap_or_else(|_| {
+            #[cfg(unix)]
+            {
+                std::env::temp_dir().join(format!("amele-{}", unsafe { libc::geteuid() }))
+            }
+            #[cfg(not(unix))]
+            {
+                std::env::temp_dir().join("amele")
+            }
+        });
     let _ = std::fs::create_dir_all(&run_dir);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(meta) = std::fs::metadata(&run_dir) {
+            let mut perms = meta.permissions();
+            perms.set_mode(0o700);
+            let _ = std::fs::set_permissions(&run_dir, perms);
+        }
+    }
 
     let session_id = format!(
         "{}_{}",
@@ -752,12 +808,27 @@ pub fn launch_terminal_endpoint(body: &[u8]) -> Response {
     if let Err(e) = std::fs::write(&prompt_file, &full_prompt) {
         return json_error(500, format!("İstem dosyası oluşturulamadı: {e}"));
     }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(meta) = std::fs::metadata(&prompt_file) {
+            let mut perms = meta.permissions();
+            perms.set_mode(0o600);
+            let _ = std::fs::set_permissions(&prompt_file, perms);
+        }
+    }
 
     let model_display = if model_id.is_empty() {
         "Varsayılan"
     } else {
         model_id
     };
+
+    let safe_working_dir = working_dir
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('$', "\\$")
+        .replace('`', "\\`");
 
     let script_content = format!(
         r#"#!/usr/bin/env bash
@@ -793,7 +864,7 @@ read -r -p "Terminali kapatmak için Enter tuşuna basın..." _
 "#,
         prompt_file_path = prompt_file.display(),
         script_file_path = script_file.display(),
-        working_dir = working_dir,
+        working_dir = safe_working_dir,
         agent_display_name = agent_display_name,
         model_display = model_display,
         case_name = case_name,
@@ -848,7 +919,65 @@ fn extract_suggested_command(text: &str) -> Option<String> {
     None
 }
 
+/// Komut dizgisini güvenli şekilde argüman listesine ayrıştırır.
+/// Kabuk metakarakterleri (;, &, |, `, $, >, <, yeni satır vb.) engellenir.
+fn parse_cli_args(input: &str) -> Result<Vec<String>, String> {
+    for ch in input.chars() {
+        if matches!(ch, ';' | '&' | '|' | '`' | '$' | '>' | '<' | '\n' | '\r' | '\0') {
+            return Err("Güvenlik ihlali: Komutta kabuk kontrol veya yönlendirme karakterleri bulunamaz.".to_string());
+        }
+    }
+
+    let mut args = Vec::new();
+    let mut current = String::new();
+    let mut in_quote = None;
+    let mut chars = input.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => {
+                if let Some(next) = chars.next() {
+                    current.push(next);
+                }
+            }
+            '\'' | '"' => {
+                if in_quote == Some(c) {
+                    in_quote = None;
+                } else if in_quote.is_none() {
+                    in_quote = Some(c);
+                } else {
+                    current.push(c);
+                }
+            }
+            c if c.is_whitespace() && in_quote.is_none() => {
+                if !current.is_empty() {
+                    args.push(std::mem::take(&mut current));
+                }
+            }
+            c => {
+                current.push(c);
+            }
+        }
+    }
+
+    if in_quote.is_some() {
+        return Err("Geçersiz komut sözdizimi: Kapatılmamış tırnak işareti.".to_string());
+    }
+
+    if !current.is_empty() {
+        args.push(current);
+    }
+
+    if args.is_empty() {
+        return Err("Komut boş olamaz.".to_string());
+    }
+
+    Ok(args)
+}
+
 /// Kullanıcının onayladığı CLI komutunu çalıştırır.
+/// Güvenlik: Kabuk çağrısı (sh -c / cmd /C) YAPILMAZ; komut argümanlara ayrıştırılıp
+/// doğrudan amele ikili dosyası olarak çalıştırılır.
 /// Linux'ta onay sonrası once sudo yetkisi denenir, yoksa pkexec sistem
 /// penceresi acilir. Windows'ta ise yönetici onayıyla yürütür.
 pub fn execute_command_endpoint(body: &[u8]) -> Response {
@@ -862,9 +991,16 @@ pub fn execute_command_endpoint(body: &[u8]) -> Response {
         return json_error(400, "Komut boş olamaz.");
     }
 
-    // Güvenlik kontrolü: Yalnızca amele ile başlayan komutlara izin ver
-    let is_amele = cmd_str.starts_with("amele") || cmd_str.starts_with("sudo amele");
-    if !is_amele {
+    // Komut güvenli ayrıştırma ve kabuk enjeksiyon kontrolü
+    let tokens = match parse_cli_args(cmd_str) {
+        Ok(t) => t,
+        Err(e) => return json_error(400, e),
+    };
+
+    let is_sudo_prefixed = tokens[0] == "sudo";
+    let amele_idx = if is_sudo_prefixed { 1 } else { 0 };
+
+    if tokens.get(amele_idx).map(String::as_str) != Some("amele") {
         return json_error(403, "Yalnızca resmi Amele CLI komutları çalıştırılabilir.");
     }
 
@@ -874,17 +1010,26 @@ pub fn execute_command_endpoint(body: &[u8]) -> Response {
         req.profile_fullname.as_deref(),
     );
 
-    // ajan komutlari sessiz calissin
-    let cmd_owned = with_quiet(cmd_str);
-    let cmd_str = cmd_owned.as_str();
+    let amele_bin = resolve_amele_binary();
+    let mut amele_args: Vec<String> = tokens[amele_idx + 1..].to_vec();
 
-    let is_root_required = cmd_str.contains("sudo")
-        || cmd_str.contains("disk")
-        || cmd_str.contains("ram")
-        || cmd_str.contains("/dev/")
-        || cmd_str.contains("PhysicalDrive")
-        || cmd_str.contains("avml")
-        || cmd_str.contains("winpmem");
+    // Ajan komutlarının sessiz (başlıksız) çalışması için --quiet ekle
+    if !amele_args
+        .iter()
+        .any(|a| a == "--quiet" || a == "-q" || a == "--no-logo")
+    {
+        amele_args.insert(0, "--quiet".to_string());
+    }
+
+    let is_root_required = is_sudo_prefixed
+        || amele_args.iter().any(|a| {
+            a == "disk"
+                || a == "ram"
+                || a == "avml"
+                || a == "winpmem"
+                || a.contains("/dev/")
+                || a.contains("PhysicalDrive")
+        });
 
     #[cfg(unix)]
     {
@@ -904,12 +1049,6 @@ pub fn execute_command_endpoint(body: &[u8]) -> Response {
         }
 
         if is_root_required && !is_root {
-            let clean_cmd = if cmd_str.starts_with("sudo ") {
-                cmd_str.strip_prefix("sudo ").unwrap()
-            } else {
-                cmd_str
-            };
-
             // onay yoksa windowstaki gibi evet/hayir penceresini ac
             if req.linux_confirmed != Some(true) {
                 return json_ok(json!({
@@ -923,9 +1062,8 @@ pub fn execute_command_endpoint(body: &[u8]) -> Response {
             // onay var: once sudo yetkisi onbellekte mi diye sormadan dene
             if let Ok(output) = Command::new("sudo")
                 .arg("-n")
-                .arg("sh")
-                .arg("-c")
-                .arg(clean_cmd)
+                .arg(&amele_bin)
+                .args(&amele_args)
                 .stdin(Stdio::null())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -946,9 +1084,8 @@ pub fn execute_command_endpoint(body: &[u8]) -> Response {
                     .arg("-S")
                     .arg("-p")
                     .arg("")
-                    .arg("sh")
-                    .arg("-c")
-                    .arg(clean_cmd)
+                    .arg(&amele_bin)
+                    .args(&amele_args)
                     .stdin(Stdio::piped())
                     .stdout(Stdio::piped())
                     .stderr(Stdio::piped())
@@ -971,9 +1108,8 @@ pub fn execute_command_endpoint(body: &[u8]) -> Response {
 
             // parola yoksa sistem penceresini ac (polkit)
             match Command::new("pkexec")
-                .arg("sh")
-                .arg("-c")
-                .arg(clean_cmd)
+                .arg(&amele_bin)
+                .args(&amele_args)
                 .stdin(Stdio::null())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -988,8 +1124,8 @@ pub fn execute_command_endpoint(body: &[u8]) -> Response {
                 ),
             }
         } else {
-            // Normal çalıştırma
-            match Command::new("sh").arg("-c").arg(cmd_str).output() {
+            // Normal çalıştırma (kabuksuz doğrudan yürütme)
+            match Command::new(&amele_bin).args(&amele_args).output() {
                 Ok(output) => cmd_result(output),
                 Err(err) => json_error(500, format!("Komut çalıştırılamadı: {err}")),
             }
@@ -1007,7 +1143,7 @@ pub fn execute_command_endpoint(body: &[u8]) -> Response {
             }));
         }
 
-        match Command::new("cmd").arg("/C").arg(cmd_str).output() {
+        match Command::new(&amele_bin).args(&amele_args).output() {
             Ok(output) => {
                 let stdout = String::from_utf8_lossy(&output.stdout).to_string();
                 let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -1338,5 +1474,71 @@ mod tests {
                 assert!(!args.is_empty());
             }
         }
+    }
+
+    #[test]
+    fn test_parse_cli_args_valid() {
+        let args = parse_cli_args("amele disk acquire /dev/sdb \"case 1\" --format raw").unwrap();
+        assert_eq!(
+            args,
+            vec!["amele", "disk", "acquire", "/dev/sdb", "case 1", "--format", "raw"]
+        );
+
+        let sudo_args = parse_cli_args("sudo amele ram dump /tmp/dump.raw").unwrap();
+        assert_eq!(
+            sudo_args,
+            vec!["sudo", "amele", "ram", "dump", "/tmp/dump.raw"]
+        );
+    }
+
+    #[test]
+    fn test_parse_cli_args_shell_injection_blocked() {
+        assert!(parse_cli_args("amele disk list; rm -rf /").is_err());
+        assert!(parse_cli_args("amele disk list && echo 1").is_err());
+        assert!(parse_cli_args("amele disk list || echo 1").is_err());
+        assert!(parse_cli_args("amele disk list | whoami").is_err());
+        assert!(parse_cli_args("amele disk `id`").is_err());
+        assert!(parse_cli_args("amele disk $(whoami)").is_err());
+        assert!(parse_cli_args("amele disk > out.txt").is_err());
+        assert!(parse_cli_args("amele disk < in.txt").is_err());
+        assert!(parse_cli_args("amele disk\nid").is_err());
+    }
+
+    #[test]
+    fn test_execute_command_injection_rejected() {
+        let req = serde_json::json!({
+            "command": "amele disk list; cat /etc/shadow"
+        });
+        let body = serde_json::to_vec(&req).unwrap();
+        let resp = execute_command_endpoint(&body);
+        assert_eq!(resp.status, 400);
+
+        let req_pipe = serde_json::json!({
+            "command": "sudo amele ram | rm -rf /"
+        });
+        let body_pipe = serde_json::to_vec(&req_pipe).unwrap();
+        let resp_pipe = execute_command_endpoint(&body_pipe);
+        assert_eq!(resp_pipe.status, 400);
+    }
+
+    #[test]
+    fn test_launch_terminal_invalid_inputs() {
+        // Geçersiz model kimliği (enjeksiyon denemesi)
+        let req_model = serde_json::json!({
+            "prompt": "Test",
+            "model": "model\"; rm -rf / #",
+            "profile_username": "analyst"
+        });
+        let resp_model = launch_terminal_endpoint(&serde_json::to_vec(&req_model).unwrap());
+        assert_eq!(resp_model.status, 400);
+
+        // Geçersiz vaka adı
+        let req_case = serde_json::json!({
+            "prompt": "Test",
+            "case_name": "vaka; id",
+            "profile_username": "analyst"
+        });
+        let resp_case = launch_terminal_endpoint(&serde_json::to_vec(&req_case).unwrap());
+        assert_eq!(resp_case.status, 400);
     }
 }
