@@ -96,12 +96,34 @@ html.show-key-hints .home-report-sidebar-toggle .shortcut-key-badge {
   transform: translateY(-50%) scale(1);
 }
 
-/* Generic fallback for any other element with data-shortcut */
-[data-shortcut]:not(.nav-center-trigger):not(.nav-circle-btn-wrap):not(.home-case-sidebar-toggle):not(.home-report-sidebar-toggle) {
+/* Forensic Cards in Tool Hubs (Windows, Linux, Tools, etc.) */
+.forensic-card {
   position: relative;
 }
 
-[data-shortcut]:not(.nav-center-trigger):not(.nav-circle-btn-wrap):not(.home-case-sidebar-toggle):not(.home-report-sidebar-toggle) > .shortcut-key-badge {
+.forensic-card .shortcut-key-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  min-width: 24px;
+  height: 24px;
+  font-size: 12px;
+  font-weight: 800;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+body.show-key-hints .forensic-card .shortcut-key-badge,
+html.show-key-hints .forensic-card .shortcut-key-badge {
+  transform: scale(1);
+}
+
+/* Generic fallback for any other element with data-shortcut */
+[data-shortcut]:not(.nav-center-trigger):not(.nav-circle-btn-wrap):not(.home-case-sidebar-toggle):not(.home-report-sidebar-toggle):not(.forensic-card) {
+  position: relative;
+}
+
+[data-shortcut]:not(.nav-center-trigger):not(.nav-circle-btn-wrap):not(.home-case-sidebar-toggle):not(.home-report-sidebar-toggle):not(.forensic-card) > .shortcut-key-badge {
   position: absolute;
   top: -6px;
   right: -6px;

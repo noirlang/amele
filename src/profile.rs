@@ -950,20 +950,46 @@ pub fn active_profile() -> Option<LocalProfile> {
         .and_then(|profile| profile.clone())
 }
 
+fn profile_file_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
 /// Profil deposunu diskten okur.
 pub fn load_profile_store() -> AmeleResult<ProfileStore> {
+    let _guard = profile_file_lock().lock().ok();
     let path = profile_store_path();
     if !path.is_file() {
         return Ok(ProfileStore::default());
     }
     let content = fs::read_to_string(&path)
         .map_err(|err| AmeleError::io(HataKodu::DosyaOkuma, "Profil dosyası okunamadı", err))?;
-    let mut store: ProfileStore = serde_json::from_str(&content).map_err(|err| {
-        AmeleError::new(
-            HataKodu::ProtokolJson,
-            format!("Profil dosyası parse edilemedi: {err}"),
-        )
-    })?;
+    if content.trim().is_empty() {
+        return Ok(ProfileStore::default());
+    }
+
+    let mut store: ProfileStore = match serde_json::from_str(&content) {
+        Ok(store) => store,
+        Err(err) => {
+            // Trailing characters veya bozuk kuyruk durumunda ilk geçerli JSON objesini kurtar
+            if let Some(Ok(recovered)) = serde_json::Deserializer::from_str(&content)
+                .into_iter::<ProfileStore>()
+                .next()
+            {
+                eprintln!(
+                    "[WARN] Profil dosyasında fazlalık/bozuk karakterler tespit edildi, otomatik kurtarıldı."
+                );
+                drop(_guard);
+                let _ = save_profile_store(&recovered);
+                recovered
+            } else {
+                return Err(AmeleError::new(
+                    HataKodu::ProtokolJson,
+                    format!("Profil dosyası parse edilemedi: {err}"),
+                ));
+            }
+        }
+    };
     for profile in &mut store.profiles {
         if let Some(avatar) = &mut profile.avatar_url {
             *avatar = avatar.replace("://www.amele.noirlang.tr", "://amele.noirlang.tr");
@@ -991,6 +1017,7 @@ pub fn load_profile_store() -> AmeleResult<ProfileStore> {
 
 /// Profil deposunu diske yazar.
 pub fn save_profile_store(store: &ProfileStore) -> AmeleResult<()> {
+    let _guard = profile_file_lock().lock().ok();
     let path = profile_store_path();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|err| {
@@ -998,8 +1025,16 @@ pub fn save_profile_store(store: &ProfileStore) -> AmeleResult<()> {
         })?;
     }
     let content = serde_json::to_string_pretty(store)?;
-    fs::write(&path, content)
-        .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "Profil dosyası yazılamadı", err))
+    let temp_path = path.with_extension(format!("tmp.{}", std::process::id()));
+    fs::write(&temp_path, &content).map_err(|err| {
+        AmeleError::io(
+            HataKodu::DosyaYazma,
+            "Profil geçici dosyası yazılamadı",
+            err,
+        )
+    })?;
+    fs::rename(&temp_path, &path)
+        .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "Profil dosyası güncellenemedi", err))
 }
 
 fn ensure_profile_dirs(profile: &LocalProfile) -> AmeleResult<()> {
@@ -1953,5 +1988,48 @@ mod tests {
     fn upload_online_image_requires_active_profile() {
         let res = upload_online_image(b"fake image bytes", "test.png", "image/png");
         assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_load_profile_store_recovers_from_trailing_garbage() {
+        let temp_dir =
+            std::env::temp_dir().join(format!("amele_trailing_test_{}", std::process::id()));
+        let _ = fs::create_dir_all(&temp_dir);
+        let test_file = temp_dir.join("profiller.json");
+
+        let valid_json = r#"{
+  "profiles": [
+    {
+      "username": "test_analyst",
+      "full_name": "Test Analyst",
+      "display_name": "Analyst",
+      "language": "tr",
+      "theme": "dark",
+      "open_directly": false,
+      "created_at": "2026-10-03 00:00:00",
+      "last_used_at": "2026-10-03 00:00:00",
+      "activity_log": []
+    }
+  ],
+  "active_username": "test_analyst"
+}"#;
+
+        // Dosya sonuna bozuk karakterler / eski yazım artıkları ekle
+        let corrupted_content = format!("{valid_json}0.0.1:51820\"\n}}\n");
+        fs::write(&test_file, corrupted_content).unwrap();
+
+        // Deserialize recovery mantığını test et
+        let recovered: Option<ProfileStore> =
+            serde_json::Deserializer::from_str(&fs::read_to_string(&test_file).unwrap())
+                .into_iter::<ProfileStore>()
+                .next()
+                .and_then(Result::ok);
+
+        assert!(recovered.is_some());
+        let store = recovered.unwrap();
+        assert_eq!(store.active_username.as_deref(), Some("test_analyst"));
+        assert_eq!(store.profiles.len(), 1);
+
+        let _ = fs::remove_dir_all(&temp_dir);
     }
 }

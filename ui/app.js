@@ -1291,13 +1291,15 @@ function routeGroup(route) {
 function toolHub(platform) {
   const cards = toolCards[platform]
     .map(
-      (card) => {
+      (card, index) => {
         const workflow = workflows[card.id];
         const blocked = workflow && isLocalWorkflowBlocked(workflow);
         const targetRoute = card.route || `workflow:${card.id}`;
+        const shortcutKey = String(index + 1);
         return `
-        <button class="forensic-card ${blocked ? "is-disabled" : ""}" data-route="${targetRoute}" data-nav-dir="forward" style="--accent:${card.accent}" ${blocked ? `aria-disabled="true" data-disabled-reason="${workflow.platform}"` : ""}>
+        <button class="forensic-card ${blocked ? "is-disabled" : ""}" data-route="${targetRoute}" data-shortcut="${shortcutKey}" data-nav-dir="forward" style="--accent:${card.accent}" ${blocked ? `aria-disabled="true" data-disabled-reason="${workflow.platform}"` : ""}>
           <span class="card-icon">${icon(card.icon)}</span>
+          <span class="shortcut-key-badge" aria-hidden="true">${shortcutKey}</span>
           <h3>${localizeText(card.title)}</h3>
           <p>${localizeText(card.desc)}</p>
           <span class="meta">${blocked ? t("localUnsupported") : localizeText(card.badge)}</span>

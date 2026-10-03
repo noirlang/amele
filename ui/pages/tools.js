@@ -91,9 +91,10 @@ export function toolsPage({ t, icon, pageTitle, escapeHtml, state }) {
       <div class="tool-grid">
         ${tools
           .map(
-            (card) => `
-          <button class="forensic-card" data-route="${card.route}" style="--accent:${card.accent}">
+            (card, index) => `
+          <button class="forensic-card" data-route="${card.route}" data-shortcut="${index + 1}" style="--accent:${card.accent}">
             <span class="card-icon">${icon(card.icon)}</span>
+            <span class="shortcut-key-badge" aria-hidden="true">${index + 1}</span>
             <h3>${escapeHtml(card.title)}</h3>
             <p>${escapeHtml(card.desc)}</p>
             <span class="meta">${escapeHtml(card.badge)}</span>

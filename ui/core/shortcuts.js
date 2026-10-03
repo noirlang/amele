@@ -101,10 +101,31 @@ export function initKeyboardShortcuts({
       return;
     }
 
+    // Rakam tuşunu tespit et (Digit1..Digit9, Numpad1..Numpad9 veya doğrudan karakter)
+    let digitKey = null;
+    if (event.code && event.code.startsWith("Digit")) {
+      digitKey = event.code.slice(5);
+    } else if (event.code && event.code.startsWith("Numpad") && !isNaN(event.code.slice(6))) {
+      digitKey = event.code.slice(6);
+    } else if (/^[0-9]$/.test(event.key || "")) {
+      digitKey = event.key;
+    }
+
     // Shift tuşu basılıyken bir tuşa basıldıysa ilgili kısayolu çalıştır
     if (event.shiftKey) {
       if (!isShiftActive) {
         showHints();
+      }
+
+      // 1) Eğer bir rakam tuşuna basıldıysa (örn: Windows/Linux Araçlarındaki 1, 2, 3.. kartları)
+      if (digitKey && typeof document.querySelector === "function") {
+        const targetEl = document.querySelector(`[data-shortcut="${digitKey}"]`);
+        if (targetEl && typeof targetEl.click === "function" && !targetEl.classList.contains("is-disabled") && !targetEl.disabled) {
+          event.preventDefault();
+          event.stopPropagation();
+          targetEl.click();
+          return;
+        }
       }
 
       const rawKey = event.key || "";
@@ -190,10 +211,21 @@ export function initKeyboardShortcuts({
       // Arayüzdeki herhangi bir [data-shortcut="KEY"] elemanını doğrudan tıkla
       if (typeof document.querySelector === "function") {
         const customEl = document.querySelector(`[data-shortcut="${key}" i]`);
-        if (customEl && typeof customEl.click === "function") {
+        if (customEl && typeof customEl.click === "function" && !customEl.classList.contains("is-disabled") && !customEl.disabled) {
           event.preventDefault();
           event.stopPropagation();
           customEl.click();
+          return;
+        }
+      }
+    } else {
+      // Shift basılı DEĞİLKEN rakam tuşuna basıldıysa (örn: 1..6 kartları doğrudan açmak için)
+      if (digitKey && typeof document.querySelector === "function") {
+        const targetEl = document.querySelector(`[data-shortcut="${digitKey}"]`);
+        if (targetEl && typeof targetEl.click === "function" && !targetEl.classList.contains("is-disabled") && !targetEl.disabled) {
+          event.preventDefault();
+          event.stopPropagation();
+          targetEl.click();
           return;
         }
       }

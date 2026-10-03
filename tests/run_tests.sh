@@ -29,10 +29,13 @@ ROUTES_PASS=0
 # Phase 1: Rust Backend Unit Tests
 echo -e "${BOLD}${BLUE}📦 [1/4] Running Rust Backend Unit Tests...${RESET}"
 echo -e "${CYAN}------------------------------------------------${RESET}"
-if cargo test; then
+TEST_HOME="$(mktemp -d /tmp/amele_test_home_XXXXXX)"
+if HOME="$TEST_HOME" cargo test; then
+  rm -rf "$TEST_HOME"
   echo -e "\n${GREEN}✔ Rust backend tests completed successfully!${RESET}"
   BACKEND_PASS=1
 else
+  rm -rf "$TEST_HOME"
   echo -e "\n${RED}✘ Rust backend tests failed! Please check cargo warnings/errors.${RESET}"
 fi
 echo ""

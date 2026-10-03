@@ -261,4 +261,49 @@ test("Keyboard Shortcuts System", async (t) => {
     assert.strictEqual(toggleCount, 0, "Ctrl+Shift+M must be ignored by shortcuts manager");
     controller.destroy();
   });
+
+  await t.test("Digit shortcuts (1..9) trigger forensic card clicks directly and with Shift", () => {
+    let clicked = false;
+    const mockCard = {
+      classList: {
+        contains: (cls) => cls === "is-disabled" ? false : false
+      },
+      disabled: false,
+      click: () => { clicked = true; }
+    };
+
+    const origQuerySelector = document.querySelector;
+    document.querySelector = (sel) => {
+      if (sel === '[data-shortcut="1"]') return mockCard;
+      return null;
+    };
+
+    const controller = initKeyboardShortcuts();
+
+    // With Shift + 1 (code: Digit1, key: !)
+    window._dispatch("keydown", {
+      key: "!",
+      code: "Digit1",
+      shiftKey: true,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+      target: { tagName: "BODY" }
+    });
+    assert.strictEqual(clicked, true, "Digit1 with Shift should trigger click on card 1");
+
+    // Reset and test without Shift (press 1 directly)
+    clicked = false;
+    window._dispatch("keydown", {
+      key: "1",
+      code: "Digit1",
+      shiftKey: false,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+      target: { tagName: "BODY" }
+    });
+    assert.strictEqual(clicked, true, "1 key directly should trigger click on card 1");
+
+    document.querySelector = origQuerySelector;
+    controller.destroy();
+  });
 });
