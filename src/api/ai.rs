@@ -635,17 +635,19 @@ pub fn launch_terminal_endpoint(body: &[u8]) -> Response {
     }
 
     if !model_id.is_empty()
-        && !model_id
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' || c == ':' || c == '/')
+        && !model_id.chars().all(|c| {
+            c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' || c == ':' || c == '/'
+        })
     {
         return json_error(400, "Geçersiz model tanımlayıcısı.");
     }
 
-    if case_name
-        .chars()
-        .any(|c| matches!(c, '"' | '\'' | '$' | '`' | '\n' | '\r' | ';' | '&' | '|' | '\\'))
-    {
+    if case_name.chars().any(|c| {
+        matches!(
+            c,
+            '"' | '\'' | '$' | '`' | '\n' | '\r' | ';' | '&' | '|' | '\\'
+        )
+    }) {
         return json_error(400, "Vaka adında geçersiz özel karakterler bulunamaz.");
     }
 
@@ -923,8 +925,14 @@ fn extract_suggested_command(text: &str) -> Option<String> {
 /// Kabuk metakarakterleri (;, &, |, `, $, >, <, yeni satır vb.) engellenir.
 fn parse_cli_args(input: &str) -> Result<Vec<String>, String> {
     for ch in input.chars() {
-        if matches!(ch, ';' | '&' | '|' | '`' | '$' | '>' | '<' | '\n' | '\r' | '\0') {
-            return Err("Güvenlik ihlali: Komutta kabuk kontrol veya yönlendirme karakterleri bulunamaz.".to_string());
+        if matches!(
+            ch,
+            ';' | '&' | '|' | '`' | '$' | '>' | '<' | '\n' | '\r' | '\0'
+        ) {
+            return Err(
+                "Güvenlik ihlali: Komutta kabuk kontrol veya yönlendirme karakterleri bulunamaz."
+                    .to_string(),
+            );
         }
     }
 
@@ -1481,7 +1489,9 @@ mod tests {
         let args = parse_cli_args("amele disk acquire /dev/sdb \"case 1\" --format raw").unwrap();
         assert_eq!(
             args,
-            vec!["amele", "disk", "acquire", "/dev/sdb", "case 1", "--format", "raw"]
+            vec![
+                "amele", "disk", "acquire", "/dev/sdb", "case 1", "--format", "raw"
+            ]
         );
 
         let sudo_args = parse_cli_args("sudo amele ram dump /tmp/dump.raw").unwrap();

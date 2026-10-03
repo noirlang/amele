@@ -1544,8 +1544,8 @@ fn finish_online_request(
     context: &str,
     result: Result<OnlineResponse, ureq::Error>,
 ) -> AmeleResult<OnlineResponse> {
-    let response = result
-        .map_err(|err| AmeleError::new(HataKodu::Baglanti, format!("{context}: {err}")))?;
+    let response =
+        result.map_err(|err| AmeleError::new(HataKodu::Baglanti, format!("{context}: {err}")))?;
     let status = response.status();
     if status.is_client_error() || status.is_server_error() {
         let body = response.into_body().read_to_string().unwrap_or_default();
