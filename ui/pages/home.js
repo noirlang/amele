@@ -852,12 +852,14 @@ export function renderCaseSidebar(state, t, icon, esc) {
       type="button"
       class="home-case-sidebar-toggle"
       data-action="toggle-case-sidebar"
+      data-shortcut="C"
       title="${t("case.sidebarTitle") || "Vakalar"}"
       aria-label="Vaka Menüsü"
     >
       <span class="toggle-ico">${icon("folder")}</span>
       <span class="toggle-txt">${t("case.sidebarTitle") || "Vakalar"}</span>
       <span class="toggle-badge">${cases.length}</span>
+      <span class="shortcut-key-badge" aria-hidden="true">C</span>
     </button>
 
     <div class="home-case-sidebar-backdrop" data-action="close-case-sidebar"></div>

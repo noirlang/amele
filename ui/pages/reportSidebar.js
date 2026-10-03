@@ -37,11 +37,13 @@ export function renderReportSidebar(state, t, icon, esc) {
       type="button"
       class="home-report-sidebar-toggle${isCollapsed ? " is-visible" : ""}"
       data-action="toggle-report-sidebar"
+      data-shortcut="R"
       title="${t("onlineReport.sidebarTitle") || "Rapor Bildir"}"
       aria-label="Rapor Menüsü"
     >
       <span class="toggle-ico">${icon("bug")}</span>
       <span class="toggle-txt">${t("onlineReport.sidebarTitle") || "Rapor"}</span>
+      <span class="shortcut-key-badge" aria-hidden="true">R</span>
     </button>
 
     <div class="home-report-sidebar-backdrop" data-action="close-report-sidebar"></div>

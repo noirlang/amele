@@ -51,7 +51,7 @@ echo ""
 # Phase 3: Frontend ESM Modules & Router Check
 echo -e "${BOLD}${BLUE}🖥️ [3/4] Running ES Modules & Route Dispatcher Tests...${RESET}"
 echo -e "${CYAN}------------------------------------------------${RESET}"
-if node --test tests/routes.test.js; then
+if node --test tests/routes.test.js tests/shortcuts.test.js; then
   echo -e "${GREEN}✔ ES Modules and routing dispatcher loaded flawlessly!${RESET}"
   ROUTES_PASS=1
 else

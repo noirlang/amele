@@ -1,0 +1,108 @@
+/* ==========================================================================
+   AMELE KEYBOARD SHORTCUTS & HINT BADGES
+   Shift-activated key indicators and shortcuts overlay.
+   ========================================================================== */
+
+.shortcut-key-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+  color: #f5f5f5;
+  background: linear-gradient(180deg, #2a2a30 0%, #151518 100%);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.45);
+  border-radius: 5px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  user-select: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(0.65);
+  transition: opacity 140ms cubic-bezier(0.16, 1, 0.3, 1),
+              transform 140ms cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 140ms;
+  z-index: 1250;
+}
+
+/* Light Theme support */
+.theme-light .shortcut-key-badge,
+[data-theme="light"] .shortcut-key-badge {
+  color: #18181b;
+  background: linear-gradient(180deg, #ffffff 0%, #ececee 100%);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+/* When shift is pressed and body has show-key-hints */
+body.show-key-hints .shortcut-key-badge,
+html.show-key-hints .shortcut-key-badge {
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1);
+}
+
+/* Radial Menu Floating Trigger: Key badge appears next to the button */
+.nav-center-trigger .shortcut-key-badge {
+  position: absolute;
+  top: 50%;
+  right: -28px;
+  transform: translateY(-50%) scale(0.65);
+}
+
+body.show-key-hints .nav-center-trigger .shortcut-key-badge,
+html.show-key-hints .nav-center-trigger .shortcut-key-badge {
+  transform: translateY(-50%) scale(1);
+}
+
+/* Radial Wheel circular buttons */
+.nav-circle-btn-wrap .shortcut-key-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+}
+
+/* Home Case Sidebar Toggle */
+.home-case-sidebar-toggle .shortcut-key-badge {
+  position: absolute;
+  top: 50%;
+  right: -26px;
+  transform: translateY(-50%) scale(0.65);
+}
+
+body.show-key-hints .home-case-sidebar-toggle .shortcut-key-badge,
+html.show-key-hints .home-case-sidebar-toggle .shortcut-key-badge {
+  transform: translateY(-50%) scale(1);
+}
+
+/* Home Report Sidebar Toggle */
+.home-report-sidebar-toggle .shortcut-key-badge {
+  position: absolute;
+  top: 50%;
+  left: -26px;
+  transform: translateY(-50%) scale(0.65);
+}
+
+body.show-key-hints .home-report-sidebar-toggle .shortcut-key-badge,
+html.show-key-hints .home-report-sidebar-toggle .shortcut-key-badge {
+  transform: translateY(-50%) scale(1);
+}
+
+/* Generic fallback for any other element with data-shortcut */
+[data-shortcut]:not(.nav-center-trigger):not(.nav-circle-btn-wrap):not(.home-case-sidebar-toggle):not(.home-report-sidebar-toggle) {
+  position: relative;
+}
+
+[data-shortcut]:not(.nav-center-trigger):not(.nav-circle-btn-wrap):not(.home-case-sidebar-toggle):not(.home-report-sidebar-toggle) > .shortcut-key-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+}

@@ -19,6 +19,7 @@ import { homePage, metric, renderCaseSidebar } from "./pages/home.js";
 import { renderReportSidebar } from "./pages/reportSidebar.js";
 import { toolsPage } from "./pages/tools.js";
 import { renderRadialNav, renderRadialWheelHtml } from "./core/radialNav.js";
+import { initKeyboardShortcuts } from "./core/shortcuts.js";
 import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel } from "./pages/other.js";
 import { workflowPage, pickerField, field, pageTitle, casePanel } from "./pages/workflow.js";
 import { initDeveloperMode, devLog, toggleDevPanel } from "./developer.js";
@@ -1251,6 +1252,32 @@ function toggleNavMenu() {
   }
 }
 
+function toggleCaseSidebar() {
+  const sidebar = document.getElementById("home-case-sidebar");
+  const backdrop = document.querySelector(".home-case-sidebar-backdrop");
+  if (sidebar) sidebar.classList.toggle("is-open");
+  if (backdrop) backdrop.classList.toggle("is-open");
+}
+
+function toggleReportSidebar() {
+  const sidebar = document.getElementById("home-report-sidebar");
+  const backdrop = document.querySelector(".home-report-sidebar-backdrop");
+  const toggleBtn = document.querySelector(".home-report-sidebar-toggle");
+  if (sidebar) {
+    if (sidebar.classList.contains("is-collapsed")) {
+      sidebar.classList.remove("is-collapsed");
+      if (toggleBtn) toggleBtn.classList.remove("is-visible");
+      sidebar.classList.add("is-open");
+      if (backdrop) backdrop.classList.add("is-open");
+      state.reportSidebarCollapsed = false;
+      document.getElementById("app")?.classList?.remove?.("report-sidebar-collapsed");
+    } else {
+      sidebar.classList.toggle("is-open");
+      if (backdrop) backdrop.classList.toggle("is-open");
+    }
+  }
+}
+
 function routeGroup(route) {
   if (route.startsWith("android:")) return "android";
   if (route === "ios") return "ios";
@@ -1962,7 +1989,7 @@ document.addEventListener("click", async (event) => {
       event.preventDefault();
       event.stopPropagation();
       closeNavMenu();
-      openProfileGate();
+      showProfileGate();
       return;
     }
   }
@@ -2729,10 +2756,7 @@ async function handleAction(button) {
   }
 
   if (action === "toggle-case-sidebar") {
-    const sidebar = document.getElementById("home-case-sidebar");
-    const backdrop = document.querySelector(".home-case-sidebar-backdrop");
-    if (sidebar) sidebar.classList.toggle("is-open");
-    if (backdrop) backdrop.classList.toggle("is-open");
+    toggleCaseSidebar();
     return;
   }
 
@@ -2745,22 +2769,7 @@ async function handleAction(button) {
   }
 
   if (action === "toggle-report-sidebar") {
-    const sidebar = document.getElementById("home-report-sidebar");
-    const backdrop = document.querySelector(".home-report-sidebar-backdrop");
-    const toggleBtn = document.querySelector(".home-report-sidebar-toggle");
-    if (sidebar) {
-      if (sidebar.classList.contains("is-collapsed")) {
-        sidebar.classList.remove("is-collapsed");
-        if (toggleBtn) toggleBtn.classList.remove("is-visible");
-        sidebar.classList.add("is-open");
-        if (backdrop) backdrop.classList.add("is-open");
-        state.reportSidebarCollapsed = false;
-        document.getElementById("app")?.classList?.remove?.("report-sidebar-collapsed");
-      } else {
-        sidebar.classList.toggle("is-open");
-        if (backdrop) backdrop.classList.toggle("is-open");
-      }
-    }
+    toggleReportSidebar();
     return;
   }
 
@@ -5451,6 +5460,19 @@ async function bootApp() {
   }
   render();
   if (state.profileGateVisible) renderProfileGate();
+
+  // Klavye kısayollarını ve Shift ipucu rozet yöneticisini başlat
+  initKeyboardShortcuts({
+    state,
+    t,
+    toggleNavMenu,
+    openNavMenu,
+    closeNavMenu,
+    setRoute,
+    toggleCaseSidebar,
+    toggleReportSidebar,
+    logout: () => showProfileGate()
+  });
 
   // Yapay zeka ajanlarını ve modellerini arka planda yükle
   loadAgents(state, render).catch(() => {});
