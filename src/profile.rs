@@ -759,11 +759,12 @@ pub fn upload_online_image(
     for base in online_api_base_candidates(Some(&api_base)) {
         let url = format!("{base}/api/upload/image");
         let agent = online_agent();
-        let request = apply_online_headers(agent.post(&url), &base, token.as_deref()).set(
+        let request = apply_online_headers(agent.post(&url), &base, token.as_deref()).header(
             "Content-Type",
             &format!("multipart/form-data; boundary={boundary}"),
         );
-        match request.send_bytes(&body) {
+        let result = request.send(&body[..]);
+        match finish_online_request("Ekran görüntüsü yüklenemedi", result) {
             Ok(response) => {
                 let parsed = parse_online_response(response)?;
                 if let Some(url_str) = parsed.value.get("url").and_then(|v| v.as_str()) {
@@ -772,7 +773,7 @@ pub fn upload_online_image(
                     return Ok(String::new());
                 }
             }
-            Err(err) => last_error = Some(online_request_error("Ekran görüntüsü yüklenemedi", err)),
+            Err(err) => last_error = Some(err),
         }
     }
 
@@ -1334,9 +1335,7 @@ fn online_fetch_licenses(
 fn online_get_json(api_base: &str, url: &str, bearer: Option<&str>) -> AmeleResult<Value> {
     let agent = online_agent();
     let request = apply_online_headers(agent.get(url), api_base, bearer);
-    let response = request
-        .call()
-        .map_err(|err| online_request_error("Online API isteği başarısız", err))?;
+    let response = finish_online_request("Online API isteği başarısız", request.call())?;
     parse_online_response(response).map(|response| response.value)
 }
 
@@ -1346,10 +1345,9 @@ fn online_get_json_connection_close(
     bearer: Option<&str>,
 ) -> AmeleResult<Value> {
     let agent = online_agent();
-    let request = apply_online_headers(agent.get(url), api_base, bearer).set("Connection", "close");
-    let response = request
-        .call()
-        .map_err(|err| online_request_error("Online API isteği başarısız", err))?;
+    let request =
+        apply_online_headers(agent.get(url), api_base, bearer).header("Connection", "close");
+    let response = finish_online_request("Online API isteği başarısız", request.call())?;
     parse_online_response(response).map(|response| response.value)
 }
 
@@ -1361,10 +1359,11 @@ fn online_post_json_with_session_cookie(
 ) -> AmeleResult<OnlineJsonResponse> {
     let agent = online_agent();
     let request = apply_online_headers(agent.post(url), api_base, bearer)
-        .set("Content-Type", "application/json");
-    let response = request
-        .send_string(&payload.to_string())
-        .map_err(|err| online_request_error("Online API isteği başarısız", err))?;
+        .header("Content-Type", "application/json");
+    let response = finish_online_request(
+        "Online API isteği başarısız",
+        request.send(payload.to_string()),
+    )?;
     parse_online_response(response)
 }
 
@@ -1374,37 +1373,46 @@ struct OnlineJsonResponse {
     session_cookie: Option<String>,
 }
 
+type OnlineResponse = ureq::http::Response<ureq::Body>;
+
 fn online_agent() -> ureq::Agent {
-    ureq::AgentBuilder::new()
-        .timeout(Duration::from_secs(35))
+    // Durum kodlarını kendimiz yorumluyoruz; ureq 3 varsayılanda 4xx/5xx
+    // cevaplarının gövdesini atıp hata döndürdüğü için kapatıyoruz.
+    ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(35)))
+        .http_status_as_error(false)
         .build()
+        .into()
 }
 
-fn apply_online_headers(
-    request: ureq::Request,
+fn apply_online_headers<B>(
+    request: ureq::RequestBuilder<B>,
     _api_base: &str,
     bearer: Option<&str>,
-) -> ureq::Request {
+) -> ureq::RequestBuilder<B> {
     let request = request
-        .set("Accept", "application/json")
-        .set("User-Agent", concat!("Amele/", env!("CARGO_PKG_VERSION")));
+        .header("Accept", "application/json")
+        .header("User-Agent", concat!("Amele/", env!("CARGO_PKG_VERSION")));
     if let Some(credential) = bearer {
         if let Some(cookie) = credential.strip_prefix(COOKIE_CREDENTIAL_PREFIX) {
-            request.set("Cookie", cookie)
+            request.header("Cookie", cookie)
         } else {
-            request.set("Authorization", &format!("Bearer {credential}"))
+            request.header("Authorization", &format!("Bearer {credential}"))
         }
     } else {
         request
     }
 }
 
-fn parse_online_response(response: ureq::Response) -> AmeleResult<OnlineJsonResponse> {
+fn parse_online_response(response: OnlineResponse) -> AmeleResult<OnlineJsonResponse> {
     let session_cookie = response
-        .header("Set-Cookie")
-        .and_then(session_cookie_from_header)
+        .headers()
+        .get_all("set-cookie")
+        .iter()
+        .filter_map(|value| value.to_str().ok())
+        .find_map(session_cookie_from_header)
         .map(cookie_credential);
-    let text = response.into_string().map_err(|err| {
+    let text = response.into_body().read_to_string().map_err(|err| {
         AmeleError::new(
             HataKodu::DosyaOkuma,
             format!("Online API cevabı okunamadı: {err}"),
@@ -1531,30 +1539,33 @@ fn json_shape(value: &Value) -> String {
     }
 }
 
-fn online_request_error(context: &str, err: ureq::Error) -> AmeleError {
-    match err {
-        ureq::Error::Status(status, response) => {
-            let body = response.into_string().unwrap_or_default();
-            let code = serde_json::from_str::<Value>(&body)
-                .ok()
-                .and_then(|value| {
-                    value
-                        .get("code")
-                        .and_then(Value::as_str)
-                        .or_else(|| value.get("message").and_then(Value::as_str))
-                        .map(ToOwned::to_owned)
-                })
-                .filter(|value| !value.is_empty())
-                .unwrap_or_else(|| body.trim().to_string());
-            AmeleError::new(
-                HataKodu::Baglanti,
-                format!("{context}: HTTP {status} {}", code.trim()),
-            )
-        }
-        ureq::Error::Transport(err) => {
-            AmeleError::new(HataKodu::Baglanti, format!("{context}: {err}"))
-        }
+/// Transport hatalarını ve 4xx/5xx cevaplarını `AmeleError`a çevirir.
+fn finish_online_request(
+    context: &str,
+    result: Result<OnlineResponse, ureq::Error>,
+) -> AmeleResult<OnlineResponse> {
+    let response = result
+        .map_err(|err| AmeleError::new(HataKodu::Baglanti, format!("{context}: {err}")))?;
+    let status = response.status();
+    if status.is_client_error() || status.is_server_error() {
+        let body = response.into_body().read_to_string().unwrap_or_default();
+        let code = serde_json::from_str::<Value>(&body)
+            .ok()
+            .and_then(|value| {
+                value
+                    .get("code")
+                    .and_then(Value::as_str)
+                    .or_else(|| value.get("message").and_then(Value::as_str))
+                    .map(ToOwned::to_owned)
+            })
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| body.trim().to_string());
+        return Err(AmeleError::new(
+            HataKodu::Baglanti,
+            format!("{context}: HTTP {} {}", status.as_u16(), code.trim()),
+        ));
     }
+    Ok(response)
 }
 
 fn online_profile_from_user(

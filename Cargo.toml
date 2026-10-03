@@ -4,12 +4,12 @@ version = "0.1.1"
 edition = "2024"
 
 [dependencies]
-base64 = "0.22"
+base64 = "0.23"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
 digest = "0.11"
 md-5 = "0.11"
 plist = "1"
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha1 = "0.11"
@@ -17,7 +17,7 @@ sha2 = "0.11"
 flate2 = "1"
 regex = "1"
 tar = "0.4"
-ureq = { version = "2.12", default-features = true }
+ureq = "3"
 ssh2 = { version = "0.9", features = ["vendored-openssl"] }
 
 [target.'cfg(unix)'.dependencies]
@@ -38,7 +38,7 @@ windows-sys = { version = "0.61", features = [
     "Win32_UI_WindowsAndMessaging",
 ] }
 winit = "0.30"
-wry = "0.55"
+wry = { version = "0.57", default-features = false }
 
 [dev-dependencies]
 tempfile = "3"
