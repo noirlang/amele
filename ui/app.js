@@ -19,7 +19,7 @@ import { homePage, metric, renderCaseSidebar } from "./pages/home.js";
 import { renderReportSidebar } from "./pages/reportSidebar.js";
 import { toolsPage } from "./pages/tools.js";
 import { renderRadialNav, renderRadialWheelHtml } from "./core/radialNav.js";
-import { initKeyboardShortcuts } from "./core/shortcuts.js";
+import { initKeyboardShortcuts, syncShortcutBadges } from "./core/shortcuts.js";
 import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel } from "./pages/other.js";
 import { workflowPage, pickerField, field, pageTitle, casePanel } from "./pages/workflow.js";
 import { initDeveloperMode, devLog, toggleDevPanel } from "./developer.js";
@@ -992,6 +992,9 @@ function render() {
   renderRadialNavDOM();
   renderCaseSidebarDOM();
   renderReportSidebarDOM();
+  if (typeof document !== "undefined" && document.body?.classList?.contains?.("show-key-hints")) {
+    syncShortcutBadges();
+  }
 }
 
 let navCloseTimer = null;
@@ -5473,6 +5476,13 @@ async function bootApp() {
     setRoute,
     toggleCaseSidebar,
     toggleReportSidebar,
+    setLanguage: async (lang) => {
+      setLanguage(lang);
+      try {
+        await saveSettingsFromControls();
+      } catch (_) {}
+      render();
+    },
     logout: () => showProfileGate()
   });
 

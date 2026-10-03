@@ -1,6 +1,7 @@
 // Klavye Kısayolları ve Shift İpucu Yöneticisi (Keyboard Shortcuts & Shift Overlay Manager)
 // Shift tuşuna basıldığında belirli div ve butonların yanında kısayol tuş rozetleri otomatik olarak belirir.
 // Örneğin: Amele radyal menü yanında 'M' tuşu belirir, Shift + M ile radyal menü açılır/kapanır.
+// Vaka menüsü Shift + V ile açılır; V + [1-9] veya açıkken [1-9] vaka seçer; Shift + V + N yeni vaka oluşturur.
 
 export function isTypingElement(target) {
   if (!target && typeof document !== "undefined") {
@@ -35,7 +36,7 @@ export function syncShortcutBadges() {
       const badge = document.createElement("span");
       badge.className = "shortcut-key-badge";
       badge.setAttribute("aria-hidden", "true");
-      badge.textContent = key.toUpperCase();
+      badge.textContent = key.toLowerCase() === "enter" ? "↵" : key.toUpperCase();
       if (typeof container.appendChild === "function") {
         container.appendChild(badge);
       }
@@ -52,6 +53,7 @@ export function initKeyboardShortcuts({
   setRoute,
   toggleCaseSidebar,
   toggleReportSidebar,
+  setLanguage,
   logout
 } = {}) {
   if (typeof window === "undefined" || typeof document === "undefined") {
@@ -64,6 +66,8 @@ export function initKeyboardShortcuts({
   }
 
   let isShiftActive = false;
+  let lastVakaSequenceTime = 0;
+  const VAKA_TIMEOUT_MS = 2500;
 
   const showHints = () => {
     if (isShiftActive) return;
@@ -78,6 +82,41 @@ export function initKeyboardShortcuts({
     isShiftActive = false;
     document.body?.classList?.remove?.("show-key-hints");
     document.documentElement?.classList?.remove?.("show-key-hints");
+  };
+
+  const isCaseSidebarOpen = () => {
+    if (typeof document === "undefined") return false;
+    const sidebar = typeof document.getElementById === "function"
+      ? document.getElementById("home-case-sidebar")
+      : (typeof document.querySelector === "function" ? document.querySelector("#home-case-sidebar") : null);
+    return Boolean(sidebar && sidebar.classList && typeof sidebar.classList.contains === "function" && sidebar.classList.contains("is-open"));
+  };
+
+  const selectCaseByIndex = (digit) => {
+    if (typeof document === "undefined" || !document.querySelector) return false;
+    // 1) data-shortcut olan kart
+    const targetEl = document.querySelector(`.case-sidebar-card[data-shortcut="${digit}"]`);
+    if (targetEl && typeof targetEl.click === "function") {
+      targetEl.click();
+      return true;
+    }
+    // 2) fallback: n-inci kart
+    const nthEl = document.querySelector(`#case-sidebar-list .case-sidebar-card:nth-child(${digit})`);
+    if (nthEl && typeof nthEl.click === "function") {
+      nthEl.click();
+      return true;
+    }
+    return false;
+  };
+
+  const triggerNewCase = () => {
+    if (typeof document === "undefined" || !document.querySelector) return false;
+    const newBtn = document.querySelector('[data-action="new-case-prompt"]');
+    if (newBtn && typeof newBtn.click === "function") {
+      newBtn.click();
+      return true;
+    }
+    return false;
   };
 
   const handleKeyDown = (event) => {
@@ -95,9 +134,23 @@ export function initKeyboardShortcuts({
       return;
     }
 
-    // Escape basıldığında ipuçlarını ve açık menüyü kapat
+    // Escape basıldığında açık modalları, menüleri veya sihirbazdan geri gitmeyi işle
     if (event.key === "Escape") {
       hideHints();
+      lastVakaSequenceTime = 0;
+      if (typeof closeNavMenu === "function" && state?.navMenu?.isOpen) {
+        closeNavMenu();
+        return;
+      }
+      if (isCaseSidebarOpen()) {
+        if (typeof toggleCaseSidebar === "function") toggleCaseSidebar();
+        return;
+      }
+      const backBtn = document.querySelector?.(".workflow-back-btn");
+      if (backBtn && typeof backBtn.click === "function") {
+        backBtn.click();
+        return;
+      }
       return;
     }
 
@@ -111,34 +164,45 @@ export function initKeyboardShortcuts({
       digitKey = event.key;
     }
 
-    // Shift tuşu basılıyken bir tuşa basıldıysa ilgili kısayolu çalıştır
+    const rawKey = event.key || "";
+    const key = rawKey.toUpperCase();
+    const isVakaSequenceActive = (Date.now() - lastVakaSequenceTime) < VAKA_TIMEOUT_MS;
+
+    // 1) VAKA SEÇİMİ VE YENİ VAKA OLUŞTURMA:
+    // Eğer vaka menüsü açıksa VEYA Shift + V yapıldıktan hemen sonra basıldıysa:
+    if (isCaseSidebarOpen() || isVakaSequenceActive) {
+      if (digitKey) {
+        if (selectCaseByIndex(digitKey)) {
+          lastVakaSequenceTime = 0;
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+      }
+      if (key === "N") {
+        if (triggerNewCase()) {
+          lastVakaSequenceTime = 0;
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+      }
+    }
+
+    // Shift tuşu basılıyken bir tuşa basıldıysa
     if (event.shiftKey) {
       if (!isShiftActive) {
         showHints();
       }
 
-      // 1) Eğer bir rakam tuşuna basıldıysa (örn: Windows/Linux Araçlarındaki 1, 2, 3.. kartları)
-      if (digitKey && typeof document.querySelector === "function") {
-        const targetEl = document.querySelector(`[data-shortcut="${digitKey}"]`);
-        if (targetEl && typeof targetEl.click === "function" && !targetEl.classList.contains("is-disabled") && !targetEl.disabled) {
-          event.preventDefault();
-          event.stopPropagation();
-          targetEl.click();
-          return;
-        }
-      }
-
-      const rawKey = event.key || "";
-      const key = rawKey.toUpperCase();
-
       // Amele Radyal Menü Aç/Kapat (Shift + M)
       if (key === "M") {
         event.preventDefault();
         event.stopPropagation();
+        lastVakaSequenceTime = 0;
         if (typeof toggleNavMenu === "function") {
           toggleNavMenu();
         }
-        // Menü DOM'a çizildikten sonra Shift hâlâ basılıysa rozetleri güncelle
         setTimeout(() => {
           if (isShiftActive) {
             syncShortcutBadges();
@@ -147,24 +211,162 @@ export function initKeyboardShortcuts({
         return;
       }
 
-      // Sol Vaka Paneli Aç/Kapat (Shift + C)
-      if (key === "C") {
+      // Sol Vaka Paneli Aç/Kapat & Sıralı Dinleyici (Shift + V veya Shift + C)
+      if (key === "V" || key === "C") {
         event.preventDefault();
         event.stopPropagation();
+        lastVakaSequenceTime = Date.now();
         if (typeof toggleCaseSidebar === "function") {
           toggleCaseSidebar();
         }
+        setTimeout(() => {
+          if (isShiftActive) {
+            syncShortcutBadges();
+          }
+        }, 35);
         return;
       }
 
+      // Yeni Vaka Doğrudan Kısayolu (Shift + N)
+      if (key === "N") {
+        if (triggerNewCase()) {
+          lastVakaSequenceTime = 0;
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+      }
+
       // Sağ Rapor Paneli Aç/Kapat (Shift + R)
+      // (Eğer vaka paneli açıksa ve R basıldıysa vaka yenileme öncelikli)
       if (key === "R") {
         event.preventDefault();
         event.stopPropagation();
+        if (isCaseSidebarOpen()) {
+          const refreshBtn = document.querySelector?.('.case-sidebar-header-btn[data-action="refresh-cases"]');
+          if (refreshBtn && typeof refreshBtn.click === "function") {
+            refreshBtn.click();
+            return;
+          }
+        }
         if (typeof toggleReportSidebar === "function") {
           toggleReportSidebar();
         }
         return;
+      }
+
+      // Dil Değiştirme Kısayolu (Shift + T)
+      if (key === "T") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof setLanguage === "function") {
+          setLanguage(state?.language === "tr" ? "en" : "tr");
+        } else {
+          const langBtn = document.querySelector?.('[data-action="set-language"]:not(.is-active)') || document.querySelector?.('[data-action="set-language"]');
+          if (langBtn && typeof langBtn.click === "function") {
+            langBtn.click();
+          }
+        }
+        return;
+      }
+
+      // Güncelleme Kontrolü (Shift + U)
+      if (key === "U") {
+        const updateBtn = document.querySelector?.('[data-action="check-update"]') || document.querySelector?.('[data-action="about-check-update"]');
+        if (updateBtn && typeof updateBtn.click === "function" && !updateBtn.disabled) {
+          event.preventDefault();
+          event.stopPropagation();
+          updateBtn.click();
+          return;
+        }
+      }
+
+      // Güncelleme İndirme (Shift + I - Settings ekranında indirme butonu varsa)
+      if (key === "I") {
+        const dlBtn = document.querySelector?.('[data-action="download-update"]');
+        if (dlBtn && typeof dlBtn.click === "function" && !dlBtn.disabled && dlBtn.style.display !== "none") {
+          event.preventDefault();
+          event.stopPropagation();
+          dlBtn.click();
+          return;
+        }
+      }
+
+      // Workflow Geri Butonu (Shift + B) - Eğer workflow sayfasındaysa geriye tıkla
+      if (key === "B") {
+        const backBtn = document.querySelector?.(".workflow-back-btn");
+        if (backBtn && typeof backBtn.click === "function") {
+          event.preventDefault();
+          event.stopPropagation();
+          backBtn.click();
+          return;
+        }
+      }
+
+      // Workflow Taramayı Başlat (Shift + S) - Eğer workflow sayfasındaysa taramaya tıkla
+      if (key === "S") {
+        const scanBtn = document.querySelector?.('.workflow-target-actions [data-action="scan"]');
+        if (scanBtn && typeof scanBtn.click === "function" && !scanBtn.disabled) {
+          event.preventDefault();
+          event.stopPropagation();
+          scanBtn.click();
+          return;
+        }
+      }
+
+      // Workflow Edinimi Başlat (Shift + E)
+      if (key === "E") {
+        const startBtn = document.querySelector?.('.workflow-target-actions [data-action="start"]:not([hidden]):not([disabled])');
+        if (startBtn && typeof startBtn.click === "function") {
+          event.preventDefault();
+          event.stopPropagation();
+          startBtn.click();
+          return;
+        }
+      }
+
+      // Workflow Anahtar Onayla (Shift + K)
+      if (key === "K") {
+        const approveKeyBtn = document.querySelector?.('[data-action="approve-key"]');
+        if (approveKeyBtn && typeof approveKeyBtn.click === "function") {
+          event.preventDefault();
+          event.stopPropagation();
+          approveKeyBtn.click();
+          return;
+        }
+      }
+
+      // Workflow Sıfırla veya Durdur (Shift + X)
+      if (key === "X") {
+        const resetBtn = document.querySelector?.('[data-action="reset-key"]') || document.querySelector?.('[data-action="stop"]');
+        if (resetBtn && typeof resetBtn.click === "function") {
+          event.preventDefault();
+          event.stopPropagation();
+          resetBtn.click();
+          return;
+        }
+      }
+
+      // Workflow Bağlan / Form Onayla (Shift + Enter veya Enter)
+      if (event.key === "Enter") {
+        const connBtn = document.querySelector?.('[data-action="connect"]');
+        if (connBtn && typeof connBtn.click === "function") {
+          event.preventDefault();
+          event.stopPropagation();
+          connBtn.click();
+          return;
+        }
+      }
+
+      // Rakam tuşuna basıldıysa (örn: Windows/Linux Araçlarındaki veya Diğer sayfasındaki 1, 2, 3.. kartları)
+      if (digitKey && typeof document.querySelector === "function") {
+        const targetEl = document.querySelector(`[data-shortcut="${digitKey}"]`);
+        if (targetEl && typeof targetEl.click === "function" && !targetEl.classList.contains("is-disabled") && !targetEl.disabled) {
+          event.preventDefault();
+          event.stopPropagation();
+          targetEl.click();
+          return;
+        }
       }
 
       // Hızlı Navigasyon Rotaları (Shift + H, W, L, D, A, I, O, Y/?, B, S, P)
@@ -219,7 +421,19 @@ export function initKeyboardShortcuts({
         }
       }
     } else {
-      // Shift basılı DEĞİLKEN rakam tuşuna basıldıysa (örn: 1..6 kartları doğrudan açmak için)
+      // Shift basılı DEĞİLKEN:
+      // Enter tuşu: Workflow sayfasındaysa bağlan butonunu çalıştır
+      if (event.key === "Enter") {
+        const connBtn = document.querySelector?.('[data-action="connect"]');
+        if (connBtn && typeof connBtn.click === "function") {
+          event.preventDefault();
+          event.stopPropagation();
+          connBtn.click();
+          return;
+        }
+      }
+
+      // Rakam tuşuna basıldıysa (örn: 1..6 kartları doğrudan açmak için)
       if (digitKey && typeof document.querySelector === "function") {
         const targetEl = document.querySelector(`[data-shortcut="${digitKey}"]`);
         if (targetEl && typeof targetEl.click === "function" && !targetEl.classList.contains("is-disabled") && !targetEl.disabled) {
@@ -241,11 +455,13 @@ export function initKeyboardShortcuts({
 
   const handleBlur = () => {
     hideHints();
+    lastVakaSequenceTime = 0;
   };
 
   const handleVisibilityChange = () => {
     if (document.hidden) {
       hideHints();
+      lastVakaSequenceTime = 0;
     }
   };
 

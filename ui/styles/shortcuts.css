@@ -128,3 +128,126 @@ html.show-key-hints .forensic-card .shortcut-key-badge {
   top: -6px;
   right: -6px;
 }
+
+/* Case Sidebar Elements */
+.case-sidebar-card {
+  position: relative;
+}
+
+.case-sidebar-card > .shortcut-key-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+}
+
+.case-sidebar-new-btn {
+  position: relative;
+}
+
+.case-sidebar-new-btn > .shortcut-key-badge {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%) scale(0.65);
+}
+
+body.show-key-hints .case-sidebar-new-btn > .shortcut-key-badge,
+html.show-key-hints .case-sidebar-new-btn > .shortcut-key-badge {
+  transform: translateY(-50%) scale(1);
+}
+
+.case-sidebar-header-btn {
+  position: relative;
+}
+
+.case-sidebar-header-btn > .shortcut-key-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+}
+
+/* Workflow Screen Actions */
+.workflow-back-btn {
+  position: relative;
+}
+
+.workflow-back-btn > .shortcut-key-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+}
+
+.workflow-target-actions button,
+.button-row button[data-shortcut] {
+  position: relative;
+}
+
+.workflow-target-actions button > .shortcut-key-badge,
+.button-row button[data-shortcut] > .shortcut-key-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+}
+
+/* Settings & About Elements */
+.day-night-toggle {
+  position: relative;
+}
+
+.day-night-toggle > .shortcut-key-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 5;
+}
+
+.flag-btn {
+  position: relative;
+}
+
+.flag-btn > .shortcut-key-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+}
+
+.settings-minimal-btn {
+  position: relative;
+}
+
+.settings-minimal-btn > .shortcut-key-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+}
+
+.about-version-check-btn {
+  position: relative;
+}
+
+.about-version-check-btn > .shortcut-key-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+}
+
+.about-radial-button {
+  position: relative;
+}
+
+.about-radial-button > .shortcut-key-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+}
+
+.report-sidebar-submit-btn {
+  position: relative;
+}
+
+.report-sidebar-submit-btn > .shortcut-key-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+}

@@ -212,8 +212,10 @@ export function renderReportSidebar(state, t, icon, esc) {
               type="button"
               class="report-sidebar-submit-btn"
               data-action="submit-report"
+              data-shortcut="S"
               ${submitting || !titleVal.trim() || !descVal.trim() ? "disabled" : ""}
             >
+              <span class="shortcut-key-badge" aria-hidden="true">S</span>
               ${submitting ? `
                 <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" style="animation: spin 1s linear infinite;">
                   <circle cx="12" cy="12" r="10" stroke-width="3" stroke-dasharray="32" stroke-linecap="round"></circle>

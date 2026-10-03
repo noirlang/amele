@@ -73,6 +73,7 @@ if (typeof globalThis.document === "undefined") {
       el._selector = `.${tag}`;
       return el;
     },
+    getElementById: () => null,
     querySelector: () => null,
     querySelectorAll: () => [],
     addEventListener: (ev, fn) => {
@@ -189,14 +190,23 @@ test("Keyboard Shortcuts System", async (t) => {
     controller.destroy();
   });
 
-  await t.test("Shift + C and Shift + R toggle sidebars", () => {
-    let caseToggled = false;
-    let reportToggled = false;
+  await t.test("Shift + V and Shift + C toggle case sidebar, Shift + R toggles report sidebar", () => {
+    let caseToggleCount = 0;
+    let reportToggleCount = 0;
 
     const controller = initKeyboardShortcuts({
-      toggleCaseSidebar: () => { caseToggled = true; },
-      toggleReportSidebar: () => { reportToggled = true; }
+      toggleCaseSidebar: () => { caseToggleCount++; },
+      toggleReportSidebar: () => { reportToggleCount++; }
     });
+
+    window._dispatch("keydown", {
+      key: "V",
+      shiftKey: true,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+      target: { tagName: "BODY" }
+    });
+    assert.strictEqual(caseToggleCount, 1, "case sidebar should toggle on Shift+V");
 
     window._dispatch("keydown", {
       key: "C",
@@ -205,7 +215,7 @@ test("Keyboard Shortcuts System", async (t) => {
       stopPropagation: () => {},
       target: { tagName: "BODY" }
     });
-    assert.strictEqual(caseToggled, true, "case sidebar should toggle on Shift+C");
+    assert.strictEqual(caseToggleCount, 2, "case sidebar should also toggle on Shift+C (backward compatibility)");
 
     window._dispatch("keydown", {
       key: "R",
@@ -214,8 +224,174 @@ test("Keyboard Shortcuts System", async (t) => {
       stopPropagation: () => {},
       target: { tagName: "BODY" }
     });
-    assert.strictEqual(reportToggled, true, "report sidebar should toggle on Shift+R");
+    assert.strictEqual(reportToggleCount, 1, "report sidebar should toggle on Shift+R");
 
+    controller.destroy();
+  });
+
+  await t.test("Shift + V followed by digit selects corresponding case", () => {
+    let clickedCase = null;
+    const mockCaseCard = {
+      click: () => { clickedCase = "Case 2"; }
+    };
+
+    const origQuerySelector = document.querySelector;
+    document.querySelector = (sel) => {
+      if (sel === '.case-sidebar-card[data-shortcut="2"]') return mockCaseCard;
+      return null;
+    };
+
+    const controller = initKeyboardShortcuts({
+      toggleCaseSidebar: () => {}
+    });
+
+    // Press Shift + V
+    window._dispatch("keydown", {
+      key: "V",
+      shiftKey: true,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+      target: { tagName: "BODY" }
+    });
+
+    // Press 2
+    window._dispatch("keydown", {
+      key: "2",
+      code: "Digit2",
+      shiftKey: false,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+      target: { tagName: "BODY" }
+    });
+
+    assert.strictEqual(clickedCase, "Case 2", "Case 2 should be clicked after Shift+V + 2 sequence");
+
+    document.querySelector = origQuerySelector;
+    controller.destroy();
+  });
+
+  await t.test("Shift + V followed by N or Shift + N triggers new case prompt", () => {
+    let newCaseTriggered = false;
+    const mockNewBtn = {
+      click: () => { newCaseTriggered = true; }
+    };
+
+    const origQuerySelector = document.querySelector;
+    document.querySelector = (sel) => {
+      if (sel === '[data-action="new-case-prompt"]') return mockNewBtn;
+      return null;
+    };
+
+    const controller = initKeyboardShortcuts({
+      toggleCaseSidebar: () => {}
+    });
+
+    // Sequence: Shift + V then N
+    window._dispatch("keydown", {
+      key: "V",
+      shiftKey: true,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+      target: { tagName: "BODY" }
+    });
+
+    window._dispatch("keydown", {
+      key: "N",
+      shiftKey: false,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+      target: { tagName: "BODY" }
+    });
+
+    assert.strictEqual(newCaseTriggered, true, "New case prompt should trigger on Shift+V then N");
+
+    // Direct: Shift + N
+    newCaseTriggered = false;
+    window._dispatch("keydown", {
+      key: "N",
+      shiftKey: true,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+      target: { tagName: "BODY" }
+    });
+
+    assert.strictEqual(newCaseTriggered, true, "New case prompt should trigger on direct Shift+N");
+
+    document.querySelector = origQuerySelector;
+    controller.destroy();
+  });
+
+  await t.test("Shift + T toggles language", () => {
+    let switchedLang = null;
+    const controller = initKeyboardShortcuts({
+      state: { language: "tr" },
+      setLanguage: (lang) => { switchedLang = lang; }
+    });
+
+    window._dispatch("keydown", {
+      key: "T",
+      shiftKey: true,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+      target: { tagName: "BODY" }
+    });
+
+    assert.strictEqual(switchedLang, "en", "Language should toggle from tr to en on Shift+T");
+    controller.destroy();
+  });
+
+  await t.test("Workflow shortcuts: Back, Scan, Approve Key, Reset Key, Connect, Start", () => {
+    const clickedButtons = [];
+    const origQuerySelector = document.querySelector;
+
+    document.querySelector = (sel) => {
+      const el = {
+        click: () => clickedButtons.push(sel),
+        classList: { contains: () => false },
+        disabled: false,
+        style: {}
+      };
+      if (sel === ".workflow-back-btn") return el;
+      if (sel === '.workflow-target-actions [data-action="scan"]') return el;
+      if (sel === '[data-action="approve-key"]') return el;
+      if (sel === '[data-action="reset-key"]') return el;
+      if (sel === '[data-action="connect"]') return el;
+      if (sel === '.workflow-target-actions [data-action="start"]:not([hidden]):not([disabled])') return el;
+      if (sel === '[data-action="check-update"]') return el;
+      return null;
+    };
+
+    const controller = initKeyboardShortcuts();
+
+    // Shift + B -> Back
+    window._dispatch("keydown", { key: "B", shiftKey: true, preventDefault: () => {}, stopPropagation: () => {}, target: { tagName: "BODY" } });
+    assert.strictEqual(clickedButtons.includes(".workflow-back-btn"), true, "Shift+B should click back button");
+
+    // Shift + S -> Scan
+    window._dispatch("keydown", { key: "S", shiftKey: true, preventDefault: () => {}, stopPropagation: () => {}, target: { tagName: "BODY" } });
+    assert.strictEqual(clickedButtons.includes('.workflow-target-actions [data-action="scan"]'), true, "Shift+S should click scan");
+
+    // Shift + K -> Approve Key
+    window._dispatch("keydown", { key: "K", shiftKey: true, preventDefault: () => {}, stopPropagation: () => {}, target: { tagName: "BODY" } });
+    assert.strictEqual(clickedButtons.includes('[data-action="approve-key"]'), true, "Shift+K should click approve-key");
+
+    // Shift + X -> Reset Key
+    window._dispatch("keydown", { key: "X", shiftKey: true, preventDefault: () => {}, stopPropagation: () => {}, target: { tagName: "BODY" } });
+    assert.strictEqual(clickedButtons.includes('[data-action="reset-key"]'), true, "Shift+X should click reset-key");
+
+    // Enter -> Connect
+    window._dispatch("keydown", { key: "Enter", shiftKey: false, preventDefault: () => {}, stopPropagation: () => {}, target: { tagName: "BODY" } });
+    assert.strictEqual(clickedButtons.includes('[data-action="connect"]'), true, "Enter should click connect");
+
+    // Shift + E -> Start
+    window._dispatch("keydown", { key: "E", shiftKey: true, preventDefault: () => {}, stopPropagation: () => {}, target: { tagName: "BODY" } });
+    assert.strictEqual(clickedButtons.includes('.workflow-target-actions [data-action="start"]:not([hidden]):not([disabled])'), true, "Shift+E should click start");
+
+    // Shift + U -> Check Update
+    window._dispatch("keydown", { key: "U", shiftKey: true, preventDefault: () => {}, stopPropagation: () => {}, target: { tagName: "BODY" } });
+    assert.strictEqual(clickedButtons.includes('[data-action="check-update"]'), true, "Shift+U should click check-update");
+
+    document.querySelector = origQuerySelector;
     controller.destroy();
   });
 
