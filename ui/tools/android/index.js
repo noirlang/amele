@@ -5,10 +5,10 @@ export function androidPage({ t, icon, pageTitle, state, escapeHtml, backendRead
     <section class="page">
       ${pageTitle(t("hub.android.title"), t("hub.android.desc"), "android")}
       <div class="tool-grid android-mode-grid">
-        ${androidImageModeCard("logical", t("android.mode.logical.title"), t("android.mode.logical.desc"), "android", "var(--text)", t("android.mode.logical.badge"), icon, escapeHtml)}
-        ${androidImageModeCard("filesystem", t("android.mode.filesystem.title"), t("android.mode.filesystem.desc"), "folder", "var(--text)", t("android.mode.filesystem.badge"), icon, escapeHtml)}
-        ${androidImageModeCard("ram", t("android.mode.ram.title"), t("android.mode.ram.desc"), "cpu", "var(--text)", t("android.mode.ram.badge"), icon, escapeHtml)}
-        ${androidImageModeCard("remote", t("android.mode.remote.title"), t("android.mode.remote.desc"), "wifi", "var(--text)", t("android.mode.remote.badge"), icon, escapeHtml)}
+        ${androidImageModeCard("logical", t("android.mode.logical.title"), t("android.mode.logical.desc"), "android", "var(--text)", t("android.mode.logical.badge"), icon, escapeHtml, { shortcut: "1" })}
+        ${androidImageModeCard("filesystem", t("android.mode.filesystem.title"), t("android.mode.filesystem.desc"), "folder", "var(--text)", t("android.mode.filesystem.badge"), icon, escapeHtml, { shortcut: "2" })}
+        ${androidImageModeCard("ram", t("android.mode.ram.title"), t("android.mode.ram.desc"), "cpu", "var(--text)", t("android.mode.ram.badge"), icon, escapeHtml, { shortcut: "3" })}
+        ${androidImageModeCard("remote", t("android.mode.remote.title"), t("android.mode.remote.desc"), "wifi", "var(--text)", t("android.mode.remote.badge"), icon, escapeHtml, { shortcut: "4" })}
       </div>
     </section>
   `;
@@ -48,7 +48,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
 
   return `
     <section class="page">
-      <button class="secondary-button android-back-button" data-route="android">${icon("android")} ${t("android.back")}</button>
+      <button class="secondary-button android-back-button" data-route="android" data-shortcut="B">${icon("android")} ${t("android.back")}<span class="shortcut-key-badge" aria-hidden="true">B</span></button>
       ${pageTitle(mode.title, mode.desc, mode.icon)}
       <div class="workflow-layout">
         <div class="workflow-panel">
@@ -61,9 +61,9 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             </span>
           </div>
           <div class="button-row" style="margin-top:12px">
-            <button class="primary-button" data-action="android-adb-check">${icon("android")} ${t("android.adb.check")}</button>
-            ${installed ? "" : `<button class="secondary-button" data-action="android-adb-install">${icon("download")} ${t("android.adb.install")}</button>`}
-            ${installed ? `<button class="secondary-button" data-action="android-list-devices">${icon("refresh")} ${t("android.devices.list")}</button>` : ""}
+            <button class="primary-button" data-action="android-adb-check" data-shortcut="C">${icon("android")} ${t("android.adb.check")}<span class="shortcut-key-badge" aria-hidden="true">C</span></button>
+            ${installed ? "" : `<button class="secondary-button" data-action="android-adb-install" data-shortcut="I">${icon("download")} ${t("android.adb.install")}<span class="shortcut-key-badge" aria-hidden="true">I</span></button>`}
+            ${installed ? `<button class="secondary-button" data-action="android-list-devices" data-shortcut="R">${icon("refresh")} ${t("android.devices.list")}<span class="shortcut-key-badge" aria-hidden="true">R</span></button>` : ""}
           </div>
 
           <div class="section-divider"></div>
@@ -75,7 +75,7 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             </select>
           </div>
           <div class="button-row" style="margin-top:12px">
-            <button class="secondary-button" data-action="android-profile-fetch" ${selectedReady ? "" : "disabled"}>${icon("search")} ${t("android.profile.fetch")}</button>
+            <button class="secondary-button" data-action="android-profile-fetch" data-shortcut="P" ${selectedReady ? "" : "disabled"}>${icon("search")} ${t("android.profile.fetch")}<span class="shortcut-key-badge" aria-hidden="true">P</span></button>
           </div>
           ${deviceProfile ? `
             <div class="log-box" style="margin-top:12px">
@@ -101,10 +101,10 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             <div class="section-divider"></div>
             <p class="section-label">${t("android.logical.acquisitionTitle")}</p>
             <div class="button-row">
-              <button class="primary-button" data-action="android-start-logical" ${isActive || !selectedReady ? "disabled" : ""}>${icon("android")} ${t("android.logical.start")}</button>
-              ${isRunning ? `<button class="secondary-button" data-action="android-pause-logical">${icon("pause")} ${t("workflow.pause")}</button>` : ""}
-              ${isPaused ? `<button class="secondary-button" data-action="android-resume-logical">${icon("play")} ${t("workflow.resume")}</button>` : ""}
-              ${isActive ? `<button class="danger-button" data-action="android-stop-logical">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
+              <button class="primary-button" data-action="android-start-logical" data-shortcut="E" ${isActive || !selectedReady ? "disabled" : ""}>${icon("android")} ${t("android.logical.start")}<span class="shortcut-key-badge" aria-hidden="true">E</span></button>
+              ${isRunning ? `<button class="secondary-button" data-action="android-pause-logical" data-shortcut="P">${icon("pause")} ${t("workflow.pause")}<span class="shortcut-key-badge" aria-hidden="true">P</span></button>` : ""}
+              ${isPaused ? `<button class="secondary-button" data-action="android-resume-logical" data-shortcut="R">${icon("play")} ${t("workflow.resume")}<span class="shortcut-key-badge" aria-hidden="true">R</span></button>` : ""}
+              ${isActive ? `<button class="danger-button" data-action="android-stop-logical" data-shortcut="X">${icon("stop")} ${t("android.logical.stop")}<span class="shortcut-key-badge" aria-hidden="true">X</span></button>` : ""}
             </div>
 
             <div class="section-divider"></div>
@@ -128,10 +128,10 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             <div class="section-divider"></div>
             <p class="section-label">${t("android.filesystem.acquisitionTitle") || "Aktarım"}</p>
             <div class="button-row">
-              <button class="primary-button" data-action="android-start-filesystem" ${isActive || !selectedReady ? "disabled" : ""}>${icon("folder")} ${t("android.filesystem.start") || "Dosya Sistem İmajını Al"}</button>
-              ${isRunning ? `<button class="secondary-button" data-action="android-pause-filesystem">${icon("pause")} ${t("workflow.pause")}</button>` : ""}
-              ${isPaused ? `<button class="secondary-button" data-action="android-resume-filesystem">${icon("play")} ${t("workflow.resume")}</button>` : ""}
-              ${isActive ? `<button class="danger-button" data-action="android-stop-filesystem">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
+              <button class="primary-button" data-action="android-start-filesystem" data-shortcut="E" ${isActive || !selectedReady ? "disabled" : ""}>${icon("folder")} ${t("android.filesystem.start") || "Dosya Sistem İmajını Al"}<span class="shortcut-key-badge" aria-hidden="true">E</span></button>
+              ${isRunning ? `<button class="secondary-button" data-action="android-pause-filesystem" data-shortcut="P">${icon("pause")} ${t("workflow.pause")}<span class="shortcut-key-badge" aria-hidden="true">P</span></button>` : ""}
+              ${isPaused ? `<button class="secondary-button" data-action="android-resume-filesystem" data-shortcut="R">${icon("play")} ${t("workflow.resume")}<span class="shortcut-key-badge" aria-hidden="true">R</span></button>` : ""}
+              ${isActive ? `<button class="danger-button" data-action="android-stop-filesystem" data-shortcut="X">${icon("stop")} ${t("android.logical.stop")}<span class="shortcut-key-badge" aria-hidden="true">X</span></button>` : ""}
             </div>
 
             <div class="section-divider"></div>
@@ -163,10 +163,10 @@ export function androidModePage({ modeId, t, icon, pageTitle, state, escapeHtml,
             <div class="section-divider"></div>
             <p class="section-label">${t("android.ram.acquisitionTitle") || "Aktarım"}</p>
             <div class="button-row">
-              <button class="primary-button" data-action="android-start-ram" ${isActive || !selectedReady ? "disabled" : ""}>${icon("cpu")} ${t("android.ram.start") || "RAM İmajını Al"}</button>
-              ${isRunning ? `<button class="secondary-button" data-action="android-pause-ram">${icon("pause")} ${t("workflow.pause")}</button>` : ""}
-              ${isPaused ? `<button class="secondary-button" data-action="android-resume-ram">${icon("play")} ${t("workflow.resume")}</button>` : ""}
-              ${isActive ? `<button class="danger-button" data-action="android-stop-ram">${icon("stop")} ${t("android.logical.stop")}</button>` : ""}
+              <button class="primary-button" data-action="android-start-ram" data-shortcut="E" ${isActive || !selectedReady ? "disabled" : ""}>${icon("cpu")} ${t("android.ram.start") || "RAM İmajını Al"}<span class="shortcut-key-badge" aria-hidden="true">E</span></button>
+              ${isRunning ? `<button class="secondary-button" data-action="android-pause-ram" data-shortcut="P">${icon("pause")} ${t("workflow.pause")}<span class="shortcut-key-badge" aria-hidden="true">P</span></button>` : ""}
+              ${isPaused ? `<button class="secondary-button" data-action="android-resume-ram" data-shortcut="R">${icon("play")} ${t("workflow.resume")}<span class="shortcut-key-badge" aria-hidden="true">R</span></button>` : ""}
+              ${isActive ? `<button class="danger-button" data-action="android-stop-ram" data-shortcut="X">${icon("stop")} ${t("android.logical.stop")}<span class="shortcut-key-badge" aria-hidden="true">X</span></button>` : ""}
             </div>
 
             <div class="section-divider"></div>
@@ -370,9 +370,13 @@ function androidImageModeCard(modeId, title, desc, iconName, accent, badge, icon
   const disabled = options.disabled ? " disabled aria-disabled=\"true\"" : "";
   const route = options.disabled ? "" : ` data-route="android:${modeId}"`;
   const disabledClass = options.disabled ? " is-disabled" : "";
+  const shortcutKey = options.shortcut || "";
+  const shortcutAttr = shortcutKey ? ` data-shortcut="${shortcutKey}"` : "";
+  const shortcutBadge = shortcutKey ? `<span class="shortcut-key-badge" aria-hidden="true">${shortcutKey}</span>` : "";
   return `
-    <button class="forensic-card${disabledClass}"${route}${disabled} style="--accent:${accent}">
+    <button class="forensic-card${disabledClass}"${route}${shortcutAttr}${disabled} style="--accent:${accent}">
       <span class="card-icon">${icon(iconName)}</span>
+      ${shortcutBadge}
       <h3>${escapeHtml(title)}</h3>
       <p>${escapeHtml(desc)}</p>
       <span class="meta">${escapeHtml(badge)}</span>
@@ -941,8 +945,8 @@ function remoteAndroidPanel(android, selected, selectedReady, t, icon, escapeHtm
       </select>
     </div>
     <div class="button-row" style="margin-top:12px">
-      <button class="primary-button" data-action="android-remote-connect">${icon("wifi")} ${t("android.remote.connect") || "Bağlan"}</button>
-      ${selected && selected.includes(":") ? `<button class="danger-button" data-action="android-remote-disconnect">${icon("stop")} ${t("android.remote.disconnect") || "Bağlantıyı Kes"}</button>` : ""}
+      <button class="primary-button" data-action="android-remote-connect" data-shortcut="C">${icon("wifi")} ${t("android.remote.connect") || "Bağlan"}<span class="shortcut-key-badge" aria-hidden="true">C</span></button>
+      ${selected && selected.includes(":") ? `<button class="danger-button" data-action="android-remote-disconnect" data-shortcut="X">${icon("stop")} ${t("android.remote.disconnect") || "Bağlantıyı Kes"}<span class="shortcut-key-badge" aria-hidden="true">X</span></button>` : ""}
     </div>
     ${connectResult ? `
       <div class="log-box" style="margin-top:12px">
@@ -961,7 +965,7 @@ function lemonPreflightPanel(preflight, serial, t, icon, escapeHtml) {
       <div class="section-divider"></div>
       <p class="section-label">${t("android.lemon.preflightTitle") || "Lemon Fiziksel RAM Ön Kontrol"}</p>
       <div class="button-row">
-        <button class="secondary-button" data-action="android-lemon-preflight" ${serial ? "" : "disabled"}>${icon("search")} ${t("android.lemon.runPreflight") || "Ön Kontrolü Çalıştır"}</button>
+        <button class="secondary-button" data-action="android-lemon-preflight" data-shortcut="P" ${serial ? "" : "disabled"}>${icon("search")} ${t("android.lemon.runPreflight") || "Ön Kontrolü Çalıştır"}<span class="shortcut-key-badge" aria-hidden="true">P</span></button>
       </div>
       <div class="log-box" style="margin-top:8px">
         <div class="tree-node"><span style="font-size:0.85rem;color:#acc0e4">${escapeHtml(t("android.lemon.preflightHint") || "Lemon eBPF tabanlı fiziksel RAM aracıdır. Önce cihaz uygunluğunu kontrol et.")}</span></div>
@@ -998,7 +1002,7 @@ function lemonPreflightPanel(preflight, serial, t, icon, escapeHtml) {
       ${!preflight.ready && preflight.reason ? `<div class="tree-node" style="margin-top:6px"><span style="color:#f87171;font-size:0.85rem">${escapeHtml(preflight.reason)}</span></div>` : ""}
     </div>
     <div class="button-row" style="margin-top:8px">
-      <button class="secondary-button" data-action="android-lemon-preflight" ${serial ? "" : "disabled"}>${icon("search")} ${t("android.lemon.recheck") || "Yeniden Kontrol Et"}</button>
+      <button class="secondary-button" data-action="android-lemon-preflight" data-shortcut="P" ${serial ? "" : "disabled"}>${icon("search")} ${t("android.lemon.recheck") || "Yeniden Kontrol Et"}<span class="shortcut-key-badge" aria-hidden="true">P</span></button>
     </div>
   `;
 }
