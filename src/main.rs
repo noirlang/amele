@@ -1533,6 +1533,7 @@ fn local_image_command(args: Vec<String>) -> Result<(), String> {
     let mut args = args;
     let json_output = args.iter().any(|a| a == "--json");
     args.retain(|a| a != "--json");
+    let sparse = extract_flag(&mut args, &["--sparse", "--smart", "-s"]);
     let selected_format = extract_output_format(&mut args)?;
     if args.len() < 2 {
         return Err(t_cli(
@@ -1563,7 +1564,7 @@ fn local_image_command(args: Vec<String>) -> Result<(), String> {
         cli_timestamp()
     ));
     let plan = output_format::plan_output(&raw_target, selected_format);
-    let task = disk::DiskAcquisitionTask::new(&source, &plan.working_path);
+    let task = disk::DiskAcquisitionTask::new(&source, &plan.working_path).with_sparse(sparse);
     let result = disk::run_disk_acquisition(&task, |done, total| {
         print_progress("imaj", done, total);
     })
@@ -2714,6 +2715,7 @@ struct ImageHelperRequest {
     target: PathBuf,
     owner_uid: Option<u32>,
     owner_gid: Option<u32>,
+    sparse: Option<bool>,
 }
 
 /// Root/admin yetkisiyle disk imajı alır ve ilerlemeyi/result dosyalarını günceller.
@@ -2732,7 +2734,8 @@ fn image_helper_command(args: Vec<String>) -> Result<(), String> {
         serde_json::from_slice(&fs::read(&request_path).map_err(|err| err.to_string())?)
             .map_err(|err| err.to_string())?;
 
-    let task = disk::DiskAcquisitionTask::new(&request.source, &request.target);
+    let task = disk::DiskAcquisitionTask::new(&request.source, &request.target)
+        .with_sparse(request.sparse.unwrap_or(true));
     let result = disk::run_disk_acquisition_with_control(
         &task,
         |done, total| {
@@ -3667,6 +3670,7 @@ fn remote_image_command(args: Vec<String>) -> Result<(), String> {
     let mut args = args;
     let json_output = args.iter().any(|a| a == "--json");
     args.retain(|a| a != "--json");
+    let sparse = extract_flag(&mut args, &["--sparse", "--smart", "-s"]);
     let selected_format = extract_output_format(&mut args)?;
     if args.len() < 4 {
         return Err(t_cli(
@@ -3679,12 +3683,13 @@ fn remote_image_command(args: Vec<String>) -> Result<(), String> {
     let mut connection =
         RemoteConnection::connect(&args[0], port, token).map_err(|err| err.to_string())?;
     let result = connection
-        .acquire_image(
+        .acquire_image_ext(
             &args[2],
             None,
             &args[3],
             None,
             selected_format,
+            sparse,
             |done: u64, total: u64| {
                 if let Some(percent) = done.saturating_mul(100).checked_div(total) {
                     eprintln!("{}%", percent);
