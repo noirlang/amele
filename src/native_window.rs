@@ -86,7 +86,12 @@ mod linux {
                 if std::env::var_os("AMELE_DEBUG_UI").is_some() {
                     target_url.push_str("&debug=1");
                 }
-                return run_chromium_app(&browser_bin, &target_url);
+                match run_chromium_app(&browser_bin, &target_url) {
+                    Ok(()) => return Ok(()),
+                    Err(chromium_err) => {
+                        eprintln!("Chromium açılamadı, WebKitGTK'ya düşülüyor: {chromium_err}");
+                    }
+                }
             }
         }
 

@@ -78,6 +78,7 @@ fn run_cli_with_timeout(
 
 /// Komuta --quiet bayragi ekler, temiz cikti icin.
 // ajan komutlari sessiz calissin diye eklendi.
+#[allow(dead_code)]
 fn with_quiet(cmd: &str) -> String {
     if cmd.contains("--quiet") || cmd.contains("--no-logo") {
         return cmd.to_string();
