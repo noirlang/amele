@@ -19,8 +19,8 @@
   --purple: #f5f5f5;
   --red: #ef4444;
   --amber: #f5f5f5;
-  --accent: #6366f1;
-  --accent-contrast: #ffffff;
+  --accent: var(--text);
+  --accent-contrast: var(--bg);
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
   --radius-xl: 28px;
   --radius-lg: 18px;
@@ -268,17 +268,17 @@
 }
 
 .profile-select-card:hover {
-  border-color: var(--accent);
+  border-color: var(--line-strong);
   transform: translateY(-4px);
   box-shadow:
     0 12px 30px rgba(0, 0, 0, 0.12),
-    0 0 0 1px var(--accent);
+    0 0 0 1px var(--line-strong);
 }
 
 .profile-select-card:focus-visible {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent);
+  border-color: var(--text);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--text) 20%, transparent);
 }
 
 .profile-select-card-avatar {
@@ -293,8 +293,8 @@
   height: 26px;
   border-radius: 50%;
   background: var(--panel);
-  border: 2px solid var(--accent);
-  color: var(--accent);
+  border: 2px solid var(--line-strong);
+  color: var(--text);
   display: grid;
   place-items: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
@@ -335,7 +335,7 @@
   gap: 6px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--muted);
   margin-top: 4px;
 }
 
@@ -462,17 +462,17 @@
 }
 
 .wizard-choice-card:hover {
-  border-color: var(--accent);
+  border-color: var(--line-strong);
   transform: translateY(-3px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .wizard-choice-card.is-selected {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, var(--card));
+  border-color: var(--text);
+  background: color-mix(in srgb, var(--text) 8%, var(--card));
   box-shadow:
-    0 0 0 2px var(--accent),
-    0 8px 24px color-mix(in srgb, var(--accent) 20%, transparent);
+    0 0 0 2px var(--text),
+    0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
 .wizard-flag-img {
@@ -678,14 +678,14 @@
   min-width: 170px;
   min-height: 48px;
   padding: 0 36px;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   border-radius: 999px;
-  background: #6366f1 !important;
-  color: #ffffff !important;
-  border: none;
+  background: var(--text) !important;
+  color: var(--bg) !important;
+  border: 1px solid var(--text) !important;
   cursor: pointer;
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-flex;
   align-items: center;
@@ -695,8 +695,8 @@
 
 .wizard-btn-next:hover {
   transform: translateY(-2px);
-  background: #4f46e5 !important;
-  box-shadow: 0 8px 26px rgba(99, 102, 241, 0.6);
+  filter: brightness(0.88);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.35);
 }
 
 .wizard-btn-next:active {
@@ -1491,8 +1491,8 @@ html.sidebar-collapsed .shell {
   --purple: #422a5c; /* Deep eggplant purple */
   --red: #a81c1c; /* Warm crimson red */
   --amber: #8a5e12; /* Warm bronze amber */
-  --accent: #6366f1;
-  --accent-contrast: #ffffff;
+  --accent: var(--text);
+  --accent-contrast: var(--bg);
   --shadow: 0 18px 50px rgba(38, 33, 24, 0.06); /* Custom shadow with warm tone */
   background: var(--bg);
 }

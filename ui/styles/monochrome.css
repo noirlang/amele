@@ -111,7 +111,8 @@
   box-shadow: none !important;
 }
 
-.primary-button {
+.primary-button,
+.wizard-btn-next {
   background: var(--text) !important;
   background-image: none !important;
   color: var(--bg) !important;
@@ -122,7 +123,8 @@
 .secondary-button,
 .danger-button,
 .icon-button,
-.top-action {
+.top-action,
+.wizard-btn-back {
   background: transparent !important;
   background-image: none !important;
   color: var(--text) !important;
@@ -248,7 +250,9 @@ code:not(.help-code-block code) {
 
 .progress-bar b {
   color: #ffffff !important;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 4px rgba(0, 0, 0, 0.9) !important;
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.95),
+    0 0 4px rgba(0, 0, 0, 0.9) !important;
 }
 
 .switch {
@@ -288,9 +292,9 @@ code:not(.help-code-block code) {
 
 :root {
   --glow-idle: rgba(255, 255, 255, 0.35);
-  --glow-idle-soft: rgba(255, 255, 255, 0.10);
+  --glow-idle-soft: rgba(255, 255, 255, 0.1);
   --glow-hover: rgba(255, 236, 180, 0.92);
-  --glow-hover-soft: rgba(255, 228, 160, 0.30);
+  --glow-hover-soft: rgba(255, 228, 160, 0.3);
   --glow-hover-glow: rgba(255, 225, 150, 0.18);
   --glow-track: rgba(255, 255, 255, 0.06);
 }
@@ -298,7 +302,7 @@ code:not(.help-code-block code) {
 .shell.theme-light {
   --glow-idle: rgba(38, 33, 24, 0.12);
   --glow-idle-soft: rgba(38, 33, 24, 0.04);
-  --glow-hover: rgba(138, 94, 18, 0.60);
+  --glow-hover: rgba(138, 94, 18, 0.6);
   --glow-hover-soft: rgba(138, 94, 18, 0.18);
   --glow-hover-glow: rgba(138, 94, 18, 0.08);
   --glow-track: rgba(38, 33, 24, 0.06);
@@ -313,7 +317,9 @@ code:not(.help-code-block code) {
 }
 
 @keyframes glow-spin {
-  to { --glow-angle: 360deg; }
+  to {
+    --glow-angle: 360deg;
+  }
 }
 
 /* ── Shared glow container setup ───────────────────────────────── */
@@ -444,7 +450,7 @@ code:not(.help-code-block code) {
   border-radius: inherit;
   padding: 1px;
   pointer-events: none;
-  background: 
+  background:
     conic-gradient(
       from var(--glow-angle),
       transparent 0%,
@@ -465,7 +471,9 @@ code:not(.help-code-block code) {
   mask-composite: exclude;
   animation: glow-spin 3.6s linear infinite;
   opacity: 0.65;
-  transition: opacity 220ms var(--ease), background 220ms var(--ease);
+  transition:
+    opacity 220ms var(--ease),
+    background 220ms var(--ease);
   will-change: --glow-angle;
 }
 
@@ -661,7 +669,7 @@ code:not(.help-code-block code) {
 .report-locked-connect-btn:hover::before,
 .agent-dropdown-trigger:hover::before,
 .news-h-btn:hover::before {
-  background: 
+  background:
     conic-gradient(
       from var(--glow-angle),
       transparent 0%,
