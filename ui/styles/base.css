@@ -46,11 +46,15 @@
   position: fixed;
   inset: 0;
   z-index: 1000;
-  display: grid;
-  place-items: center;
-  padding: 28px;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(18px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(20px);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .profile-gate[hidden] {
@@ -394,36 +398,42 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin: 0 auto;
+  text-align: center;
   gap: 14px;
 }
 
 .wizard-logo {
-  width: 58px;
-  height: 58px;
+  width: 64px;
+  height: 64px;
   object-fit: contain;
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
+  display: block;
+  margin: 0 auto;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.2));
 }
 
 .wizard-step-indicators {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  margin-top: 4px;
+  gap: 10px;
+  margin-top: 6px;
 }
 
 .wizard-step-dot {
   width: 8px;
   height: 8px;
-  border-radius: 999px;
+  border-radius: 50%;
   background: var(--line);
-  transition: all 0.3s ease;
+  transition: all 0.25s ease;
 }
 
 .wizard-step-dot.is-active {
   background: var(--accent);
-  width: 26px;
-  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 60%, transparent);
+  transform: scale(1.3);
 }
 
 .wizard-step-dot.is-completed {
@@ -501,37 +511,53 @@
   color: var(--text);
 }
 
-/* Step 2: Tema Seçimi */
+/* Step 2: Tema Seçimi - Sadece ayarlardaki animasyonlu day-night toggle */
 .wizard-theme-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  justify-content: center;
   width: 100%;
+  padding: 24px 0;
 }
 
 .wizard-dn-toggle-wrap {
   display: flex;
   justify-content: center;
-  margin: 8px 0;
+  align-items: center;
+  margin: 20px 0;
 }
 
 .wizard-day-night {
-  transform: scale(1.15);
+  transform: scale(1.35);
+  cursor: pointer;
+  transition: transform 0.2s ease;
 }
 
-.wizard-theme-group {
-  grid-template-columns: repeat(2, minmax(150px, 200px));
+.wizard-day-night:hover {
+  transform: scale(1.42);
 }
 
-.wizard-theme-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--input-bg);
-  color: var(--text);
+.wizard-username-large-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-bottom: 2px solid var(--line);
+  padding: 8px 16px;
+  width: min(380px, 100%);
+  transition: border-color 0.2s ease;
+}
+
+.wizard-username-large-box:focus-within {
+  border-bottom-color: var(--accent);
+}
+
+.wizard-at-large {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--muted);
+  line-height: 1;
 }
 
 .wizard-theme-icon svg {

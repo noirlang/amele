@@ -335,13 +335,41 @@ test("Frontend Routing and Module Health", async (t) => {
       });
     });
 
-    // Simulate wizard theme selection
+    // Simulate wizard theme toggle (animasyonlu toggle)
     assert.doesNotThrow(() => {
       clickListener({
         target: {
           closest: (sel) => {
             if (sel === "[data-action]" || sel === "button") {
-              return { dataset: { action: "wizard-set-theme", theme: "dark" } };
+              return { dataset: { action: "wizard-theme-toggle" } };
+            }
+            return null;
+          }
+        }
+      });
+    });
+
+    // Simulate wizard online choice no (yerel kullanıcı adı adımına geçiş)
+    assert.doesNotThrow(() => {
+      clickListener({
+        target: {
+          closest: (sel) => {
+            if (sel === "[data-action]" || sel === "button") {
+              return { dataset: { action: "wizard-online-choice-no" } };
+            }
+            return null;
+          }
+        }
+      });
+    });
+
+    // Simulate wizard online choice yes (online giriş adımına geçiş)
+    assert.doesNotThrow(() => {
+      clickListener({
+        target: {
+          closest: (sel) => {
+            if (sel === "[data-action]" || sel === "button") {
+              return { dataset: { action: "wizard-online-choice-yes" } };
             }
             return null;
           }
