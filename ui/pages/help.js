@@ -28,13 +28,15 @@ export function helpPage({ t, icon, state, pageTitle, escapeHtml }) {
   const renderedContent = renderMarkdown(docMarkdown, escapeHtml);
   const headings = extractHeadings(docMarkdown);
 
-  const navItems = helpModules.map((mod) => {
+  const navItems = helpModules.map((mod, idx) => {
     const isActive = mod.id === activeDocId;
     const title = activeLang === "en" ? mod.titleEn : mod.titleTr;
+    const shortcutKey = String(idx + 1);
     return `
-      <button class="help-nav-btn ${isActive ? "active" : ""}" data-action="help-select-doc" data-doc="${mod.id}" type="button">
+      <button class="help-nav-btn ${isActive ? "active" : ""}" data-action="help-select-doc" data-doc="${mod.id}" data-shortcut="${shortcutKey}" type="button">
         <span class="help-nav-icon">${icon(mod.icon)}</span>
         <span class="help-nav-label">${escapeHtml(title)}</span>
+        <span class="shortcut-key-badge" aria-hidden="true">${shortcutKey}</span>
         <span class="help-nav-badge">${escapeHtml(mod.badge)}</span>
       </button>
     `;
