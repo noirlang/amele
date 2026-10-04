@@ -253,7 +253,7 @@
 
 .profile-select-card {
   background: var(--card);
-  border: 2px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: 24px;
   padding: 28px 20px;
   display: flex;
@@ -264,21 +264,15 @@
   cursor: pointer;
   position: relative;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  box-shadow: none;
 }
 
 .profile-select-card:hover {
-  border-color: var(--line-strong);
   transform: translateY(-4px);
-  box-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.12),
-    0 0 0 1px var(--line-strong);
 }
 
 .profile-select-card:focus-visible {
   outline: none;
-  border-color: var(--text);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--text) 20%, transparent);
 }
 
 .profile-select-card-avatar {
@@ -449,7 +443,7 @@
 
 .wizard-choice-card {
   background: var(--card);
-  border: 2px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: 22px;
   padding: 24px 16px;
   display: flex;
@@ -458,21 +452,16 @@
   gap: 12px;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  box-shadow: none;
 }
 
 .wizard-choice-card:hover {
-  border-color: var(--line-strong);
   transform: translateY(-3px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .wizard-choice-card.is-selected {
-  border-color: var(--text);
   background: color-mix(in srgb, var(--text) 8%, var(--card));
-  box-shadow:
-    0 0 0 2px var(--text),
-    0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: none;
 }
 
 .wizard-flag-img {
@@ -683,9 +672,9 @@
   border-radius: 999px;
   background: var(--text) !important;
   color: var(--bg) !important;
-  border: 1px solid var(--text) !important;
+  border: none !important;
   cursor: pointer;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+  box-shadow: none;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-flex;
   align-items: center;
@@ -695,8 +684,7 @@
 
 .wizard-btn-next:hover {
   transform: translateY(-2px);
-  filter: brightness(0.88);
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.35);
+  filter: brightness(0.9);
 }
 
 .wizard-btn-next:active {
