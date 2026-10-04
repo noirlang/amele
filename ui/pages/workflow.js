@@ -156,7 +156,7 @@ export function pickerField(label, id, value, type = "file", icon = defaultIcon,
   const valueAttr = placeholderOnly ? `placeholder="${value}" value=""` : `value="${value}"`;
   return field(
     label,
-    `<div class="input-action"><input id="${id}" class="input" ${valueAttr} data-picker-target /><button class="secondary-button" data-action="${action}" data-target="#${id}">${icon(type === "folder" ? "folder" : "search")} ${t("select")}</button></div>`
+    `<div class="input-action"><input id="${id}" class="input" ${valueAttr} data-picker-target /><button class="secondary-button" data-action="${action}" data-target="#${id}" data-shortcut="F">${icon(type === "folder" ? "folder" : "search")} ${t("select")}<span class="shortcut-key-badge" aria-hidden="true">F</span></button></div>`
   );
 }
 

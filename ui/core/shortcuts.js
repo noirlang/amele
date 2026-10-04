@@ -141,7 +141,9 @@ export function initKeyboardShortcuts({
         if (typeof toggleCaseSidebar === "function") toggleCaseSidebar();
         return;
       }
-      const backBtn = document.querySelector?.(".workflow-back-btn");
+      const backBtn = document.querySelector?.(".workflow-back-btn")
+        || document.querySelector?.(".android-back-button")
+        || document.querySelector?.('[data-action="android-back"]');
       if (backBtn && typeof backBtn.click === "function") {
         backBtn.click();
         return;
@@ -287,9 +289,11 @@ export function initKeyboardShortcuts({
         }
       }
 
-      // Workflow Geri Butonu (Shift + B) - Eğer workflow sayfasındaysa geriye tıkla
+      // Workflow / Android Geri Butonu (Shift + B)
       if (key === "B") {
-        const backBtn = document.querySelector?.(".workflow-back-btn");
+        const backBtn = document.querySelector?.(".workflow-back-btn")
+          || document.querySelector?.(".android-back-button")
+          || document.querySelector?.('[data-action="android-back"]');
         if (backBtn && typeof backBtn.click === "function") {
           event.preventDefault();
           event.stopPropagation();
@@ -344,8 +348,10 @@ export function initKeyboardShortcuts({
 
       // Workflow Bağlan / Form Onayla (Shift + Enter veya Enter)
       if (event.key === "Enter") {
-        const connBtn = document.querySelector?.('[data-action="connect"]');
-        if (connBtn && typeof connBtn.click === "function") {
+        const connBtn = document.querySelector?.('[data-action="connect"]')
+          || document.querySelector?.('[data-docker-action="scan-remote"]')
+          || document.querySelector?.('[data-action="android-remote-connect"]');
+        if (connBtn && typeof connBtn.click === "function" && !connBtn.disabled) {
           event.preventDefault();
           event.stopPropagation();
           connBtn.click();
@@ -361,6 +367,20 @@ export function initKeyboardShortcuts({
           event.preventDefault();
           event.stopPropagation();
           targetEl.click();
+          return;
+        }
+      }
+
+      // Sayfa içindeki doğrudan [data-shortcut="KEY"] elemanını kontrol et
+      // Sayfa içi butonlar, genel rota geçişlerinden önceliklidir (örn: Ayarlar'da D tema değiştirir, Docker'da S tarama yapar)
+      if (typeof document.querySelector === "function") {
+        const inPageEl = document.querySelector(`.page [data-shortcut="${key}" i]`)
+          || document.querySelector(`.modal [data-shortcut="${key}" i]`)
+          || document.querySelector(`[data-shortcut="${key}" i]:not(.nav-item):not(.orbit-btn)`);
+        if (inPageEl && typeof inPageEl.click === "function" && !inPageEl.classList.contains("is-disabled") && !inPageEl.disabled) {
+          event.preventDefault();
+          event.stopPropagation();
+          inPageEl.click();
           return;
         }
       }
@@ -406,7 +426,7 @@ export function initKeyboardShortcuts({
         return;
       }
 
-      // Arayüzdeki herhangi bir [data-shortcut="KEY"] elemanını doğrudan tıkla
+      // Arayüzdeki diğer herhangi bir [data-shortcut="KEY"] elemanını doğrudan tıkla
       if (typeof document.querySelector === "function") {
         const customEl = document.querySelector(`[data-shortcut="${key}" i]`);
         if (customEl && typeof customEl.click === "function" && !customEl.classList.contains("is-disabled") && !customEl.disabled) {
@@ -418,10 +438,12 @@ export function initKeyboardShortcuts({
       }
     } else {
       // Shift basılı DEĞİLKEN:
-      // Enter tuşu: Workflow sayfasındaysa bağlan butonunu çalıştır
+      // Enter tuşu: Workflow veya tarama sayfasındaysa bağlan/tara butonunu çalıştır
       if (event.key === "Enter") {
-        const connBtn = document.querySelector?.('[data-action="connect"]');
-        if (connBtn && typeof connBtn.click === "function") {
+        const connBtn = document.querySelector?.('[data-action="connect"]')
+          || document.querySelector?.('[data-docker-action="scan-remote"]')
+          || document.querySelector?.('[data-action="android-remote-connect"]');
+        if (connBtn && typeof connBtn.click === "function" && !connBtn.disabled) {
           event.preventDefault();
           event.stopPropagation();
           connBtn.click();

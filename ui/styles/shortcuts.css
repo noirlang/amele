@@ -197,9 +197,9 @@ html.show-key-hints .case-sidebar-new-btn > .shortcut-key-badge {
 
 .day-night-toggle > .shortcut-key-badge {
   position: absolute;
-  top: -6px;
-  right: -6px;
-  z-index: 5;
+  top: -8px;
+  right: -8px;
+  z-index: 10;
 }
 
 .flag-btn {
@@ -250,4 +250,49 @@ html.show-key-hints .case-sidebar-new-btn > .shortcut-key-badge {
   position: absolute;
   top: -6px;
   right: -6px;
+}
+
+/* Additional in-page button badges */
+.input-action > button[data-shortcut],
+.input-action button[data-shortcut] {
+  position: relative;
+}
+
+.input-action > button[data-shortcut] > .shortcut-key-badge,
+.input-action button[data-shortcut] > .shortcut-key-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 5;
+}
+
+.analysis-tab-btn[data-shortcut] {
+  position: relative;
+}
+
+.analysis-tab-btn[data-shortcut] > .shortcut-key-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  z-index: 5;
+}
+
+.help-nav-btn[data-shortcut] {
+  position: relative;
+}
+
+.help-nav-btn[data-shortcut] > .shortcut-key-badge {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.android-back-button {
+  position: relative;
+}
+
+.android-back-button > .shortcut-key-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 5;
 }

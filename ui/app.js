@@ -1353,8 +1353,17 @@ function contributorCard(initials, name, role, photo, links) {
 }
 
 function socialLink(label, url) {
-  const key = label === "LinkedIn" ? "linkedin" : label === "Website" ? "website" : "github";
-  return `<a class="social-button" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${label}">${icon(key)}</a>`;
+  const l = (label || "").toLowerCase();
+  let key = "link";
+  if (l.includes("linkedin")) key = "linkedin";
+  else if (l.includes("github")) key = "github";
+  else if (l.includes("website") || l.includes("site") || l.includes("web")) key = "website";
+  else if (l.includes("mail") || l.includes("email") || l.includes("posta")) key = "mail";
+  else if (l.includes("gpg") || l.includes("pgp") || l.includes("key")) key = "key";
+  else if (l.includes("twitter") || l.includes("x") || l.includes("terminal")) key = "terminal";
+
+  const href = key === "mail" && !url.startsWith("mailto:") ? `mailto:${url}` : url;
+  return `<a class="social-button" href="${href}" target="_blank" rel="noopener noreferrer" aria-label="${label}">${icon(key)}</a>`;
 }
 
 const routes = {
@@ -5524,6 +5533,42 @@ async function bootApp() {
   devLog("INFO", "ui:startup", `Amele ${APP_VERSION} başlatıldı — platform: ${state.platform}, dil: ${state.language}, tema: ${state.theme}, backend: ${backendAvailable}`, apiRequest, backendReady);
 }
 
+const DEFAULT_CONTRIBUTORS = [
+  {
+    id: "melih-emik",
+    name: "Melih Emik",
+    role: "BDFL & Maintainer",
+    photo: "melih-emik.jpg",
+    links: [
+      ["GitHub", "https://github.com/melihemik"],
+      ["LinkedIn", "https://linkedin.com/in/melihemik"],
+      ["Website", "https://melihemik.com.tr"],
+      ["E-posta", "mailto:melihemik@noirlang.tr"],
+      ["GPG", "https://keys.openpgp.org/search?q=melihemik@noirlang.tr"]
+    ]
+  },
+  {
+    id: "m-ali-guner",
+    name: "MuhammetAli Güner",
+    role: "Lead Maintainer",
+    photo: "muhammet-ali-guner.jpg",
+    links: [
+      ["GitHub", "https://github.com/kafkaskrtl"],
+      ["LinkedIn", "https://www.linkedin.com/in/muhammetali-g%C3%BCner/"]
+    ]
+  },
+  {
+    id: "toretto",
+    name: "Abdulhalim Altuntaş",
+    role: "Maintainer",
+    photo: "abdulhalim.jpg",
+    links: [
+      ["GitHub", "https://github.com/abdulhalimaltuntas"],
+      ["LinkedIn", "https://www.linkedin.com/in/abdulhalimaltuntas/"]
+    ]
+  }
+];
+
 let developersLoading = false;
 async function loadDevelopers(force = false) {
   if (developersLoading) return;
@@ -5567,6 +5612,9 @@ async function loadDevelopers(force = false) {
           if (d.github) links.push(["GitHub", d.github]);
           if (d.linkedin) links.push(["LinkedIn", d.linkedin]);
           if (d.website || d.site) links.push(["Website", d.website || d.site]);
+          if (d.email || d.mail) links.push(["E-posta", d.email || d.mail]);
+          if (d.gpg_url || d.pgp_url) links.push(["GPG/PGP", d.gpg_url || d.pgp_url]);
+          else if (d.gpg_key || d.pgp_key) links.push(["GPG Key", `https://keys.openpgp.org/search?q=${encodeURIComponent(d.email || d.gpg_key || d.pgp_key)}`]);
           if (d.twitter || d.x) links.push(["X", d.twitter || d.x]);
         }
 
@@ -5584,9 +5632,17 @@ async function loadDevelopers(force = false) {
         localStorage.setItem("amele_contributors_last_fetch", String(Date.now()));
       } catch (_) {}
     } else {
-      // Çekilemediyse veya boşsa, hata durumunu yansıt
-      if (!state.contributors || state.contributors.length === 0) {
-        state.contributors = [];
+      // Çekilemediyse önce localStorage'dan dene, yoksa varsayılan listeyi yükle
+      let cached = null;
+      try {
+        const rawCached = localStorage.getItem("amele_contributors");
+        if (rawCached) cached = JSON.parse(rawCached);
+      } catch (_) {}
+
+      if (Array.isArray(cached) && cached.length > 0) {
+        state.contributors = cached;
+      } else {
+        state.contributors = DEFAULT_CONTRIBUTORS;
       }
     }
 
@@ -5595,7 +5651,7 @@ async function loadDevelopers(force = false) {
     }
   } catch (_) {
     if (!state.contributors || state.contributors.length === 0) {
-      state.contributors = [];
+      state.contributors = DEFAULT_CONTRIBUTORS;
       if (state.route === "about") render();
     }
   } finally {

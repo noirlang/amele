@@ -22,11 +22,11 @@ export function iosPage({ t, icon, pageTitle, state, escapeHtml, backendReady, c
           ${field(t("ios.backup.folder"), `
             <div class="input-action">
               <input id="ios-backup-path" class="input" value="${escapeHtml(backupPath)}" placeholder="${escapeHtml(t("ios.backup.placeholder"))}" />
-              <button class="secondary-button" data-action="pick-folder" data-target="#ios-backup-path">${icon("folder")} ${t("select")}</button>
+              <button class="secondary-button" data-action="pick-folder" data-target="#ios-backup-path" data-shortcut="F">${icon("folder")} ${t("select")}<span class="shortcut-key-badge" aria-hidden="true">F</span></button>
             </div>
           `)}
           <div class="button-row" style="margin-top:12px">
-            <button class="secondary-button" data-action="ios-load-profile">${icon("search")} ${t("ios.profile.load")}</button>
+            <button class="secondary-button" data-action="ios-load-profile" data-shortcut="P">${icon("search")} ${t("ios.profile.load")}<span class="shortcut-key-badge" aria-hidden="true">P</span></button>
           </div>
 
           ${profile ? iosProfilePanel(profile, t, icon, escapeHtml) : `
@@ -49,10 +49,10 @@ export function iosPage({ t, icon, pageTitle, state, escapeHtml, backendReady, c
           <p class="section-label">${t("ios.normalize.title")}</p>
           ${encrypted ? iosEncryptedGuidance(t, icon, escapeHtml) : ""}
           <div class="button-row">
-            <button class="primary-button" data-action="ios-start-normalize" ${startDisabled}>${icon("ios")} ${t("ios.normalize.start")}</button>
-            ${isRunning ? `<button class="secondary-button" data-action="ios-pause-normalize">${icon("pause")} ${t("workflow.pause")}</button>` : ""}
-            ${isPaused ? `<button class="secondary-button" data-action="ios-resume-normalize">${icon("play")} ${t("workflow.resume")}</button>` : ""}
-            ${isActive ? `<button class="danger-button" data-action="ios-stop-normalize">${icon("stop")} ${t("workflow.stopLabel")}</button>` : ""}
+            <button class="primary-button" data-action="ios-start-normalize" data-shortcut="E" ${startDisabled}>${icon("ios")} ${t("ios.normalize.start")}<span class="shortcut-key-badge" aria-hidden="true">E</span></button>
+            ${isRunning ? `<button class="secondary-button" data-action="ios-pause-normalize" data-shortcut="P">${icon("pause")} ${t("workflow.pause")}<span class="shortcut-key-badge" aria-hidden="true">P</span></button>` : ""}
+            ${isPaused ? `<button class="secondary-button" data-action="ios-resume-normalize" data-shortcut="R">${icon("play")} ${t("workflow.resume")}<span class="shortcut-key-badge" aria-hidden="true">R</span></button>` : ""}
+            ${isActive ? `<button class="danger-button" data-action="ios-stop-normalize" data-shortcut="X">${icon("stop")} ${t("workflow.stopLabel")}<span class="shortcut-key-badge" aria-hidden="true">X</span></button>` : ""}
           </div>
 
           <div class="section-divider"></div>

@@ -48,8 +48,8 @@ export function dockerPage({ t, icon, state, pageTitle, pickerField, field, esca
       <label>${label}</label>
       <div class="input-action">
         <input id="${id}" class="input" value="${escapeHtml(value)}" data-picker-target />
-        <button class="secondary-button" data-action="${type === "folder" ? "pick-folder" : "pick-file"}" data-target="#${id}">
-          ${icon(type === "folder" ? "folder" : "search")} ${t("select")}
+        <button class="secondary-button" data-action="${type === "folder" ? "pick-folder" : "pick-file"}" data-target="#${id}" data-shortcut="F">
+          ${icon(type === "folder" ? "folder" : "search")} ${t("select")}<span class="shortcut-key-badge" aria-hidden="true">F</span>
         </button>
       </div>
     </div>
@@ -77,11 +77,11 @@ export function dockerPage({ t, icon, state, pageTitle, pickerField, field, esca
       <!-- Mod Değiştirici: Yerel vs Uzak Agent -->
       <div class="analysis-tabs" data-active-mode="${isRemote ? "remote" : "local"}">
         <div class="analysis-tabs-glider" aria-hidden="true"></div>
-        <button class="analysis-tab-btn ${!isRemote ? "active" : ""}" data-docker-action="set-mode" data-mode="local">
-          ${icon("monitor")} ${t("docker.localMode")}
+        <button class="analysis-tab-btn ${!isRemote ? "active" : ""}" data-docker-action="set-mode" data-mode="local" data-shortcut="1">
+          ${icon("monitor")} ${t("docker.localMode")}<span class="shortcut-key-badge" aria-hidden="true">1</span>
         </button>
-        <button class="analysis-tab-btn ${isRemote ? "active" : ""}" data-docker-action="set-mode" data-mode="remote">
-          ${icon("network")} ${t("docker.remoteMode")}
+        <button class="analysis-tab-btn ${isRemote ? "active" : ""}" data-docker-action="set-mode" data-mode="remote" data-shortcut="2">
+          ${icon("network")} ${t("docker.remoteMode")}<span class="shortcut-key-badge" aria-hidden="true">2</span>
         </button>
       </div>
 
@@ -97,8 +97,8 @@ export function dockerPage({ t, icon, state, pageTitle, pickerField, field, esca
             ${renderPicker(t("docker.customRoot"), "docker-custom-root", d.customRoot || (typeof navigator !== "undefined" && (navigator.platform?.includes("Win") || navigator.userAgent?.includes("Windows")) ? "C:\\ProgramData\\Docker" : "/var/lib/docker"), "folder")}
             <small class="field-hint" style="margin-top:8px;margin-bottom:16px;display:block;line-height:1.45;">${t("docker.customRootHint")}</small>
             <div class="button-row" style="margin-top:16px;">
-              <button class="primary-button" data-docker-action="scan-local" ${d.isScanning ? "disabled" : ""}>
-                ${icon("refresh")} ${d.isScanning ? t("docker.scanning") : t("docker.scan")}
+              <button class="primary-button" data-docker-action="scan-local" data-shortcut="S" ${d.isScanning ? "disabled" : ""}>
+                ${icon("refresh")} ${d.isScanning ? t("docker.scanning") : t("docker.scan")}<span class="shortcut-key-badge" aria-hidden="true">S</span>
               </button>
             </div>
           ` : `
@@ -109,8 +109,8 @@ export function dockerPage({ t, icon, state, pageTitle, pickerField, field, esca
             </div>
             ${renderField(t("workflow.token"), `<input class="input" id="docker-remote-token" type="password" placeholder="${t("workflow.tokenPlaceholder")}" value="${escapeHtml(d.remote.token)}" />`)}
             <div class="button-row" style="margin-top:14px;">
-              <button class="primary-button" data-docker-action="scan-remote" ${d.isScanning ? "disabled" : ""}>
-                ${icon("network")} ${d.isScanning ? t("docker.scanning") : t("docker.connectAndScan")}
+              <button class="primary-button" data-docker-action="scan-remote" data-shortcut="S" ${d.isScanning ? "disabled" : ""}>
+                ${icon("network")} ${d.isScanning ? t("docker.scanning") : t("docker.connectAndScan")}<span class="shortcut-key-badge" aria-hidden="true">S</span>
               </button>
             </div>
           `}
