@@ -372,14 +372,9 @@ pub fn select_profile(username: &str, open_directly: bool) -> AmeleResult<LocalP
     Ok(profile)
 }
 
-/// Aktif oturumu kapatır, profili profil deposundan tamamen kaldırır ve seçme ekranından siler.
+/// Aktif oturumu kapatır, aktif kullanıcı seçimini kaldırır ve profili koruyarak switch account ekranına yönlendirir.
 pub fn logout_profile() -> AmeleResult<()> {
     let mut store = load_profile_store()?;
-    if let Some(username) = store.active_username.clone() {
-        store.profiles.retain(|p| p.username != username);
-        let _ = remove_online_token(&username);
-        let _ = remove_online_api_base(&username);
-    }
     store.active_username = None;
     for profile in &mut store.profiles {
         profile.open_directly = false;
@@ -2030,6 +2025,52 @@ mod tests {
         assert_eq!(store.active_username.as_deref(), Some("test_analyst"));
         assert_eq!(store.profiles.len(), 1);
 
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_logout_profile_preserves_profiles_and_clears_active() {
+        let temp_dir =
+            std::env::temp_dir().join(format!("amele_logout_test_{}", std::process::id()));
+        let _ = fs::create_dir_all(&temp_dir);
+        let orig_home = std::env::var("HOME").ok();
+        unsafe {
+            std::env::set_var("HOME", &temp_dir);
+        }
+
+        let mut store = ProfileStore::default();
+        store.profiles.push(LocalProfile {
+            username: "deneme_user".to_string(),
+            full_name: "Deneme User".to_string(),
+            display_name: "Deneme".to_string(),
+            avatar_url: None,
+            language: "tr".to_string(),
+            theme: "dark".to_string(),
+            open_directly: true,
+            created_at: "2026-10-04 12:00:00".to_string(),
+            last_used_at: "2026-10-04 12:00:00".to_string(),
+            activity_log: vec![],
+            online: None,
+        });
+        store.active_username = Some("deneme_user".to_string());
+        save_profile_store(&store).unwrap();
+        set_active_profile(Some(store.profiles[0].clone()));
+
+        assert!(active_profile().is_some());
+        logout_profile().unwrap();
+
+        assert!(active_profile().is_none());
+        let loaded = load_profile_store().unwrap();
+        assert_eq!(loaded.active_username, None);
+        assert_eq!(loaded.profiles.len(), 1);
+        assert_eq!(loaded.profiles[0].username, "deneme_user");
+        assert!(!loaded.profiles[0].open_directly);
+
+        if let Some(h) = orig_home {
+            unsafe {
+                std::env::set_var("HOME", h);
+            }
+        }
         let _ = fs::remove_dir_all(&temp_dir);
     }
 }

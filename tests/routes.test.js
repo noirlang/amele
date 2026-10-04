@@ -9,7 +9,7 @@ const createMockElement = () => {
     classList: {
       add: () => {},
       toggle: () => {},
-      remove: () => {}
+      remove: () => {},
     },
     querySelectorAll: () => [],
     querySelector: () => el,
@@ -22,7 +22,9 @@ const createMockElement = () => {
     getAttribute: () => null,
     style: {},
     set innerHTML(val) {},
-    get innerHTML() { return ""; }
+    get innerHTML() {
+      return "";
+    },
   };
   return el;
 };
@@ -44,11 +46,11 @@ globalThis.window = {
     origin: "http://127.0.0.1:8080",
     protocol: "http:",
     host: "127.0.0.1:8080",
-    search: "?native=0&route=home"
+    search: "?native=0&route=home",
   },
   addEventListener: () => {},
   clearTimeout: (...args) => globalThis.clearTimeout(...args),
-  setTimeout: unrefSetTimeout
+  setTimeout: unrefSetTimeout,
 };
 globalThis.location = globalThis.window.location;
 globalThis.fetch = async (url) => {
@@ -59,8 +61,8 @@ globalThis.fetch = async (url) => {
     text: async () => JSON.stringify(dummy),
     json: async () => dummy,
     clone: () => ({
-      text: async () => JSON.stringify(dummy)
-    })
+      text: async () => JSON.stringify(dummy),
+    }),
   };
 };
 globalThis.window.fetch = globalThis.fetch;
@@ -68,8 +70,14 @@ if (typeof globalThis.navigator === "undefined") {
   globalThis.navigator = { userAgent: "Mozilla/5.0 (X11; Linux x86_64)", platform: "Linux x86_64" };
 } else {
   try {
-    Object.defineProperty(globalThis.navigator, "userAgent", { value: "Mozilla/5.0 (X11; Linux x86_64)", configurable: true });
-    Object.defineProperty(globalThis.navigator, "platform", { value: "Linux x86_64", configurable: true });
+    Object.defineProperty(globalThis.navigator, "userAgent", {
+      value: "Mozilla/5.0 (X11; Linux x86_64)",
+      configurable: true,
+    });
+    Object.defineProperty(globalThis.navigator, "platform", {
+      value: "Linux x86_64",
+      configurable: true,
+    });
   } catch (_) {}
 }
 globalThis.document = {
@@ -77,13 +85,13 @@ globalThis.document = {
     classList: {
       add: () => {},
       toggle: () => {},
-      remove: () => {}
+      remove: () => {},
     },
     lang: "tr",
-    set lang(v) {}
+    set lang(v) {},
   },
   body: {
-    appendChild: () => {}
+    appendChild: () => {},
   },
   createElement: () => mockElement,
   querySelector: () => mockElement,
@@ -93,14 +101,14 @@ globalThis.document = {
     if (event === "click") {
       clickListener = callback;
     }
-  }
+  },
 };
 const localStorageValues = new Map([["amele-language", "tr"]]);
 globalThis.localStorage = {
   getItem: (key) => localStorageValues.get(key) ?? null,
   setItem: (key, value) => localStorageValues.set(key, String(value)),
   removeItem: (key) => localStorageValues.delete(key),
-  clear: () => localStorageValues.clear()
+  clear: () => localStorageValues.clear(),
 };
 
 test("Frontend Routing and Module Health", async (t) => {
@@ -109,12 +117,12 @@ test("Frontend Routing and Module Health", async (t) => {
       SELECTED_AGENT_STORAGE_KEY,
       getPersistedAgentId,
       persistAgentId,
-      resolveAvailableAgent
+      resolveAvailableAgent,
     } = await import("../ui/core/agent.js");
     const agents = [
       { id: "agy", installed: true },
       { id: "codex", installed: true },
-      { id: "claude", installed: false }
+      { id: "claude", installed: false },
     ];
 
     persistAgentId("codex");
@@ -156,7 +164,11 @@ test("Frontend Routing and Module Health", async (t) => {
     assert.strictEqual(typeof detailPanel, "function", "detailPanel should be a function");
 
     const { renderReportSidebar } = await import("../ui/pages/reportSidebar.js");
-    assert.strictEqual(typeof renderReportSidebar, "function", "renderReportSidebar should be a function");
+    assert.strictEqual(
+      typeof renderReportSidebar,
+      "function",
+      "renderReportSidebar should be a function"
+    );
 
     const { remoteAcqPage } = await import("../ui/tools/remote-acq/index.js");
     assert.strictEqual(typeof remoteAcqPage, "function", "remoteAcqPage should be a function");
@@ -177,13 +189,16 @@ test("Frontend Routing and Module Health", async (t) => {
       assetPath: "/assets",
       theme: "dark",
       state: {
-        news: [{ id: "n1", slug: "amele-v0-0-19", title: "Test Announcement" }]
-      }
+        news: [{ id: "n1", slug: "amele-v0-0-19", title: "Test Announcement" }],
+      },
     });
     assert.ok(rendered.includes("news-h-title"), "news title should be rendered");
     assert.ok(!rendered.includes("data-news-h-scroll"), "scroll buttons should not be rendered");
     assert.ok(rendered.includes("data-news-link"), "data-news-link attribute should be present");
-    assert.ok(rendered.includes("amele.noirlang.tr/news/amele-v0-0-19"), "link should point to news url");
+    assert.ok(
+      rendered.includes("amele.noirlang.tr/news/amele-v0-0-19"),
+      "link should point to news url"
+    );
   });
 
   await t.test("app.js initializes and executes without crashing", async () => {
@@ -218,7 +233,7 @@ test("Frontend Routing and Module Health", async (t) => {
       "android:filesystem",
       "android:ram",
       "android:diagnostics",
-      "android:mft"
+      "android:mft",
     ];
 
     for (const route of routesList) {
@@ -230,8 +245,8 @@ test("Frontend Routing and Module Health", async (t) => {
               return { dataset: { route } };
             }
             return null;
-          }
-        }
+          },
+        },
       };
 
       // This will invoke setRoute and render() in app.js
@@ -242,31 +257,55 @@ test("Frontend Routing and Module Health", async (t) => {
   });
 
   await t.test("developer panel functions can be invoked without crashing", async () => {
-    const { openDevPanel, closeDevPanel, toggleDevPanel, handleDevTrigger, devLog } = await import("../ui/developer.js");
+    const { openDevPanel, closeDevPanel, toggleDevPanel, handleDevTrigger, devLog } =
+      await import("../ui/developer.js");
     assert.strictEqual(typeof openDevPanel, "function", "openDevPanel should be a function");
     assert.strictEqual(typeof closeDevPanel, "function", "closeDevPanel should be a function");
     assert.strictEqual(typeof toggleDevPanel, "function", "toggleDevPanel should be a function");
-    assert.strictEqual(typeof handleDevTrigger, "function", "handleDevTrigger should be a function");
+    assert.strictEqual(
+      typeof handleDevTrigger,
+      "function",
+      "handleDevTrigger should be a function"
+    );
     assert.strictEqual(typeof devLog, "function", "devLog should be a function");
 
     assert.doesNotThrow(() => {
-      devLog("info", "test-scope", "test message", () => Promise.resolve({}), () => false);
-      handleDevTrigger(() => Promise.resolve({}), () => false);
+      devLog(
+        "info",
+        "test-scope",
+        "test message",
+        () => Promise.resolve({}),
+        () => false
+      );
+      handleDevTrigger(
+        () => Promise.resolve({}),
+        () => false
+      );
     });
   });
 
   await t.test("tools modules and action handlers execute without crashing", async () => {
     const { windowsPage } = await import("../ui/tools/windows/index.js");
     const { linuxPage } = await import("../ui/tools/linux/index.js");
-    const { dockerPage, handleDockerAction, dockerState } = await import("../ui/tools/docker/index.js");
-    const { handleAndroidAction, syncAndroidDeviceSelection } = await import("../ui/tools/android/index.js");
+    const { dockerPage, handleDockerAction, dockerState } =
+      await import("../ui/tools/docker/index.js");
+    const { handleAndroidAction, syncAndroidDeviceSelection } =
+      await import("../ui/tools/android/index.js");
     const { handleIosAction, syncIosBackupPathInput } = await import("../ui/tools/ios/index.js");
 
     assert.strictEqual(typeof windowsPage, "function", "windowsPage should be a function");
     assert.strictEqual(typeof linuxPage, "function", "linuxPage should be a function");
     assert.strictEqual(typeof dockerPage, "function", "dockerPage should be a function");
-    assert.strictEqual(typeof handleDockerAction, "function", "handleDockerAction should be a function");
-    assert.strictEqual(typeof handleAndroidAction, "function", "handleAndroidAction should be a function");
+    assert.strictEqual(
+      typeof handleDockerAction,
+      "function",
+      "handleDockerAction should be a function"
+    );
+    assert.strictEqual(
+      typeof handleAndroidAction,
+      "function",
+      "handleAndroidAction should be a function"
+    );
     assert.strictEqual(typeof handleIosAction, "function", "handleIosAction should be a function");
 
     // Test docker filter & mode changes
@@ -277,14 +316,14 @@ test("Frontend Routing and Module Health", async (t) => {
             return { dataset: { dockerAction: "set-filter", filter: "running" } };
           }
           return null;
-        }
-      }
+        },
+      },
     };
     await handleDockerAction(fakeEvent, {
       apiRequest: () => Promise.resolve({}),
       setRoute: () => {},
       render: () => {},
-      state: {}
+      state: {},
     });
     assert.strictEqual(dockerState.filter, "running");
 
@@ -292,103 +331,134 @@ test("Frontend Routing and Module Health", async (t) => {
     dockerState.filter = "all";
   });
 
-  await t.test("profile onboarding wizard and profile selection actions execute safely", async () => {
-    // Simulate clicking profile create start
-    assert.doesNotThrow(() => {
-      clickListener({
-        target: {
-          closest: (sel) => {
-            if (sel === "[data-action]" || sel === "button") {
-              return { dataset: { action: "profile-create-start" } };
-            }
-            return null;
-          }
-        }
+  await t.test(
+    "profile onboarding wizard and profile selection actions execute safely",
+    async () => {
+      // Simulate clicking profile create start
+      assert.doesNotThrow(() => {
+        clickListener({
+          target: {
+            closest: (sel) => {
+              if (sel === "[data-action]" || sel === "button") {
+                return { dataset: { action: "profile-create-start" } };
+              }
+              return null;
+            },
+          },
+        });
       });
-    });
 
-    // Simulate wizard language toggle
-    assert.doesNotThrow(() => {
-      clickListener({
-        target: {
-          closest: (sel) => {
-            if (sel === "[data-action]" || sel === "button") {
-              return { dataset: { action: "wizard-set-lang", lang: "en" } };
-            }
-            return null;
-          }
-        }
+      // Simulate wizard language toggle
+      assert.doesNotThrow(() => {
+        clickListener({
+          target: {
+            closest: (sel) => {
+              if (sel === "[data-action]" || sel === "button") {
+                return { dataset: { action: "wizard-set-lang", lang: "en" } };
+              }
+              return null;
+            },
+          },
+        });
       });
-    });
 
-    // Simulate wizard next step
-    assert.doesNotThrow(() => {
-      clickListener({
-        target: {
-          closest: (sel) => {
-            if (sel === "[data-action]" || sel === "button") {
-              return { dataset: { action: "wizard-step-next" } };
-            }
-            return null;
-          }
-        }
+      // Simulate wizard next step
+      assert.doesNotThrow(() => {
+        clickListener({
+          target: {
+            closest: (sel) => {
+              if (sel === "[data-action]" || sel === "button") {
+                return { dataset: { action: "wizard-step-next" } };
+              }
+              return null;
+            },
+          },
+        });
       });
-    });
 
-    // Simulate wizard theme toggle (animasyonlu toggle)
-    assert.doesNotThrow(() => {
-      clickListener({
-        target: {
-          closest: (sel) => {
-            if (sel === "[data-action]" || sel === "button") {
-              return { dataset: { action: "wizard-theme-toggle" } };
-            }
-            return null;
-          }
-        }
+      // Simulate wizard theme toggle (animasyonlu toggle)
+      assert.doesNotThrow(() => {
+        clickListener({
+          target: {
+            closest: (sel) => {
+              if (sel === "[data-action]" || sel === "button") {
+                return { dataset: { action: "wizard-theme-toggle" } };
+              }
+              return null;
+            },
+          },
+        });
       });
-    });
 
-    // Simulate wizard online choice no (yerel kullanıcı adı adımına geçiş)
-    assert.doesNotThrow(() => {
-      clickListener({
-        target: {
-          closest: (sel) => {
-            if (sel === "[data-action]" || sel === "button") {
-              return { dataset: { action: "wizard-online-choice-no" } };
-            }
-            return null;
-          }
-        }
+      // Simulate wizard online choice no (yerel kullanıcı adı adımına geçiş)
+      assert.doesNotThrow(() => {
+        clickListener({
+          target: {
+            closest: (sel) => {
+              if (sel === "[data-action]" || sel === "button") {
+                return { dataset: { action: "wizard-online-choice-no" } };
+              }
+              return null;
+            },
+          },
+        });
       });
-    });
 
-    // Simulate wizard online choice yes (online giriş adımına geçiş)
-    assert.doesNotThrow(() => {
-      clickListener({
-        target: {
-          closest: (sel) => {
-            if (sel === "[data-action]" || sel === "button") {
-              return { dataset: { action: "wizard-online-choice-yes" } };
-            }
-            return null;
-          }
-        }
+      // Simulate wizard online choice yes (online giriş adımına geçiş)
+      assert.doesNotThrow(() => {
+        clickListener({
+          target: {
+            closest: (sel) => {
+              if (sel === "[data-action]" || sel === "button") {
+                return { dataset: { action: "wizard-online-choice-yes" } };
+              }
+              return null;
+            },
+          },
+        });
       });
-    });
 
-    // Simulate wizard back button
-    assert.doesNotThrow(() => {
-      clickListener({
-        target: {
-          closest: (sel) => {
-            if (sel === "[data-action]" || sel === "button") {
-              return { dataset: { action: "wizard-step-prev" } };
-            }
-            return null;
-          }
-        }
+      // Simulate wizard back button
+      assert.doesNotThrow(() => {
+        clickListener({
+          target: {
+            closest: (sel) => {
+              if (sel === "[data-action]" || sel === "button") {
+                return { dataset: { action: "wizard-step-prev" } };
+              }
+              return null;
+            },
+          },
+        });
       });
-    });
-  });
+
+      // Simulate profile-select action
+      assert.doesNotThrow(() => {
+        clickListener({
+          target: {
+            closest: (sel) => {
+              if (sel === "[data-action]" || sel === "button") {
+                return { dataset: { action: "profile-select", username: "test_analyst" } };
+              }
+              return null;
+            },
+          },
+        });
+      });
+
+      // Simulate profile-logout action
+      assert.doesNotThrow(() => {
+        clickListener({
+          target: {
+            closest: (sel) => {
+              if (sel === "[data-action]" || sel === "button") {
+                return { dataset: { action: "profile-logout" } };
+              }
+              return null;
+            },
+          },
+        });
+      });
+    }
+  );
 });
