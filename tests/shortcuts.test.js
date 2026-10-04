@@ -559,4 +559,76 @@ test("Keyboard Shortcuts System", async (t) => {
     document.querySelector = origQuerySelector;
     controller.destroy();
   });
+
+  await t.test("In-page shortcut takes priority over routeMap (e.g. Shift+D triggers theme toggle)", () => {
+    let themeToggleClicked = false;
+    let routeSet = null;
+    const mockThemeBtn = {
+      click: () => { themeToggleClicked = true; },
+      classList: { contains: () => false },
+      disabled: false
+    };
+
+    const origQuerySelector = document.querySelector;
+    document.querySelector = (sel) => {
+      if (sel.includes('.page [data-shortcut="D" i]')) return mockThemeBtn;
+      return null;
+    };
+
+    const controller = initKeyboardShortcuts({
+      setRoute: (r) => { routeSet = r; }
+    });
+
+    window._dispatch("keydown", {
+      key: "D",
+      code: "KeyD",
+      shiftKey: true,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+      target: { tagName: "BODY" }
+    });
+
+    assert.strictEqual(themeToggleClicked, true, "Theme toggle button must be clicked");
+    assert.strictEqual(routeSet, null, "Should not navigate to docker route when in-page D shortcut exists");
+
+    document.querySelector = origQuerySelector;
+    controller.destroy();
+  });
+
+  await t.test("Escape key triggers android back button", () => {
+    let backClicked = false;
+    const mockBackBtn = {
+      click: () => { backClicked = true; }
+    };
+
+    const origQuerySelector = document.querySelector;
+    document.querySelector = (sel) => {
+      if (sel.includes(".android-back-button")) return mockBackBtn;
+      return null;
+    };
+
+    const controller = initKeyboardShortcuts();
+
+    window._dispatch("keydown", {
+      key: "Escape",
+      code: "Escape",
+      preventDefault: () => {},
+      stopPropagation: () => {},
+      target: { tagName: "BODY" }
+    });
+
+    assert.strictEqual(backClicked, true, "Android back button must be clicked on Escape");
+
+    document.querySelector = origQuerySelector;
+    controller.destroy();
+  });
+
+  await t.test("getContributorFallbackPhoto returns distinct local photos per developer", async () => {
+    const { getContributorFallbackPhoto } = await import("../ui/pages/other.js");
+    assert.strictEqual(getContributorFallbackPhoto({ id: "melih-emik" }), "assets/contributors/melih-emik.jpg");
+    assert.strictEqual(getContributorFallbackPhoto({ id: "m-ali-guner", name: "MuhammetAli Güner" }), "assets/contributors/muhammet-ali-guner.jpg");
+    assert.strictEqual(getContributorFallbackPhoto({ id: "toretto", name: "Abdulhalim Altuntaş" }), "assets/contributors/abdulhalim.jpg");
+    assert.strictEqual(getContributorFallbackPhoto({ id: "yusuf", name: "Yusuf Tunçel" }), "assets/contributors/yusuf-tuncel.jpg");
+  });
 });
+
