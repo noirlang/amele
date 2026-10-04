@@ -1,7 +1,7 @@
 //! disk imajı alan yer. blok blok okuyup raw/dd yazıyo, okurken aynı anda sha256 hesaplıyo diski bi daha okumayalım diye.
 
 use crate::error::{AmeleError, AmeleResult, HataKodu};
-use crate::hash::{to_hex, write_sha256_sidecar};
+use crate::hash::{to_hex, write_blake3_sidecar, write_sha256_sidecar};
 use crate::logging::{LogLevel, runtime_log};
 use digest::Digest;
 use serde::{Deserialize, Serialize};
@@ -37,6 +37,7 @@ pub struct DiskAcquisitionTask {
     pub size: Option<u64>,
     pub chunk_size: usize,
     pub calculate_hash: bool,
+    pub calculate_blake3: bool,
     pub full_disk: bool,
 }
 
@@ -47,6 +48,8 @@ pub struct DiskAcquisitionResult {
     pub bytes_copied: u64,
     pub total_bytes: u64,
     pub sha256: Option<String>,
+    #[serde(default)]
+    pub blake3: Option<String>,
     pub partial_path: Option<PathBuf>,
 }
 
@@ -60,8 +63,15 @@ impl DiskAcquisitionTask {
             size: None,
             chunk_size: DEFAULT_READ_CHUNK,
             calculate_hash: true,
+            calculate_blake3: true,
             full_disk: true,
         }
+    }
+
+    /// BLAKE3 hash hesaplama bayrağını ayarlar.
+    pub fn with_blake3(mut self, enabled: bool) -> Self {
+        self.calculate_blake3 = enabled;
+        self
     }
 }
 
@@ -204,6 +214,7 @@ where
     let mut buffer = vec![0_u8; chunk_size];
     let mut copied = 0_u64;
     let mut sha256 = task.calculate_hash.then(Sha256::new);
+    let mut blake3 = task.calculate_blake3.then(blake3::Hasher::new);
     let mut success = false;
     let mut cancelled = false;
 
@@ -266,6 +277,9 @@ where
             return Err(w_err);
         }
 
+        if let Some(ctx) = &mut blake3 {
+            ctx.update(&buffer[..read]);
+        }
         if let Some(ctx) = &mut sha256 {
             ctx.update(&buffer[..read]);
         }
@@ -292,6 +306,7 @@ where
     drop(target);
 
     let mut hash_value = None;
+    let mut blake3_value = None;
     if copied == total && !cancelled {
         if let Some(ctx) = sha256 {
             let hash = to_hex(&ctx.finalize());
@@ -310,6 +325,16 @@ where
             })?;
             hash_value = Some(hash);
         }
+        if let Some(ctx) = blake3 {
+            let hash = to_hex(ctx.finalize().as_bytes());
+            runtime_log(
+                LogLevel::Info,
+                "disk",
+                format!("BLAKE3 hash hesaplandi: {}. Sidecar yaziliyor.", hash),
+            );
+            let _ = write_blake3_sidecar(&task.target, &hash);
+            blake3_value = Some(hash);
+        }
         success = true;
     }
 
@@ -327,6 +352,7 @@ where
             bytes_copied: copied,
             total_bytes: total,
             sha256: hash_value,
+            blake3: blake3_value,
             partial_path: None,
         })
     } else {
@@ -355,16 +381,46 @@ where
 
 /// Oluşturulan imajın SHA256 değerini beklenen değerle karşılaştırır.
 pub fn verify_image(image_path: impl AsRef<Path>, expected_sha256: &str) -> AmeleResult<bool> {
+    verify_image_with_algorithm(
+        image_path,
+        expected_sha256,
+        crate::hash::HashAlgorithm::Sha256,
+    )
+}
+
+/// Oluşturulan imajın BLAKE3 değerini beklenen değerle karşılaştırır.
+pub fn verify_image_blake3(
+    image_path: impl AsRef<Path>,
+    expected_blake3: &str,
+) -> AmeleResult<bool> {
+    verify_image_with_algorithm(
+        image_path,
+        expected_blake3,
+        crate::hash::HashAlgorithm::Blake3,
+    )
+}
+
+/// İmaj dosyasını belirtilen algoritmayla karşılaştırır (SIMD hızlandırmalı BLAKE3 dahil).
+pub fn verify_image_with_algorithm(
+    image_path: impl AsRef<Path>,
+    expected_hash: &str,
+    algorithm: crate::hash::HashAlgorithm,
+) -> AmeleResult<bool> {
     runtime_log(
         LogLevel::Info,
         "disk",
         format!(
-            "Imaj dogrulamasi baslatildi: {}",
+            "Imaj dogrulamasi baslatildi ({} - SIMD: {}): {}",
+            algorithm.name(),
+            if algorithm == crate::hash::HashAlgorithm::Blake3 {
+                crate::hash::blake3_simd_instruction_set()
+            } else {
+                "Standart"
+            },
             image_path.as_ref().display()
         ),
     );
-    let actual = crate::hash::calculate_file_hash(image_path, crate::hash::HashAlgorithm::Sha256)
-        .map_err(|err| {
+    let actual = crate::hash::calculate_file_hash(image_path, algorithm).map_err(|err| {
         runtime_log(
             LogLevel::Error,
             "disk",
@@ -372,12 +428,12 @@ pub fn verify_image(image_path: impl AsRef<Path>, expected_sha256: &str) -> Amel
         );
         err
     })?;
-    let matched = actual.eq_ignore_ascii_case(expected_sha256);
+    let matched = actual.eq_ignore_ascii_case(expected_hash);
     if matched {
         runtime_log(
             LogLevel::Info,
             "disk",
-            "Imaj dogrulamasi basarili (SHA256 eslesti).",
+            format!("Imaj dogrulamasi basarili ({} eslesti).", algorithm.name()),
         );
     } else {
         runtime_log(
@@ -385,11 +441,24 @@ pub fn verify_image(image_path: impl AsRef<Path>, expected_sha256: &str) -> Amel
             "disk",
             format!(
                 "Imaj dogrulamasi basarisiz. Beklenen: {}, Bulunan: {}",
-                expected_sha256, actual
+                expected_hash, actual
             ),
         );
     }
     Ok(matched)
+}
+
+/// İmaj dosyasının yanındaki sidecar hash dosyası (.b3sum, .blake3, .sha256 vb.) üzerinden otomatik doğrular.
+pub fn verify_image_auto(image_path: impl AsRef<Path>) -> AmeleResult<bool> {
+    let path = image_path.as_ref();
+    if let Some((expected_hash, alg)) = crate::hash::detect_sidecar_hash(path)? {
+        verify_image_with_algorithm(path, &expected_hash, alg)
+    } else {
+        Err(AmeleError::new(
+            HataKodu::DosyaAcilamadi,
+            format!("Sidecar hash dosyasi bulunamadi: {}", path.display()),
+        ))
+    }
 }
 
 /// Eski tekil disk edinim akışını iptal etmek için global bayrağı işaretler.
@@ -705,7 +774,10 @@ mod tests {
         assert_eq!(result.bytes_copied, 9);
         assert_eq!(fs::read(&target).unwrap(), b"disk-data");
         assert!(PathBuf::from(format!("{}.sha256", target.display())).exists());
+        assert!(PathBuf::from(format!("{}.b3sum", target.display())).exists());
         assert!(verify_image(&target, result.sha256.as_ref().unwrap()).unwrap());
+        assert!(verify_image_blake3(&target, result.blake3.as_ref().unwrap()).unwrap());
+        assert!(verify_image_auto(&target).unwrap());
     }
 
     #[test]
