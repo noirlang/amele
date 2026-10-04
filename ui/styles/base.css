@@ -176,9 +176,542 @@
 }
 
 .profile-avatar.large {
-  width: 68px;
-  height: 68px;
-  font-size: 22px;
+  width: 84px;
+  height: 84px;
+  font-size: 28px;
+}
+
+/* --- Yenilenen Profil Seçim ve Büyük Ekran Kurulum Sihirbazı --- */
+.profile-select-container {
+  width: min(840px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 28px;
+  animation: wizardFadeIn 0.3s ease;
+}
+
+.profile-select-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-select-logo {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.18));
+}
+
+.profile-select-title {
+  font-size: clamp(24px, 3.5vw, 32px);
+  font-weight: 700;
+  margin: 0;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.profile-select-desc {
+  font-size: 15px;
+  color: var(--muted);
+  margin: 0;
+  max-width: 480px;
+}
+
+.profile-cards-grid {
+  display: grid;
+  gap: 20px;
+  width: 100%;
+  justify-content: center;
+  margin: 8px 0;
+}
+
+.profile-cards-1 {
+  grid-template-columns: minmax(260px, 320px);
+}
+
+.profile-cards-2 {
+  grid-template-columns: repeat(2, minmax(240px, 340px));
+}
+
+.profile-cards-3 {
+  grid-template-columns: repeat(3, minmax(200px, 260px));
+}
+
+.profile-cards-grid:not(.profile-cards-1):not(.profile-cards-2):not(.profile-cards-3) {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.profile-select-card {
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 24px;
+  padding: 28px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.profile-select-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--accent);
+}
+
+.profile-select-card:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.profile-select-card-avatar {
+  position: relative;
+}
+
+.profile-online-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.profile-online-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+.profile-select-card-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.profile-select-card-name {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.profile-select-card-user {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.profile-select-card-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-top: 4px;
+}
+
+.profile-select-card-status svg {
+  width: 13px;
+  height: 13px;
+}
+
+.profile-select-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+}
+
+.profile-gate-check {
+  margin: 4px 0 0;
+}
+
+.profile-gate-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.profile-action-btn {
+  min-height: 48px;
+  padding: 0 28px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* --- Fullscreen Kurulum Sihirbazı (Wizard) --- */
+.profile-wizard-container {
+  width: min(680px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 24px;
+  padding: 24px 16px;
+  animation: wizardFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes wizardFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.wizard-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.wizard-logo {
+  width: 58px;
+  height: 58px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
+}
+
+.wizard-step-indicators {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.wizard-step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line);
+  transition: all 0.3s ease;
+}
+
+.wizard-step-dot.is-active {
+  background: var(--accent);
+  width: 26px;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.wizard-step-dot.is-completed {
+  background: var(--accent);
+  opacity: 0.65;
+}
+
+.wizard-title {
+  font-size: clamp(24px, 3.8vw, 32px);
+  font-weight: 600;
+  margin: 0;
+  color: var(--text);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.wizard-subtitle {
+  font-size: 15px;
+  color: var(--muted);
+  margin: 4px 0 0;
+  max-width: 520px;
+}
+
+/* Step 1: Dil Seçimi */
+.wizard-choice-group {
+  display: grid;
+  gap: 20px;
+  justify-content: center;
+  width: 100%;
+  margin: 12px 0;
+}
+
+.wizard-language-group {
+  grid-template-columns: repeat(2, minmax(150px, 200px));
+}
+
+.wizard-choice-card {
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 22px;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.wizard-choice-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.wizard-choice-card.is-selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--card));
+  box-shadow: 0 0 0 2px var(--accent), 0 8px 24px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.wizard-flag-img {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+  pointer-events: none;
+}
+
+.wizard-choice-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Step 2: Tema Seçimi */
+.wizard-theme-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+}
+
+.wizard-dn-toggle-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 8px 0;
+}
+
+.wizard-day-night {
+  transform: scale(1.15);
+}
+
+.wizard-theme-group {
+  grid-template-columns: repeat(2, minmax(150px, 200px));
+}
+
+.wizard-theme-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--input-bg);
+  color: var(--text);
+}
+
+.wizard-theme-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Step 3: Ad Soyad & Inputs */
+.wizard-input-center-wrap {
+  width: min(480px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin: 12px 0;
+}
+
+.wizard-input-large {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--line);
+  font-size: clamp(20px, 3.5vw, 26px);
+  font-weight: 600;
+  text-align: center;
+  padding: 12px 16px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s ease;
+  font-family: inherit;
+}
+
+.wizard-input-large:focus {
+  border-bottom-color: var(--accent);
+}
+
+.wizard-username-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: var(--input-bg);
+  border: 1px solid var(--line);
+}
+
+.wizard-username-prefix {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.wizard-input-username {
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  outline: none;
+  width: 160px;
+  font-family: inherit;
+}
+
+/* Step 4: Online Soru Seçenekleri */
+.wizard-online-prompt-group {
+  grid-template-columns: repeat(2, minmax(200px, 270px));
+}
+
+.wizard-prompt-card {
+  padding: 28px 20px;
+  text-align: center;
+}
+
+.wizard-prompt-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--accent) 12%, var(--input-bg));
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.wizard-prompt-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.wizard-choice-desc {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+/* Step 6: Şifre alanı */
+.wizard-pwd-container {
+  width: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.wizard-pwd-eye {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 8px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  transition: color 0.2s ease;
+}
+
+.wizard-pwd-eye:hover {
+  color: var(--text);
+}
+
+.wizard-pwd-eye svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Wizard Alt Butonlar */
+.wizard-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.wizard-btn-next {
+  min-width: 170px;
+  min-height: 50px;
+  padding: 0 36px;
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 22px color-mix(in srgb, var(--accent) 35%, transparent);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.wizard-btn-next:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.wizard-btn-next:active {
+  transform: translateY(0);
+}
+
+.wizard-btn-back {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 18px;
+  border-radius: 999px;
+  transition: color 0.2s ease;
+}
+
+.wizard-btn-back:hover {
+  color: var(--text);
 }
 
 .profile-avatar.small-header {

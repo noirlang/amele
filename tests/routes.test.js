@@ -291,4 +291,76 @@ test("Frontend Routing and Module Health", async (t) => {
     // Reset filter
     dockerState.filter = "all";
   });
+
+  await t.test("profile onboarding wizard and profile selection actions execute safely", async () => {
+    // Simulate clicking profile create start
+    assert.doesNotThrow(() => {
+      clickListener({
+        target: {
+          closest: (sel) => {
+            if (sel === "[data-action]" || sel === "button") {
+              return { dataset: { action: "profile-create-start" } };
+            }
+            return null;
+          }
+        }
+      });
+    });
+
+    // Simulate wizard language toggle
+    assert.doesNotThrow(() => {
+      clickListener({
+        target: {
+          closest: (sel) => {
+            if (sel === "[data-action]" || sel === "button") {
+              return { dataset: { action: "wizard-set-lang", lang: "en" } };
+            }
+            return null;
+          }
+        }
+      });
+    });
+
+    // Simulate wizard next step
+    assert.doesNotThrow(() => {
+      clickListener({
+        target: {
+          closest: (sel) => {
+            if (sel === "[data-action]" || sel === "button") {
+              return { dataset: { action: "wizard-step-next" } };
+            }
+            return null;
+          }
+        }
+      });
+    });
+
+    // Simulate wizard theme selection
+    assert.doesNotThrow(() => {
+      clickListener({
+        target: {
+          closest: (sel) => {
+            if (sel === "[data-action]" || sel === "button") {
+              return { dataset: { action: "wizard-set-theme", theme: "dark" } };
+            }
+            return null;
+          }
+        }
+      });
+    });
+
+    // Simulate wizard back button
+    assert.doesNotThrow(() => {
+      clickListener({
+        target: {
+          closest: (sel) => {
+            if (sel === "[data-action]" || sel === "button") {
+              return { dataset: { action: "wizard-step-prev" } };
+            }
+            return null;
+          }
+        }
+      });
+    });
+  });
 });

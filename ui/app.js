@@ -102,10 +102,16 @@ const state = {
   mobileToolsAccess: { allowed: false, reason: "" },
   profileGateVisible: false,
   profileGateMode: "select",
+  wizardStep: 1,
+  wizardMode: "create",
   profileDraft: {
     fullName: "",
     username: "",
+    usernameManual: false,
     onlineIdentifier: "",
+    onlinePassword: "",
+    language: preferredLanguage,
+    theme: preferredTheme,
     openDirectly: false
   },
   imageMount: null,
@@ -394,13 +400,17 @@ async function loadProfiles() {
       hideProfileGate();
     } else {
       state.mobileToolsAccess = { allowed: false, reason: "" };
-      state.profileGateMode = state.profiles.length ? "select" : "create";
+      state.profileGateMode = state.profiles.length ? "select" : "wizard";
+      state.wizardStep = 1;
+      state.wizardMode = "create";
       showProfileGate();
     }
     syncProfileButton();
   } catch (error) {
     devLog("ERROR", "ui:profile", `Profil listesi yüklenemedi: ${error.message}`, apiRequest, backendReady);
-    state.profileGateMode = "create";
+    state.profileGateMode = "wizard";
+    state.wizardStep = 1;
+    state.wizardMode = "create";
     showProfileGate(t("profile.loadFailed", { message: error.message }));
   }
 }
@@ -418,131 +428,338 @@ function hideProfileGate() {
   }
 }
 
+function slugifyUsername(fullName) {
+  if (!fullName) return "";
+  const trMap = { ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u", Ç: "c", Ğ: "g", İ: "i", I: "i", Ö: "o", Ş: "s", Ü: "u" };
+  const normalized = String(fullName).replace(/[çğışüöÇĞİŞÜÖ]/g, (c) => trMap[c] || c);
+  return normalized
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 32);
+}
+
 function renderProfileGate(errorMessage = "") {
   if (!profileGate) return;
   profileGate.hidden = false;
-  const isOnline = state.profileGateMode === "online";
-  const isCreate = !isOnline && (state.profileGateMode === "create" || !state.profiles.length);
+
+  if (state.profileGateMode === "select" && state.profiles.length > 0) {
+    renderProfileSelectView(errorMessage);
+  } else {
+    state.profileGateMode = "wizard";
+    renderProfileWizardView(errorMessage);
+  }
+  hydrateIcons(profileGate);
+  attachProfileGateEvents();
+}
+
+function renderProfileSelectView(errorMessage = "") {
+  const count = state.profiles.length;
+  const countClass = count === 1 ? "profile-cards-1" : (count === 2 ? "profile-cards-2" : (count === 3 ? "profile-cards-3" : ""));
   const cards = state.profiles.map((profile) => `
-    <button class="profile-card" data-action="profile-select" data-username="${escapeHtml(profile.username)}">
-      <span class="profile-card-top">
-        ${renderProfileAvatar(profile)}
-        ${profile.online ? `<span class="online-profile-mark" title="${escapeHtml(t("profile.onlineConnectedShort"))}">${icon("globe")}</span>` : ""}
-      </span>
-      <strong>${escapeHtml(profile.full_name || profile.username)}</strong>
-      <small>@${escapeHtml(profile.username)}</small>
-      ${profile.online ? `<small class="profile-card-status">${icon("globe")} ${profile.online.status === "offline" ? "Offline" : (profile.online.status === "session_expired" ? "Offline (Oturum Doldu)" : t("profile.onlineAccount"))} @${escapeHtml(profile.online.username || "-")}</small>` : ""}
+    <button class="profile-select-card" data-action="profile-select" data-username="${escapeHtml(profile.username)}">
+      <div class="profile-select-card-avatar">
+        ${renderProfileAvatar(profile, "large")}
+        ${profile.online ? `<span class="profile-online-badge" title="${escapeHtml(t("profile.onlineConnectedShort"))}">${icon("globe")}</span>` : ""}
+      </div>
+      <div class="profile-select-card-meta">
+        <strong class="profile-select-card-name">${escapeHtml(profile.full_name || profile.username)}</strong>
+        <span class="profile-select-card-user">@${escapeHtml(profile.username)}</span>
+        ${profile.online ? `<span class="profile-select-card-status">${icon("globe")} ${profile.online.status === "offline" ? "Offline" : (profile.online.status === "session_expired" ? "Offline (Oturum Doldu)" : t("profile.onlineAccount"))} @${escapeHtml(profile.online.username || "-")}</span>` : ""}
+      </div>
     </button>
   `).join("");
+
   profileGate.innerHTML = `
-    <section class="profile-gate-card">
-      <div class="profile-gate-head">
-        <img src="./assets/logo/${state.theme === "light" ? "logo-siyah.png" : "logo.png"}" alt="Amele" />
-        <div>
-          <h1>${t(isOnline ? "profile.onlineTitle" : (isCreate ? "profile.createTitle" : "profile.selectTitle"))}</h1>
-          <p>${t(isOnline ? "profile.onlineDesc" : (isCreate ? "profile.createDesc" : "profile.selectDesc"))}</p>
-        </div>
+    <section class="profile-select-container">
+      <div class="profile-select-top">
+        <img src="./assets/logo/${state.theme === "light" ? "logo-siyah.png" : "logo.png"}" alt="Amele" class="profile-select-logo" />
+        <h1 class="profile-select-title">${t("profile.selectTitle")}</h1>
+        <p class="profile-select-desc">${t("profile.selectDesc")}</p>
       </div>
       ${errorMessage ? `<div class="error-panel">${escapeHtml(errorMessage)}</div>` : ""}
-      ${isOnline ? onlineProfileFormHtml() : (isCreate ? profileFormHtml() : `
-        <div class="profile-list">${cards}</div>
-        <label class="check-row">
+      <div class="profile-cards-grid ${countClass}">${cards}</div>
+      <div class="profile-select-bottom">
+        <label class="check-row profile-gate-check">
           <input type="checkbox" id="profile-open-directly" />
           <span>${t("profile.openDirectly")}</span>
         </label>
-        <div class="button-row">
-          <button class="secondary-button" data-action="profile-create-start">${icon("user")} ${t("profile.newProfile")}</button>
-          <button class="primary-button" data-action="profile-online-start">${icon("globe")} ${t("profile.onlineConnect")}</button>
+        <div class="profile-gate-actions">
+          <button class="primary-button profile-action-btn" data-action="profile-create-start">
+            ${icon("user")} ${t("profile.newProfile")}
+          </button>
+          <button class="secondary-button profile-action-btn" data-action="profile-online-start">
+            ${icon("globe")} ${t("profile.onlineConnect")}
+          </button>
         </div>
-      `)}
+      </div>
     </section>
   `;
-  hydrateIcons(profileGate);
 }
 
-function profileFormHtml() {
+function renderProfileWizardView(errorMessage = "") {
+  const isOnlineMode = state.wizardMode === "online";
+  const step = state.wizardStep || 1;
   const draft = state.profileDraft || {};
-  const draftLanguage = draft.language || state.language;
-  const draftTheme = draft.theme || state.theme;
-  return `
-    <div class="profile-form">
-      ${field(t("settings.language"), `
-        <select id="profile-language" class="select">
-          <option value="tr" ${draftLanguage === "tr" ? "selected" : ""}>Türkçe</option>
-          <option value="en" ${draftLanguage === "en" ? "selected" : ""}>English</option>
-        </select>
-      `)}
-      ${field(t("settings.darkTheme"), `
-        <select id="profile-theme" class="select">
-          <option value="dark" ${draftTheme !== "light" ? "selected" : ""}>${t("profile.themeDark")}</option>
-          <option value="light" ${draftTheme === "light" ? "selected" : ""}>${t("profile.themeLight")}</option>
-        </select>
-      `)}
-      ${field(t("profile.fullName"), `<input id="profile-full-name" class="input" autocomplete="name" value="${escapeHtml(draft.fullName || "")}" />`)}
-      ${field(t("profile.username"), `<input id="profile-username" class="input" autocomplete="username" value="${escapeHtml(draft.username || "")}" />`)}
-      <label class="check-row">
-        <input type="checkbox" id="profile-create-directly" ${draft.openDirectly ? "checked" : ""} />
-        <span>${t("profile.openDirectly")}</span>
-      </label>
-      <div class="button-row">
-        ${state.profiles.length ? `<button class="secondary-button" data-action="profile-select-back">${t("profile.backToProfiles")}</button>` : ""}
-        <button class="secondary-button" data-action="profile-online-start">${icon("globe")} ${t("profile.onlineConnect")}</button>
-        <button class="primary-button" data-action="profile-submit">${icon("user")} ${t("profile.createButton")}</button>
+  const currentLang = draft.language || state.language || "tr";
+  const currentTheme = draft.theme || state.theme || "dark";
+  const isDark = currentTheme !== "light";
+
+  const totalSteps = isOnlineMode ? 4 : (step >= 5 ? 6 : 4);
+  const activeDot = step;
+
+  let dotsHtml = "";
+  for (let i = 1; i <= totalSteps; i++) {
+    const cls = i === activeDot ? "is-active" : (i < activeDot ? "is-completed" : "");
+    dotsHtml += `<span class="wizard-step-dot ${cls}"></span>`;
+  }
+
+  let bodyHtml = "";
+
+  if (step === 1) {
+    // 1. Dil Seçimi: Solda İngilizce, Sağda Türkçe
+    bodyHtml = `
+      <h1 class="wizard-title">${t("wizard.selectLanguage")}</h1>
+      <p class="wizard-subtitle">${t("wizard.selectLanguageDesc")}</p>
+      ${errorMessage ? `<div class="error-panel">${escapeHtml(errorMessage)}</div>` : ""}
+      <div class="wizard-choice-group wizard-language-group">
+        <button type="button" class="wizard-choice-card wizard-lang-card ${currentLang === "en" ? "is-selected" : ""}" data-action="wizard-set-lang" data-lang="en">
+          <img src="./assets/flags/gb.svg" alt="English" class="wizard-flag-img" />
+          <span class="wizard-choice-label">English</span>
+        </button>
+        <button type="button" class="wizard-choice-card wizard-lang-card ${currentLang === "tr" ? "is-selected" : ""}" data-action="wizard-set-lang" data-lang="tr">
+          <img src="./assets/flags/tr.svg" alt="Türkçe" class="wizard-flag-img" />
+          <span class="wizard-choice-label">Türkçe</span>
+        </button>
       </div>
-    </div>
+      <div class="wizard-bottom">
+        <button type="button" class="wizard-btn-next" data-action="wizard-step-next">
+          ${t("wizard.next")}
+        </button>
+        ${state.profiles.length ? `
+          <button type="button" class="wizard-btn-back" data-action="profile-select-back">
+            ${t("wizard.back")}
+          </button>
+        ` : ""}
+      </div>
+    `;
+  } else if (step === 2) {
+    // 2. Tema Seçimi: Ayarlardaki gibi gece/gündüz toggle + Karanlık/Aydınlık seçenek kartları
+    bodyHtml = `
+      <h1 class="wizard-title">${t("wizard.selectTheme")}</h1>
+      <p class="wizard-subtitle">${t("wizard.selectThemeDesc")}</p>
+      ${errorMessage ? `<div class="error-panel">${escapeHtml(errorMessage)}</div>` : ""}
+      <div class="wizard-theme-container">
+        <div class="wizard-dn-toggle-wrap">
+          <button type="button" class="day-night-toggle ${isDark ? "is-dark" : "is-light"} wizard-day-night" data-action="wizard-theme-toggle" role="switch" aria-checked="${isDark ? "true" : "false"}" aria-label="${t("settings.darkTheme") || "Karanlık Tema"}">
+            <span class="dn-track">
+              <span class="dn-stars">
+                <span class="dn-star dn-star-1"></span>
+                <span class="dn-star dn-star-2"></span>
+                <span class="dn-star dn-star-3"></span>
+                <span class="dn-star dn-star-4"></span>
+              </span>
+              <span class="dn-clouds">
+                <span class="dn-cloud dn-cloud-1"></span>
+                <span class="dn-cloud dn-cloud-2"></span>
+              </span>
+              <span class="dn-knob">
+                <span class="dn-crater dn-crater-1"></span>
+                <span class="dn-crater dn-crater-2"></span>
+                <span class="dn-crater dn-crater-3"></span>
+              </span>
+            </span>
+          </button>
+        </div>
+        <div class="wizard-choice-group wizard-theme-group">
+          <button type="button" class="wizard-choice-card wizard-theme-card ${isDark ? "is-selected" : ""}" data-action="wizard-set-theme" data-theme="dark">
+            <span class="wizard-theme-icon">${icon("moon")}</span>
+            <span class="wizard-choice-label">${t("profile.themeDark")}</span>
+          </button>
+          <button type="button" class="wizard-choice-card wizard-theme-card ${!isDark ? "is-selected" : ""}" data-action="wizard-set-theme" data-theme="light">
+            <span class="wizard-theme-icon">${icon("sun")}</span>
+            <span class="wizard-choice-label">${t("profile.themeLight")}</span>
+          </button>
+        </div>
+      </div>
+      <div class="wizard-bottom">
+        <button type="button" class="wizard-btn-next" data-action="wizard-step-next">
+          ${t("wizard.next")}
+        </button>
+        <button type="button" class="wizard-btn-back" data-action="wizard-step-prev">
+          ${t("wizard.back")}
+        </button>
+      </div>
+    `;
+  } else if (!isOnlineMode && step === 3) {
+    // 3. Ad Soyad (Büyük ekranda şık input)
+    bodyHtml = `
+      <h1 class="wizard-title">${t("wizard.fullNameTitle")}</h1>
+      <p class="wizard-subtitle">${t("wizard.fullNameDesc")}</p>
+      ${errorMessage ? `<div class="error-panel">${escapeHtml(errorMessage)}</div>` : ""}
+      <div class="wizard-input-center-wrap">
+        <input id="wizard-full-name" class="wizard-input-large" type="text" autocomplete="name" placeholder="${t("profile.fullName")}" value="${escapeHtml(draft.fullName || "")}" autofocus />
+        <div class="wizard-username-row">
+          <span class="wizard-username-prefix">@</span>
+          <input id="wizard-username" class="wizard-input-username" type="text" autocomplete="username" placeholder="${t("profile.username")}" value="${escapeHtml(draft.username || "")}" />
+        </div>
+        <label class="check-row wizard-check">
+          <input type="checkbox" id="wizard-open-directly" ${draft.openDirectly ? "checked" : ""} />
+          <span>${t("profile.openDirectly")}</span>
+        </label>
+      </div>
+      <div class="wizard-bottom">
+        <button type="button" class="wizard-btn-next" data-action="wizard-step-next">
+          ${t("wizard.next")}
+        </button>
+        <button type="button" class="wizard-btn-back" data-action="wizard-step-prev">
+          ${t("wizard.back")}
+        </button>
+      </div>
+    `;
+  } else if (!isOnlineMode && step === 4) {
+    // 4. Online Profil Bağlamak İster misiniz? (Evet / Hayır)
+    bodyHtml = `
+      <h1 class="wizard-title">${t("wizard.onlinePromptTitle")}</h1>
+      <p class="wizard-subtitle">${t("wizard.onlinePromptDesc")}</p>
+      ${errorMessage ? `<div class="error-panel">${escapeHtml(errorMessage)}</div>` : ""}
+      <div class="wizard-choice-group wizard-online-prompt-group">
+        <button type="button" class="wizard-choice-card wizard-prompt-card" data-action="wizard-online-choice-yes">
+          <span class="wizard-prompt-icon">${icon("globe")}</span>
+          <strong class="wizard-choice-label">${t("wizard.yesOnline")}</strong>
+          <small class="wizard-choice-desc">${t("wizard.yesOnlineDesc")}</small>
+        </button>
+        <button type="button" class="wizard-choice-card wizard-prompt-card" data-action="wizard-online-choice-no">
+          <span class="wizard-prompt-icon">${icon("user")}</span>
+          <strong class="wizard-choice-label">${t("wizard.noLocal")}</strong>
+          <small class="wizard-choice-desc">${t("wizard.noLocalDesc")}</small>
+        </button>
+      </div>
+      <div class="wizard-bottom">
+        <button type="button" class="wizard-btn-back" data-action="wizard-step-prev">
+          ${t("wizard.back")}
+        </button>
+      </div>
+    `;
+  } else if ((!isOnlineMode && step === 5) || (isOnlineMode && step === 3)) {
+    // Online Kullanıcı Adı veya E-posta
+    bodyHtml = `
+      <h1 class="wizard-title">${t("wizard.onlineIdentifierTitle")}</h1>
+      <p class="wizard-subtitle">${t("wizard.onlineIdentifierDesc")}</p>
+      ${errorMessage ? `<div class="error-panel">${escapeHtml(errorMessage)}</div>` : ""}
+      <div class="wizard-input-center-wrap">
+        <input id="wizard-online-identifier" class="wizard-input-large" type="text" autocomplete="username" placeholder="${t("profile.onlineIdentifier")}" value="${escapeHtml(draft.onlineIdentifier || "")}" autofocus />
+        <label class="check-row wizard-check">
+          <input type="checkbox" id="wizard-online-directly" ${draft.openDirectly ? "checked" : ""} />
+          <span>${t("profile.openDirectly")}</span>
+        </label>
+      </div>
+      <div class="wizard-bottom">
+        <button type="button" class="wizard-btn-next" data-action="wizard-step-next">
+          ${t("wizard.next")}
+        </button>
+        <button type="button" class="wizard-btn-back" data-action="wizard-step-prev">
+          ${t("wizard.back")}
+        </button>
+      </div>
+    `;
+  } else if ((!isOnlineMode && step === 6) || (isOnlineMode && step === 4)) {
+    // Online Şifre
+    bodyHtml = `
+      <h1 class="wizard-title">${t("wizard.onlinePasswordTitle")}</h1>
+      <p class="wizard-subtitle">${t("wizard.onlinePasswordDesc")}</p>
+      ${errorMessage ? `<div class="error-panel">${escapeHtml(errorMessage)}</div>` : ""}
+      <div class="wizard-input-center-wrap">
+        <div class="wizard-pwd-container">
+          <input id="wizard-online-password" class="wizard-input-large" type="password" autocomplete="current-password" placeholder="••••••••" value="${escapeHtml(draft.onlinePassword || "")}" autofocus />
+          <button type="button" class="wizard-pwd-eye" data-action="wizard-toggle-pwd" aria-label="Toggle">${icon("eye")}</button>
+        </div>
+      </div>
+      <div class="wizard-bottom">
+        <button type="button" class="wizard-btn-next" data-action="wizard-online-finish">
+          ${t("wizard.finish")}
+        </button>
+        <button type="button" class="wizard-btn-back" data-action="wizard-step-prev">
+          ${t("wizard.back")}
+        </button>
+      </div>
+    `;
+  }
+
+  profileGate.innerHTML = `
+    <section class="profile-wizard-container">
+      <div class="wizard-top">
+        <img src="./assets/logo/${state.theme === "light" ? "logo-siyah.png" : "logo.png"}" alt="Amele" class="wizard-logo" />
+        <div class="wizard-step-indicators">${dotsHtml}</div>
+      </div>
+      ${bodyHtml}
+    </section>
   `;
 }
 
-function onlineProfileFormHtml() {
-  const draft = state.profileDraft || {};
-  const draftLanguage = draft.language || state.language;
-  const draftTheme = draft.theme || state.theme;
-  return `
-    <div class="profile-form">
-      <div class="info-panel profile-notice">
-        ${icon("info")}
-        <p>${t("profile.onlineNotice")}</p>
-      </div>
-      ${field(t("settings.language"), `
-        <select id="profile-language" class="select">
-          <option value="tr" ${draftLanguage === "tr" ? "selected" : ""}>Türkçe</option>
-          <option value="en" ${draftLanguage === "en" ? "selected" : ""}>English</option>
-        </select>
-      `)}
-      ${field(t("settings.darkTheme"), `
-        <select id="profile-theme" class="select">
-          <option value="dark" ${draftTheme !== "light" ? "selected" : ""}>${t("profile.themeDark")}</option>
-          <option value="light" ${draftTheme === "light" ? "selected" : ""}>${t("profile.themeLight")}</option>
-        </select>
-      `)}
-      ${field(t("profile.onlineIdentifier"), `<input id="profile-online-identifier" class="input" autocomplete="username" value="${escapeHtml(draft.onlineIdentifier || "")}" />`)}
-      ${field(t("profile.onlinePassword"), `<input id="profile-online-password" class="input" type="password" autocomplete="current-password" />`)}
-      <label class="check-row">
-        <input type="checkbox" id="profile-online-directly" ${draft.openDirectly ? "checked" : ""} />
-        <span>${t("profile.openDirectly")}</span>
-      </label>
-      <div class="button-row">
-        <button class="secondary-button" data-action="profile-online-back">${t(state.profiles.length ? "profile.backToProfiles" : "profile.localSetup")}</button>
-        <button class="primary-button" data-action="profile-online-submit">${icon("globe")} ${t("profile.onlineLogin")}</button>
-      </div>
-    </div>
-  `;
+function attachProfileGateEvents() {
+  if (!profileGate) return;
+  const fullNameInput = profileGate.querySelector("#wizard-full-name");
+  if (fullNameInput) {
+    fullNameInput.addEventListener("input", (e) => {
+      state.profileDraft.fullName = e.target.value;
+      const usernameInput = profileGate.querySelector("#wizard-username");
+      if (usernameInput && !state.profileDraft?.usernameManual) {
+        const slug = slugifyUsername(e.target.value);
+        usernameInput.value = slug;
+        state.profileDraft.username = slug;
+      }
+    });
+  }
+  const usernameInput = profileGate.querySelector("#wizard-username");
+  if (usernameInput) {
+    usernameInput.addEventListener("input", (e) => {
+      state.profileDraft.usernameManual = true;
+      state.profileDraft.username = e.target.value;
+    });
+  }
+  const identInput = profileGate.querySelector("#wizard-online-identifier");
+  if (identInput) {
+    identInput.addEventListener("input", (e) => {
+      state.profileDraft.onlineIdentifier = e.target.value;
+    });
+  }
+  const pwdInput = profileGate.querySelector("#wizard-online-password");
+  if (pwdInput) {
+    pwdInput.addEventListener("input", (e) => {
+      state.profileDraft.onlinePassword = e.target.value;
+    });
+    pwdInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        connectOnlineProfileFromWizard();
+      }
+    });
+  }
+  const directInput = profileGate.querySelector("#wizard-open-directly") || profileGate.querySelector("#wizard-online-directly");
+  if (directInput) {
+    directInput.addEventListener("change", (e) => {
+      state.profileDraft.openDirectly = e.target.checked;
+    });
+  }
 }
 
 function captureProfileDraft() {
-  const fullName = document.querySelector("#profile-full-name");
-  const username = document.querySelector("#profile-username");
-  const onlineIdentifier = document.querySelector("#profile-online-identifier");
-  const language = document.querySelector("#profile-language");
-  const theme = document.querySelector("#profile-theme");
-  const direct = document.querySelector("#profile-create-directly");
-  const onlineDirect = document.querySelector("#profile-online-directly");
+  const fullName = document.querySelector("#wizard-full-name") || document.querySelector("#profile-full-name");
+  const username = document.querySelector("#wizard-username") || document.querySelector("#profile-username");
+  const onlineIdentifier = document.querySelector("#wizard-online-identifier") || document.querySelector("#profile-online-identifier");
+  const onlinePassword = document.querySelector("#wizard-online-password") || document.querySelector("#profile-online-password");
+  const direct = document.querySelector("#wizard-open-directly") || document.querySelector("#profile-create-directly");
+  const onlineDirect = document.querySelector("#wizard-online-directly") || document.querySelector("#profile-online-directly");
+
   state.profileDraft = {
-    fullName: fullName ? fullName.value : state.profileDraft?.fullName || "",
-    username: username ? username.value : state.profileDraft?.username || "",
-    onlineIdentifier: onlineIdentifier ? onlineIdentifier.value : state.profileDraft?.onlineIdentifier || "",
-    language: language ? language.value : state.profileDraft?.language || state.language,
-    theme: theme ? theme.value : state.profileDraft?.theme || state.theme,
+    fullName: fullName ? fullName.value.trim() : (state.profileDraft?.fullName || ""),
+    username: username ? username.value.trim() : (state.profileDraft?.username || ""),
+    usernameManual: Boolean(state.profileDraft?.usernameManual),
+    onlineIdentifier: onlineIdentifier ? onlineIdentifier.value.trim() : (state.profileDraft?.onlineIdentifier || ""),
+    onlinePassword: onlinePassword ? onlinePassword.value : (state.profileDraft?.onlinePassword || ""),
+    language: state.profileDraft?.language || state.language || "tr",
+    theme: state.profileDraft?.theme || state.theme || "dark",
     openDirectly: direct ? direct.checked : (onlineDirect ? onlineDirect.checked : Boolean(state.profileDraft?.openDirectly))
   };
 }
@@ -646,67 +863,95 @@ async function selectProfile(username) {
   render();
 }
 
-async function createProfileFromGate() {
-  const language = document.querySelector("#profile-language")?.value || state.language;
-  const theme = document.querySelector("#profile-theme")?.value || state.theme;
-  const fullName = document.querySelector("#profile-full-name")?.value.trim() || "";
-  const username = document.querySelector("#profile-username")?.value.trim() || "";
-  const openDirectly = Boolean(document.querySelector("#profile-create-directly")?.checked);
-  if (!fullName || !username) {
-    showToast(t("profile.required"), "error");
+async function createLocalProfileFromWizard() {
+  captureProfileDraft();
+  const fullName = state.profileDraft.fullName || "";
+  let username = state.profileDraft.username || slugifyUsername(fullName);
+  if (!username) username = "kullanici";
+  const language = state.profileDraft.language || state.language || "tr";
+  const theme = state.profileDraft.theme || state.theme || "dark";
+  const openDirectly = Boolean(state.profileDraft.openDirectly);
+
+  if (!fullName) {
+    state.wizardStep = 3;
+    showProfileGate(t("profile.required"));
     return;
   }
-  const result = await apiRequest("/api/profiles/create", {
-    method: "POST",
-    body: JSON.stringify({ full_name: fullName, username, language, theme, open_directly: openDirectly })
-  });
-  upsertProfile(result.profile);
-  state.activeProfile = result.profile;
-  state.mobileToolsAccess = { allowed: false, reason: "" };
-  state.profileDraft = { fullName: "", username: "", onlineIdentifier: "", openDirectly: false };
-  setLanguage(result.profile.language === "en" ? "en" : "tr");
-  setTheme(result.profile.theme === "light" ? "light" : "dark");
-  hideProfileGate();
-  syncProfileButton();
-  await loadPersistedSettings();
-  await loadEvidenceCases();
-  render();
+
+  try {
+    const result = await apiRequest("/api/profiles/create", {
+      method: "POST",
+      body: JSON.stringify({ full_name: fullName, username, language, theme, open_directly: openDirectly })
+    });
+    upsertProfile(result.profile);
+    state.activeProfile = result.profile;
+    state.mobileToolsAccess = { allowed: false, reason: "" };
+    state.profileDraft = { fullName: "", username: "", usernameManual: false, onlineIdentifier: "", onlinePassword: "", openDirectly: false, language, theme };
+    setLanguage(result.profile.language === "en" ? "en" : "tr");
+    setTheme(result.profile.theme === "light" ? "light" : "dark");
+    hideProfileGate();
+    syncProfileButton();
+    await loadPersistedSettings();
+    await loadEvidenceCases();
+    render();
+    showToast(t("profile.created", { name: result.profile.full_name }) || "Profil başarıyla oluşturuldu.", "success");
+  } catch (error) {
+    showToast(t("profile.createFailed", { message: error.message }), "error");
+    showProfileGate(error.message);
+  }
+}
+
+async function connectOnlineProfileFromWizard() {
+  captureProfileDraft();
+  const identifier = state.profileDraft.onlineIdentifier || "";
+  const password = state.profileDraft.onlinePassword || "";
+  const language = state.profileDraft.language || state.language || "tr";
+  const theme = state.profileDraft.theme || state.theme || "dark";
+  const openDirectly = Boolean(state.profileDraft.openDirectly);
+
+  if (!identifier || !password) {
+    showProfileGate(t("profile.onlineRequired"));
+    return;
+  }
+
+  try {
+    const result = await apiRequest("/api/profiles/online-login", {
+      method: "POST",
+      body: JSON.stringify({ identifier, password, language, theme, open_directly: openDirectly })
+    });
+    state.activeProfile = result.profile;
+    upsertProfile(result.profile);
+    state.mobileToolsAccess = result.access || { allowed: false, reason: "" };
+    state.profileDraft = {
+      fullName: "",
+      username: "",
+      usernameManual: false,
+      onlineIdentifier: "",
+      onlinePassword: "",
+      language,
+      theme,
+      openDirectly
+    };
+    setLanguage(result.profile.language === "en" ? "en" : "tr");
+    setTheme(result.profile.theme === "light" ? "light" : "dark");
+    hideProfileGate();
+    syncProfileButton();
+    await loadPersistedSettings();
+    await loadEvidenceCases();
+    render();
+    showToast(t("profile.onlineConnected"), "success");
+  } catch (error) {
+    showToast(t("profile.onlineFailed", { message: error.message }), "error");
+    showProfileGate(error.message);
+  }
+}
+
+async function createProfileFromGate() {
+  await createLocalProfileFromWizard();
 }
 
 async function connectOnlineProfileFromGate() {
-  captureProfileDraft();
-  const identifier = document.querySelector("#profile-online-identifier")?.value.trim() || "";
-  const password = document.querySelector("#profile-online-password")?.value || "";
-  const language = document.querySelector("#profile-language")?.value || state.language;
-  const theme = document.querySelector("#profile-theme")?.value || state.theme;
-  const openDirectly = Boolean(document.querySelector("#profile-online-directly")?.checked);
-  if (!identifier || !password) {
-    showToast(t("profile.onlineRequired"), "error");
-    return;
-  }
-  const result = await apiRequest("/api/profiles/online-login", {
-    method: "POST",
-    body: JSON.stringify({ identifier, password, language, theme, open_directly: openDirectly })
-  });
-  state.activeProfile = result.profile;
-  upsertProfile(result.profile);
-  state.mobileToolsAccess = result.access || { allowed: false, reason: "" };
-  state.profileDraft = {
-    fullName: "",
-    username: "",
-    onlineIdentifier: "",
-    language,
-    theme,
-    openDirectly
-  };
-  setLanguage(result.profile.language === "en" ? "en" : "tr");
-  setTheme(result.profile.theme === "light" ? "light" : "dark");
-  hideProfileGate();
-  syncProfileButton();
-  await loadPersistedSettings();
-  await loadEvidenceCases();
-  render();
-  showToast(t("profile.onlineConnected"), "success");
+  await connectOnlineProfileFromWizard();
 }
 
 async function syncOnlineProfile(button, silent = false) {
@@ -2678,25 +2923,127 @@ async function handleAction(button) {
     return;
   }
   if (action === "profile-create-start" || action === "profile-new") {
-    state.profileGateMode = "create";
+    captureProfileDraft();
+    state.profileGateMode = "wizard";
+    state.wizardMode = "create";
+    state.wizardStep = 1;
+    state.profileDraft = {
+      fullName: "",
+      username: "",
+      usernameManual: false,
+      onlineIdentifier: "",
+      onlinePassword: "",
+      language: state.language || "tr",
+      theme: state.theme || "dark",
+      openDirectly: false
+    };
     showProfileGate();
     return;
   }
   if (action === "profile-online-start") {
     captureProfileDraft();
-    state.profileGateMode = "online";
+    state.profileGateMode = "wizard";
+    state.wizardMode = "online";
+    state.wizardStep = 1;
+    state.profileDraft = {
+      fullName: "",
+      username: "",
+      usernameManual: false,
+      onlineIdentifier: "",
+      onlinePassword: "",
+      language: state.language || "tr",
+      theme: state.theme || "dark",
+      openDirectly: false
+    };
     showProfileGate();
     return;
   }
-  if (action === "profile-online-back") {
+  if (action === "profile-online-back" || action === "profile-select-back") {
     captureProfileDraft();
-    state.profileGateMode = state.profiles.length ? "select" : "create";
+    state.profileGateMode = state.profiles.length ? "select" : "wizard";
+    state.wizardStep = 1;
     showProfileGate();
     return;
   }
-  if (action === "profile-select-back") {
-    state.profileGateMode = "select";
-    showProfileGate();
+  if (action === "wizard-set-lang") {
+    const lang = button.dataset.lang || "tr";
+    state.profileDraft.language = lang;
+    setLanguage(lang);
+    renderProfileGate();
+    return;
+  }
+  if (action === "wizard-set-theme") {
+    const theme = button.dataset.theme || "dark";
+    state.profileDraft.theme = theme;
+    setTheme(theme);
+    renderProfileGate();
+    return;
+  }
+  if (action === "wizard-theme-toggle") {
+    const nextTheme = state.theme === "dark" ? "light" : "dark";
+    state.profileDraft.theme = nextTheme;
+    setTheme(nextTheme);
+    renderProfileGate();
+    return;
+  }
+  if (action === "wizard-online-choice-no") {
+    captureProfileDraft();
+    await createLocalProfileFromWizard();
+    return;
+  }
+  if (action === "wizard-online-choice-yes") {
+    captureProfileDraft();
+    state.wizardStep = 5;
+    renderProfileGate();
+    return;
+  }
+  if (action === "wizard-toggle-pwd") {
+    const pwdInput = profileGate?.querySelector("#wizard-online-password");
+    if (pwdInput) {
+      pwdInput.type = pwdInput.type === "password" ? "text" : "password";
+    }
+    return;
+  }
+  if (action === "wizard-step-next") {
+    captureProfileDraft();
+    if (state.wizardStep === 1) {
+      state.wizardStep = 2;
+    } else if (state.wizardStep === 2) {
+      state.wizardStep = 3;
+    } else if (state.wizardStep === 3 && state.wizardMode !== "online") {
+      if (!state.profileDraft.fullName) {
+        showProfileGate(t("profile.required"));
+        return;
+      }
+      if (!state.profileDraft.username) {
+        state.profileDraft.username = slugifyUsername(state.profileDraft.fullName) || "kullanici";
+      }
+      state.wizardStep = 4;
+    } else if ((state.wizardMode !== "online" && state.wizardStep === 5) || (state.wizardMode === "online" && state.wizardStep === 3)) {
+      if (!state.profileDraft.onlineIdentifier) {
+        showProfileGate(t("profile.onlineRequired"));
+        return;
+      }
+      state.wizardStep = state.wizardMode === "online" ? 4 : 6;
+    }
+    renderProfileGate();
+    return;
+  }
+  if (action === "wizard-step-prev") {
+    captureProfileDraft();
+    if (state.wizardMode !== "online") {
+      if (state.wizardStep === 6) state.wizardStep = 5;
+      else if (state.wizardStep === 5) state.wizardStep = 4;
+      else state.wizardStep = Math.max(1, state.wizardStep - 1);
+    } else {
+      state.wizardStep = Math.max(1, state.wizardStep - 1);
+    }
+    renderProfileGate();
+    return;
+  }
+  if (action === "wizard-online-finish" || action === "profile-online-submit") {
+    captureProfileDraft();
+    await connectOnlineProfileFromWizard();
     return;
   }
   if (action === "profile-select") {
@@ -2709,21 +3056,7 @@ async function handleAction(button) {
     return;
   }
   if (action === "profile-submit") {
-    try {
-      await createProfileFromGate();
-    } catch (error) {
-      showToast(t("profile.createFailed", { message: error.message }), "error");
-      showProfileGate(error.message);
-    }
-    return;
-  }
-  if (action === "profile-online-submit") {
-    try {
-      await connectOnlineProfileFromGate();
-    } catch (error) {
-      showToast(t("profile.onlineFailed", { message: error.message }), "error");
-      showProfileGate(error.message);
-    }
+    await createLocalProfileFromWizard();
     return;
   }
   if (action === "profile-online-sync") {
