@@ -229,7 +229,7 @@ test("Keyboard Shortcuts System", async (t) => {
     controller.destroy();
   });
 
-  await t.test("Shift + V followed by digit selects corresponding case", () => {
+  await t.test("Shift + C or Shift + V followed by digit selects corresponding case", () => {
     let clickedCase = null;
     const mockCaseCard = {
       click: () => { clickedCase = "Case 2"; }
@@ -237,7 +237,7 @@ test("Keyboard Shortcuts System", async (t) => {
 
     const origQuerySelector = document.querySelector;
     document.querySelector = (sel) => {
-      if (sel === '.case-sidebar-card[data-shortcut="2"]') return mockCaseCard;
+      if (sel === '.case-sidebar-card[data-case-index="2"]') return mockCaseCard;
       return null;
     };
 
@@ -245,7 +245,28 @@ test("Keyboard Shortcuts System", async (t) => {
       toggleCaseSidebar: () => {}
     });
 
-    // Press Shift + V
+    // Sequence 1: Press Shift + C then 2
+    window._dispatch("keydown", {
+      key: "C",
+      shiftKey: true,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+      target: { tagName: "BODY" }
+    });
+
+    window._dispatch("keydown", {
+      key: "2",
+      code: "Digit2",
+      shiftKey: false,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+      target: { tagName: "BODY" }
+    });
+
+    assert.strictEqual(clickedCase, "Case 2", "Case 2 should be clicked after Shift+C + 2 sequence");
+
+    // Sequence 2: Press Shift + V then 2
+    clickedCase = null;
     window._dispatch("keydown", {
       key: "V",
       shiftKey: true,
@@ -254,7 +275,6 @@ test("Keyboard Shortcuts System", async (t) => {
       target: { tagName: "BODY" }
     });
 
-    // Press 2
     window._dispatch("keydown", {
       key: "2",
       code: "Digit2",
@@ -478,6 +498,63 @@ test("Keyboard Shortcuts System", async (t) => {
       target: { tagName: "BODY" }
     });
     assert.strictEqual(clicked, true, "1 key directly should trigger click on card 1");
+
+    document.querySelector = origQuerySelector;
+    controller.destroy();
+  });
+
+  await t.test("renderCaseSidebar correctly renders multiple cases with shortcut numbers", async () => {
+    const { renderCaseSidebar } = await import("../ui/pages/home.js");
+    const fakeState = {
+      cases: [
+        { case_name: "Case_Alpha", created_at: "2026-10-01T00:00:00Z" },
+        { case_name: "Case_Beta", created_at: "2026-10-02T00:00:00Z" }
+      ],
+      activeCase: { case_name: "Case_Alpha" }
+    };
+    const html = renderCaseSidebar(fakeState, (k) => k, () => "", (s) => s);
+    assert.strictEqual(html.includes('data-case-index="1"'), true, "first case should have data-case-index='1'");
+    assert.strictEqual(html.includes('data-case-index="2"'), true, "second case should have data-case-index='2'");
+    assert.strictEqual(html.includes("C1"), true, "badge C1 should exist");
+    assert.strictEqual(html.includes("Case_Alpha"), true);
+    assert.strictEqual(html.includes("Case_Beta"), true);
+  });
+
+  await t.test("Shift + 1 triggers tool card 1 on the page and NEVER triggers a case", () => {
+    let toolClicked = false;
+    let caseClicked = false;
+    const mockToolCard = {
+      click: () => { toolClicked = true; },
+      classList: { contains: () => false },
+      disabled: false
+    };
+    const mockCaseCard = {
+      click: () => { caseClicked = true; },
+      classList: { contains: () => false },
+      disabled: false
+    };
+
+    const origQuerySelector = document.querySelector;
+    document.querySelector = (sel) => {
+      if (sel === '.page [data-shortcut="1"]' || sel === '[data-shortcut="1"]') return mockToolCard;
+      if (sel.includes("case")) return mockCaseCard;
+      return null;
+    };
+
+    const controller = initKeyboardShortcuts();
+
+    // Trigger Shift + 1 directly without any prior Shift+C or Shift+V
+    window._dispatch("keydown", {
+      key: "!",
+      code: "Digit1",
+      shiftKey: true,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+      target: { tagName: "BODY" }
+    });
+
+    assert.strictEqual(toolClicked, true, "Tool card 1 must be clicked on Shift+1");
+    assert.strictEqual(caseClicked, false, "Case card must NEVER be clicked on Shift+1");
 
     document.querySelector = origQuerySelector;
     controller.destroy();

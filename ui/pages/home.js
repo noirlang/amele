@@ -688,7 +688,7 @@ export function renderCaseSidebar(state, t, icon, esc) {
   const activeCaseName = state?.activeCase?.case_name || state?.pendingCaseName || "";
 
   const casesHtml = cases.length > 0
-    ? cases.map((c) => {
+    ? cases.map((c, index) => {
         const name = c.case_name || "";
         const isActive = name === activeCaseName;
         const a = c.artifacts || {};
@@ -814,16 +814,17 @@ export function renderCaseSidebar(state, t, icon, esc) {
           `);
         }
 
+        const dateStr = c.created_at ? c.created_at.slice(0, 10) : "";
         const cardIndex = index + 1;
-        const shortcutAttr = cardIndex <= 9 ? `data-shortcut="${cardIndex}"` : "";
-        const badgeHtml = cardIndex <= 9 ? `<span class="shortcut-key-badge" aria-hidden="true">${cardIndex}</span>` : "";
+        const caseIndexAttr = cardIndex <= 9 ? `data-case-index="${cardIndex}"` : "";
+        const badgeHtml = cardIndex <= 9 ? `<span class="shortcut-key-badge case-card-badge" aria-hidden="true">C${cardIndex}</span>` : "";
 
         return `
           <div
             class="case-sidebar-card ${isActive ? "active" : ""}"
             data-action="select-case"
             data-case-name="${esc(name)}"
-            ${shortcutAttr}
+            ${caseIndexAttr}
             title="${esc(name)}"
             role="button"
             tabindex="0"
@@ -845,9 +846,9 @@ export function renderCaseSidebar(state, t, icon, esc) {
       <div class="case-sidebar-empty">
         <span class="case-sidebar-empty-icon">${icon("folder")}</span>
         <p>${t("case.noCases") || "Kayıtlı vaka yok"}</p>
-        <button type="button" class="case-sidebar-create-btn" data-action="new-case-prompt" data-shortcut="N">
+        <button type="button" class="case-sidebar-create-btn" data-action="new-case-prompt" data-case-shortcut="new">
           ${icon("folder")} ${t("case.create") || "Yeni Vaka Oluştur"}
-          <span class="shortcut-key-badge" aria-hidden="true">N</span>
+          <span class="shortcut-key-badge case-new-badge" aria-hidden="true">C+N</span>
         </button>
       </div>
     `;
@@ -857,14 +858,14 @@ export function renderCaseSidebar(state, t, icon, esc) {
       type="button"
       class="home-case-sidebar-toggle"
       data-action="toggle-case-sidebar"
-      data-shortcut="V"
+      data-shortcut="C"
       title="${t("case.sidebarTitle") || "Vakalar"}"
       aria-label="Vaka Menüsü"
     >
       <span class="toggle-ico">${icon("folder")}</span>
       <span class="toggle-txt">${t("case.sidebarTitle") || "Vakalar"}</span>
       <span class="toggle-badge">${cases.length}</span>
-      <span class="shortcut-key-badge" aria-hidden="true">V</span>
+      <span class="shortcut-key-badge" aria-hidden="true">C</span>
     </button>
 
     <div class="home-case-sidebar-backdrop" data-action="close-case-sidebar"></div>
@@ -910,11 +911,11 @@ export function renderCaseSidebar(state, t, icon, esc) {
           type="button"
           class="case-sidebar-new-btn"
           data-action="new-case-prompt"
-          data-shortcut="N"
+          data-case-shortcut="new"
         >
           <span class="plus-ico">+</span>
           <span>${t("case.newCase") || "Yeni Vaka Oluştur"}</span>
-          <span class="shortcut-key-badge" aria-hidden="true">N</span>
+          <span class="shortcut-key-badge case-new-badge" aria-hidden="true">C+N</span>
         </button>
       </div>
     </aside>

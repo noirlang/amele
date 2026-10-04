@@ -94,16 +94,11 @@ export function initKeyboardShortcuts({
 
   const selectCaseByIndex = (digit) => {
     if (typeof document === "undefined" || !document.querySelector) return false;
-    // 1) data-shortcut olan kart
-    const targetEl = document.querySelector(`.case-sidebar-card[data-shortcut="${digit}"]`);
+    // 1) data-case-index olan vaka kartı
+    const targetEl = document.querySelector(`.case-sidebar-card[data-case-index="${digit}"]`)
+      || document.querySelector(`#case-sidebar-list .case-sidebar-card:nth-child(${digit})`);
     if (targetEl && typeof targetEl.click === "function") {
       targetEl.click();
-      return true;
-    }
-    // 2) fallback: n-inci kart
-    const nthEl = document.querySelector(`#case-sidebar-list .case-sidebar-card:nth-child(${digit})`);
-    if (nthEl && typeof nthEl.click === "function") {
-      nthEl.click();
       return true;
     }
     return false;
@@ -169,8 +164,8 @@ export function initKeyboardShortcuts({
     const isVakaSequenceActive = (Date.now() - lastVakaSequenceTime) < VAKA_TIMEOUT_MS;
 
     // 1) VAKA SEÇİMİ VE YENİ VAKA OLUŞTURMA:
-    // Eğer vaka menüsü açıksa VEYA Shift + V yapıldıktan hemen sonra basıldıysa:
-    if (isCaseSidebarOpen() || isVakaSequenceActive) {
+    // YALNIZCA kullanıcı önce Shift + C veya Shift + V tuşlayarak vaka sırasını başlattıysa:
+    if (isVakaSequenceActive) {
       if (digitKey) {
         if (selectCaseByIndex(digitKey)) {
           lastVakaSequenceTime = 0;
@@ -360,7 +355,8 @@ export function initKeyboardShortcuts({
 
       // Rakam tuşuna basıldıysa (örn: Windows/Linux Araçlarındaki veya Diğer sayfasındaki 1, 2, 3.. kartları)
       if (digitKey && typeof document.querySelector === "function") {
-        const targetEl = document.querySelector(`[data-shortcut="${digitKey}"]`);
+        const targetEl = document.querySelector(`.page [data-shortcut="${digitKey}"]`)
+          || document.querySelector(`[data-shortcut="${digitKey}"]`);
         if (targetEl && typeof targetEl.click === "function" && !targetEl.classList.contains("is-disabled") && !targetEl.disabled) {
           event.preventDefault();
           event.stopPropagation();
@@ -435,7 +431,8 @@ export function initKeyboardShortcuts({
 
       // Rakam tuşuna basıldıysa (örn: 1..6 kartları doğrudan açmak için)
       if (digitKey && typeof document.querySelector === "function") {
-        const targetEl = document.querySelector(`[data-shortcut="${digitKey}"]`);
+        const targetEl = document.querySelector(`.page [data-shortcut="${digitKey}"]`)
+          || document.querySelector(`[data-shortcut="${digitKey}"]`);
         if (targetEl && typeof targetEl.click === "function" && !targetEl.classList.contains("is-disabled") && !targetEl.disabled) {
           event.preventDefault();
           event.stopPropagation();
