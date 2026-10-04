@@ -59,9 +59,9 @@ export function detailPanel({
       <p class="field-hint">${t("case.fixedLocation")}</p>
       ${field(t("case.name"), '<input id="case-name" class="input" placeholder="Case_2026_001" />')}
       <div class="button-row" style="margin: 14px 0;">
-        <button class="primary-button" data-action="create-case">${icon("folder")} ${t("case.create")}</button>
-        <button class="secondary-button" data-action="refresh-cases">${icon("refresh")} ${t("case.refresh")}</button>
-        <button class="secondary-button" data-action="create-manifest">${icon("shield")} ${t("case.manifest.create")}</button>
+        <button class="primary-button" data-action="create-case" data-shortcut="C">${icon("folder")} ${t("case.create")}<span class="shortcut-key-badge" aria-hidden="true">C</span></button>
+        <button class="secondary-button" data-action="refresh-cases" data-shortcut="R">${icon("refresh")} ${t("case.refresh")}<span class="shortcut-key-badge" aria-hidden="true">R</span></button>
+        <button class="secondary-button" data-action="create-manifest" data-shortcut="M">${icon("shield")} ${t("case.manifest.create")}<span class="shortcut-key-badge" aria-hidden="true">M</span></button>
       </div>
       <div class="case-status-container" style="display:flex; flex-direction:column; gap:8px; margin: 12px 0 6px;">
         <div class="status-badge" data-case-status style="display:none"></div>
@@ -72,7 +72,7 @@ export function detailPanel({
       ${field(t("case.folder"), `<select id="case-folder" class="select"><option value="ciktilar">${t("case.outputs")}</option><option value="disk_imajlari">${t("case.diskImages")}</option><option value="ram">${t("case.ram")}</option><option value="android">${t("case.android")}</option><option value="raporlar">${t("case.reports")}</option><option value="hash">${t("case.hash")}</option><option value="notlar">${t("case.notes")}</option><option value="gunlukler">${t("case.logs")}</option></select>`)}
       ${field(t("case.file"), `<select id="case-file-list" class="select"><option>${t("case.listFilesPlaceholder")}</option></select>`)}
       <div class="button-row" style="margin: 14px 0;">
-        <button class="secondary-button" data-action="list-files">${icon("search")} ${t("case.listFiles")}</button>
+        <button class="secondary-button" data-action="list-files" data-shortcut="L">${icon("search")} ${t("case.listFiles")}<span class="shortcut-key-badge" aria-hidden="true">L</span></button>
       </div>
     `;
   }
@@ -85,8 +85,8 @@ export function detailPanel({
       ${field(t("report.format"), '<select id="report-format" class="select"><option value="txt">TXT</option><option value="json">JSON</option></select>')}
       ${field(t("report.signHash"), '<label class="checkbox-row" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer;"><input id="report-sign-hash" type="checkbox" checked style="width:18px;height:18px;cursor:pointer;" /><span>' + t("report.signHashDesc") + "</span></label>")}
       <div class="button-row" style="margin: 16px 0;">
-        <button class="primary-button" data-action="create-report">${icon("report")} ${t("report.generate")}</button>
-        <button class="secondary-button" data-action="list-reports">${icon("refresh")} ${t("report.refresh")}</button>
+        <button class="primary-button" data-action="create-report" data-shortcut="G">${icon("report")} ${t("report.generate")}<span class="shortcut-key-badge" aria-hidden="true">G</span></button>
+        <button class="secondary-button" data-action="list-reports" data-shortcut="R">${icon("refresh")} ${t("report.refresh")}<span class="shortcut-key-badge" aria-hidden="true">R</span></button>
       </div>
       <div class="status-badge" data-report-status style="display:none"></div>
       <div class="log-box" data-report-output style="margin-top: 14px;">${t("report.outputWaiting")}</div>
@@ -102,7 +102,7 @@ export function detailPanel({
         <span><strong>${t("history.scope")}</strong><small>${escapeHtml(t("history.scopeAll"))}</small></span>
       </div>
       <div class="button-row" style="margin: 14px 0;">
-        <button class="secondary-button" data-action="refresh-history">${icon("refresh")} ${t("history.refresh")}</button>
+        <button class="secondary-button" data-action="refresh-history" data-shortcut="R">${icon("refresh")} ${t("history.refresh")}<span class="shortcut-key-badge" aria-hidden="true">R</span></button>
       </div>
       <div class="history-list acquisition-history-list" data-history-list style="margin-top: 14px;">
         ${historyItems.length > 0 ? renderHistoryList(historyItems, escapeHtml, icon) : `<div class="log-box">${t("history.loading")}</div>`}
@@ -118,7 +118,7 @@ export function detailPanel({
         <span><strong>${t("logs.scope")}</strong><small>${escapeHtml(state.activeCase?.case_name ? `${state.activeCase.case_name}/gunlukler` : t("logs.activeCaseOnly"))}</small></span>
       </div>
       <div class="button-row" style="margin: 14px 0;">
-        <button class="secondary-button" data-action="refresh-logs">${icon("refresh")} ${t("logs.refresh")}</button>
+        <button class="secondary-button" data-action="refresh-logs" data-shortcut="R">${icon("refresh")} ${t("logs.refresh")}<span class="shortcut-key-badge" aria-hidden="true">R</span></button>
       </div>
       <div class="log-box" data-logs-output style="margin-top: 14px;">${t("logs.outputWaiting")}</div>
     `;
@@ -168,7 +168,7 @@ export function hashPanel(pickerField, field, state, t, icon) {
       </select>`
     )}
     <div class="button-row" style="margin: 16px 0;">
-      <button class="primary-button" data-action="run-hash">${icon("shield")} ${t("hash.calculate")}</button>
+      <button class="primary-button" data-action="run-hash" data-shortcut="H">${icon("shield")} ${t("hash.calculate")}<span class="shortcut-key-badge" aria-hidden="true">H</span></button>
     </div>
     <div class="status-badge" data-hash-status style="display:none"></div>
     <div class="log-box" data-hash-output style="margin-top: 14px;">
@@ -353,14 +353,47 @@ export function settingsPage({
   `;
 }
 
+export function getContributorFallbackPhoto(c, assetPath = "assets") {
+  const id = (c?.id || "").toLowerCase();
+  const name = (c?.name || "").toLowerCase();
+  const photo = (c?.photo || "").toLowerCase();
+
+  if (id.includes("melih") || name.includes("melih") || photo.includes("melih")) {
+    return `${assetPath}/contributors/melih-emik.jpg`;
+  }
+  if (
+    id.includes("guner") ||
+    id.includes("m-ali") ||
+    id.includes("kafkaskrtl") ||
+    name.includes("muhammet") ||
+    photo.includes("muhammet")
+  ) {
+    return `${assetPath}/contributors/muhammet-ali-guner.jpg`;
+  }
+  if (
+    id.includes("toretto") ||
+    id.includes("abdulhalim") ||
+    id.includes("altuntas") ||
+    name.includes("abdulhalim") ||
+    photo.includes("abdulhalim")
+  ) {
+    return `${assetPath}/contributors/abdulhalim.jpg`;
+  }
+  if (id.includes("yusuf") || id.includes("tuncel") || name.includes("yusuf") || photo.includes("yusuf")) {
+    return `${assetPath}/contributors/yusuf-tuncel.jpg`;
+  }
+  return `${assetPath}/contributors/melih-emik.jpg`;
+}
+
 export function renderContributors(contributors, t, icon, assetPath) {
   if (Array.isArray(contributors) && contributors.length > 0) {
     return contributors.map(c => {
       const roleText = c.roleKey ? t(c.roleKey) : (c.role || "Developer");
-      const avatarSrc = c.photo ? (c.photo.startsWith("http") ? c.photo : `${assetPath}/contributors/${c.photo}`) : `${assetPath}/contributors/melih-emik.jpg`;
+      const fallbackPhoto = getContributorFallbackPhoto(c, assetPath);
+      const avatarSrc = c.photo ? (c.photo.startsWith("http") ? c.photo : `${assetPath}/contributors/${c.photo}`) : fallbackPhoto;
       return `
         <article class="contributor-card">
-          <img class="avatar" src="${avatarSrc}" alt="${c.name}" draggable="false" onerror="this.src='${assetPath}/contributors/melih-emik.jpg'" />
+          <img class="avatar" src="${avatarSrc}" alt="${c.name}" draggable="false" onerror="this.onerror=null; this.src='${fallbackPhoto}'" />
           <h3>${c.name}</h3>
           <p>${roleText}</p>
           <div class="social-row" aria-label="${c.name} bağlantıları">
@@ -445,7 +478,16 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath, theme, state }) {
   `;
 }
 
-function socialLink(label, url, icon) {
-  const key = label === "LinkedIn" ? "linkedin" : label === "Website" ? "website" : "github";
-  return `<a class="social-button" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${label}">${icon(key)}</a>`;
+export function socialLink(label, url, icon) {
+  const l = (label || "").toLowerCase();
+  let key = "link";
+  if (l.includes("linkedin")) key = "linkedin";
+  else if (l.includes("github")) key = "github";
+  else if (l.includes("website") || l.includes("site") || l.includes("web")) key = "website";
+  else if (l.includes("mail") || l.includes("email") || l.includes("posta")) key = "mail";
+  else if (l.includes("gpg") || l.includes("pgp") || l.includes("key")) key = "key";
+  else if (l.includes("twitter") || l.includes("x") || l.includes("terminal")) key = "terminal";
+
+  const href = key === "mail" && !url.startsWith("mailto:") ? `mailto:${url}` : url;
+  return `<a class="social-button" href="${href}" target="_blank" rel="noopener noreferrer" aria-label="${label}">${icon(key)}</a>`;
 }
