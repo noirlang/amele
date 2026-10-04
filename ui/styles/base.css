@@ -2865,19 +2865,23 @@ code {
 
 /* Gündüz / Gece Efektli Day-Night Toggle */
 .day-night-toggle {
+  display: inline-flex;
+  align-items: center;
   position: relative;
   width: 66px;
+  min-width: 66px;
   height: 34px;
+  min-height: 34px;
   padding: 0;
-  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  border: 1.5px solid rgba(255, 255, 255, 0.38);
   border-radius: 999px;
-  background: transparent;
+  background: #091122;
   cursor: pointer;
   outline: none;
-  overflow: hidden;
+  overflow: visible;
   box-shadow:
-    inset 0 2px 4px rgba(0, 0, 0, 0.35),
-    0 2px 8px rgba(0, 0, 0, 0.25);
+    inset 0 2px 4px rgba(0, 0, 0, 0.45),
+    0 2px 10px rgba(0, 0, 0, 0.4);
   transition:
     border-color 0.3s ease,
     box-shadow 0.3s ease,
@@ -2885,6 +2889,8 @@ code {
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .day-night-toggle:hover {
@@ -3153,7 +3159,8 @@ code {
 }
 
 .theme-light .day-night-toggle {
-  border-color: rgba(0, 0, 0, 0.16);
+  border-color: rgba(0, 0, 0, 0.22);
+  background: #e0f2fe;
   box-shadow:
     inset 0 2px 4px rgba(0, 0, 0, 0.15),
     0 2px 6px rgba(0, 0, 0, 0.08);
