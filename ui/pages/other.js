@@ -15,21 +15,22 @@ export function otherPage({
     <section class="page">
       ${pageTitle(t("other.title"), t("other.desc"), "tiles")}
       <div class="other-grid">
-        ${simpleCard(t("other.hash.title"), t("other.hash.desc"), "shield", "hash", icon, t)}
-        ${simpleCard(t("other.evidence.title"), t("other.evidence.desc"), "scale", "evidence", icon, t)}
-        ${simpleCard(t("other.reports.title"), t("other.reports.desc"), "report", "reports", icon, t)}
-        ${simpleCard(t("other.history.title"), t("other.history.desc"), "clock", "history", icon, t)}
-        ${simpleCard(t("other.logs.title"), t("other.logs.desc"), "clock", "logs", icon, t)}
+        ${simpleCard(t("other.hash.title"), t("other.hash.desc"), "shield", "hash", icon, t, "1")}
+        ${simpleCard(t("other.evidence.title"), t("other.evidence.desc"), "scale", "evidence", icon, t, "2")}
+        ${simpleCard(t("other.reports.title"), t("other.reports.desc"), "report", "reports", icon, t, "3")}
+        ${simpleCard(t("other.history.title"), t("other.history.desc"), "clock", "history", icon, t, "4")}
+        ${simpleCard(t("other.logs.title"), t("other.logs.desc"), "clock", "logs", icon, t, "5")}
       </div>
       <div id="other-detail" class="workflow-panel" style="margin-top:16px">${detailPanel(state.activeTab)}</div>
     </section>
   `;
 }
 
-function simpleCard(title, desc, iconName, tab, icon, t) {
+function simpleCard(title, desc, iconName, tab, icon, t, shortcutKey = "") {
   return `
-    <button class="forensic-card" data-tab="${tab}">
+    <button class="forensic-card" data-tab="${tab}" ${shortcutKey ? `data-shortcut="${shortcutKey}"` : ""}>
       <span class="card-icon">${icon(iconName)}</span>
+      ${shortcutKey ? `<span class="shortcut-key-badge" aria-hidden="true">${shortcutKey}</span>` : ""}
       <h3>${title}</h3>
       <p>${desc}</p>
       <span class="meta">${t("open")}</span>
@@ -212,7 +213,8 @@ export function settingsPage({
                 <span class="settings-row-title">${t("settings.darkTheme") || "Karanlık Tema"}</span>
               </div>
               <div class="settings-row-control">
-                <button type="button" class="day-night-toggle ${isDark ? "is-dark" : "is-light"}" data-action="theme-toggle" role="switch" aria-checked="${isDark ? "true" : "false"}" aria-label="${t("settings.darkTheme") || "Karanlık Tema"}">
+                <button type="button" class="day-night-toggle ${isDark ? "is-dark" : "is-light"}" data-action="theme-toggle" data-shortcut="D" role="switch" aria-checked="${isDark ? "true" : "false"}" aria-label="${t("settings.darkTheme") || "Karanlık Tema"}">
+                  <span class="shortcut-key-badge" aria-hidden="true">D</span>
                   <span class="dn-track">
                     <!-- Gece Yıldızları (Gece Modunda Görünür) -->
                     <span class="dn-stars">
@@ -245,11 +247,13 @@ export function settingsPage({
               </div>
               <div class="settings-row-control">
                 <div class="flag-switch-group" role="radiogroup" aria-label="${t("settings.language")}">
-                  <button type="button" class="flag-btn ${state.language === "tr" ? "is-active" : ""}" data-action="set-language" data-lang="tr" aria-label="Türkçe" title="Türkçe">
+                  <button type="button" class="flag-btn ${state.language === "tr" ? "is-active" : ""}" data-action="set-language" data-lang="tr" data-shortcut="T" aria-label="Türkçe" title="Türkçe">
                     <img src="./assets/flags/tr.svg" alt="Türkçe" class="flag-circle-img" draggable="false" />
+                    <span class="shortcut-key-badge" aria-hidden="true">T</span>
                   </button>
-                  <button type="button" class="flag-btn ${state.language === "en" ? "is-active" : ""}" data-action="set-language" data-lang="en" aria-label="English" title="English">
+                  <button type="button" class="flag-btn ${state.language === "en" ? "is-active" : ""}" data-action="set-language" data-lang="en" data-shortcut="E" aria-label="English" title="English">
                     <img src="./assets/flags/gb.svg" alt="English" class="flag-circle-img" draggable="false" />
+                    <span class="shortcut-key-badge" aria-hidden="true">E</span>
                   </button>
                 </div>
               </div>
@@ -325,9 +329,10 @@ export function settingsPage({
           </div>
 
           <div class="settings-update-row-centered">
-            <button type="button" class="settings-minimal-btn" data-action="check-update">
+            <button type="button" class="settings-minimal-btn" data-action="check-update" data-shortcut="U">
               <span class="btn-icon">${icon("refresh")}</span>
               <span>${t("settings.checkUpdate") || "Güncellemeleri Denetle"}</span>
+              <span class="shortcut-key-badge" aria-hidden="true">U</span>
             </button>
           </div>
           <div class="settings-update-status-row text-center">
@@ -335,7 +340,7 @@ export function settingsPage({
           </div>
 
           <div class="settings-update-result text-center" data-update-result style="${state.updateAvailable ? "display: block;" : "display: none;"}">
-            <button class="secondary-button" data-action="download-update" style="${state.updateAvailable ? "display: inline-flex;" : "display: none;"} margin: 8px auto 0;">${icon("download")} ${t("settings.downloadInstall") || (isTr ? "İndir ve Kur" : "Download & Install")}</button>
+            <button class="secondary-button" data-action="download-update" data-shortcut="I" style="${state.updateAvailable ? "display: inline-flex;" : "display: none;"} margin: 8px auto 0;">${icon("download")} ${t("settings.downloadInstall") || (isTr ? "İndir ve Kur" : "Download & Install")}<span class="shortcut-key-badge" aria-hidden="true">I</span></button>
           </div>
         </article>
 
@@ -381,6 +386,7 @@ export function renderContributors(contributors, t, icon, assetPath) {
 
 export function aboutPage({ t, icon, APP_VERSION, assetPath, theme, state }) {
   const logoFile = theme === "light" ? "logo-siyah.png" : "logo.png";
+  const orbitShortcuts = { windows: "W", linux: "L", docker: "D", android: "A", ios: "I", other: "O" };
   return `
     <section class="page">
       <div class="about-hero">
@@ -393,8 +399,9 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath, theme, state }) {
             </h1>
             <div class="about-hero-version-row">
               <span class="about-hero-version">${APP_VERSION.startsWith("v") ? APP_VERSION : `v${APP_VERSION}`}</span>
-              <button class="about-version-check-btn" data-action="about-check-update" aria-label="${t("settings.checkUpdate") || "Güncellemeleri kontrol et"}" title="${t("settings.checkUpdate") || "Güncellemeleri kontrol et"}">
+              <button class="about-version-check-btn" data-action="about-check-update" data-shortcut="U" aria-label="${t("settings.checkUpdate") || "Güncellemeleri kontrol et"}" title="${t("settings.checkUpdate") || "Güncellemeleri kontrol et"}">
                 <span class="about-version-check-icon">${icon("refresh")}</span>
+                <span class="shortcut-key-badge" aria-hidden="true">U</span>
               </button>
             </div>
           </div>
@@ -415,8 +422,9 @@ export function aboutPage({ t, icon, APP_VERSION, assetPath, theme, state }) {
                   (route, index) => `
                 <div class="about-radial-position" style="--angle: ${index * 60}deg">
                   <div class="about-radial-upright">
-                    <button type="button" class="about-radial-button" data-route="${route}" title="${t(`nav.${route}`)}" aria-label="${t(`nav.${route}`)}">
+                    <button type="button" class="about-radial-button" data-route="${route}" data-shortcut="${orbitShortcuts[route] || ""}" title="${t(`nav.${route}`)}" aria-label="${t(`nav.${route}`)}">
                       <span class="about-radial-icon" aria-hidden="true">${icon(route === "other" ? "tiles" : route)}</span>
+                      <span class="shortcut-key-badge" aria-hidden="true">${orbitShortcuts[route] || ""}</span>
                     </button>
                   </div>
                 </div>

@@ -35,7 +35,7 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
         ${field(t("workflow.sshPass"), `<input class="input" type="password" data-field="ssh-pass" placeholder="${t("workflow.sshPassPlaceholder")}" />`)}
         ${pickerField(t("workflow.sshKey"), "ssh-key-file", t("workflow.sshKeyPlaceholder"), "file", icon, t)}
         <div class="button-row">
-          <button class="primary-button" data-action="connect">${icon("key")} ${t("workflow.sshConnect")}</button>
+          <button class="primary-button" data-action="connect" data-shortcut="Enter">${icon("key")} ${t("workflow.sshConnect")}<span class="shortcut-key-badge" aria-hidden="true">↵</span></button>
         </div>
       `
     : `
@@ -44,9 +44,9 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
         ${field(t("workflow.port"), `<input class="input" data-field="port" value="4444" />`)}
         ${field(t("workflow.token"), `<input class="input" data-field="token" placeholder="${t("workflow.tokenPlaceholder")}" />`)}
         <div class="button-row">
-          <button class="secondary-button" data-action="approve-key">${icon("key")} ${t("workflow.approveKey")}</button>
-          <button class="secondary-button" data-action="reset-key">${icon("refresh")} ${t("workflow.reset")}</button>
-          <button class="primary-button" data-action="connect">${icon("network")} ${t("workflow.connect")}</button>
+          <button class="secondary-button" data-action="approve-key" data-shortcut="K">${icon("key")} ${t("workflow.approveKey")}<span class="shortcut-key-badge" aria-hidden="true">K</span></button>
+          <button class="secondary-button" data-action="reset-key" data-shortcut="X">${icon("refresh")} ${t("workflow.reset")}<span class="shortcut-key-badge" aria-hidden="true">X</span></button>
+          <button class="primary-button" data-action="connect" data-shortcut="Enter">${icon("network")} ${t("workflow.connect")}<span class="shortcut-key-badge" aria-hidden="true">↵</span></button>
         </div>
         <div class="toggle-row">
           <span>${t("workflow.useVpn")}</span>
@@ -76,8 +76,9 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
   return `
     <section class="page">
       <div class="workflow-header-row">
-        <button type="button" class="secondary-button workflow-back-btn" data-route="${backRoute}" data-nav-dir="back">
+        <button type="button" class="secondary-button workflow-back-btn" data-route="${backRoute}" data-shortcut="B" data-nav-dir="back">
           ${icon("arrowLeft")} <span>${backLabel}</span>
+          <span class="shortcut-key-badge" aria-hidden="true">B</span>
         </button>
       </div>
       <div class="workflow-layout">
@@ -99,16 +100,16 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
             <p class="section-label">${isRam ? t("workflow.ramOutput") : t("workflow.diskOutput")}</p>
             ${targetSelect}
             <div class="button-row workflow-target-actions">
-              <button class="secondary-button" data-action="scan">${icon(isRam ? "chip" : "disk")} ${scanLabel}</button>
-              ${!isRemote && isRam && data.platform === "Windows" ? `<button class="secondary-button" data-action="download">${icon("refresh")} ${t("workflow.downloadWinpmem")}</button>` : ""}
-              ${!isRemote && isRam && data.platform === "Linux" ? `<button class="secondary-button" data-action="install-avml">${icon("download")} ${t("workflow.downloadAvml")}</button>` : ""}
-              <button class="primary-button" data-action="start" ${isAcquisitionRunning ? "hidden disabled" : ""}>${icon(isRam ? "ram" : "disk")} ${isRam ? t("workflow.startRam") : t("workflow.startImage")}</button>
+              <button class="secondary-button" data-action="scan" data-shortcut="S">${icon(isRam ? "chip" : "disk")} ${scanLabel}<span class="shortcut-key-badge" aria-hidden="true">S</span></button>
+              ${!isRemote && isRam && data.platform === "Windows" ? `<button class="secondary-button" data-action="download" data-shortcut="D">${icon("refresh")} ${t("workflow.downloadWinpmem")}<span class="shortcut-key-badge" aria-hidden="true">D</span></button>` : ""}
+              ${!isRemote && isRam && data.platform === "Linux" ? `<button class="secondary-button" data-action="install-avml" data-shortcut="D">${icon("download")} ${t("workflow.downloadAvml")}<span class="shortcut-key-badge" aria-hidden="true">D</span></button>` : ""}
+              <button class="primary-button" data-action="start" data-shortcut="E" ${isAcquisitionRunning ? "hidden disabled" : ""}>${icon(isRam ? "ram" : "disk")} ${isRam ? t("workflow.startRam") : t("workflow.startImage")}<span class="shortcut-key-badge" aria-hidden="true">E</span></button>
             </div>
 
             <div class="button-row acquisition-controls" data-acquisition-controls ${isAcquisitionRunning ? "" : "hidden"}>
-              <button class="secondary-button" data-action="pause">${icon("pause")} ${t("workflow.pause")}</button>
-              <button class="secondary-button" data-action="resume">${icon("play")} ${t("workflow.resume")}</button>
-              <button class="danger-button" data-action="stop">${icon("stop")} ${t("workflow.stop")}</button>
+              <button class="secondary-button" data-action="pause" data-shortcut="P">${icon("pause")} ${t("workflow.pause")}<span class="shortcut-key-badge" aria-hidden="true">P</span></button>
+              <button class="secondary-button" data-action="resume" data-shortcut="R">${icon("play")} ${t("workflow.resume")}<span class="shortcut-key-badge" aria-hidden="true">R</span></button>
+              <button class="danger-button" data-action="stop" data-shortcut="X">${icon("stop")} ${t("workflow.stop")}<span class="shortcut-key-badge" aria-hidden="true">X</span></button>
             </div>
 
             <div class="section-divider"></div>
@@ -177,7 +178,7 @@ export function casePanel(subdir, hint, { t, icon, state, caseSelectOptions, cas
   return `
     ${field(t("workflow.case"), `<select id="workflow-case" class="select" data-case-select data-allow-new-case="1">${caseSelectOptions(selected, { allowNew: true })}</select>`)}
     <div class="button-row">
-      <button class="secondary-button" data-action="refresh-cases">${icon("refresh")} ${t("case.refresh")}</button>
+      <button class="secondary-button" data-action="refresh-cases" data-shortcut="R">${icon("refresh")} ${t("case.refresh")}<span class="shortcut-key-badge" aria-hidden="true">R</span></button>
     </div>
     <div class="side-info">
       <span class="metric-icon">${icon("folder")}</span>
