@@ -280,8 +280,9 @@ mod tests {
         let base = Path::new("/tmp/cases/case1/ios");
         let backup = Path::new("/var/backup/iPhone_15_Pro");
         let dir = ios_edinim_klasoru(base, backup);
-        let dir_str = dir.to_string_lossy();
-        assert!(dir_str.starts_with("/tmp/cases/case1/ios/iPhone_15_Pro_"));
+        assert_eq!(dir.parent(), Some(base));
+        let file_name = dir.file_name().and_then(|s| s.to_str()).unwrap_or("");
+        assert!(file_name.starts_with("iPhone_15_Pro_"));
     }
 
     #[test]
