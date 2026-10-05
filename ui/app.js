@@ -5171,9 +5171,38 @@ async function startAcquisition(button) {
   const target = isRam
     ? state.ramToolPath || document.querySelector("[data-field='target']")?.value.trim() || ""
     : document.querySelector("[data-field='target']")?.value.trim() || "";
-  const outputFormat = document.querySelector("[data-field='output-format']")?.value || "raw";
-  const sparseAcquisition =
-    document.querySelector("[data-field='sparse-acquisition']")?.checked ?? true;
+  const selectedFormatMode =
+    document.querySelector("[data-field='output-format']")?.value || "raw";
+  let outputFormat = "raw";
+  let sparseAcquisition = true;
+
+  if (selectedFormatMode === "raw_full" || selectedFormatMode === "raw-full") {
+    outputFormat = "raw";
+    sparseAcquisition = false;
+  } else if (
+    selectedFormatMode === "raw_sparse" ||
+    selectedFormatMode === "raw-sparse"
+  ) {
+    outputFormat = "raw";
+    sparseAcquisition = true;
+  } else if (
+    selectedFormatMode === "aff4_full" ||
+    selectedFormatMode === "aff4-full"
+  ) {
+    outputFormat = "aff4";
+    sparseAcquisition = false;
+  } else if (
+    selectedFormatMode === "aff4_sparse" ||
+    selectedFormatMode === "aff4-sparse"
+  ) {
+    outputFormat = "aff4";
+    sparseAcquisition = true;
+  } else {
+    outputFormat = selectedFormatMode.startsWith("aff4") ? "aff4" : "raw";
+    sparseAcquisition =
+      document.querySelector("[data-field='sparse-acquisition']")?.checked ??
+      true;
+  }
   if (workflow && !workflow.mode.includes("ram") && !target) {
     showToast(t("workflow.diskRequired"), "error");
     return;

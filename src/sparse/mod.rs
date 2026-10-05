@@ -2,13 +2,15 @@
 //! ntfs $bitmap, ext4 ve xfs blok tahsis haritalarını okuyarak veri olmayan boş sektörleri
 //! fiziksel okuma yapmadan doğrudan atlar ve hedefte seyrek dosya (sparse hole) açar.
 
+pub mod exfat;
 pub mod ext4;
+pub mod fat;
 pub mod ntfs;
 pub mod scanner;
 pub mod xfs;
 
 pub use ntfs::SparseRange;
-pub use scanner::build_disk_sparse_map;
+pub use scanner::{build_disk_sparse_map, build_disk_sparse_map_ext, identify_and_scan_volume};
 
 use crate::disk::{
     DiskAcquisitionControl, DiskAcquisitionResult, DiskAcquisitionTask, mark_partial,
@@ -24,7 +26,7 @@ use std::thread;
 use std::time::Duration;
 
 /// sabit sıfır buffer boyutu (hash hesaplamasını ram'de hızlandırmak için)
-const ZERO_BUFFER_SIZE: usize = 1024 * 1024; // 1 mb
+const ZERO_BUFFER_SIZE: usize = 4 * 1024 * 1024; // 4 mb
 
 /// diskin seyrek haritası ve istatistik özeti
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,12 +35,15 @@ pub struct SparseMap {
     pub total_size: u64,
     pub allocated_bytes: u64,
     pub unallocated_bytes: u64,
+    pub supported_volumes_found: usize,
+    pub detected_filesystems: Vec<String>,
 }
 
 impl SparseMap {
     /// disk dosyasını inceleyerek seyrek harita oluşturur
     pub fn from_file(file: &mut File, total_size: u64) -> Self {
-        let ranges = build_disk_sparse_map(file, total_size);
+        let (ranges, supported_volumes_found, detected_filesystems) =
+            scanner::build_disk_sparse_map_ext(file, total_size);
         let mut allocated_bytes = 0_u64;
         let mut unallocated_bytes = 0_u64;
 
@@ -55,7 +60,14 @@ impl SparseMap {
             total_size,
             allocated_bytes,
             unallocated_bytes,
+            supported_volumes_found,
+            detected_filesystems,
         }
+    }
+
+    /// diskin veya bölümlerinin desteklenen bir dosya sistemine sahip olup olmadığını belirtir
+    pub fn is_supported(&self) -> bool {
+        self.supported_volumes_found > 0
     }
 
     /// boş alan tasarruf oranını yüzdelik olarak döndürür (0.0 .. 100.0)
@@ -100,15 +112,31 @@ where
     // 1. diskin dosya sistemi ve bölüm bitmap haritasını çıkar
     let sparse_map = SparseMap::from_file(&mut source, source_size);
 
+    if !sparse_map.is_supported() {
+        runtime_log(
+            LogLevel::Error,
+            "sparse",
+            format!(
+                "Desteklenen dosya sistemi bulunamadi: {}. Seyrek edinim durduruluyor.",
+                task.source.display()
+            ),
+        );
+        return Err(AmeleError::new(
+            HataKodu::Disk,
+            "Diskiniz desteklenmiyor: Akıllı seyrek edinim (dolu olan kadar al) için bu disk veya bölümde desteklenen bir dosya sistemi (NTFS, ext4, XFS, exFAT, FAT) bulunamadı. Lütfen 'Tamamını al (Fiziksel DD)' modunu seçin.",
+        ));
+    }
+
     runtime_log(
         LogLevel::Info,
         "sparse",
         format!(
-            "Seyrek harita cikarildi: Toplam {} bayt, Dolu: {} bayt, Bos: {} bayt (Tasarruf: {:.1}%)",
+            "Seyrek harita cikarildi: Toplam {} bayt, Dolu: {} bayt, Bos: {} bayt (Tasarruf: {:.1}%), Sistemler: {:?}",
             sparse_map.total_size,
             sparse_map.allocated_bytes,
             sparse_map.unallocated_bytes,
-            sparse_map.savings_percentage()
+            sparse_map.savings_percentage(),
+            sparse_map.detected_filesystems
         ),
     );
 
@@ -176,7 +204,25 @@ where
             // hash bütünlüğü için ram'deki sıfır tamponunu sha256 / blake3'e besle (disk i/o yok)
             if sha256.is_some() || blake3.is_some() {
                 let mut remaining_zeroes = range.length;
+                let mut zero_reported = 0_u64;
                 while remaining_zeroes > 0 {
+                    match control() {
+                        DiskAcquisitionControl::Continue => {}
+                        DiskAcquisitionControl::Pause => {
+                            thread::sleep(Duration::from_millis(200));
+                            continue;
+                        }
+                        DiskAcquisitionControl::Cancel => {
+                            runtime_log(
+                                LogLevel::Warn,
+                                "sparse",
+                                "Seyrek edinim sifir hashleme sirasinda kullanici tarafindan iptal edildi.",
+                            );
+                            cancelled = true;
+                            break;
+                        }
+                    }
+
                     let to_hash = remaining_zeroes.min(zero_buffer.len() as u64) as usize;
                     if let Some(ctx) = &mut sha256 {
                         ctx.update(&zero_buffer[..to_hash]);
@@ -185,11 +231,23 @@ where
                         ctx.update(&zero_buffer[..to_hash]);
                     }
                     remaining_zeroes -= to_hash as u64;
+                    processed_bytes += to_hash as u64;
+                    zero_reported += to_hash as u64;
+
+                    // her 32 MB'da bir veya aralık tamamlandığında ilerleme bildir ki donma hissi olmasın
+                    if zero_reported >= 32 * 1024 * 1024 || remaining_zeroes == 0 {
+                        progress(processed_bytes, source_size);
+                        zero_reported = 0;
+                    }
                 }
+                if cancelled {
+                    break;
+                }
+            } else {
+                processed_bytes += range.length;
+                progress(processed_bytes, source_size);
             }
 
-            processed_bytes += range.length;
-            progress(processed_bytes, source_size);
             continue;
         }
 
@@ -347,20 +405,91 @@ where
 mod tests {
     use super::*;
 
+    fn create_synthetic_exfat_disk() -> Vec<u8> {
+        let mut data = Vec::new();
+
+        // 512 bayt VBR
+        let mut vbr = [0_u8; 512];
+        vbr[0..3].copy_from_slice(&[0xEB, 0x76, 0x90]);
+        vbr[3..11].copy_from_slice(b"EXFAT   ");
+        vbr[108] = 9; // 512 bayt sektor
+        vbr[109] = 1; // 2 sektor = 1024 bayt cluster
+        vbr[88..92].copy_from_slice(&10_u32.to_le_bytes()); // heap offset: 10 sektor = 5120 bayt
+        vbr[92..96].copy_from_slice(&16_u32.to_le_bytes()); // 16 cluster
+        vbr[96..100].copy_from_slice(&2_u32.to_le_bytes()); // root dir cluster: 2
+        vbr[510] = 0x55;
+        vbr[511] = 0xAA;
+        data.extend_from_slice(&vbr);
+
+        // Padding (5120 - 512 = 4608 bayt)
+        data.resize(5120, 0);
+
+        // Cluster 2: Root Directory (1024 bayt)
+        let mut root_dir = vec![0_u8; 1024];
+        root_dir[0] = 0x81; // Allocation bitmap entry
+        root_dir[1] = 0x00;
+        root_dir[20..24].copy_from_slice(&3_u32.to_le_bytes()); // FirstCluster: 3
+        root_dir[24..32].copy_from_slice(&2_u64.to_le_bytes()); // 2 bytes bitmap
+        data.extend_from_slice(&root_dir);
+
+        // Cluster 3: Allocation Bitmap (1024 bayt)
+        // Byte 0: 0b0000_0011 (cluster 2 ve 3 dolu, cluster 4..9 bos)
+        // Byte 1: 0b1111_0000 (cluster 10..13 bos, cluster 14..17 dolu)
+        let mut bitmap = vec![0_u8; 1024];
+        bitmap[0] = 0b0000_0011;
+        bitmap[1] = 0b1111_0000;
+        data.extend_from_slice(&bitmap);
+
+        // Kalan 14 kume (14 * 1024 = 14336 bayt)
+        let mut rem_data = vec![0_u8; 14 * 1024];
+        // Son 4 kume (14..17) dolu olduğu için onlara test verisi yazalım
+        for b in &mut rem_data[10 * 1024..14 * 1024] {
+            *b = 0xEE;
+        }
+        data.extend_from_slice(&rem_data);
+
+        data
+    }
+
     #[test]
     fn test_sparse_acquisition_roundtrip() {
         let temp_dir = tempfile::tempdir().unwrap();
         let src_path = temp_dir.path().join("source.raw");
         let dst_path = temp_dir.path().join("target.raw");
 
-        // 64 KB test diski oluştur: İlk 16 KB dolu veri, sonraki 32 KB boş (0), son 16 KB dolu veri
-        let mut source_data = vec![0_u8; 64 * 1024];
-        for b in &mut source_data[0..16 * 1024] {
-            *b = 0xAA;
-        }
-        for b in &mut source_data[48 * 1024..64 * 1024] {
-            *b = 0xBB;
-        }
+        let source_data = create_synthetic_exfat_disk();
+        let total_size = source_data.len() as u64;
+        fs::write(&src_path, &source_data).unwrap();
+
+        let task = DiskAcquisitionTask::new(&src_path, &dst_path).with_sparse(true);
+
+        let res = run_sparse_acquisition(
+            &task,
+            total_size,
+            |_, _| {},
+            || DiskAcquisitionControl::Continue,
+        )
+        .unwrap();
+        assert_eq!(res.total_bytes, total_size);
+        assert!(res.sha256.is_some());
+
+        // Hedef dosya boyutunu ve içeriğini doğrula
+        let target_data = fs::read(&dst_path).unwrap();
+        assert_eq!(target_data.len(), total_size as usize);
+        assert_eq!(
+            target_data, source_data,
+            "Seyrek olarak kopyalanan hedef veri kaynakla tam uyusmali"
+        );
+    }
+
+    #[test]
+    fn test_sparse_acquisition_unsupported_disk_fails() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let src_path = temp_dir.path().join("unsupported.raw");
+        let dst_path = temp_dir.path().join("target.raw");
+
+        // Rastgele / tanimsiz dosya sistemi verisi
+        let source_data = vec![0x33_u8; 64 * 1024];
         fs::write(&src_path, &source_data).unwrap();
 
         let task = DiskAcquisitionTask::new(&src_path, &dst_path).with_sparse(true);
@@ -370,17 +499,17 @@ mod tests {
             64 * 1024,
             |_, _| {},
             || DiskAcquisitionControl::Continue,
-        )
-        .unwrap();
-        assert_eq!(res.total_bytes, 64 * 1024);
-        assert!(res.sha256.is_some());
+        );
 
-        // Hedef dosya boyutunu ve içeriğini doğrula
-        let target_data = fs::read(&dst_path).unwrap();
-        assert_eq!(target_data.len(), 64 * 1024);
-        assert_eq!(
-            target_data, source_data,
-            "Seyrek olarak kopyalanan hedef veri kaynakla tam uyusmali"
+        assert!(
+            res.is_err(),
+            "Desteklenmeyen disk seyrek modda hata vermelidir"
+        );
+        let err_msg = res.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("Diskiniz desteklenmiyor"),
+            "Hata mesaji 'Diskiniz desteklenmiyor' icermelidir: {}",
+            err_msg
         );
     }
 }

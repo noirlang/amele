@@ -150,27 +150,27 @@ where
         return Err(err);
     }
 
-    // akıllı seyrek alan (sparse / bitmap) optimizasyonu istenmişse dene
-    if task.sparse && task.start_offset == 0 && task.full_disk {
+    // akıllı seyrek alan (sparse / bitmap) optimizasyonu istenmişse çalıştır
+    if task.sparse {
+        if task.start_offset != 0 || !task.full_disk {
+            let err = AmeleError::new(
+                HataKodu::Disk,
+                "Diskiniz desteklenmiyor: Akıllı seyrek edinim (dolu olan kadar al) sadece tüm disk veya tüm bölüm ediniminde kullanılabilir. Lütfen 'Tamamını al (Fiziksel DD)' modunu seçin.",
+            );
+            runtime_log(LogLevel::Error, "disk", err.to_string());
+            return Err(err);
+        }
         runtime_log(
             LogLevel::Info,
             "disk",
             "Akilli seyrek alan (Sparse/Bitmap) optimizasyonu devrede.",
         );
-        match crate::sparse::run_sparse_acquisition(task, source_size, &mut progress, &mut control)
-        {
-            Ok(result) => return Ok(result),
-            Err(err) => {
-                runtime_log(
-                    LogLevel::Warn,
-                    "disk",
-                    format!(
-                        "Akilli seyrek edinim uygulanamadi, standart blok edinimine devam ediliyor: {:?}",
-                        err
-                    ),
-                );
-            }
-        }
+        return crate::sparse::run_sparse_acquisition(
+            task,
+            source_size,
+            &mut progress,
+            &mut control,
+        );
     }
 
     if let Some(parent) = task.target.parent() {

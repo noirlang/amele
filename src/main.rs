@@ -1533,12 +1533,21 @@ fn local_image_command(args: Vec<String>) -> Result<(), String> {
     let mut args = args;
     let json_output = args.iter().any(|a| a == "--json");
     args.retain(|a| a != "--json");
-    let sparse = extract_flag(&mut args, &["--sparse", "--smart", "-s"]);
-    let selected_format = extract_output_format(&mut args)?;
+    let full_flag = extract_flag(&mut args, &["--full", "-f"]);
+    let sparse_flag = extract_flag(&mut args, &["--sparse", "--smart", "-s"]);
+    let (selected_format, format_sparse_pref) = extract_output_format_with_sparse(&mut args)?;
+    let sparse = if full_flag {
+        false
+    } else if let Some(pref) = format_sparse_pref {
+        pref
+    } else {
+        sparse_flag
+    };
+
     if args.len() < 2 {
         return Err(t_cli(
-            "Kullanim: local-image <kaynak> <vaka> [disk_adı] [raw|aff4]",
-            "Usage: local-image <source> <case> [disk_name] [raw|aff4]",
+            "Kullanim: local-image <kaynak> <vaka> [disk_adı] [raw|raw-full|aff4|aff4-full] [--sparse|--full]",
+            "Usage: local-image <source> <case> [disk_name] [raw|raw-full|aff4|aff4-full] [--sparse|--full]",
         ));
     }
     let source = PathBuf::from(&args[0]);
@@ -1582,6 +1591,7 @@ fn local_image_command(args: Vec<String>) -> Result<(), String> {
             "target_path": finalized.target_path,
             "bytes_copied": result.bytes_copied,
             "total_bytes": result.total_bytes,
+            "sparse": task.sparse,
             "sha256": finalized.sha256,
             "raw_sha256": finalized.raw_sha256,
             "output_format": finalized.format.as_str(),
@@ -1620,6 +1630,18 @@ fn local_image_command(args: Vec<String>) -> Result<(), String> {
             "  {:<20}: {}",
             t_cli("İmaj Formatı", "Image Format"),
             finalized.format.as_str().to_uppercase()
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("Edinim Modu", "Acquisition Mode"),
+            if task.sparse {
+                t_cli(
+                    "Dolu Alanlar (Akıllı Seyrek / Sparse)",
+                    "Allocated Space (Smart Sparse)",
+                )
+            } else {
+                t_cli("Tam Disk (Fiziksel / Full)", "Full Disk (Physical / Full)")
+            }
         );
         println!("  {:<20}: {}", "SHA-256", finalized.sha256);
         if let Some(raw_h) = &finalized.raw_sha256 {
@@ -3419,8 +3441,10 @@ fn cli_timestamp() -> String {
     Local::now().format("%Y%m%d_%H%M%S").to_string()
 }
 
-/// CLI argümanlarından raw/aff4 format seçimini ayıklar.
-fn extract_output_format(args: &mut Vec<String>) -> Result<AcquisitionOutputFormat, String> {
+/// CLI argümanlarından raw/aff4 format ve seyrek mod tercihini ayıklar.
+fn extract_output_format_with_sparse(
+    args: &mut Vec<String>,
+) -> Result<(AcquisitionOutputFormat, Option<bool>), String> {
     let mut selected = None;
     args.retain(|arg| {
         let parsed = if let Some(format) = arg.strip_prefix("--format=") {
@@ -3429,7 +3453,21 @@ fn extract_output_format(args: &mut Vec<String>) -> Result<AcquisitionOutputForm
             Some("aff4")
         } else if arg == "--raw" {
             Some("raw")
-        } else if matches!(arg.as_str(), "raw" | "dd" | "img" | "aff4") {
+        } else if matches!(
+            arg.as_str(),
+            "raw"
+                | "dd"
+                | "img"
+                | "aff4"
+                | "raw-sparse"
+                | "raw_sparse"
+                | "raw-full"
+                | "raw_full"
+                | "aff4-sparse"
+                | "aff4_sparse"
+                | "aff4-full"
+                | "aff4_full"
+        ) {
             Some(arg.as_str())
         } else {
             None
@@ -3442,7 +3480,14 @@ fn extract_output_format(args: &mut Vec<String>) -> Result<AcquisitionOutputForm
             true
         }
     });
-    AcquisitionOutputFormat::parse(selected.as_deref())
+    let sparse_pref = AcquisitionOutputFormat::parse_sparse_preference(selected.as_deref());
+    let format = AcquisitionOutputFormat::parse(selected.as_deref())?;
+    Ok((format, sparse_pref))
+}
+
+/// CLI argümanlarından raw/aff4 format seçimini ayıklar.
+fn extract_output_format(args: &mut Vec<String>) -> Result<AcquisitionOutputFormat, String> {
+    extract_output_format_with_sparse(args).map(|(f, _)| f)
 }
 
 /// Global bayrakları (örn: --quiet, -q, --verbose, -v) komut listesinden ayıklar.
@@ -3694,12 +3739,20 @@ fn remote_image_command(args: Vec<String>) -> Result<(), String> {
     let mut args = args;
     let json_output = args.iter().any(|a| a == "--json");
     args.retain(|a| a != "--json");
-    let sparse = extract_flag(&mut args, &["--sparse", "--smart", "-s"]);
-    let selected_format = extract_output_format(&mut args)?;
+    let full_flag = extract_flag(&mut args, &["--full", "-f"]);
+    let sparse_flag = extract_flag(&mut args, &["--sparse", "--smart", "-s"]);
+    let (selected_format, format_sparse_pref) = extract_output_format_with_sparse(&mut args)?;
+    let sparse = if full_flag {
+        false
+    } else if let Some(pref) = format_sparse_pref {
+        pref
+    } else {
+        sparse_flag
+    };
     if args.len() < 4 {
         return Err(t_cli(
-            "Kullanim: remote-image <ip> <port> <disk_id> <cikti_klasoru> [token] [raw|aff4]",
-            "Usage: remote-image <ip> <port> <disk_id> <out_dir> [token] [raw|aff4]",
+            "Kullanim: remote-image <ip> <port> <disk_id> <cikti_klasoru> [token] [raw|raw-full|aff4|aff4-full] [--sparse|--full]",
+            "Usage: remote-image <ip> <port> <disk_id> <out_dir> [token] [raw|raw-full|aff4|aff4-full] [--sparse|--full]",
         ));
     }
     let port = parse_port(&args[1])?;
