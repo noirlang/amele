@@ -38,6 +38,8 @@
 .profile-cases-section,
 .profile-action-bar,
 .profile-gate-card,
+.profile-select-card,
+.wizard-choice-card,
 .agent-box,
 .help-sidebar,
 .help-main-content,
@@ -111,7 +113,8 @@
   box-shadow: none !important;
 }
 
-.primary-button {
+.primary-button,
+.wizard-btn-next {
   background: var(--text) !important;
   background-image: none !important;
   color: var(--bg) !important;
@@ -122,7 +125,8 @@
 .secondary-button,
 .danger-button,
 .icon-button,
-.top-action {
+.top-action,
+.wizard-btn-back {
   background: transparent !important;
   background-image: none !important;
   color: var(--text) !important;
@@ -248,7 +252,9 @@ code:not(.help-code-block code) {
 
 .progress-bar b {
   color: #ffffff !important;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 4px rgba(0, 0, 0, 0.9) !important;
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.95),
+    0 0 4px rgba(0, 0, 0, 0.9) !important;
 }
 
 .switch {
@@ -288,9 +294,9 @@ code:not(.help-code-block code) {
 
 :root {
   --glow-idle: rgba(255, 255, 255, 0.35);
-  --glow-idle-soft: rgba(255, 255, 255, 0.10);
+  --glow-idle-soft: rgba(255, 255, 255, 0.1);
   --glow-hover: rgba(255, 236, 180, 0.92);
-  --glow-hover-soft: rgba(255, 228, 160, 0.30);
+  --glow-hover-soft: rgba(255, 228, 160, 0.3);
   --glow-hover-glow: rgba(255, 225, 150, 0.18);
   --glow-track: rgba(255, 255, 255, 0.06);
 }
@@ -298,7 +304,7 @@ code:not(.help-code-block code) {
 .shell.theme-light {
   --glow-idle: rgba(38, 33, 24, 0.12);
   --glow-idle-soft: rgba(38, 33, 24, 0.04);
-  --glow-hover: rgba(138, 94, 18, 0.60);
+  --glow-hover: rgba(138, 94, 18, 0.6);
   --glow-hover-soft: rgba(138, 94, 18, 0.18);
   --glow-hover-glow: rgba(138, 94, 18, 0.08);
   --glow-track: rgba(38, 33, 24, 0.06);
@@ -313,7 +319,9 @@ code:not(.help-code-block code) {
 }
 
 @keyframes glow-spin {
-  to { --glow-angle: 360deg; }
+  to {
+    --glow-angle: 360deg;
+  }
 }
 
 /* ── Shared glow container setup ───────────────────────────────── */
@@ -341,6 +349,9 @@ code:not(.help-code-block code) {
 .profile-action-bar,
 .profile-gate-card,
 .profile-card,
+.profile-select-card,
+.wizard-choice-card,
+.wizard-btn-next,
 .help-sidebar,
 .help-main-content,
 .help-nav-btn,
@@ -416,6 +427,8 @@ code:not(.help-code-block code) {
 .profile-action-bar::before,
 .profile-gate-card::before,
 .profile-card::before,
+.profile-select-card::before,
+.wizard-choice-card::before,
 .help-sidebar::before,
 .help-main-content::before,
 .help-nav-btn::before,
@@ -444,7 +457,7 @@ code:not(.help-code-block code) {
   border-radius: inherit;
   padding: 1px;
   pointer-events: none;
-  background: 
+  background:
     conic-gradient(
       from var(--glow-angle),
       transparent 0%,
@@ -465,7 +478,9 @@ code:not(.help-code-block code) {
   mask-composite: exclude;
   animation: glow-spin 3.6s linear infinite;
   opacity: 0.65;
-  transition: opacity 220ms var(--ease), background 220ms var(--ease);
+  transition:
+    opacity 220ms var(--ease),
+    background 220ms var(--ease);
   will-change: --glow-angle;
 }
 
@@ -478,6 +493,7 @@ code:not(.help-code-block code) {
 /* ── Rotating light beam – buttons (no overflow:hidden) ────────── */
 
 .primary-button::before,
+.wizard-btn-next::before,
 .secondary-button::before,
 .danger-button::before,
 .icon-button::before,
@@ -579,6 +595,9 @@ code:not(.help-code-block code) {
 .profile-action-bar > *,
 .profile-gate-card > *,
 .profile-card > *,
+.profile-select-card > *,
+.wizard-choice-card > *,
+.wizard-btn-next > *,
 .help-sidebar > *,
 .help-main-content > *,
 .help-nav-btn > *,
@@ -638,6 +657,11 @@ code:not(.help-code-block code) {
 .profile-action-bar:hover::before,
 .profile-gate-card:hover::before,
 .profile-card:hover::before,
+.profile-select-card:hover::before,
+.profile-select-card:focus-visible::before,
+.profile-select-card.is-selected::before,
+.wizard-choice-card:hover::before,
+.wizard-choice-card.is-selected::before,
 .help-sidebar:hover::before,
 .help-main-content:hover::before,
 .help-nav-btn:hover::before,
@@ -661,7 +685,7 @@ code:not(.help-code-block code) {
 .report-locked-connect-btn:hover::before,
 .agent-dropdown-trigger:hover::before,
 .news-h-btn:hover::before {
-  background: 
+  background:
     conic-gradient(
       from var(--glow-angle),
       transparent 0%,
@@ -702,6 +726,11 @@ code:not(.help-code-block code) {
 .profile-action-bar:hover,
 .profile-gate-card:hover,
 .profile-card:hover,
+.profile-select-card:hover,
+.profile-select-card:focus-visible,
+.profile-select-card.is-selected,
+.wizard-choice-card:hover,
+.wizard-choice-card.is-selected,
 .help-sidebar:hover,
 .help-main-content:hover,
 .help-nav-btn:hover,
@@ -731,6 +760,8 @@ code:not(.help-code-block code) {
 /* ── HOVER: cream LED glow (buttons) ───────────────────────────── */
 
 .primary-button:hover::before,
+.wizard-btn-next:hover::before,
+.wizard-btn-next:focus-visible::before,
 .secondary-button:hover::before,
 .danger-button:hover::before,
 .icon-button:hover::before,
@@ -752,6 +783,8 @@ code:not(.help-code-block code) {
 }
 
 .primary-button:hover,
+.wizard-btn-next:hover,
+.wizard-btn-next:focus-visible,
 .secondary-button:hover,
 .danger-button:hover,
 .icon-button:hover,
@@ -820,6 +853,9 @@ code:not(.help-code-block code) {
 .native-linux .profile-action-bar,
 .native-linux .profile-gate-card,
 .native-linux .profile-card,
+.native-linux .profile-select-card,
+.native-linux .wizard-choice-card,
+.native-linux .wizard-btn-next,
 .native-linux .help-sidebar,
 .native-linux .help-main-content,
 .native-linux .help-nav-btn,
@@ -877,6 +913,9 @@ code:not(.help-code-block code) {
 .native-linux .profile-action-bar::before,
 .native-linux .profile-gate-card::before,
 .native-linux .profile-card::before,
+.native-linux .profile-select-card::before,
+.native-linux .wizard-choice-card::before,
+.native-linux .wizard-btn-next::before,
 .native-linux .help-sidebar::before,
 .native-linux .help-main-content::before,
 .native-linux .help-nav-btn::before,
@@ -934,6 +973,10 @@ code:not(.help-code-block code) {
 .native-linux .profile-action-bar:hover::before,
 .native-linux .profile-gate-card:hover::before,
 .native-linux .profile-card:hover::before,
+.native-linux .profile-select-card:hover::before,
+.native-linux .wizard-choice-card:hover::before,
+.native-linux .wizard-choice-card.is-selected::before,
+.native-linux .wizard-btn-next:hover::before,
 .native-linux .help-sidebar:hover::before,
 .native-linux .help-main-content:hover::before,
 .native-linux .help-nav-btn:hover::before,

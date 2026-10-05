@@ -1,6 +1,11 @@
 // arayüzün ana dosyası. sayfa geçişleri, sekmeler, tema dil falan hepsi burdan yönetiliyo. açılışta sistemi kontrol edip ona göre çiziyo.
 
-import { androidModePage, androidPage, handleAndroidAction, syncAndroidDeviceSelection } from "./tools/android/index.js";
+import {
+  androidModePage,
+  androidPage,
+  handleAndroidAction,
+  syncAndroidDeviceSelection,
+} from "./tools/android/index.js";
 import { iosPage, handleIosAction, syncIosBackupPathInput } from "./tools/ios/index.js";
 import { dockerPage, handleDockerAction } from "./tools/docker/index.js";
 import { windowsPage } from "./tools/windows/index.js";
@@ -33,7 +38,7 @@ import {
   submitAgentPrompt,
   executeAmeleCommand,
   getQuickChipPrompt,
-  getPersistedAgentId
+  getPersistedAgentId,
 } from "./core/agent.js";
 
 const APP_VERSION = "v0.1.1";
@@ -50,9 +55,13 @@ if (isNativeLinux) document.documentElement.classList.add("native-linux");
 const app = document.querySelector("#app");
 const view = document.querySelector("#view");
 const profileGate = document.querySelector("#profile-gate");
-const preferredLanguage = ["tr", "en"].includes(urlParams.get("lang") || "") ? urlParams.get("lang") : localStorage.getItem("amele-language") || "en";
+const preferredLanguage = ["tr", "en"].includes(urlParams.get("lang") || "")
+  ? urlParams.get("lang")
+  : localStorage.getItem("amele-language") || "en";
 const requestedTheme = urlParams.get("theme");
-const preferredTheme = ["dark", "light"].includes(requestedTheme || "") ? requestedTheme : localStorage.getItem("amele-theme") || "dark";
+const preferredTheme = ["dark", "light"].includes(requestedTheme || "")
+  ? requestedTheme
+  : localStorage.getItem("amele-theme") || "dark";
 const preferredSidebarCollapsed = localStorage.getItem("amele-sidebar-collapsed") === "1";
 if (preferredSidebarCollapsed) app.classList.add("sidebar-collapsed");
 
@@ -77,13 +86,15 @@ const state = {
   language: preferredLanguage,
   sidebarCollapsed: preferredSidebarCollapsed,
   platform: detectPlatform(),
-  renderingEngine: urlParams.get("engine") || (
-    (typeof window !== "undefined" && window.chrome && /Chrome|Chromium/i.test(navigator.userAgent || ""))
+  renderingEngine:
+    urlParams.get("engine") ||
+    (typeof window !== "undefined" &&
+    window.chrome &&
+    /Chrome|Chromium/i.test(navigator.userAgent || "")
       ? "chromium"
       : /WebKit/i.test(navigator.userAgent || "")
         ? "webkit"
-        : "chromium"
-  ),
+        : "chromium"),
   news: safeJsonParse(localStorage.getItem("amele_news_cache"))?.items || [],
   activeNewsIndex: 0,
   files: {},
@@ -102,11 +113,17 @@ const state = {
   mobileToolsAccess: { allowed: false, reason: "" },
   profileGateVisible: false,
   profileGateMode: "select",
+  wizardStep: 1,
+  wizardMode: "create",
   profileDraft: {
     fullName: "",
     username: "",
+    usernameManual: false,
     onlineIdentifier: "",
-    openDirectly: false
+    onlinePassword: "",
+    language: preferredLanguage,
+    theme: preferredTheme,
+    openDirectly: false,
   },
   imageMount: null,
   imageMountLogHTML: "",
@@ -119,14 +136,14 @@ const state = {
   android: {
     adbStatus: null,
     devices: [],
-    selectedDevice: ""
+    selectedDevice: "",
   },
   ios: {
     backupPath: "",
     profile: null,
     hashAlgorithms: ["md5", "sha1", "sha256"],
     normalizeJob: null,
-    normalizeLog: []
+    normalizeLog: [],
   },
   jobs: {},
   cachedDefaultCaseName: "",
@@ -141,7 +158,7 @@ const state = {
     messages: [],
     isGenerating: false,
     isExecuting: false,
-    elevationModal: null
+    elevationModal: null,
   },
   reportDraft: {
     title: "",
@@ -149,10 +166,10 @@ const state = {
     images: [],
     submitting: false,
     error: "",
-    success: ""
+    success: "",
   },
   copilot: null,
-  lastLog: initialLogMessages(preferredLanguage)
+  lastLog: initialLogMessages(preferredLanguage),
 };
 state.copilot = state.agent;
 
@@ -173,7 +190,7 @@ function boundDetailPanel(tab) {
     field,
     escapeHtml,
     caseSelectOptions,
-    hashPanel
+    hashPanel,
   });
 }
 
@@ -192,18 +209,30 @@ const MAIN_ROUTE_ORDER = [
   "help",
   "about",
   "settings",
-  "profile"
+  "profile",
 ];
 
 function setRoute(route, direction) {
   if (isMobileToolsRoute(route) && !onlineMobileToolsAllowed()) {
-    devLog("WARN", "ui:router", `Mobile route blocked (locked): ${route}`, apiRequest, backendReady);
+    devLog(
+      "WARN",
+      "ui:router",
+      `Mobile route blocked (locked): ${route}`,
+      apiRequest,
+      backendReady
+    );
     return;
   }
   if (route.startsWith("workflow:")) {
     const workflow = workflows[route.split(":")[1]];
     if (workflow && isLocalWorkflowBlocked(workflow)) {
-      devLog("WARN", "ui:router", `Route blocked (platform mismatch): ${route} — expected ${workflow.platform}, got ${state.platform}`, apiRequest, backendReady);
+      devLog(
+        "WARN",
+        "ui:router",
+        `Route blocked (platform mismatch): ${route} — expected ${workflow.platform}, got ${state.platform}`,
+        apiRequest,
+        backendReady
+      );
       showToast(t("platformBlocked", { platform: workflow.platform }), "warning");
       return;
     }
@@ -237,7 +266,13 @@ function setRoute(route, direction) {
     }
   }
 
-  devLog("DEBUG", "ui:router", `Navigate → ${route} (${state.navDirection})`, apiRequest, backendReady);
+  devLog(
+    "DEBUG",
+    "ui:router",
+    `Navigate → ${route} (${state.navDirection})`,
+    apiRequest,
+    backendReady
+  );
   state.route = route;
   render();
 }
@@ -288,7 +323,10 @@ function syncSidebarState() {
   document.documentElement?.classList?.toggle?.("sidebar-collapsed", state.sidebarCollapsed);
   document.querySelectorAll("[data-sidebar-toggle]").forEach((button) => {
     button.setAttribute("aria-expanded", String(!state.sidebarCollapsed));
-    button.setAttribute("aria-label", state.sidebarCollapsed ? t("sidebar.expand") : t("sidebar.collapse"));
+    button.setAttribute(
+      "aria-label",
+      state.sidebarCollapsed ? t("sidebar.expand") : t("sidebar.collapse")
+    );
   });
 }
 
@@ -323,7 +361,13 @@ async function loadPersistedSettings() {
       backendReady
     );
   } catch (error) {
-    devLog("WARN", "ui:settings", `Kalıcı ayarlar yüklenemedi: ${error.message}`, apiRequest, backendReady);
+    devLog(
+      "WARN",
+      "ui:settings",
+      `Kalıcı ayarlar yüklenemedi: ${error.message}`,
+      apiRequest,
+      backendReady
+    );
   }
 }
 
@@ -339,12 +383,19 @@ async function loadUpdateTarget() {
       backendReady
     );
   } catch (error) {
-    devLog("WARN", "ui:update", `Güncelleme paket tipi algılanamadı: ${error.message}`, apiRequest, backendReady);
+    devLog(
+      "WARN",
+      "ui:update",
+      `Güncelleme paket tipi algılanamadı: ${error.message}`,
+      apiRequest,
+      backendReady
+    );
   }
 }
 
 async function saveSettingsFromControls() {
-  const language = document.querySelector("[data-action='language-select']")?.value || state.language;
+  const language =
+    document.querySelector("[data-action='language-select']")?.value || state.language;
   setLanguage(language);
   setTheme(state.theme);
   if (!backendReady()) return { path: "localStorage" };
@@ -353,8 +404,8 @@ async function saveSettingsFromControls() {
     method: "POST",
     body: JSON.stringify({
       theme: state.theme,
-      language: state.language
-    })
+      language: state.language,
+    }),
   });
   applyPersistedSettings(result.settings);
   if (state.activeProfile) {
@@ -386,7 +437,8 @@ async function loadProfiles() {
     state.activeProfile = result.active_profile || null;
     if (state.activeProfile) {
       if (!urlParams.get("lang")) setLanguage(state.activeProfile.language === "en" ? "en" : "tr");
-      if (!urlParams.get("theme")) setTheme(state.activeProfile.theme === "light" ? "light" : "dark");
+      if (!urlParams.get("theme"))
+        setTheme(state.activeProfile.theme === "light" ? "light" : "dark");
       if (typeof state.activeProfile.sidebarCollapsed === "boolean") {
         setSidebarCollapsed(state.activeProfile.sidebarCollapsed);
       }
@@ -394,13 +446,23 @@ async function loadProfiles() {
       hideProfileGate();
     } else {
       state.mobileToolsAccess = { allowed: false, reason: "" };
-      state.profileGateMode = state.profiles.length ? "select" : "create";
+      state.profileGateMode = state.profiles.length ? "select" : "wizard";
+      state.wizardStep = 1;
+      state.wizardMode = "create";
       showProfileGate();
     }
     syncProfileButton();
   } catch (error) {
-    devLog("ERROR", "ui:profile", `Profil listesi yüklenemedi: ${error.message}`, apiRequest, backendReady);
-    state.profileGateMode = "create";
+    devLog(
+      "ERROR",
+      "ui:profile",
+      `Profil listesi yüklenemedi: ${error.message}`,
+      apiRequest,
+      backendReady
+    );
+    state.profileGateMode = "wizard";
+    state.wizardStep = 1;
+    state.wizardMode = "create";
     showProfileGate(t("profile.loadFailed", { message: error.message }));
   }
 }
@@ -418,155 +480,453 @@ function hideProfileGate() {
   }
 }
 
+function slugifyUsername(fullName) {
+  if (!fullName) return "";
+  const trMap = {
+    ç: "c",
+    ğ: "g",
+    ı: "i",
+    ö: "o",
+    ş: "s",
+    ü: "u",
+    Ç: "c",
+    Ğ: "g",
+    İ: "i",
+    I: "i",
+    Ö: "o",
+    Ş: "s",
+    Ü: "u",
+  };
+  const normalized = String(fullName).replace(/[çğışüöÇĞİŞÜÖ]/g, (c) => trMap[c] || c);
+  return normalized
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 32);
+}
+
 function renderProfileGate(errorMessage = "") {
   if (!profileGate) return;
   profileGate.hidden = false;
-  const isOnline = state.profileGateMode === "online";
-  const isCreate = !isOnline && (state.profileGateMode === "create" || !state.profiles.length);
-  const cards = state.profiles.map((profile) => `
-    <button class="profile-card" data-action="profile-select" data-username="${escapeHtml(profile.username)}">
-      <span class="profile-card-top">
-        ${renderProfileAvatar(profile)}
-        ${profile.online ? `<span class="online-profile-mark" title="${escapeHtml(t("profile.onlineConnectedShort"))}">${icon("globe")}</span>` : ""}
-      </span>
-      <strong>${escapeHtml(profile.full_name || profile.username)}</strong>
-      <small>@${escapeHtml(profile.username)}</small>
-      ${profile.online ? `<small class="profile-card-status">${icon("globe")} ${profile.online.status === "offline" ? "Offline" : (profile.online.status === "session_expired" ? "Offline (Oturum Doldu)" : t("profile.onlineAccount"))} @${escapeHtml(profile.online.username || "-")}</small>` : ""}
+
+  if (state.profileGateMode === "select" && state.profiles.length > 0) {
+    renderProfileSelectView(errorMessage);
+  } else {
+    state.profileGateMode = "wizard";
+    renderProfileWizardView(errorMessage);
+  }
+  hydrateIcons(profileGate);
+  attachProfileGateEvents();
+}
+
+function renderProfileSelectView(errorMessage = "") {
+  const count = state.profiles.length;
+  const countClass =
+    count === 1
+      ? "profile-cards-1"
+      : count === 2
+        ? "profile-cards-2"
+        : count === 3
+          ? "profile-cards-3"
+          : "";
+  const cards = state.profiles
+    .map(
+      (profile) => `
+    <button class="profile-select-card" data-action="profile-select" data-username="${escapeHtml(profile.username)}">
+      <div class="profile-select-card-avatar">
+        ${renderProfileAvatar(profile, "large")}
+        ${profile.online ? `<span class="profile-online-badge" title="${escapeHtml(t("profile.onlineConnectedShort"))}">${icon("globe")}</span>` : ""}
+      </div>
+      <div class="profile-select-card-meta">
+        <strong class="profile-select-card-name">${escapeHtml(profile.full_name || profile.username)}</strong>
+        <span class="profile-select-card-user">@${escapeHtml(profile.username)}</span>
+        ${profile.online ? `<span class="profile-select-card-status">${icon("globe")} ${profile.online.status === "offline" ? "Offline" : profile.online.status === "session_expired" ? "Offline (Oturum Doldu)" : t("profile.onlineAccount")} @${escapeHtml(profile.online.username || "-")}</span>` : ""}
+      </div>
     </button>
-  `).join("");
+  `
+    )
+    .join("");
+
   profileGate.innerHTML = `
-    <section class="profile-gate-card">
-      <div class="profile-gate-head">
-        <img src="./assets/logo/${state.theme === "light" ? "logo-siyah.png" : "logo.png"}" alt="Amele" />
-        <div>
-          <h1>${t(isOnline ? "profile.onlineTitle" : (isCreate ? "profile.createTitle" : "profile.selectTitle"))}</h1>
-          <p>${t(isOnline ? "profile.onlineDesc" : (isCreate ? "profile.createDesc" : "profile.selectDesc"))}</p>
-        </div>
+    <section class="profile-select-container">
+      <div class="profile-select-top">
+        <img src="./assets/logo/${state.theme === "light" ? "logo-siyah.png" : "logo.png"}" alt="Amele" class="profile-select-logo" />
+        <h1 class="profile-select-title">${t("profile.selectTitle")}</h1>
+        <p class="profile-select-desc">${t("profile.selectDesc")}</p>
       </div>
       ${errorMessage ? `<div class="error-panel">${escapeHtml(errorMessage)}</div>` : ""}
-      ${isOnline ? onlineProfileFormHtml() : (isCreate ? profileFormHtml() : `
-        <div class="profile-list">${cards}</div>
-        <label class="check-row">
+      <div class="profile-cards-grid ${countClass}">${cards}</div>
+      <div class="profile-select-bottom">
+        <label class="check-row profile-gate-check">
           <input type="checkbox" id="profile-open-directly" />
           <span>${t("profile.openDirectly")}</span>
         </label>
-        <div class="button-row">
-          <button class="secondary-button" data-action="profile-create-start">${icon("user")} ${t("profile.newProfile")}</button>
-          <button class="primary-button" data-action="profile-online-start">${icon("globe")} ${t("profile.onlineConnect")}</button>
+        <div class="profile-gate-actions">
+          <button class="primary-button profile-action-btn" data-action="profile-create-start">
+            ${icon("user")} ${t("profile.newProfile")}
+          </button>
+          <button class="secondary-button profile-action-btn" data-action="profile-online-start">
+            ${icon("globe")} ${t("profile.onlineConnect")}
+          </button>
         </div>
-      `)}
+      </div>
     </section>
   `;
-  hydrateIcons(profileGate);
 }
 
-function profileFormHtml() {
+function renderProfileWizardView(errorMessage = "") {
+  const isOnlineMode = state.wizardMode === "online";
+  const step = state.wizardStep || 1;
   const draft = state.profileDraft || {};
-  const draftLanguage = draft.language || state.language;
-  const draftTheme = draft.theme || state.theme;
-  return `
-    <div class="profile-form">
-      ${field(t("settings.language"), `
-        <select id="profile-language" class="select">
-          <option value="tr" ${draftLanguage === "tr" ? "selected" : ""}>Türkçe</option>
-          <option value="en" ${draftLanguage === "en" ? "selected" : ""}>English</option>
-        </select>
-      `)}
-      ${field(t("settings.darkTheme"), `
-        <select id="profile-theme" class="select">
-          <option value="dark" ${draftTheme !== "light" ? "selected" : ""}>${t("profile.themeDark")}</option>
-          <option value="light" ${draftTheme === "light" ? "selected" : ""}>${t("profile.themeLight")}</option>
-        </select>
-      `)}
-      ${field(t("profile.fullName"), `<input id="profile-full-name" class="input" autocomplete="name" value="${escapeHtml(draft.fullName || "")}" />`)}
-      ${field(t("profile.username"), `<input id="profile-username" class="input" autocomplete="username" value="${escapeHtml(draft.username || "")}" />`)}
-      <label class="check-row">
-        <input type="checkbox" id="profile-create-directly" ${draft.openDirectly ? "checked" : ""} />
-        <span>${t("profile.openDirectly")}</span>
-      </label>
-      <div class="button-row">
-        ${state.profiles.length ? `<button class="secondary-button" data-action="profile-select-back">${t("profile.backToProfiles")}</button>` : ""}
-        <button class="secondary-button" data-action="profile-online-start">${icon("globe")} ${t("profile.onlineConnect")}</button>
-        <button class="primary-button" data-action="profile-submit">${icon("user")} ${t("profile.createButton")}</button>
+  const currentLang = draft.language || state.language || "tr";
+  const currentTheme = draft.theme || state.theme || "dark";
+  const isDark = currentTheme !== "light";
+
+  let bodyHtml = "";
+
+  if (step === 1) {
+    // 1. Dil Seçimi: Solda İngilizce, Sağda Türkçe
+    bodyHtml = `
+      <h1 class="wizard-title">${t("wizard.selectLanguage")}</h1>
+      <p class="wizard-subtitle">${t("wizard.selectLanguageDesc")}</p>
+      ${errorMessage ? `<div class="error-panel">${escapeHtml(errorMessage)}</div>` : ""}
+      <div class="wizard-choice-group wizard-language-group">
+        <button type="button" class="wizard-choice-card wizard-lang-card ${currentLang === "en" ? "is-selected" : ""}" data-action="wizard-set-lang" data-lang="en">
+          <img src="./assets/flags/gb.svg" alt="English" class="wizard-flag-img" />
+          <span class="wizard-choice-label">English</span>
+        </button>
+        <button type="button" class="wizard-choice-card wizard-lang-card ${currentLang === "tr" ? "is-selected" : ""}" data-action="wizard-set-lang" data-lang="tr">
+          <img src="./assets/flags/tr.svg" alt="Türkçe" class="wizard-flag-img" />
+          <span class="wizard-choice-label">Türkçe</span>
+        </button>
       </div>
-    </div>
+      <div class="wizard-bottom">
+        <button type="button" class="wizard-btn-next" data-action="wizard-step-next">
+          ${t("wizard.next")}
+        </button>
+        ${
+          state.profiles.length
+            ? `
+          <button type="button" class="wizard-btn-back" data-action="profile-select-back">
+            ${t("wizard.back")}
+          </button>
+        `
+            : ""
+        }
+      </div>
+    `;
+  } else if (step === 2) {
+    // 2. Tema Seçimi: SADECE ayarlardaki animasyonlu day-night-toggle (ekstra kutular yok)
+    bodyHtml = `
+      <h1 class="wizard-title">${t("wizard.selectTheme")}</h1>
+      <p class="wizard-subtitle">${t("wizard.selectThemeDesc")}</p>
+      ${errorMessage ? `<div class="error-panel">${escapeHtml(errorMessage)}</div>` : ""}
+      <div class="wizard-theme-container">
+        <div class="wizard-dn-toggle-wrap">
+          <button type="button" class="day-night-toggle ${isDark ? "is-dark" : "is-light"} wizard-day-night" data-action="wizard-theme-toggle" role="switch" aria-checked="${isDark ? "true" : "false"}" aria-label="${t("settings.darkTheme") || "Karanlık Tema"}">
+            <span class="dn-track">
+              <span class="dn-stars">
+                <span class="dn-star dn-star-1"></span>
+                <span class="dn-star dn-star-2"></span>
+                <span class="dn-star dn-star-3"></span>
+                <span class="dn-star dn-star-4"></span>
+              </span>
+              <span class="dn-clouds">
+                <span class="dn-cloud dn-cloud-1"></span>
+                <span class="dn-cloud dn-cloud-2"></span>
+              </span>
+              <span class="dn-knob">
+                <span class="dn-crater dn-crater-1"></span>
+                <span class="dn-crater dn-crater-2"></span>
+                <span class="dn-crater dn-crater-3"></span>
+              </span>
+            </span>
+          </button>
+        </div>
+      </div>
+      <div class="wizard-bottom">
+        <button type="button" class="wizard-btn-next" data-action="wizard-step-next">
+          ${t("wizard.next")}
+        </button>
+        <button type="button" class="wizard-btn-back" data-action="wizard-step-prev">
+          ${t("wizard.back")}
+        </button>
+      </div>
+    `;
+  } else if (step === 3) {
+    // 3. SADECE Ad Soyad (Kullanıcı adı ve checkbox yok)
+    bodyHtml = `
+      <h1 class="wizard-title">${t("wizard.fullNameTitle")}</h1>
+      <p class="wizard-subtitle">${t("wizard.fullNameDesc")}</p>
+      ${errorMessage ? `<div class="error-panel">${escapeHtml(errorMessage)}</div>` : ""}
+      <div class="wizard-input-center-wrap">
+        <input id="wizard-full-name" class="wizard-input-large" type="text" autocomplete="name" placeholder="${t("profile.fullName")}" value="${escapeHtml(draft.fullName || "")}" autofocus />
+      </div>
+      <div class="wizard-bottom">
+        <button type="button" class="wizard-btn-next" data-action="wizard-step-next">
+          ${t("wizard.next")}
+        </button>
+        <button type="button" class="wizard-btn-back" data-action="wizard-step-prev">
+          ${t("wizard.back")}
+        </button>
+      </div>
+    `;
+  } else if (step === 4) {
+    // 4. Online Profil Bağlamak İster misiniz? (Evet / Hayır)
+    bodyHtml = `
+      <h1 class="wizard-title">${t("wizard.onlinePromptTitle")}</h1>
+      <p class="wizard-subtitle">${t("wizard.onlinePromptDesc")}</p>
+      ${errorMessage ? `<div class="error-panel">${escapeHtml(errorMessage)}</div>` : ""}
+      <div class="wizard-choice-group wizard-online-prompt-group">
+        <button type="button" class="wizard-choice-card wizard-prompt-card" data-action="wizard-online-choice-yes">
+          <span class="wizard-prompt-icon">${icon("globe")}</span>
+          <strong class="wizard-choice-label">${t("wizard.yesOnline")}</strong>
+          <small class="wizard-choice-desc">${t("wizard.yesOnlineDesc")}</small>
+        </button>
+        <button type="button" class="wizard-choice-card wizard-prompt-card" data-action="wizard-online-choice-no">
+          <span class="wizard-prompt-icon">${icon("user")}</span>
+          <strong class="wizard-choice-label">${t("wizard.noLocal")}</strong>
+          <small class="wizard-choice-desc">${t("wizard.noLocalDesc")}</small>
+        </button>
+      </div>
+      <div class="wizard-bottom">
+        <button type="button" class="wizard-btn-back" data-action="wizard-step-prev">
+          ${t("wizard.back")}
+        </button>
+      </div>
+    `;
+  } else if (step === 5) {
+    // 5. Yerel Akış: Kullanıcı Adı Belirleme ve En Sonda "Bundan sonra direkt bu hesapla aç"
+    const suggestedUsername = draft.username || slugifyUsername(draft.fullName);
+    bodyHtml = `
+      <h1 class="wizard-title">${t("wizard.usernameTitle")}</h1>
+      <p class="wizard-subtitle">${t("wizard.usernameDesc")}</p>
+      ${errorMessage ? `<div class="error-panel">${escapeHtml(errorMessage)}</div>` : ""}
+      <div class="wizard-input-center-wrap">
+        <div class="wizard-username-large-box">
+          <span class="wizard-at-large">@</span>
+          <input id="wizard-username" class="wizard-username-large-input" type="text" autocomplete="username" placeholder="${t("profile.username")}" value="${escapeHtml(suggestedUsername)}" autofocus />
+        </div>
+        <label class="check-row wizard-check">
+          <input type="checkbox" id="wizard-open-directly" ${draft.openDirectly ? "checked" : ""} />
+          <span>${t("profile.openDirectly")}</span>
+        </label>
+      </div>
+      <div class="wizard-bottom">
+        <button type="button" class="wizard-btn-next" data-action="wizard-finish-local">
+          ${t("wizard.createAndStart")}
+        </button>
+        <button type="button" class="wizard-btn-back" data-action="wizard-step-prev">
+          ${t("wizard.back")}
+        </button>
+      </div>
+    `;
+  } else if (step === 6) {
+    // 6. Online Akış: Online Kullanıcı Adı veya E-posta
+    bodyHtml = `
+      <h1 class="wizard-title">${t("wizard.onlineIdentifierTitle")}</h1>
+      <p class="wizard-subtitle">${t("wizard.onlineIdentifierDesc")}</p>
+      ${errorMessage ? `<div class="error-panel">${escapeHtml(errorMessage)}</div>` : ""}
+      <div class="wizard-input-center-wrap">
+        <input id="wizard-online-identifier" class="wizard-input-large" type="text" autocomplete="username" placeholder="${t("profile.onlineIdentifier")}" value="${escapeHtml(draft.onlineIdentifier || "")}" autofocus />
+      </div>
+      <div class="wizard-bottom">
+        <button type="button" class="wizard-btn-next" data-action="wizard-step-next">
+          ${t("wizard.next")}
+        </button>
+        <button type="button" class="wizard-btn-back" data-action="wizard-step-prev">
+          ${t("wizard.back")}
+        </button>
+      </div>
+    `;
+  } else if (step === 7) {
+    // 7. Online Akış: Şifre ve En Sonda "Bundan sonra direkt bu hesapla aç"
+    bodyHtml = `
+      <h1 class="wizard-title">${t("wizard.onlinePasswordTitle")}</h1>
+      <p class="wizard-subtitle">${t("wizard.onlinePasswordDesc")}</p>
+      ${errorMessage ? `<div class="error-panel">${escapeHtml(errorMessage)}</div>` : ""}
+      <div class="wizard-input-center-wrap">
+        <div class="wizard-pwd-container">
+          <input id="wizard-online-password" class="wizard-input-large" type="password" autocomplete="current-password" placeholder="••••••••" value="${escapeHtml(draft.onlinePassword || "")}" autofocus />
+          <button type="button" class="wizard-pwd-eye" data-action="wizard-toggle-pwd" aria-label="Toggle">${icon("eye")}</button>
+        </div>
+        <label class="check-row wizard-check">
+          <input type="checkbox" id="wizard-online-directly" ${draft.openDirectly ? "checked" : ""} />
+          <span>${t("profile.openDirectly")}</span>
+        </label>
+      </div>
+      <div class="wizard-bottom">
+        <button type="button" class="wizard-btn-next" data-action="wizard-online-finish">
+          ${t("wizard.finish")}
+        </button>
+        <button type="button" class="wizard-btn-back" data-action="wizard-step-prev">
+          ${t("wizard.back")}
+        </button>
+      </div>
+    `;
+  }
+
+  profileGate.innerHTML = `
+    <section class="profile-wizard-container">
+      <div class="wizard-top">
+        <img src="./assets/logo/${state.theme === "light" ? "logo-siyah.png" : "logo.png"}" alt="Amele" class="wizard-logo" />
+      </div>
+      ${bodyHtml}
+    </section>
   `;
 }
 
-function onlineProfileFormHtml() {
-  const draft = state.profileDraft || {};
-  const draftLanguage = draft.language || state.language;
-  const draftTheme = draft.theme || state.theme;
-  return `
-    <div class="profile-form">
-      <div class="info-panel profile-notice">
-        ${icon("info")}
-        <p>${t("profile.onlineNotice")}</p>
-      </div>
-      ${field(t("settings.language"), `
-        <select id="profile-language" class="select">
-          <option value="tr" ${draftLanguage === "tr" ? "selected" : ""}>Türkçe</option>
-          <option value="en" ${draftLanguage === "en" ? "selected" : ""}>English</option>
-        </select>
-      `)}
-      ${field(t("settings.darkTheme"), `
-        <select id="profile-theme" class="select">
-          <option value="dark" ${draftTheme !== "light" ? "selected" : ""}>${t("profile.themeDark")}</option>
-          <option value="light" ${draftTheme === "light" ? "selected" : ""}>${t("profile.themeLight")}</option>
-        </select>
-      `)}
-      ${field(t("profile.onlineIdentifier"), `<input id="profile-online-identifier" class="input" autocomplete="username" value="${escapeHtml(draft.onlineIdentifier || "")}" />`)}
-      ${field(t("profile.onlinePassword"), `<input id="profile-online-password" class="input" type="password" autocomplete="current-password" />`)}
-      <label class="check-row">
-        <input type="checkbox" id="profile-online-directly" ${draft.openDirectly ? "checked" : ""} />
-        <span>${t("profile.openDirectly")}</span>
-      </label>
-      <div class="button-row">
-        <button class="secondary-button" data-action="profile-online-back">${t(state.profiles.length ? "profile.backToProfiles" : "profile.localSetup")}</button>
-        <button class="primary-button" data-action="profile-online-submit">${icon("globe")} ${t("profile.onlineLogin")}</button>
-      </div>
-    </div>
-  `;
+function attachProfileGateEvents() {
+  if (!profileGate) return;
+  const fullNameInput = profileGate.querySelector("#wizard-full-name");
+  if (fullNameInput) {
+    fullNameInput.addEventListener("input", (e) => {
+      state.profileDraft.fullName = e.target.value;
+      if (!state.profileDraft?.usernameManual) {
+        state.profileDraft.username = slugifyUsername(e.target.value);
+      }
+    });
+    fullNameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        captureProfileDraft();
+        if (!state.profileDraft.fullName) {
+          showProfileGate(t("profile.required"));
+          return;
+        }
+        if (!state.profileDraft.username) {
+          state.profileDraft.username = slugifyUsername(state.profileDraft.fullName) || "kullanici";
+        }
+        state.wizardStep = 4;
+        renderProfileGate();
+      }
+    });
+  }
+  const usernameInput = profileGate.querySelector("#wizard-username");
+  if (usernameInput) {
+    usernameInput.addEventListener("input", (e) => {
+      state.profileDraft.usernameManual = true;
+      state.profileDraft.username = e.target.value;
+    });
+    usernameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        createLocalProfileFromWizard();
+      }
+    });
+  }
+  const identInput = profileGate.querySelector("#wizard-online-identifier");
+  if (identInput) {
+    identInput.addEventListener("input", (e) => {
+      state.profileDraft.onlineIdentifier = e.target.value;
+    });
+    identInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        captureProfileDraft();
+        if (!state.profileDraft.onlineIdentifier) {
+          showProfileGate(t("profile.onlineRequired"));
+          return;
+        }
+        state.wizardStep = 7;
+        renderProfileGate();
+      }
+    });
+  }
+  const pwdInput = profileGate.querySelector("#wizard-online-password");
+  if (pwdInput) {
+    pwdInput.addEventListener("input", (e) => {
+      state.profileDraft.onlinePassword = e.target.value;
+    });
+    pwdInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        connectOnlineProfileFromWizard();
+      }
+    });
+  }
+  const directInput =
+    profileGate.querySelector("#wizard-open-directly") ||
+    profileGate.querySelector("#wizard-online-directly");
+  if (directInput) {
+    directInput.addEventListener("change", (e) => {
+      state.profileDraft.openDirectly = e.target.checked;
+    });
+  }
 }
 
 function captureProfileDraft() {
-  const fullName = document.querySelector("#profile-full-name");
-  const username = document.querySelector("#profile-username");
-  const onlineIdentifier = document.querySelector("#profile-online-identifier");
-  const language = document.querySelector("#profile-language");
-  const theme = document.querySelector("#profile-theme");
-  const direct = document.querySelector("#profile-create-directly");
-  const onlineDirect = document.querySelector("#profile-online-directly");
+  const fullName =
+    document.querySelector("#wizard-full-name") || document.querySelector("#profile-full-name");
+  const username =
+    document.querySelector("#wizard-username") || document.querySelector("#profile-username");
+  const onlineIdentifier =
+    document.querySelector("#wizard-online-identifier") ||
+    document.querySelector("#profile-online-identifier");
+  const onlinePassword =
+    document.querySelector("#wizard-online-password") ||
+    document.querySelector("#profile-online-password");
+  const direct =
+    document.querySelector("#wizard-open-directly") ||
+    document.querySelector("#profile-create-directly");
+  const onlineDirect =
+    document.querySelector("#wizard-online-directly") ||
+    document.querySelector("#profile-online-directly");
+
   state.profileDraft = {
-    fullName: fullName ? fullName.value : state.profileDraft?.fullName || "",
-    username: username ? username.value : state.profileDraft?.username || "",
-    onlineIdentifier: onlineIdentifier ? onlineIdentifier.value : state.profileDraft?.onlineIdentifier || "",
-    language: language ? language.value : state.profileDraft?.language || state.language,
-    theme: theme ? theme.value : state.profileDraft?.theme || state.theme,
-    openDirectly: direct ? direct.checked : (onlineDirect ? onlineDirect.checked : Boolean(state.profileDraft?.openDirectly))
+    fullName: fullName ? fullName.value.trim() : state.profileDraft?.fullName || "",
+    username: username ? username.value.trim() : state.profileDraft?.username || "",
+    usernameManual: Boolean(state.profileDraft?.usernameManual),
+    onlineIdentifier: onlineIdentifier
+      ? onlineIdentifier.value.trim()
+      : state.profileDraft?.onlineIdentifier || "",
+    onlinePassword: onlinePassword
+      ? onlinePassword.value
+      : state.profileDraft?.onlinePassword || "",
+    language: state.profileDraft?.language || state.language || "tr",
+    theme: state.profileDraft?.theme || state.theme || "dark",
+    openDirectly: direct
+      ? direct.checked
+      : onlineDirect
+        ? onlineDirect.checked
+        : Boolean(state.profileDraft?.openDirectly),
   };
 }
 
 function profileInitials(profile) {
   const source = profile.full_name || profile.username || "A";
-  return source
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toLocaleUpperCase(state.language === "tr" ? "tr-TR" : "en-US") || "")
-    .join("") || "A";
+  return (
+    source
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toLocaleUpperCase(state.language === "tr" ? "tr-TR" : "en-US") || "")
+      .join("") || "A"
+  );
 }
 
 function getAvatarUrl(profile) {
   if (!profile) return "";
-  let rawUrl = profile.avatar_url || profile.avatarUrl || profile.online?.avatar_url || profile.online?.avatarUrl || profile.avatar || profile.online?.avatar || "";
+  let rawUrl =
+    profile.avatar_url ||
+    profile.avatarUrl ||
+    profile.online?.avatar_url ||
+    profile.online?.avatarUrl ||
+    profile.avatar ||
+    profile.online?.avatar ||
+    "";
   if (!rawUrl) return "";
   rawUrl = rawUrl.replace("://www.amele.noirlang.tr", "://amele.noirlang.tr");
   if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://") || rawUrl.startsWith("data:")) {
     return rawUrl;
   }
   if (rawUrl.startsWith("/")) {
-    let base = profile.online?.apiBase || profile.online?.api_base || profile.apiBase || profile.api_base || "https://amele.noirlang.tr";
+    let base =
+      profile.online?.apiBase ||
+      profile.online?.api_base ||
+      profile.apiBase ||
+      profile.api_base ||
+      "https://amele.noirlang.tr";
     base = base.replace("://www.amele.noirlang.tr", "://amele.noirlang.tr");
     return `${base.replace(/\/+$/, "")}${rawUrl}`;
   }
@@ -578,7 +938,14 @@ function renderProfileAvatar(profile, extraClass = "") {
   const initials = profileInitials(profile || {});
   const sizeClass = extraClass ? ` ${extraClass}` : "";
   if (avatarUrl) {
-    let rawPath = (profile.avatar_url || profile.avatarUrl || profile.online?.avatar_url || profile.online?.avatarUrl || profile.avatar || profile.online?.avatar || "");
+    let rawPath =
+      profile.avatar_url ||
+      profile.avatarUrl ||
+      profile.online?.avatar_url ||
+      profile.online?.avatarUrl ||
+      profile.avatar ||
+      profile.online?.avatar ||
+      "";
     rawPath = rawPath.replace("://www.amele.noirlang.tr", "://amele.noirlang.tr");
     let altBase = "";
     if (rawPath.startsWith("/")) {
@@ -596,7 +963,11 @@ function syncProfileButton() {
   if (label) {
     const name = state.activeProfile?.display_name || t("profile.button");
     const online = state.activeProfile?.online;
-    const isOffline = online && (online.status === "offline" || online.status === "session_expired" || (typeof navigator !== "undefined" && !navigator.onLine));
+    const isOffline =
+      online &&
+      (online.status === "offline" ||
+        online.status === "session_expired" ||
+        (typeof navigator !== "undefined" && !navigator.onLine));
     label.textContent = isOffline ? `${name} (Offline)` : name;
   }
   const button = document.querySelector(".profile-action");
@@ -611,15 +982,18 @@ function syncProfileButton() {
 function cachedMobileToolsAccess(profile = state.activeProfile) {
   const online = profile?.online;
   const licenses = Array.isArray(online?.licenses) ? online.licenses : [];
-  const hasMobileLicense = licenses.some((license) => (
-    String(license?.status || "").toLowerCase() === "active"
-    && String(license?.plan || "").toLowerCase().replace(/[_\s]+/g, "-") === "mobile-tools"
-  ));
+  const hasMobileLicense = licenses.some(
+    (license) =>
+      String(license?.status || "").toLowerCase() === "active" &&
+      String(license?.plan || "")
+        .toLowerCase()
+        .replace(/[_\s]+/g, "-") === "mobile-tools"
+  );
   const allowed = Boolean(online?.mobile_tools_enabled || hasMobileLicense);
   return {
     allowed,
     reason: allowed ? "" : "",
-    profile
+    profile,
   };
 }
 
@@ -627,7 +1001,7 @@ async function selectProfile(username) {
   const openDirectly = Boolean(document.querySelector("#profile-open-directly")?.checked);
   const result = await apiRequest("/api/profiles/select", {
     method: "POST",
-    body: JSON.stringify({ username, open_directly: openDirectly })
+    body: JSON.stringify({ username, open_directly: openDirectly }),
   });
   state.activeProfile = result.profile;
   if (result.access) {
@@ -643,70 +1017,116 @@ async function selectProfile(username) {
   syncProfileButton();
   await loadPersistedSettings();
   await loadEvidenceCases();
-  render();
+  setRoute("home");
+}
+
+async function createLocalProfileFromWizard() {
+  captureProfileDraft();
+  const fullName = state.profileDraft.fullName || "";
+  let username = state.profileDraft.username || slugifyUsername(fullName);
+  if (!username) username = "kullanici";
+  const language = state.profileDraft.language || state.language || "tr";
+  const theme = state.profileDraft.theme || state.theme || "dark";
+  const openDirectly = Boolean(state.profileDraft.openDirectly);
+
+  if (!fullName) {
+    state.wizardStep = 3;
+    showProfileGate(t("profile.required"));
+    return;
+  }
+
+  try {
+    const result = await apiRequest("/api/profiles/create", {
+      method: "POST",
+      body: JSON.stringify({
+        full_name: fullName,
+        username,
+        language,
+        theme,
+        open_directly: openDirectly,
+      }),
+    });
+    upsertProfile(result.profile);
+    state.activeProfile = result.profile;
+    state.mobileToolsAccess = { allowed: false, reason: "" };
+    state.profileDraft = {
+      fullName: "",
+      username: "",
+      usernameManual: false,
+      onlineIdentifier: "",
+      onlinePassword: "",
+      openDirectly: false,
+      language,
+      theme,
+    };
+    setLanguage(result.profile.language === "en" ? "en" : "tr");
+    setTheme(result.profile.theme === "light" ? "light" : "dark");
+    hideProfileGate();
+    syncProfileButton();
+    await loadPersistedSettings();
+    await loadEvidenceCases();
+    setRoute("home");
+    showToast(
+      t("profile.created", { name: result.profile.full_name }) || "Profil başarıyla oluşturuldu.",
+      "success"
+    );
+  } catch (error) {
+    showToast(t("profile.createFailed", { message: error.message }), "error");
+    showProfileGate(error.message);
+  }
+}
+
+async function connectOnlineProfileFromWizard() {
+  captureProfileDraft();
+  const identifier = state.profileDraft.onlineIdentifier || "";
+  const password = state.profileDraft.onlinePassword || "";
+  const language = state.profileDraft.language || state.language || "tr";
+  const theme = state.profileDraft.theme || state.theme || "dark";
+  const openDirectly = Boolean(state.profileDraft.openDirectly);
+
+  if (!identifier || !password) {
+    showProfileGate(t("profile.onlineRequired"));
+    return;
+  }
+
+  try {
+    const result = await apiRequest("/api/profiles/online-login", {
+      method: "POST",
+      body: JSON.stringify({ identifier, password, language, theme, open_directly: openDirectly }),
+    });
+    state.activeProfile = result.profile;
+    upsertProfile(result.profile);
+    state.mobileToolsAccess = result.access || { allowed: false, reason: "" };
+    state.profileDraft = {
+      fullName: "",
+      username: "",
+      usernameManual: false,
+      onlineIdentifier: "",
+      onlinePassword: "",
+      language,
+      theme,
+      openDirectly,
+    };
+    setLanguage(result.profile.language === "en" ? "en" : "tr");
+    setTheme(result.profile.theme === "light" ? "light" : "dark");
+    hideProfileGate();
+    syncProfileButton();
+    await loadPersistedSettings();
+    await loadEvidenceCases();
+    setRoute("home");
+    showToast(t("profile.onlineConnected"), "success");
+  } catch (error) {
+    showToast(t("profile.onlineFailed", { message: error.message }), "error");
+    showProfileGate(error.message);
+  }
 }
 
 async function createProfileFromGate() {
-  const language = document.querySelector("#profile-language")?.value || state.language;
-  const theme = document.querySelector("#profile-theme")?.value || state.theme;
-  const fullName = document.querySelector("#profile-full-name")?.value.trim() || "";
-  const username = document.querySelector("#profile-username")?.value.trim() || "";
-  const openDirectly = Boolean(document.querySelector("#profile-create-directly")?.checked);
-  if (!fullName || !username) {
-    showToast(t("profile.required"), "error");
-    return;
-  }
-  const result = await apiRequest("/api/profiles/create", {
-    method: "POST",
-    body: JSON.stringify({ full_name: fullName, username, language, theme, open_directly: openDirectly })
-  });
-  upsertProfile(result.profile);
-  state.activeProfile = result.profile;
-  state.mobileToolsAccess = { allowed: false, reason: "" };
-  state.profileDraft = { fullName: "", username: "", onlineIdentifier: "", openDirectly: false };
-  setLanguage(result.profile.language === "en" ? "en" : "tr");
-  setTheme(result.profile.theme === "light" ? "light" : "dark");
-  hideProfileGate();
-  syncProfileButton();
-  await loadPersistedSettings();
-  await loadEvidenceCases();
-  render();
+  await createLocalProfileFromWizard();
 }
 
 async function connectOnlineProfileFromGate() {
-  captureProfileDraft();
-  const identifier = document.querySelector("#profile-online-identifier")?.value.trim() || "";
-  const password = document.querySelector("#profile-online-password")?.value || "";
-  const language = document.querySelector("#profile-language")?.value || state.language;
-  const theme = document.querySelector("#profile-theme")?.value || state.theme;
-  const openDirectly = Boolean(document.querySelector("#profile-online-directly")?.checked);
-  if (!identifier || !password) {
-    showToast(t("profile.onlineRequired"), "error");
-    return;
-  }
-  const result = await apiRequest("/api/profiles/online-login", {
-    method: "POST",
-    body: JSON.stringify({ identifier, password, language, theme, open_directly: openDirectly })
-  });
-  state.activeProfile = result.profile;
-  upsertProfile(result.profile);
-  state.mobileToolsAccess = result.access || { allowed: false, reason: "" };
-  state.profileDraft = {
-    fullName: "",
-    username: "",
-    onlineIdentifier: "",
-    language,
-    theme,
-    openDirectly
-  };
-  setLanguage(result.profile.language === "en" ? "en" : "tr");
-  setTheme(result.profile.theme === "light" ? "light" : "dark");
-  hideProfileGate();
-  syncProfileButton();
-  await loadPersistedSettings();
-  await loadEvidenceCases();
-  render();
-  showToast(t("profile.onlineConnected"), "success");
+  await connectOnlineProfileFromWizard();
 }
 
 async function syncOnlineProfile(button, silent = false) {
@@ -867,14 +1287,15 @@ function render() {
     }
   });
 
-  const boundCasePanel = (subdir, hint) => casePanel(subdir, hint, {
-    t,
-    icon,
-    state,
-    caseSelectOptions,
-    caseOutputLabel,
-    escapeHtml
-  });
+  const boundCasePanel = (subdir, hint) =>
+    casePanel(subdir, hint, {
+      t,
+      icon,
+      state,
+      caseSelectOptions,
+      caseOutputLabel,
+      escapeHtml,
+    });
 
   if (isMobileToolsRoute(state.route) && !onlineMobileToolsAllowed()) {
     view.innerHTML = mobileToolsLockedPage({ t, icon, pageTitle });
@@ -889,7 +1310,7 @@ function render() {
       canonicalRamFileName,
       caseSelectOptions,
       caseOutputLabel,
-      escapeHtml
+      escapeHtml,
     });
   } else if (state.route.startsWith("android:")) {
     view.innerHTML = androidModePage({
@@ -901,7 +1322,7 @@ function render() {
       escapeHtml,
       backendReady,
       casePanel: boundCasePanel,
-      field
+      field,
     });
   } else if (state.route === "ios") {
     view.innerHTML = iosPage({
@@ -912,7 +1333,7 @@ function render() {
       escapeHtml,
       backendReady,
       casePanel: boundCasePanel,
-      field
+      field,
     });
   } else {
     const pageCtx = {
@@ -930,7 +1351,7 @@ function render() {
       toolHub: (platform) => toolHub(platform),
       platformLabel,
       APP_VERSION,
-      theme: state.theme
+      theme: state.theme,
     };
 
     syncBrandLogo();
@@ -938,7 +1359,9 @@ function render() {
     view.innerHTML = routes[state.route]?.(pageCtx) || homePage(pageCtx);
   }
 
-  const pageEl = (typeof view?.querySelector === "function" ? view.querySelector(".page") : null) || document.querySelector("#view .page");
+  const pageEl =
+    (typeof view?.querySelector === "function" ? view.querySelector(".page") : null) ||
+    document.querySelector("#view .page");
   if (pageEl && pageEl.classList) {
     pageEl.classList.remove?.("page-forward", "page-back", "page-standard", "page-refresh");
     if (pageEl.offsetWidth !== undefined) {
@@ -975,7 +1398,12 @@ function render() {
   if (state.route === "about") {
     loadDevelopers(true).catch(() => {});
   }
-  if (state.route === "android:logical" || state.route === "android:filesystem" || state.route === "android:ram") loadEvidenceCases();
+  if (
+    state.route === "android:logical" ||
+    state.route === "android:filesystem" ||
+    state.route === "android:ram"
+  )
+    loadEvidenceCases();
   if (state.route === "ios") loadEvidenceCases();
   if (state.route === "settings" && state.updateAvailable) {
     const statusEl = document.querySelector("[data-update-status]");
@@ -1015,8 +1443,12 @@ function renderRadialNavDOM() {
 function renderCaseSidebarDOM() {
   const container = document.getElementById("case-sidebar-container");
   if (!container) return;
-  const wasOpen = Boolean(document.getElementById("home-case-sidebar")?.classList?.contains?.("is-open"));
-  const wasBackdropOpen = Boolean(document.querySelector(".home-case-sidebar-backdrop")?.classList?.contains?.("is-open"));
+  const wasOpen = Boolean(
+    document.getElementById("home-case-sidebar")?.classList?.contains?.("is-open")
+  );
+  const wasBackdropOpen = Boolean(
+    document.querySelector(".home-case-sidebar-backdrop")?.classList?.contains?.("is-open")
+  );
   container.innerHTML = renderCaseSidebar(state, t, icon, escapeHtml);
   if (wasOpen) {
     document.getElementById("home-case-sidebar")?.classList?.add?.("is-open");
@@ -1030,9 +1462,13 @@ function renderCaseSidebarDOM() {
 function renderReportSidebarDOM() {
   const container = document.getElementById("report-sidebar-container");
   if (!container) return;
-  const wasOpen = Boolean(document.getElementById("home-report-sidebar")?.classList?.contains?.("is-open"));
+  const wasOpen = Boolean(
+    document.getElementById("home-report-sidebar")?.classList?.contains?.("is-open")
+  );
   const wasCollapsed = Boolean(state.reportSidebarCollapsed);
-  const wasBackdropOpen = Boolean(document.querySelector(".home-report-sidebar-backdrop")?.classList?.contains?.("is-open"));
+  const wasBackdropOpen = Boolean(
+    document.querySelector(".home-report-sidebar-backdrop")?.classList?.contains?.("is-open")
+  );
   container.innerHTML = renderReportSidebar(state, t, icon, escapeHtml);
   if (wasOpen && !wasCollapsed) {
     document.getElementById("home-report-sidebar")?.classList?.add?.("is-open");
@@ -1053,7 +1489,11 @@ function renderReportSidebarDOM() {
 function handleReportFile(file) {
   if (!file) return;
   if (!file.type.startsWith("image/")) {
-    showToast(t("onlineReport.error", { message: "Yalnızca görsel dosyaları seçilebilir" }) || "Geçersiz dosya türü", "warn");
+    showToast(
+      t("onlineReport.error", { message: "Yalnızca görsel dosyaları seçilebilir" }) ||
+        "Geçersiz dosya türü",
+      "warn"
+    );
     return;
   }
   if (file.size > 10 * 1024 * 1024) {
@@ -1072,7 +1512,7 @@ function handleReportFile(file) {
       dataUrl: e.target.result,
       name: file.name,
       type: file.type,
-      size: file.size
+      size: file.size,
     });
     renderReportSidebarDOM();
   };
@@ -1101,7 +1541,10 @@ async function handleSubmitReport() {
     (typeof navigator === "undefined" || navigator.onLine !== false)
   );
   if (!isOnline) {
-    showToast(t("onlineReport.lockedDesc") || "Rapor göndermek için online profil bağlayın.", "warn");
+    showToast(
+      t("onlineReport.lockedDesc") || "Rapor göndermek için online profil bağlayın.",
+      "warn"
+    );
     return;
   }
 
@@ -1122,8 +1565,8 @@ async function handleSubmitReport() {
           body: JSON.stringify({
             imageBase64: img.dataUrl,
             filename: img.name || "screenshot.png",
-            contentType: img.type || "image/png"
-          })
+            contentType: img.type || "image/png",
+          }),
         });
         if (uploadRes && uploadRes.url) {
           imageUrls.push(uploadRes.url);
@@ -1136,8 +1579,8 @@ async function handleSubmitReport() {
       body: JSON.stringify({
         title,
         description,
-        imageUrls
-      })
+        imageUrls,
+      }),
     });
 
     draft.submitting = false;
@@ -1150,7 +1593,8 @@ async function handleSubmitReport() {
     renderReportSidebarDOM();
   } catch (err) {
     draft.submitting = false;
-    draft.error = err.message || (t("onlineReport.error", { message: err.message }) || "Rapor gönderilemedi");
+    draft.error =
+      err.message || t("onlineReport.error", { message: err.message }) || "Rapor gönderilemedi";
     showToast(`Rapor gönderilemedi: ${err.message}`, "error");
     renderReportSidebarDOM();
   }
@@ -1293,13 +1737,12 @@ function routeGroup(route) {
 
 function toolHub(platform) {
   const cards = toolCards[platform]
-    .map(
-      (card, index) => {
-        const workflow = workflows[card.id];
-        const blocked = workflow && isLocalWorkflowBlocked(workflow);
-        const targetRoute = card.route || `workflow:${card.id}`;
-        const shortcutKey = String(index + 1);
-        return `
+    .map((card, index) => {
+      const workflow = workflows[card.id];
+      const blocked = workflow && isLocalWorkflowBlocked(workflow);
+      const targetRoute = card.route || `workflow:${card.id}`;
+      const shortcutKey = String(index + 1);
+      return `
         <button class="forensic-card ${blocked ? "is-disabled" : ""}" data-route="${targetRoute}" data-shortcut="${shortcutKey}" data-nav-dir="forward" style="--accent:${card.accent}" ${blocked ? `aria-disabled="true" data-disabled-reason="${workflow.platform}"` : ""}>
           <span class="card-icon">${icon(card.icon)}</span>
           <span class="shortcut-key-badge" aria-hidden="true">${shortcutKey}</span>
@@ -1308,16 +1751,18 @@ function toolHub(platform) {
           <span class="meta">${blocked ? t("localUnsupported") : localizeText(card.badge)}</span>
         </button>
       `;
-      }
-    )
+    })
     .join("");
 
   const isWindows = platform === "windows";
   const detectedIcon =
-    state.platform === "windows" ? "windows" :
-    state.platform === "linux" ? "linux" :
-    state.platform === "android" ? "android" :
-    "monitor";
+    state.platform === "windows"
+      ? "windows"
+      : state.platform === "linux"
+        ? "linux"
+        : state.platform === "android"
+          ? "android"
+          : "monitor";
   return `
     <section class="page">
       <div class="platform-note">
@@ -1337,7 +1782,6 @@ function toolHub(platform) {
 function platformLabel(platform) {
   return platformName(platform, t("unknown"));
 }
-
 
 function contributorCard(initials, name, role, photo, links) {
   return `
@@ -1379,7 +1823,7 @@ const routes = {
   profile: profilePage,
   other: otherPage,
   settings: settingsPage,
-  about: aboutPage
+  about: aboutPage,
 };
 
 function formatDisplayDate(dateStr) {
@@ -1398,13 +1842,14 @@ function profilePage({ t, icon, state, pageTitle, escapeHtml }) {
   const online = profile?.online || null;
   const mobileAllowed = onlineMobileToolsAllowed();
   const onlineName = onlineDisplayName(online);
-  const fullName = onlineName || profile?.full_name || profile?.display_name || t("profile.noActive");
+  const fullName =
+    onlineName || profile?.full_name || profile?.display_name || t("profile.noActive");
   const username = online?.username || profile?.username || "-";
   const email = online?.email || null;
   const rawDate = profile?.created_at || online?.linked_at || online?.created_at || null;
   const registeredDate = formatDisplayDate(rawDate);
   const isBrowserOffline = typeof navigator !== "undefined" && !navigator.onLine;
-  const status = isBrowserOffline ? "offline" : (online?.status || (online ? "offline" : "local"));
+  const status = isBrowserOffline ? "offline" : online?.status || (online ? "offline" : "local");
   const isOnline = status === "online";
   const isExpired = status === "session_expired";
 
@@ -1437,13 +1882,19 @@ function profilePage({ t, icon, state, pageTitle, escapeHtml }) {
 
   const licenseHtml = online ? onlineLicenseText(online, t, escapeHtml) : "";
 
-  const activeText = t("case.active") === "case.active" ? (state.language === "en" ? "Active" : "Aktif") : t("case.active");
+  const activeText =
+    t("case.active") === "case.active"
+      ? state.language === "en"
+        ? "Active"
+        : "Aktif"
+      : t("case.active");
 
   // Cases grid
   const caseCards = state.cases.length
-    ? state.cases.map((item) => {
-        const isActive = state.activeCase?.case_name === item.case_name;
-        return `
+    ? state.cases
+        .map((item) => {
+          const isActive = state.activeCase?.case_name === item.case_name;
+          return `
           <article class="case-profile-card ${isActive ? "is-active-case" : ""}" data-case-name="${escapeHtml(item.case_name || "")}" role="button" tabindex="0">
             <div class="case-profile-top">
               <strong title="${escapeHtml(item.case_name || "")}">${escapeHtml(item.case_name || "-")}</strong>
@@ -1459,7 +1910,8 @@ function profilePage({ t, icon, state, pageTitle, escapeHtml }) {
             </div>
           </article>
         `;
-      }).join("")
+        })
+        .join("")
     : `<div class="log-box">${t("profile.noCases")}</div>`;
 
   return `
@@ -1495,12 +1947,16 @@ function profilePage({ t, icon, state, pageTitle, escapeHtml }) {
               <span class="profile-section-label">${t("profile.roles") || "Roller"}:</span>
               <div class="profile-role-list">${rolesHtml}</div>
             </div>
-            ${online ? `
+            ${
+              online
+                ? `
               <div class="profile-roles-group">
                 <span class="profile-section-label">${t("profile.license") || "Lisans"}:</span>
                 <span class="status-pill ${online.has_license ? "ok" : "warn"}">${licenseHtml}</span>
               </div>
-            ` : ""}
+            `
+                : ""
+            }
           </div>
         </div>
       </div>
@@ -1541,7 +1997,8 @@ function onlineDisplayName(online) {
 
 function onlineRoleBadges(online, t, escapeHtml) {
   const roles = Array.isArray(online?.roles) ? online.roles : [];
-  if (!roles.length) return `<span class="status-pill warn">${escapeHtml(t("profile.noRoles"))}</span>`;
+  if (!roles.length)
+    return `<span class="status-pill warn">${escapeHtml(t("profile.noRoles"))}</span>`;
   return roles
     .map((role) => `<span class="status-pill ok">${escapeHtml(roleLabel(role, t))}</span>`)
     .join("");
@@ -1554,7 +2011,7 @@ function roleLabel(role, t) {
     member: t("profile.role.member"),
     "windows-maintainer": "Windows Maintainer",
     "linux-maintainer": "Linux Maintainer",
-    "android-maintainer": "Android Maintainer"
+    "android-maintainer": "Android Maintainer",
   };
   return labels[role] || role;
 }
@@ -1578,11 +2035,14 @@ function workedCaseTypesText(online, t, escapeHtml) {
 
 function profileActivityHtml(profile, t, icon, escapeHtml) {
   const log = Array.isArray(profile?.activity_log) ? profile.activity_log.slice(-5).reverse() : [];
-  if (!log.length) return `<div class="log-box profile-activity-log">• ${escapeHtml(t("profile.activityEmpty"))}</div>`;
+  if (!log.length)
+    return `<div class="log-box profile-activity-log">• ${escapeHtml(t("profile.activityEmpty"))}</div>`;
   return `
     <div class="profile-activity-log">
       <p class="section-label">${icon("clock")} ${t("profile.activity")}</p>
-      ${log.map((entry) => `
+      ${log
+        .map(
+          (entry) => `
         <div class="tree-node">
           <strong>${escapeHtml(entry.category || "-")} · ${escapeHtml(entry.action || "-")}</strong>
           <span>
@@ -1590,7 +2050,9 @@ function profileActivityHtml(profile, t, icon, escapeHtml) {
             <small>${escapeHtml(entry.timestamp || "")}</small>
           </span>
         </div>
-      `).join("")}
+      `
+        )
+        .join("")}
     </div>
   `;
 }
@@ -1614,7 +2076,7 @@ async function openExternalUrl(url) {
   try {
     await apiRequest("/api/open-url", {
       method: "POST",
-      body: JSON.stringify({ url })
+      body: JSON.stringify({ url }),
     });
     return;
   } catch (error) {
@@ -1629,11 +2091,11 @@ async function loadEvidenceCases({ silent = true } = {}) {
     const result = await apiRequest("/api/evidence-cases");
     state.caseBaseDir = result.base_dir || "";
     state.cases = Array.isArray(result.cases) ? result.cases : [];
-    
+
     // Keep frontend selected/pending case active even before it exists on disk.
     const activeCaseName = state.pendingCaseName || state.activeCase?.case_name;
     if (activeCaseName) {
-      const stillExists = state.cases.find(c => c.case_name === activeCaseName);
+      const stillExists = state.cases.find((c) => c.case_name === activeCaseName);
       if (stillExists) {
         state.activeCase = stillExists;
         state.pendingCaseName = "";
@@ -1680,9 +2142,10 @@ function caseSelectOptions(selected = "", { allowNew = false } = {}) {
   if (!state.cases.length && !allowNew) {
     return `<option value="">${t("case.noCases")}</option>`;
   }
-  const hasSelected = effectiveSelected && effectiveSelected !== "__new__"
-    ? state.cases.some((item) => item.case_name === effectiveSelected)
-    : true;
+  const hasSelected =
+    effectiveSelected && effectiveSelected !== "__new__"
+      ? state.cases.some((item) => item.case_name === effectiveSelected)
+      : true;
   const pendingOption = !hasSelected
     ? `<option value="${escapeHtml(effectiveSelected)}" selected>${escapeHtml(effectiveSelected)}</option>`
     : "";
@@ -1693,14 +2156,20 @@ function caseSelectOptions(selected = "", { allowNew = false } = {}) {
       return `<option value="${name}"${isSelected}>${name}</option>`;
     })
     .join("");
-  const newSelected = effectiveSelected === "__new__" || (allowNew && !state.cases.length) ? " selected" : "";
-  const newOption = allowNew ? `<option value="__new__"${newSelected}>${t("workflow.newCase")}</option>` : "";
+  const newSelected =
+    effectiveSelected === "__new__" || (allowNew && !state.cases.length) ? " selected" : "";
+  const newOption = allowNew
+    ? `<option value="__new__"${newSelected}>${t("workflow.newCase")}</option>`
+    : "";
   return `${pendingOption}${options}${newOption}`;
 }
 
 function toggleCaseCreateInput(select) {
   document.querySelectorAll("[data-case-output]").forEach((output) => {
-    output.textContent = caseOutputLabel(select.value, output.dataset.caseOutputSubdir || "ciktilar");
+    output.textContent = caseOutputLabel(
+      select.value,
+      output.dataset.caseOutputSubdir || "ciktilar"
+    );
   });
 }
 
@@ -1710,13 +2179,14 @@ function imageCaseOutputLabel(caseName) {
 
 function caseOutputLabel(caseName, subdir = "ciktilar") {
   if (caseName === "__new__") caseName = state.pendingCaseName || "";
-  const selected = state.cases.find((item) => item.case_name === caseName)
-    || (state.activeCase?.case_name === caseName ? state.activeCase : null);
+  const selected =
+    state.cases.find((item) => item.case_name === caseName) ||
+    (state.activeCase?.case_name === caseName ? state.activeCase : null);
   const keyBySubdir = {
     android: "android_dir",
     ios: "ios_dir",
     ram: "ram_dir",
-    ciktilar: "output_dir"
+    ciktilar: "output_dir",
   };
   const key = keyBySubdir[subdir] || "output_dir";
   if (caseName && caseName !== "__new__" && selected?.[key]) return selected[key];
@@ -1724,7 +2194,7 @@ function caseOutputLabel(caseName, subdir = "ciktilar") {
     android: "android",
     ios: "ios",
     ram: "ram",
-    ciktilar: "ciktilar"
+    ciktilar: "ciktilar",
   };
   const folder = folderBySubdir[subdir] || "ciktilar";
   if (state.caseBaseDir) return `${state.caseBaseDir}/${caseName || "vaka"}/${folder}`;
@@ -1748,11 +2218,11 @@ async function ensureImageCase() {
   if (selected) {
     const existing = state.cases.find((item) => item.case_name === selected);
     if (existing && (existing.case_dir || existing.case_path)) return existing;
-    
+
     // Create new case folder on backend disk if not already existing
     const created = await apiRequest("/api/evidence-create", {
       method: "POST",
-      body: JSON.stringify({ case_name: selected })
+      body: JSON.stringify({ case_name: selected }),
     });
     state.activeCase = created;
     state.pendingCaseName = "";
@@ -1764,7 +2234,7 @@ async function ensureImageCase() {
   const caseName = defaultCaseName();
   const created = await apiRequest("/api/evidence-create", {
     method: "POST",
-    body: JSON.stringify({ case_name: caseName })
+    body: JSON.stringify({ case_name: caseName }),
   });
   state.activeCase = created;
   state.pendingCaseName = "";
@@ -1807,7 +2277,7 @@ function connectionPayload() {
   return {
     ip: document.querySelector("[data-field='ip']")?.value.trim() || "",
     port: Number(document.querySelector("[data-field='port']")?.value.trim() || 0),
-    token: tokenText ? state.approvedSecurityKey : null
+    token: tokenText ? state.approvedSecurityKey : null,
   };
 }
 
@@ -1824,7 +2294,7 @@ function sshPayload() {
     port: port || 22,
     user,
     password: password || null,
-    key_path: keyPath || null
+    key_path: keyPath || null,
   };
 }
 
@@ -1841,7 +2311,7 @@ function vpnPayload() {
     allowed_ips: document.querySelector("[data-field='vpn-allowed']")?.value.trim() || "0.0.0.0/0",
     address: document.querySelector("[data-field='vpn-address']")?.value.trim() || "10.0.0.2/24",
     dns: document.querySelector("[data-field='vpn-dns']")?.value.trim() || "1.1.1.1",
-    keepalive: Number(document.querySelector("[data-field='vpn-keepalive']")?.value.trim() || 25)
+    keepalive: Number(document.querySelector("[data-field='vpn-keepalive']")?.value.trim() || 25),
   };
 }
 
@@ -1860,7 +2330,7 @@ function rememberConnection(workflowId, payload, details) {
     token: payload.token || "",
     serverName: details.server_name || "",
     serverVersion: details.server_version || "",
-    features: details.features || []
+    features: details.features || [],
   };
 }
 
@@ -1871,10 +2341,11 @@ function forgetConnection(workflowId = currentWorkflowId()) {
 function requireActiveConnection(workflow, payload) {
   if (!workflow?.mode.startsWith("remote")) return true;
   const connection = state.remoteConnections[currentWorkflowId()];
-  const matches = connection
-    && connection.ip === payload.ip
-    && Number(connection.port) === Number(payload.port)
-    && (connection.token || "") === (payload.token || "");
+  const matches =
+    connection &&
+    connection.ip === payload.ip &&
+    Number(connection.port) === Number(payload.port) &&
+    (connection.token || "") === (payload.token || "");
   if (!matches) {
     showToast(t("connection.connectFirst"), "error");
     updateSide("connection", t("connection.none"));
@@ -1895,14 +2366,21 @@ if (typeof Node !== "undefined" && !Node.prototype.closest) {
 // Prevent image drag and accidental selection highlight artifacts across chrome/sidebar/brand
 document.addEventListener("dragstart", (event) => {
   const el = event.target?.nodeType === 1 ? event.target : event.target?.parentElement;
-  if (event.target?.tagName === "IMG" || el?.closest?.(".sidebar, .brand-row, .brand-mark, .about-hero")) {
+  if (
+    event.target?.tagName === "IMG" ||
+    el?.closest?.(".sidebar, .brand-row, .brand-mark, .about-hero")
+  ) {
     event.preventDefault();
   }
 });
 
 document.addEventListener("selectstart", (event) => {
   const el = event.target?.nodeType === 1 ? event.target : event.target?.parentElement;
-  if (el?.closest?.(".brand-mark, .sidebar-head, .brand-row, .sidebar, .sidebar-toggle, .about-hero-center, .about-hero-logo")) {
+  if (
+    el?.closest?.(
+      ".brand-mark, .sidebar-head, .brand-row, .sidebar, .sidebar-toggle, .about-hero-center, .about-hero-logo"
+    )
+  ) {
     event.preventDefault();
   }
 });
@@ -1914,7 +2392,9 @@ const clearSidebarSelection = () => {
     const inChrome = (node) => {
       if (!node) return false;
       const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-      return !!el?.closest?.(".sidebar, .brand-row, .brand-mark, #brand-logo, .about-hero-logo, .about-hero-center, .topbar");
+      return !!el?.closest?.(
+        ".sidebar, .brand-row, .brand-mark, #brand-logo, .about-hero-logo, .about-hero-center, .topbar"
+      );
     };
     if (inChrome(sel.anchorNode) || inChrome(sel.focusNode)) {
       sel.removeAllRanges();
@@ -1925,7 +2405,11 @@ const clearSidebarSelection = () => {
 const clearChromeArtifacts = () => {
   try {
     window.getSelection()?.removeAllRanges();
-    if (document.activeElement && document.activeElement !== document.body && document.activeElement.closest?.(".sidebar, .brand-row, #brand-logo, .brand-mark, .topbar")) {
+    if (
+      document.activeElement &&
+      document.activeElement !== document.body &&
+      document.activeElement.closest?.(".sidebar, .brand-row, #brand-logo, .brand-mark, .topbar")
+    ) {
       document.activeElement.blur();
     }
   } catch (_) {}
@@ -1936,19 +2420,31 @@ for (const delay of [0, 40, 100, 250, 500, 1000, 2000]) {
 }
 
 document.addEventListener("selectionchange", clearSidebarSelection);
-document.addEventListener("mousedown", (event) => {
-  const el = event.target?.nodeType === 1 ? event.target : event.target?.parentElement;
-  if (el?.closest?.(".sidebar, .brand-row, .brand-mark, #brand-logo, .about-hero-logo, .topbar")) {
-    clearChromeArtifacts();
-  }
-}, { capture: true });
+document.addEventListener(
+  "mousedown",
+  (event) => {
+    const el = event.target?.nodeType === 1 ? event.target : event.target?.parentElement;
+    if (
+      el?.closest?.(".sidebar, .brand-row, .brand-mark, #brand-logo, .about-hero-logo, .topbar")
+    ) {
+      clearChromeArtifacts();
+    }
+  },
+  { capture: true }
+);
 
-document.addEventListener("mouseup", (event) => {
-  const el = event.target?.nodeType === 1 ? event.target : event.target?.parentElement;
-  if (el?.closest?.(".sidebar, .brand-row, .brand-mark, #brand-logo, .about-hero-logo, .topbar")) {
-    clearChromeArtifacts();
-  }
-}, { capture: true });
+document.addEventListener(
+  "mouseup",
+  (event) => {
+    const el = event.target?.nodeType === 1 ? event.target : event.target?.parentElement;
+    if (
+      el?.closest?.(".sidebar, .brand-row, .brand-mark, #brand-logo, .about-hero-logo, .topbar")
+    ) {
+      clearChromeArtifacts();
+    }
+  },
+  { capture: true }
+);
 
 window.addEventListener("focus", clearChromeArtifacts);
 clearChromeArtifacts();
@@ -1968,7 +2464,9 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const agentDisabled = event.target.closest(".agent-input-wrapper.is-disabled, .agent-box.is-disabled, #agent-prompt-input[disabled], #agent-prompt-input[readonly]");
+  const agentDisabled = event.target.closest(
+    ".agent-input-wrapper.is-disabled, .agent-box.is-disabled, #agent-prompt-input[disabled], #agent-prompt-input[readonly]"
+  );
   if (agentDisabled) {
     event.preventDefault();
     event.stopPropagation();
@@ -2069,13 +2567,17 @@ document.addEventListener("click", async (event) => {
     });
   }
 
-  const agentSend = event.target.closest("[data-agent-action='send'], [data-copilot-action='send']");
+  const agentSend = event.target.closest(
+    "[data-agent-action='send'], [data-copilot-action='send']"
+  );
   if (agentSend) {
     event.preventDefault();
     if (agentSend.disabled || agentSend.hasAttribute("disabled")) return;
     const input = document.querySelector("#agent-prompt-input, #copilot-prompt-input");
     if (input && (input.disabled || input.hasAttribute("disabled"))) return;
-    const prompt = input ? input.value : (state.agent?.promptDraft || state.copilot?.promptDraft || "");
+    const prompt = input
+      ? input.value
+      : state.agent?.promptDraft || state.copilot?.promptDraft || "";
     submitAgentPrompt(prompt, state, render, showToast, t);
     return;
   }
@@ -2096,7 +2598,9 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const addCtx = event.target.closest("[data-agent-action='add-context'], [data-copilot-action='add-context']");
+  const addCtx = event.target.closest(
+    "[data-agent-action='add-context'], [data-copilot-action='add-context']"
+  );
   if (addCtx) {
     event.preventDefault();
     const input = document.querySelector("#agent-prompt-input, #copilot-prompt-input");
@@ -2114,19 +2618,25 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const copyCmd = event.target.closest("[data-agent-action='copy-cmd'], [data-copilot-action='copy-cmd']");
+  const copyCmd = event.target.closest(
+    "[data-agent-action='copy-cmd'], [data-copilot-action='copy-cmd']"
+  );
   if (copyCmd) {
     event.preventDefault();
     const cmd = copyCmd.dataset.cmd;
     if (cmd && navigator.clipboard) {
       navigator.clipboard.writeText(cmd);
       copyCmd.textContent = t("copilot.copied");
-      setTimeout(() => { copyCmd.textContent = t("copilot.copy"); }, 1800);
+      setTimeout(() => {
+        copyCmd.textContent = t("copilot.copy");
+      }, 1800);
     }
     return;
   }
 
-  const runCmd = event.target.closest("[data-agent-action='run-cmd'], [data-copilot-action='run-cmd']");
+  const runCmd = event.target.closest(
+    "[data-agent-action='run-cmd'], [data-copilot-action='run-cmd']"
+  );
   if (runCmd) {
     event.preventDefault();
     const cmd = runCmd.dataset.cmd;
@@ -2208,7 +2718,9 @@ document.addEventListener("click", async (event) => {
       const targetEl = document.getElementById(targetId);
       if (targetEl) {
         targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
-        document.querySelectorAll(".help-toc-link").forEach((btn) => btn.classList.remove("active"));
+        document
+          .querySelectorAll(".help-toc-link")
+          .forEach((btn) => btn.classList.remove("active"));
         tocBtn.classList.add("active");
       }
     }
@@ -2220,7 +2732,8 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     const hash = anchorLink.getAttribute("href").replace(/^#/, "");
     if (hash) {
-      const targetEl = document.getElementById(decodeURIComponent(hash)) || document.getElementById(hash);
+      const targetEl =
+        document.getElementById(decodeURIComponent(hash)) || document.getElementById(hash);
       if (targetEl) {
         targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
       }
@@ -2307,7 +2820,9 @@ document.addEventListener("click", async (event) => {
       const label = helpCopyBtn.querySelector("span") || helpCopyBtn;
       const orig = label.textContent;
       label.textContent = state.language === "en" ? "Copied!" : "Kopyalandı!";
-      setTimeout(() => { label.textContent = orig; }, 1800);
+      setTimeout(() => {
+        label.textContent = orig;
+      }, 1800);
     }
     return;
   }
@@ -2343,7 +2858,7 @@ document.addEventListener("click", async (event) => {
       state,
       resolveCase() {
         return resolveSelectedCaseName("#workflow-case") || null;
-      }
+      },
     });
     return;
   }
@@ -2383,7 +2898,7 @@ document.addEventListener("click", async (event) => {
     const isDir = treeNode.dataset.isDir === "true";
     const relativePath = treeNode.dataset.path;
     const isVirtual = treeNode.dataset.virtual === "true";
-    document.querySelectorAll(".tree-node").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll(".tree-node").forEach((el) => el.classList.remove("active"));
     treeNode.classList.add("active");
     if (isVirtual) {
       if (isDir && treeNode.dataset.hasChildren === "true") {
@@ -2402,7 +2917,7 @@ document.addEventListener("click", async (event) => {
 
   const procRow = event.target.closest(".proc-row");
   if (procRow) {
-    document.querySelectorAll(".proc-row").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll(".proc-row").forEach((el) => el.classList.remove("active"));
     procRow.classList.add("active");
     const pid = procRow.dataset.pid;
     const name = procRow.dataset.name;
@@ -2419,25 +2934,33 @@ document.addEventListener("click", async (event) => {
 });
 
 document.addEventListener("change", async (event) => {
-  const agentSelect = event.target.closest("[data-agent-action='change-agent'], [data-copilot-action='change-agent']");
+  const agentSelect = event.target.closest(
+    "[data-agent-action='change-agent'], [data-copilot-action='change-agent']"
+  );
   if (agentSelect) {
     handleAgentChange(agentSelect.value, state, render);
     return;
   }
 
-  const modelSelect = event.target.closest("[data-agent-action='change-model'], [data-copilot-action='change-model']");
+  const modelSelect = event.target.closest(
+    "[data-agent-action='change-model'], [data-copilot-action='change-model']"
+  );
   if (modelSelect) {
     handleModelChange(modelSelect.value, state);
     return;
   }
 
-  const scopeSelect = event.target.closest("[data-agent-action='change-scope'], [data-copilot-action='change-scope']");
+  const scopeSelect = event.target.closest(
+    "[data-agent-action='change-scope'], [data-copilot-action='change-scope']"
+  );
   if (scopeSelect) {
     handleScopeChange(scopeSelect.value, state);
     return;
   }
 
-  const optSelect = event.target.closest("[data-agent-action='change-opt'], [data-copilot-action='change-opt']");
+  const optSelect = event.target.closest(
+    "[data-agent-action='change-opt'], [data-copilot-action='change-opt']"
+  );
   if (optSelect) {
     if (state.agent) state.agent.selectedOpt = optSelect.value;
     if (state.copilot) state.copilot.selectedOpt = optSelect.value;
@@ -2492,16 +3015,19 @@ document.addEventListener("change", async (event) => {
   const caseSelect = event.target.closest("[data-case-select]");
   if (caseSelect) {
     if (caseSelect.value === "__new__") {
-      const promptTitle = t("case.promptNewName") || "Lütfen oluşturmak istediğiniz yeni vaka adını girin:";
+      const promptTitle =
+        t("case.promptNewName") || "Lütfen oluşturmak istediğiniz yeni vaka adını girin:";
       const newName = prompt(promptTitle);
       if (newName && newName.trim()) {
         const cleanName = newName.trim();
         state.pendingCaseName = cleanName;
         state.activeCase = { case_name: cleanName };
-        
+
         // Mirror to all data-case-select fields on the page
         document.querySelectorAll("[data-case-select]").forEach((el) => {
-          el.innerHTML = caseSelectOptions(cleanName, { allowNew: el.dataset.allowNewCase === "1" });
+          el.innerHTML = caseSelectOptions(cleanName, {
+            allowNew: el.dataset.allowNewCase === "1",
+          });
           el.value = cleanName;
         });
 
@@ -2522,7 +3048,9 @@ document.addEventListener("change", async (event) => {
       }
     } else {
       state.pendingCaseName = "";
-      state.activeCase = state.cases.find((c) => c.case_name === caseSelect.value) || { case_name: caseSelect.value };
+      state.activeCase = state.cases.find((c) => c.case_name === caseSelect.value) || {
+        case_name: caseSelect.value,
+      };
     }
     toggleCaseCreateInput(caseSelect);
   }
@@ -2576,7 +3104,9 @@ document.addEventListener("keydown", (event) => {
   if (input && event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
     if (input.disabled || input.hasAttribute("disabled")) return;
-    const sendBtn = document.querySelector("[data-agent-action='send'], [data-copilot-action='send']");
+    const sendBtn = document.querySelector(
+      "[data-agent-action='send'], [data-copilot-action='send']"
+    );
     if (sendBtn && (sendBtn.disabled || sendBtn.hasAttribute("disabled"))) return;
     const prompt = input.value;
     submitAgentPrompt(prompt, state, render, showToast, t);
@@ -2678,25 +3208,148 @@ async function handleAction(button) {
     return;
   }
   if (action === "profile-create-start" || action === "profile-new") {
-    state.profileGateMode = "create";
+    captureProfileDraft();
+    state.profileGateMode = "wizard";
+    state.wizardMode = "create";
+    state.wizardStep = 1;
+    state.profileDraft = {
+      fullName: "",
+      username: "",
+      usernameManual: false,
+      onlineIdentifier: "",
+      onlinePassword: "",
+      language: state.language || "tr",
+      theme: state.theme || "dark",
+      openDirectly: false,
+    };
     showProfileGate();
     return;
   }
   if (action === "profile-online-start") {
     captureProfileDraft();
-    state.profileGateMode = "online";
+    state.profileGateMode = "wizard";
+    state.wizardMode = "online";
+    state.wizardStep = 1;
+    state.profileDraft = {
+      fullName: "",
+      username: "",
+      usernameManual: false,
+      onlineIdentifier: "",
+      onlinePassword: "",
+      language: state.language || "tr",
+      theme: state.theme || "dark",
+      openDirectly: false,
+    };
     showProfileGate();
     return;
   }
-  if (action === "profile-online-back") {
+  if (action === "profile-online-back" || action === "profile-select-back") {
     captureProfileDraft();
-    state.profileGateMode = state.profiles.length ? "select" : "create";
+    state.profileGateMode = state.profiles.length ? "select" : "wizard";
+    state.wizardStep = 1;
     showProfileGate();
     return;
   }
-  if (action === "profile-select-back") {
-    state.profileGateMode = "select";
-    showProfileGate();
+  if (action === "wizard-set-lang") {
+    const lang = button.dataset.lang || "tr";
+    state.profileDraft.language = lang;
+    setLanguage(lang);
+    renderProfileGate();
+    return;
+  }
+  if (action === "wizard-set-theme") {
+    const theme = button.dataset.theme || "dark";
+    state.profileDraft.theme = theme;
+    setTheme(theme);
+    renderProfileGate();
+    return;
+  }
+  if (action === "wizard-theme-toggle") {
+    const nextTheme = state.theme === "dark" ? "light" : "dark";
+    state.profileDraft.theme = nextTheme;
+    setTheme(nextTheme);
+    const isDark = nextTheme === "dark";
+    button.classList.toggle("is-dark", isDark);
+    button.classList.toggle("is-light", !isDark);
+    button.setAttribute("aria-checked", isDark ? "true" : "false");
+    button.setAttribute("aria-label", t("settings.darkTheme") || "Karanlık Tema");
+    const wizardLogo = profileGate?.querySelector(".wizard-logo");
+    if (wizardLogo) {
+      wizardLogo.src =
+        nextTheme === "light" ? "./assets/logo/logo-siyah.png" : "./assets/logo/logo.png";
+    }
+    return;
+  }
+  if (action === "wizard-online-choice-no") {
+    captureProfileDraft();
+    state.wizardStep = 5;
+    renderProfileGate();
+    return;
+  }
+  if (action === "wizard-online-choice-yes") {
+    captureProfileDraft();
+    state.wizardStep = 6;
+    renderProfileGate();
+    return;
+  }
+  if (action === "wizard-finish-local") {
+    captureProfileDraft();
+    await createLocalProfileFromWizard();
+    return;
+  }
+  if (action === "wizard-toggle-pwd") {
+    const pwdInput = profileGate?.querySelector("#wizard-online-password");
+    if (pwdInput) {
+      pwdInput.type = pwdInput.type === "password" ? "text" : "password";
+    }
+    return;
+  }
+  if (action === "wizard-step-next") {
+    captureProfileDraft();
+    if (state.wizardStep === 1) {
+      state.wizardStep = 2;
+    } else if (state.wizardStep === 2) {
+      state.wizardStep = 3;
+    } else if (state.wizardStep === 3) {
+      if (!state.profileDraft.fullName) {
+        showProfileGate(t("profile.required"));
+        return;
+      }
+      if (!state.profileDraft.username) {
+        state.profileDraft.username = slugifyUsername(state.profileDraft.fullName) || "kullanici";
+      }
+      state.wizardStep = 4;
+    } else if (state.wizardStep === 6) {
+      if (!state.profileDraft.onlineIdentifier) {
+        showProfileGate(t("profile.onlineRequired"));
+        return;
+      }
+      state.wizardStep = 7;
+    }
+    renderProfileGate();
+    return;
+  }
+  if (action === "wizard-step-prev") {
+    captureProfileDraft();
+    if (state.wizardStep === 7) {
+      state.wizardStep = 6;
+    } else if (state.wizardStep === 6 || state.wizardStep === 5) {
+      state.wizardStep = 4;
+    } else if (state.wizardStep === 4) {
+      state.wizardStep = 3;
+    } else if (state.wizardStep === 3) {
+      state.wizardStep = 2;
+    } else if (state.wizardStep === 2) {
+      state.wizardStep = 1;
+    } else {
+      state.wizardStep = 1;
+    }
+    renderProfileGate();
+    return;
+  }
+  if (action === "wizard-online-finish" || action === "profile-online-submit") {
+    captureProfileDraft();
+    await connectOnlineProfileFromWizard();
     return;
   }
   if (action === "profile-select") {
@@ -2709,21 +3362,7 @@ async function handleAction(button) {
     return;
   }
   if (action === "profile-submit") {
-    try {
-      await createProfileFromGate();
-    } catch (error) {
-      showToast(t("profile.createFailed", { message: error.message }), "error");
-      showProfileGate(error.message);
-    }
-    return;
-  }
-  if (action === "profile-online-submit") {
-    try {
-      await connectOnlineProfileFromGate();
-    } catch (error) {
-      showToast(t("profile.onlineFailed", { message: error.message }), "error");
-      showProfileGate(error.message);
-    }
+    await createLocalProfileFromWizard();
     return;
   }
   if (action === "profile-online-sync") {
@@ -2743,7 +3382,10 @@ async function handleAction(button) {
       state.activeCase = null;
       state.cases = [];
       state.mobileToolsAccess = { allowed: false, reason: "" };
-      state.profileGateMode = state.profiles.length ? "select" : "create";
+      state.route = "home";
+      state.profileGateMode = state.profiles.length ? "select" : "wizard";
+      state.wizardStep = 1;
+      state.wizardMode = "create";
       syncProfileButton();
       showProfileGate();
     } catch (error) {
@@ -2829,13 +3471,16 @@ async function handleAction(button) {
 
   if (action === "new-case-prompt") {
     const defaultName = defaultCaseName();
-    const name = window.prompt(t("case.promptNewName") || "Lütfen oluşturmak istediğiniz yeni vaka adını girin:", defaultName);
+    const name = window.prompt(
+      t("case.promptNewName") || "Lütfen oluşturmak istediğiniz yeni vaka adını girin:",
+      defaultName
+    );
     if (!name || !name.trim()) return;
     const cleanName = name.trim();
     try {
       const result = await apiRequest("/api/evidence-create", {
         method: "POST",
-        body: JSON.stringify({ case_name: cleanName })
+        body: JSON.stringify({ case_name: cleanName }),
       });
       state.activeCase = result;
       state.pendingCaseName = "";
@@ -2863,7 +3508,7 @@ async function handleAction(button) {
       render,
       resolveCase() {
         return resolveSelectedCaseName("#workflow-case") || null;
-      }
+      },
     });
     if (handled) return;
   }
@@ -2884,7 +3529,7 @@ async function handleAction(button) {
       render,
       resolveCase() {
         return resolveSelectedCaseName("#workflow-case") || null;
-      }
+      },
     });
     if (handled) return;
   }
@@ -2959,7 +3604,7 @@ async function handleAction(button) {
       const payload = vpnPayload();
       const result = await apiRequest("/api/wireguard-config", {
         method: "POST",
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
       writeWorkflowLog(t("vpn.configured", { endpoint: payload.endpoint }));
       updateSide("connection", t("vpn.ready"));
@@ -2981,7 +3626,7 @@ async function handleAction(button) {
     try {
       await apiRequest("/api/wireguard-start", {
         method: "POST",
-        body: JSON.stringify({ config_file: configFile })
+        body: JSON.stringify({ config_file: configFile }),
       });
       writeWorkflowLog(t("vpn.started"));
       updateSide("connection", t("vpn.ready"));
@@ -3064,7 +3709,7 @@ async function handleAction(button) {
       const endpoint = isSsh ? "/api/ssh-connect" : "/api/connect";
       const result = await apiRequest(endpoint, {
         method: "POST",
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
       rememberConnection(workflowId, payload, result);
       updateSide("connection", t("connection.connected", { ip: payload.ip }));
@@ -3138,15 +3783,16 @@ async function handleAction(button) {
     try {
       const result = await apiRequest("/api/image-mount-readonly", {
         method: "POST",
-        body: JSON.stringify({ path: imagePath })
+        body: JSON.stringify({ path: imagePath }),
       });
       state.imageMount = {
         imagePath: result.image_path,
         mountDir: result.mount_dir || "",
         mountMode: result.mount_mode || "mounted",
-        label: result.mount_mode === "analysis-only"
-          ? t("analysis.analysisOnlyStatus")
-          : t("analysis.mounted", { path: result.mount_dir })
+        label:
+          result.mount_mode === "analysis-only"
+            ? t("analysis.analysisOnlyStatus")
+            : t("analysis.mounted", { path: result.mount_dir }),
       };
       state.imageMountLogHTML = renderMountResultInfo(result);
       state.imageMountTreeHTML = renderTree(result.tree);
@@ -3160,11 +3806,12 @@ async function handleAction(button) {
         summaryContainer.innerHTML = renderDiskAnalysisSummary(result.analysis);
         hydrateIcons(summaryContainer);
       }
-      setAnalysisStatus(
-        state.imageMount.label,
-        state.imageMountLogHTML
+      setAnalysisStatus(state.imageMount.label, state.imageMountLogHTML);
+      showToast(
+        result.mount_mode === "analysis-only"
+          ? t("analysis.analysisOnlyPrepared")
+          : t("analysis.mountPrepared")
       );
-      showToast(result.mount_mode === "analysis-only" ? t("analysis.analysisOnlyPrepared") : t("analysis.mountPrepared"));
     } catch (error) {
       state.imageMountLogHTML = "";
       setAnalysisStatus(t("analysis.noImage"), renderErrorPanel(t("analysis.errorTitle"), error));
@@ -3218,7 +3865,7 @@ async function handleAction(button) {
     try {
       const result = await apiRequest("/api/image-analyze", {
         method: "POST",
-        body: JSON.stringify({ path: imagePath })
+        body: JSON.stringify({ path: imagePath }),
       });
       if (container) {
         container.innerHTML = renderDiskAnalysisSummary(result);
@@ -3248,24 +3895,27 @@ async function handleAction(button) {
     const flatTitle = document.querySelector("#ram-flat-title");
     const flatResults = document.querySelector("#ram-flat-results-list");
     if (flatTitle) flatTitle.textContent = t("analysis.ramSummary");
-    
-    if (flatResults) flatResults.innerHTML = ramConsoleHtml("Canlı Analiz Konsolu", [
-      "Volatility3 ile uçucu bellek analizi başlatılıyor...",
-      "İlk çalıştırmada sembol çözümleme/indirme sürebilir."
-    ]);
+
+    if (flatResults)
+      flatResults.innerHTML = ramConsoleHtml("Canlı Analiz Konsolu", [
+        "Volatility3 ile uçucu bellek analizi başlatılıyor...",
+        "İlk çalıştırmada sembol çözümleme/indirme sürebilir.",
+      ]);
     try {
       const start = await apiRequest("/api/ram-analyze-summary-start", {
         method: "POST",
-        body: JSON.stringify({ path: ramPath, os_type: osProfile, symbol_dir: symbolDir })
+        body: JSON.stringify({ path: ramPath, os_type: osProfile, symbol_dir: symbolDir }),
       });
       if (!start.job_id) throw new Error(t("workflow.jobIdMissing"));
       const result = await waitForAcquisitionJob(start.job_id, {
         onUpdate(job) {
           updateRamConsole("#ram-flat-results-list", job, "Canlı Analiz Konsolu");
           if (statusLbl && job.message) statusLbl.textContent = job.message;
-        }
+        },
       });
-      document.querySelector("#stat-strings-count").textContent = String(result.string_match_count || 0);
+      document.querySelector("#stat-strings-count").textContent = String(
+        result.string_match_count || 0
+      );
       document.querySelector("#stat-carved-count").textContent = "-";
       document.querySelector("#stat-procs-count").textContent = String(result.process_count || 0);
       if (statusLbl) statusLbl.textContent = t("analysis.doneAnalysis");
@@ -3300,20 +3950,27 @@ async function handleAction(button) {
     const statusLbl = document.querySelector("#stat-status-lbl");
     if (flatTitle) flatTitle.textContent = t("analysis.preflightTitle");
     if (statusLbl) statusLbl.textContent = "Ön kontrol / Preflight";
-    if (flatResults) flatResults.innerHTML = ramConsoleHtml(t("analysis.preflightTitle"), [
-      "Volatility yolu, symbol dizini ve Linux kernel banner bilgisi kontrol ediliyor..."
-    ]);
+    if (flatResults)
+      flatResults.innerHTML = ramConsoleHtml(t("analysis.preflightTitle"), [
+        "Volatility yolu, symbol dizini ve Linux kernel banner bilgisi kontrol ediliyor...",
+      ]);
     try {
       const result = await apiRequest("/api/ram-volatility-preflight", {
         method: "POST",
-        body: JSON.stringify({ path: ramPath, os_type: osProfile, symbol_dir: symbolDir })
+        body: JSON.stringify({ path: ramPath, os_type: osProfile, symbol_dir: symbolDir }),
       });
       if (statusLbl) statusLbl.textContent = result.ready ? "Hazır / Ready" : "Eksik / Missing";
       if (flatResults) flatResults.innerHTML = renderVolatilityPreflight(result);
-      showToast(result.ready ? "Volatility ön kontrol hazır." : "Volatility ön kontrol eksik uyarılar verdi.", result.ready ? "success" : "error");
+      showToast(
+        result.ready
+          ? "Volatility ön kontrol hazır."
+          : "Volatility ön kontrol eksik uyarılar verdi.",
+        result.ready ? "success" : "error"
+      );
     } catch (error) {
       if (statusLbl) statusLbl.textContent = "Hata / Failed";
-      if (flatResults) flatResults.innerHTML = renderErrorPanel(t("analysis.preflightFailedTitle"), error);
+      if (flatResults)
+        flatResults.innerHTML = renderErrorPanel(t("analysis.preflightFailedTitle"), error);
       showToast("Volatility ön kontrol başarısız: " + error.message, "error");
     }
     return;
@@ -3335,14 +3992,15 @@ async function handleAction(button) {
     const statusLbl = document.querySelector("#stat-status-lbl");
     if (flatTitle) flatTitle.textContent = t("analysis.symbolInstallTitle");
     if (statusLbl) statusLbl.textContent = t("analysis.symbolInstallRunning");
-    if (flatResults) flatResults.innerHTML = ramConsoleHtml(t("analysis.symbolInstallTitle"), [
-      t("analysis.symbolInstallScanning"),
-      t("analysis.symbolInstallExact")
-    ]);
+    if (flatResults)
+      flatResults.innerHTML = ramConsoleHtml(t("analysis.symbolInstallTitle"), [
+        t("analysis.symbolInstallScanning"),
+        t("analysis.symbolInstallExact"),
+      ]);
     try {
       const result = await apiRequest("/api/ram-volatility-symbol-install", {
         method: "POST",
-        body: JSON.stringify({ path: ramPath, os_type: osProfile, symbol_dir: symbolDir })
+        body: JSON.stringify({ path: ramPath, os_type: osProfile, symbol_dir: symbolDir }),
       });
       if (result.symbol_dir) {
         state.ramSymbolDirInput = result.symbol_dir;
@@ -3350,12 +4008,19 @@ async function handleAction(button) {
         if (input) input.value = result.symbol_dir;
       }
       const symbolReady = result.installed || result.status === "windows-automatic";
-      if (statusLbl) statusLbl.textContent = symbolReady ? t("analysis.symbolInstallDone") : t("analysis.symbolInstallMissing");
+      if (statusLbl)
+        statusLbl.textContent = symbolReady
+          ? t("analysis.symbolInstallDone")
+          : t("analysis.symbolInstallMissing");
       if (flatResults) flatResults.innerHTML = renderVolatilitySymbolInstall(result);
-      showToast(result.message || t("analysis.symbolInstallDone"), symbolReady ? "success" : "error");
+      showToast(
+        result.message || t("analysis.symbolInstallDone"),
+        symbolReady ? "success" : "error"
+      );
     } catch (error) {
       if (statusLbl) statusLbl.textContent = "Hata / Failed";
-      if (flatResults) flatResults.innerHTML = renderErrorPanel(t("analysis.symbolInstallFailedTitle"), error);
+      if (flatResults)
+        flatResults.innerHTML = renderErrorPanel(t("analysis.symbolInstallFailedTitle"), error);
       showToast(t("analysis.symbolInstallFailed", { message: error.message }), "error");
     }
     return;
@@ -3368,11 +4033,12 @@ async function handleAction(button) {
       return;
     }
     const container = document.querySelector("#android-analysis-results");
-    if (container) container.innerHTML = `<div class="log-box">${escapeHtml(t("analysis.runningAnalysis"))}</div>`;
+    if (container)
+      container.innerHTML = `<div class="log-box">${escapeHtml(t("analysis.runningAnalysis"))}</div>`;
     try {
       const result = await apiRequest("/api/android-case-analysis", {
         method: "POST",
-        body: JSON.stringify({ case_name: caseName })
+        body: JSON.stringify({ case_name: caseName }),
       });
       if (container) {
         container.innerHTML = renderAndroidAnalysisSummary(result);
@@ -3392,11 +4058,11 @@ async function handleAction(button) {
       showToast("Önce geçerli bir RAM dosyası seçin / Select a valid RAM file first", "error");
       return;
     }
-    
+
     document.querySelector("#ram-analysis-results").style.display = "block";
     document.querySelector("#ram-split-view").style.display = "none";
     document.querySelector("#ram-flat-results-panel").style.display = "block";
-    
+
     const statusLbl = document.querySelector("#stat-status-lbl");
     if (statusLbl) statusLbl.textContent = t("analysis.runningAnalysis");
 
@@ -3406,9 +4072,9 @@ async function handleAction(button) {
     try {
       const result = await apiRequest("/api/ram-analyze-strings", {
         method: "POST",
-        body: JSON.stringify({ path: ramPath })
+        body: JSON.stringify({ path: ramPath }),
       });
-      
+
       const count = result.length || 0;
       document.querySelector("#stat-strings-count").textContent = count;
       document.querySelector("#stat-carved-count").textContent = "0";
@@ -3418,7 +4084,9 @@ async function handleAction(button) {
       if (count === 0) {
         flatResults.innerHTML = `<div class="log-box" style="text-align:center;padding:20px;color:var(--muted)">Hiçbir bulgu dizgisi bulunamadı / No evidential strings found.</div>`;
       } else {
-        flatResults.innerHTML = result.map(item => `
+        flatResults.innerHTML = result
+          .map(
+            (item) => `
           <div class="string-match-item">
             <div class="match-meta">
               <span>Kategori: <strong>${escapeHtml(item.category)}</strong></span>
@@ -3427,7 +4095,9 @@ async function handleAction(button) {
             <div class="match-value">${escapeHtml(item.value)}</div>
             <div class="match-context">${escapeHtml(item.context)}</div>
           </div>
-        `).join("");
+        `
+          )
+          .join("");
       }
       showToast("Dizgi analizi başarıyla tamamlandı.");
     } catch (error) {
@@ -3463,7 +4133,7 @@ async function handleAction(button) {
     try {
       const result = await apiRequest("/api/ram-carve-files", {
         method: "POST",
-        body: JSON.stringify({ path: ramPath })
+        body: JSON.stringify({ path: ramPath }),
       });
 
       const count = result.length || 0;
@@ -3475,10 +4145,11 @@ async function handleAction(button) {
       if (count === 0) {
         leftList.innerHTML = `<div class="log-box" style="text-align:center;padding:12px;color:var(--muted)">Kurtarılan dosya bulunamadı / No carved files.</div>`;
       } else {
-        leftList.innerHTML = result.map(file => {
-          const isImg = file.mime_type.startsWith("image/");
-          const fileIcon = isImg ? "🖼️" : "📄";
-          return `
+        leftList.innerHTML = result
+          .map((file) => {
+            const isImg = file.mime_type.startsWith("image/");
+            const fileIcon = isImg ? "🖼️" : "📄";
+            return `
             <div class="tree-node" data-carved-preview="${escapeHtml(file.file_path)}" style="padding:10px;border-bottom:1px solid var(--line)">
               <span class="node-icon">${fileIcon}</span>
               <div style="display:flex;flex-direction:column;min-width:0;flex:1">
@@ -3487,7 +4158,8 @@ async function handleAction(button) {
               </div>
             </div>
           `;
-        }).join("");
+          })
+          .join("");
       }
       showToast("Dosya kurtarma (carving) başarıyla tamamlandı.");
     } catch (error) {
@@ -3512,11 +4184,12 @@ async function handleAction(button) {
     document.querySelector("#ram-flat-results-panel").style.display = "none";
 
     document.querySelector("#ram-left-panel-title").textContent = t("analysis.lblProcesses");
-    document.querySelector("#ram-right-panel-title").textContent = "Proses Detayları / Process Inspector";
+    document.querySelector("#ram-right-panel-title").textContent =
+      "Proses Detayları / Process Inspector";
 
     const leftList = document.querySelector("#ram-left-list");
     leftList.innerHTML = ramConsoleHtml("Canlı Proses Analiz Konsolu", [
-      "Volatility3 ile proses tablosu çıkartılıyor..."
+      "Volatility3 ile proses tablosu çıkartılıyor...",
     ]);
     const rightContent = document.querySelector("#ram-right-content");
     rightContent.innerHTML = `<div class="log-box" style="display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center">Proses seçildiğinde bellek haritası ve arama alanları burada açılacak.<br/>Select a process from the left to inspect memory maps.</div>`;
@@ -3527,14 +4200,14 @@ async function handleAction(button) {
     try {
       const start = await apiRequest("/api/ram-list-processes-start", {
         method: "POST",
-        body: JSON.stringify({ path: ramPath, os_type: osProfile, symbol_dir: symbolDir })
+        body: JSON.stringify({ path: ramPath, os_type: osProfile, symbol_dir: symbolDir }),
       });
       if (!start.job_id) throw new Error(t("workflow.jobIdMissing"));
       const result = await waitForAcquisitionJob(start.job_id, {
         onUpdate(job) {
           updateRamConsole("#ram-left-list", job, "Canlı Proses Analiz Konsolu");
           if (statusLbl && job.message) statusLbl.textContent = job.message;
-        }
+        },
       });
 
       const count = result.length || 0;
@@ -3546,13 +4219,17 @@ async function handleAction(button) {
       if (count === 0) {
         leftList.innerHTML = `<div class="log-box" style="text-align:center;padding:12px;color:var(--muted)">Bu arşivde proses bulunamadı (Sadece .tar arşivleri desteklenir) / No processes.</div>`;
       } else {
-        leftList.innerHTML = result.map(proc => `
+        leftList.innerHTML = result
+          .map(
+            (proc) => `
           <div class="proc-row" data-pid="${escapeHtml(proc.pid)}" data-name="${escapeHtml(proc.name)}">
             <strong>${escapeHtml(proc.pid)}</strong>
             <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(proc.name)}</span>
             <small style="text-align:right">${formatBytes(proc.dump_size)}</small>
           </div>
-        `).join("");
+        `
+          )
+          .join("");
       }
     } catch (error) {
       if (statusLbl) statusLbl.textContent = "Hata / Failed";
@@ -3597,10 +4274,9 @@ async function handleAction(button) {
       if (!result || (!result.tag_name && !result.name && !result.version)) {
         const controller = new AbortController();
         const tid = setTimeout(() => controller.abort(), 25000);
-        const res = await fetch(
-          "https://download.amele.noirlang.tr/version.json",
-          { signal: controller.signal }
-        );
+        const res = await fetch("https://download.amele.noirlang.tr/version.json", {
+          signal: controller.signal,
+        });
         clearTimeout(tid);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const vdata = await res.json();
@@ -3611,7 +4287,7 @@ async function handleAction(button) {
           name: `Amele ${tag}`,
           version: vStr,
           html_url: "https://amele.noirlang.tr",
-          mandatory: vdata.mandatory
+          mandatory: vdata.mandatory,
         };
       }
 
@@ -3674,10 +4350,9 @@ async function handleAction(button) {
       if (!result || (!result.tag_name && !result.name && !result.version)) {
         const controller = new AbortController();
         const tid = setTimeout(() => controller.abort(), 25000);
-        const res = await fetch(
-          "https://download.amele.noirlang.tr/version.json",
-          { signal: controller.signal }
-        );
+        const res = await fetch("https://download.amele.noirlang.tr/version.json", {
+          signal: controller.signal,
+        });
         clearTimeout(tid);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const vdata = await res.json();
@@ -3688,7 +4363,7 @@ async function handleAction(button) {
           name: `Amele ${tag}`,
           version: vStr,
           html_url: "https://amele.noirlang.tr",
-          mandatory: vdata.mandatory
+          mandatory: vdata.mandatory,
         };
       }
 
@@ -4018,17 +4693,21 @@ async function scanTargets() {
           if (!requireActiveConnection(workflow, payload)) return;
           const result = await apiRequest("/api/remote-tool-check", {
             method: "POST",
-            body: JSON.stringify({ ...payload, tool: toolKey })
+            body: JSON.stringify({ ...payload, tool: toolKey }),
           });
           status = result.status;
-          updateSide("connection", t("connection.checked", { host: `${payload.ip}:${payload.port}` }));
+          updateSide(
+            "connection",
+            t("connection.checked", { host: `${payload.ip}:${payload.port}` })
+          );
         } else {
           const result = await apiRequest("/api/ram-status");
           status = result[toolKey];
         }
         const toolName = workflow.platform === "Windows" ? "WinPMEM" : "AVML";
         const statusMessage = String(status?.message || "");
-        const missingTool = status?.tool_present === false || /not found|bulunamad/i.test(statusMessage);
+        const missingTool =
+          status?.tool_present === false || /not found|bulunamad/i.test(statusMessage);
         if (missingTool) {
           updateSide("target", t("scan.toolMissing", { tool: toolName }));
           writeWorkflowLog(t("scan.toolMissing", { tool: toolName }));
@@ -4040,7 +4719,9 @@ async function scanTargets() {
         }
         const label = status?.tool_path || statusMessage || t("scan.toolReady", { tool: toolName });
         updateSide("target", escapeHtml(label));
-        writeWorkflowLog(t("scan.toolDoneLog", { target: toolName, message: statusMessage || t("ready") }));
+        writeWorkflowLog(
+          t("scan.toolDoneLog", { target: toolName, message: statusMessage || t("ready") })
+        );
         showToast(t("scan.toolReady", { tool: toolName }));
       } catch (error) {
         if (workflow?.mode.startsWith("remote")) {
@@ -4070,21 +4751,27 @@ async function scanTargets() {
         if (workflow.mode.includes("ram")) {
           const result = await apiRequest("/api/ssh-tool-check", {
             method: "POST",
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
           });
           const status = result.status || {};
           updateSide("target", status.tool_path || "AVML / kcore");
-          updateSide("connection", t("connection.alive", { host: `${payload.ip}:${payload.port}` }));
+          updateSide(
+            "connection",
+            t("connection.alive", { host: `${payload.ip}:${payload.port}` })
+          );
           writeWorkflowLog(`SSH RAM Kontrolü: ${status.message || "Hazır"}`);
           showToast(`SSH RAM kontrolü: ${status.message || "Hazır"}`);
           return;
         } else {
           const result = await apiRequest("/api/ssh-disks", {
             method: "POST",
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
           });
           disks = result.disks || [];
-          updateSide("connection", t("connection.alive", { host: `${payload.ip}:${payload.port}` }));
+          updateSide(
+            "connection",
+            t("connection.alive", { host: `${payload.ip}:${payload.port}` })
+          );
         }
       } else if (workflow.mode.startsWith("remote")) {
         const payload = connectionPayload();
@@ -4095,7 +4782,7 @@ async function scanTargets() {
         if (!requireActiveConnection(workflow, payload)) return;
         const result = await apiRequest("/api/remote-disks", {
           method: "POST",
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
         });
         disks = result.disks || [];
         updateSide("connection", t("connection.alive", { host: `${payload.ip}:${payload.port}` }));
@@ -4148,12 +4835,22 @@ async function scanTargets() {
   const tauriInvoke = window.__TAURI__?.core?.invoke || window.__TAURI__?.tauri?.invoke;
   if (tauriInvoke) {
     try {
-      const disks = await tauriInvoke(workflow.mode.startsWith("remote") ? "remote_disk_list" : "local_disk_list", {
-        platform: workflow.platform.toLowerCase()
-      });
-      const targets = Array.isArray(disks) ? disks.map((disk) => disk.id || disk.name || disk.path || disk).filter(Boolean) : [];
+      const disks = await tauriInvoke(
+        workflow.mode.startsWith("remote") ? "remote_disk_list" : "local_disk_list",
+        {
+          platform: workflow.platform.toLowerCase(),
+        }
+      );
+      const targets = Array.isArray(disks)
+        ? disks.map((disk) => disk.id || disk.name || disk.path || disk).filter(Boolean)
+        : [];
       if (targets.length > 0) {
-        select.innerHTML = targets.map((target) => `<option value="${escapeHtml(target)}" data-disk-name="${escapeHtml(target)}">${escapeHtml(target)}</option>`).join("");
+        select.innerHTML = targets
+          .map(
+            (target) =>
+              `<option value="${escapeHtml(target)}" data-disk-name="${escapeHtml(target)}">${escapeHtml(target)}</option>`
+          )
+          .join("");
         updateSide("target", targets[0]);
         writeWorkflowLog(t("scan.diskDoneLog"));
         showToast(t("scan.diskDone"));
@@ -4266,11 +4963,14 @@ async function waitForAcquisitionJob(jobId, options = {}) {
   while (true) {
     const job = await apiRequest("/api/acquisition-status", {
       method: "POST",
-      body: JSON.stringify({ job_id: jobId })
+      body: JSON.stringify({ job_id: jobId }),
     });
     const customLabel = typeof options.onUpdate === "function" ? options.onUpdate(job) : null;
     const percent = acquisitionPercent(job);
-    setProgress(percent, typeof customLabel === "string" && customLabel ? customLabel : `${percent}%`);
+    setProgress(
+      percent,
+      typeof customLabel === "string" && customLabel ? customLabel : `${percent}%`
+    );
     if (job.message) updateSide("last-action", job.message);
 
     if (job.status === "completed") {
@@ -4286,9 +4986,10 @@ async function waitForAcquisitionJob(jobId, options = {}) {
 }
 
 function ramConsoleHtml(title, logs = []) {
-  const entries = Array.isArray(logs) && logs.length
-    ? logs
-    : ["Analiz başlatıldı. Volatility3 çıktısı bekleniyor..."];
+  const entries =
+    Array.isArray(logs) && logs.length
+      ? logs
+      : ["Analiz başlatıldı. Volatility3 çıktısı bekleniyor..."];
   return `
     <div class="log-box ram-analysis-console">
       <strong>${escapeHtml(title)}</strong>
@@ -4395,7 +5096,7 @@ async function sendAcquisitionControl(action) {
   const workflow = workflows[active.workflowId];
   const body = {
     job_id: active.jobId,
-    action
+    action,
   };
   if (workflow?.mode.startsWith("remote")) {
     Object.assign(body, active.payload || {});
@@ -4403,9 +5104,14 @@ async function sendAcquisitionControl(action) {
 
   await apiRequest("/api/acquisition-control", {
     method: "POST",
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
   });
-  const label = action === "stop" ? t("workflow.stopLabel") : action === "pause" ? t("workflow.pauseLabel") : t("workflow.resumeLabel");
+  const label =
+    action === "stop"
+      ? t("workflow.stopLabel")
+      : action === "pause"
+        ? t("workflow.pauseLabel")
+        : t("workflow.resumeLabel");
   const message = workflow?.mode.startsWith("remote")
     ? t("workflow.controlSent", { label })
     : t("workflow.controlApplied", { label });
@@ -4419,129 +5125,138 @@ async function startAcquisition(button) {
   const workflow = workflows[routeId];
   const isRam = workflow?.mode.includes("ram");
   let payload = null;
-    const isSsh = workflow?.mode.startsWith("ssh");
-    if (isSsh) {
-      try {
-        payload = sshPayload();
-      } catch (error) {
-        showToast(error.message, "error");
-        return;
-      }
-    } else if (workflow?.mode.startsWith("remote")) {
-      try {
-        payload = connectionPayload();
-      } catch (error) {
-        showToast(error.message, "error");
-        return;
-      }
-      if (!requireActiveConnection(workflow, payload)) return;
-    }
-    const target = isRam
-      ? (state.ramToolPath || document.querySelector("[data-field='target']")?.value.trim() || "")
-      : (document.querySelector("[data-field='target']")?.value.trim() || "");
-    const outputFormat = document.querySelector("[data-field='output-format']")?.value || "raw";
-    const sparseAcquisition = document.querySelector("[data-field='sparse-acquisition']")?.checked ?? true;
-    if (workflow && !workflow.mode.includes("ram") && !target) {
-      showToast(t("workflow.diskRequired"), "error");
+  const isSsh = workflow?.mode.startsWith("ssh");
+  if (isSsh) {
+    try {
+      payload = sshPayload();
+    } catch (error) {
+      showToast(error.message, "error");
       return;
     }
-    let output = document.querySelector("#workflow-output")?.value.trim() || "";
-    const diskName = isRam ? "" : selectedTargetName();
-    let caseName = null;
-    button.disabled = true;
-    window.clearInterval(state.jobs.workflow);
-    setProgress(0, "0%");
-    const operation = isRam ? t("ramAcquisition") : t("imageAcquisition");
-    // son is durumu catch blogundan da gorunsun diye try disinda tutulur.
-    let lastJob = null;
-
+  } else if (workflow?.mode.startsWith("remote")) {
     try {
-      setAcquisitionControlsVisible(true, button);
-      await loadEvidenceCases();
-      const evidenceCase = await ensureImageCase();
-      caseName = evidenceCase.case_name;
-      if (isRam) {
-        const remoteIp = (workflow?.mode.startsWith("remote") || isSsh) ? payload?.ip : "";
-        const fileName = canonicalRamFileName(remoteIp);
-        const outputInput = document.querySelector("#workflow-output");
-        if (outputInput) outputInput.value = fileName;
-        const ramDir = evidenceCase.ram_dir || `${evidenceCase.case_dir}/ram`;
-        output = `${ramDir}/${fileName}`;
-      } else {
-        output = evidenceCase.output_dir || `${evidenceCase.case_dir}/ciktilar`;
-      }
-      document.querySelectorAll("[data-case-output]").forEach((outputNode) => {
-        outputNode.textContent = outputNode.dataset.caseOutputSubdir === "ram"
-          ? (evidenceCase.ram_dir || `${evidenceCase.case_dir}/ram`)
-          : (evidenceCase.output_dir || `${evidenceCase.case_dir}/ciktilar`);
-      });
+      payload = connectionPayload();
+    } catch (error) {
+      showToast(error.message, "error");
+      return;
+    }
+    if (!requireActiveConnection(workflow, payload)) return;
+  }
+  const target = isRam
+    ? state.ramToolPath || document.querySelector("[data-field='target']")?.value.trim() || ""
+    : document.querySelector("[data-field='target']")?.value.trim() || "";
+  const outputFormat = document.querySelector("[data-field='output-format']")?.value || "raw";
+  const sparseAcquisition =
+    document.querySelector("[data-field='sparse-acquisition']")?.checked ?? true;
+  if (workflow && !workflow.mode.includes("ram") && !target) {
+    showToast(t("workflow.diskRequired"), "error");
+    return;
+  }
+  let output = document.querySelector("#workflow-output")?.value.trim() || "";
+  const diskName = isRam ? "" : selectedTargetName();
+  let caseName = null;
+  button.disabled = true;
+  window.clearInterval(state.jobs.workflow);
+  setProgress(0, "0%");
+  const operation = isRam ? t("ramAcquisition") : t("imageAcquisition");
+  // son is durumu catch blogundan da gorunsun diye try disinda tutulur.
+  let lastJob = null;
 
-      writeWorkflowLog(t("workflow.operationStarted", { operation }));
-      updateSide("last-action", t("workflow.operationRunning", { operation }));
-      if (workflow?.mode.startsWith("remote") || isSsh) updateSide("connection", t("workflow.operationRunning", { operation }));
+  try {
+    setAcquisitionControlsVisible(true, button);
+    await loadEvidenceCases();
+    const evidenceCase = await ensureImageCase();
+    caseName = evidenceCase.case_name;
+    if (isRam) {
+      const remoteIp = workflow?.mode.startsWith("remote") || isSsh ? payload?.ip : "";
+      const fileName = canonicalRamFileName(remoteIp);
+      const outputInput = document.querySelector("#workflow-output");
+      if (outputInput) outputInput.value = fileName;
+      const ramDir = evidenceCase.ram_dir || `${evidenceCase.case_dir}/ram`;
+      output = `${ramDir}/${fileName}`;
+    } else {
+      output = evidenceCase.output_dir || `${evidenceCase.case_dir}/ciktilar`;
+    }
+    document.querySelectorAll("[data-case-output]").forEach((outputNode) => {
+      outputNode.textContent =
+        outputNode.dataset.caseOutputSubdir === "ram"
+          ? evidenceCase.ram_dir || `${evidenceCase.case_dir}/ram`
+          : evidenceCase.output_dir || `${evidenceCase.case_dir}/ciktilar`;
+    });
 
-      const start = isSsh
-        ? await apiRequest(isRam ? "/api/ssh-ram" : "/api/ssh-image", {
-            method: "POST",
-            body: JSON.stringify(isRam
+    writeWorkflowLog(t("workflow.operationStarted", { operation }));
+    updateSide("last-action", t("workflow.operationRunning", { operation }));
+    if (workflow?.mode.startsWith("remote") || isSsh)
+      updateSide("connection", t("workflow.operationRunning", { operation }));
+
+    const start = isSsh
+      ? await apiRequest(isRam ? "/api/ssh-ram" : "/api/ssh-image", {
+          method: "POST",
+          body: JSON.stringify(
+            isRam
               ? {
                   ...payload,
                   output,
                   case_name: caseName,
-                  output_format: outputFormat
+                  output_format: outputFormat,
                 }
               : {
                   ...payload,
                   disk_path: target,
                   output,
                   case_name: caseName,
-                  output_format: outputFormat
-                })
-          })
-        : workflow?.mode.startsWith("remote")
-        ? await apiRequest(isRam ? "/api/remote-ram" : "/api/remote-image", {
-          method: "POST",
-          body: JSON.stringify(isRam
-            ? {
-                ...payload,
-                output,
-                case_name: caseName,
-                output_format: outputFormat
-              }
-            : {
-                ...payload,
-                disk_id: target,
-                disk_name: diskName,
-                output,
-                case_name: caseName,
-                output_format: outputFormat,
-                sparse: sparseAcquisition
-              })
+                  output_format: outputFormat,
+                }
+          ),
         })
-      : await apiRequest(isRam ? "/api/local-ram" : "/api/local-image", {
-          method: "POST",
-          body: JSON.stringify(isRam
-            ? {
-                output,
-                tool: workflow.platform === "Windows" ? "winpmem" : "avml",
-                tool_path: target || state.ramToolPath || undefined,
-                case_name: caseName,
-                output_format: outputFormat
-            }
-            : {
-                source: target,
-                disk_name: diskName,
-                output,
-                case_name: caseName,
-                output_format: outputFormat,
-                sparse: sparseAcquisition
-              })
-        });
+      : workflow?.mode.startsWith("remote")
+        ? await apiRequest(isRam ? "/api/remote-ram" : "/api/remote-image", {
+            method: "POST",
+            body: JSON.stringify(
+              isRam
+                ? {
+                    ...payload,
+                    output,
+                    case_name: caseName,
+                    output_format: outputFormat,
+                  }
+                : {
+                    ...payload,
+                    disk_id: target,
+                    disk_name: diskName,
+                    output,
+                    case_name: caseName,
+                    output_format: outputFormat,
+                    sparse: sparseAcquisition,
+                  }
+            ),
+          })
+        : await apiRequest(isRam ? "/api/local-ram" : "/api/local-image", {
+            method: "POST",
+            body: JSON.stringify(
+              isRam
+                ? {
+                    output,
+                    tool: workflow.platform === "Windows" ? "winpmem" : "avml",
+                    tool_path: target || state.ramToolPath || undefined,
+                    case_name: caseName,
+                    output_format: outputFormat,
+                  }
+                : {
+                    source: target,
+                    disk_name: diskName,
+                    output,
+                    case_name: caseName,
+                    output_format: outputFormat,
+                    sparse: sparseAcquisition,
+                  }
+            ),
+          });
     if (!start.job_id) throw new Error(t("workflow.jobIdMissing"));
     state.activeAcquisition = {
       jobId: start.job_id,
       workflowId: routeId,
-      payload
+      payload,
     };
     // hiz ve kalan sure icin bir onceki orneklem burada tutulur.
     let lastSample = null;
@@ -4570,11 +5285,11 @@ async function startAcquisition(button) {
         const pct = acquisitionPercent(job);
         const phasePrefix = job?.phase
           ? `${job.phase} • `
-          : (job?.message && (job.message.includes("SHA") || job.message.includes("hash"))
+          : job?.message && (job.message.includes("SHA") || job.message.includes("hash"))
             ? "SHA-256 hesaplanıyor • "
-            : "");
+            : "";
         return `${phasePrefix}${formatBytes(done)} / ${formatBytes(total)} • %${pct}${extra}`;
-      }
+      },
     });
 
     setProgress(100, "100%");
@@ -4586,8 +5301,12 @@ async function startAcquisition(button) {
       writeWorkflowLog(t("workflow.hashWritten", { hash: escapeHtml(result.sha256) }));
     }
     if (result.output_format) {
-      doneLines.push(t("workflow.formatCompleted", { format: String(result.output_format).toUpperCase() }));
-      writeWorkflowLog(t("workflow.formatCompleted", { format: String(result.output_format).toUpperCase() }));
+      doneLines.push(
+        t("workflow.formatCompleted", { format: String(result.output_format).toUpperCase() })
+      );
+      writeWorkflowLog(
+        t("workflow.formatCompleted", { format: String(result.output_format).toUpperCase() })
+      );
     }
     // ozet satirlari konsolun en altina eklenir, tam log korunur.
     renderAcquisitionConsole(lastJob, doneLines);
@@ -4599,7 +5318,9 @@ async function startAcquisition(button) {
   } catch (error) {
     setProgress(0, "0%");
     writeWorkflowLog(t("workflow.operationFailedDetail", { operation, message: error.message }));
-    renderAcquisitionConsole(lastJob, [t("workflow.operationFailedDetail", { operation, message: error.message })]);
+    renderAcquisitionConsole(lastJob, [
+      t("workflow.operationFailedDetail", { operation, message: error.message }),
+    ]);
     updateSide("last-action", t("workflow.operationFailed", { operation }));
     if (workflow?.mode.startsWith("remote")) {
       updateSide("connection", t("workflow.operationFailed", { operation }));
@@ -4627,15 +5348,16 @@ function renderMountResultInfo(result) {
   const analysis = result.analysis || {};
   const filesystems = Array.isArray(analysis.filesystems) ? analysis.filesystems : [];
   const partitions = Array.isArray(analysis.partitions) ? analysis.partitions : [];
-  const status = mode === "analysis-only"
-    ? t("analysis.analysisOnlyLog")
-    : t("analysis.mountedLog");
+  const status =
+    mode === "analysis-only" ? t("analysis.analysisOnlyLog") : t("analysis.mountedLog");
   const details = [
     analysis.image_type ? `${t("analysis.imageType")}: ${analysis.image_type}` : "",
     analysis.size ? `${t("analysis.imageSize")}: ${formatBytes(analysis.size)}` : "",
-    analysis.partition_scheme ? `${t("analysis.partitionScheme")}: ${analysis.partition_scheme}` : "",
+    analysis.partition_scheme
+      ? `${t("analysis.partitionScheme")}: ${analysis.partition_scheme}`
+      : "",
     `${t("analysis.partitionCount")}: ${partitions.length}`,
-    `${t("analysis.filesystemCount")}: ${filesystems.length}`
+    `${t("analysis.filesystemCount")}: ${filesystems.length}`,
   ].filter(Boolean);
   return `
     <div class="mount-info-panel">
@@ -4658,9 +5380,20 @@ function renderDiskAnalysisSummary(result) {
       ${analysisMetric("Bölüm", escapeHtml(result.partition_scheme || "-"))}
       ${analysisMetric("FS", String(filesystems.length))}
     </div>
-    ${analysisList("Bölümler", partitions.map((part) => `${part.index}. ${part.scheme} ${part.type_name} LBA ${part.start_lba} · ${formatBytes(part.size || 0)}`))}
-    ${analysisList("Dosya sistemi imzaları", filesystems.map((fs) => `${fs.source}: ${fs.fs_type} @ ${fs.offset}`))}
-    ${mounted ? `
+    ${analysisList(
+      "Bölümler",
+      partitions.map(
+        (part) =>
+          `${part.index}. ${part.scheme} ${part.type_name} LBA ${part.start_lba} · ${formatBytes(part.size || 0)}`
+      )
+    )}
+    ${analysisList(
+      "Dosya sistemi imzaları",
+      filesystems.map((fs) => `${fs.source}: ${fs.fs_type} @ ${fs.offset}`)
+    )}
+    ${
+      mounted
+        ? `
       <div class="section-divider"></div>
       <div class="hash-grid">
         ${analysisMetric("Dosya", String(mounted.file_count || 0))}
@@ -4668,9 +5401,17 @@ function renderDiskAnalysisSummary(result) {
         ${analysisMetric("Görünen veri", formatBytes(mounted.total_visible_bytes || 0))}
         ${analysisMetric("Taranan", String(mounted.scanned_entries || 0))}
       </div>
-      ${analysisList("Uzantılar", (mounted.top_extensions || []).map((item) => `${item.extension}: ${item.count}`))}
-      ${analysisList("En büyük dosyalar", (mounted.largest_files || []).map((item) => `${item.path} · ${formatBytes(item.size || 0)}`))}
-    ` : ""}
+      ${analysisList(
+        "Uzantılar",
+        (mounted.top_extensions || []).map((item) => `${item.extension}: ${item.count}`)
+      )}
+      ${analysisList(
+        "En büyük dosyalar",
+        (mounted.largest_files || []).map((item) => `${item.path} · ${formatBytes(item.size || 0)}`)
+      )}
+    `
+        : ""
+    }
     ${analysisList("Uyarılar", result.warnings || [], "warning")}
     ${analysisList("Öneriler", result.recommendations || [])}
   `;
@@ -4684,9 +5425,25 @@ function renderRamAnalysisSummary(result) {
       ${analysisMetric("Entropi", Number(result.entropy_sample || 0).toFixed(2))}
       ${analysisMetric("IOC", String(result.string_match_count || 0))}
     </div>
-    ${analysisList("Kategori sayımları", (result.category_counts || []).map((item) => `${item.category}: ${item.count}`))}
-    ${analysisList("Proses özeti", (result.largest_processes || []).map((proc) => `${proc.pid} ${proc.name} · ${formatBytes(proc.dump_size || 0)}`))}
-    ${analysisList("Örnek bulgular", (result.sample_matches || []).slice(0, 20).map((item) => `${item.category} @ 0x${Number(item.offset || 0).toString(16).toUpperCase()}: ${item.value}`))}
+    ${analysisList(
+      "Kategori sayımları",
+      (result.category_counts || []).map((item) => `${item.category}: ${item.count}`)
+    )}
+    ${analysisList(
+      "Proses özeti",
+      (result.largest_processes || []).map(
+        (proc) => `${proc.pid} ${proc.name} · ${formatBytes(proc.dump_size || 0)}`
+      )
+    )}
+    ${analysisList(
+      "Örnek bulgular",
+      (result.sample_matches || []).slice(0, 20).map(
+        (item) =>
+          `${item.category} @ 0x${Number(item.offset || 0)
+            .toString(16)
+            .toUpperCase()}: ${item.value}`
+      )
+    )}
     ${analysisList("Uyarılar", result.warnings || [], "warning")}
     ${analysisList("Öneriler", result.recommendations || [])}
   `;
@@ -4698,8 +5455,10 @@ function renderAndroidAnalysisSummary(result) {
     profile.manufacturer,
     profile.model,
     profile.android_release ? `Android ${profile.android_release}` : "",
-    profile.security_patch ? `Patch ${profile.security_patch}` : ""
-  ].filter(Boolean).join(" · ");
+    profile.security_patch ? `Patch ${profile.security_patch}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return `
     <p class="section-label">${t("analysis.androidSummary")}</p>
     <div class="hash-grid">
@@ -4709,10 +5468,23 @@ function renderAndroidAnalysisSummary(result) {
       ${analysisMetric("Korelasyon", String(result.correlation_count || 0))}
     </div>
     ${profileBits ? `<div class="side-info"><span class="metric-icon">${icon("android")}</span><span><strong>Cihaz</strong><small>${escapeHtml(profileBits)}</small></span></div>` : ""}
-    ${analysisList("Kayıt türleri", (result.record_types || []).map((item) => `${item.record_type}: ${item.count}`))}
-    ${analysisList("Önemli timeline olayları", (result.recent_events || []).slice(0, 15).map((event) => `${event.type || "event"} [${event.severity || 0}] ${event.summary || ""}`))}
+    ${analysisList(
+      "Kayıt türleri",
+      (result.record_types || []).map((item) => `${item.record_type}: ${item.count}`)
+    )}
+    ${analysisList(
+      "Önemli timeline olayları",
+      (result.recent_events || [])
+        .slice(0, 15)
+        .map((event) => `${event.type || "event"} [${event.severity || 0}] ${event.summary || ""}`)
+    )}
     ${analysisList("Uçucu veri bölümleri", result.volatile_sections || [])}
-    ${analysisList("Dosyalar", (result.files || []).slice(0, 20).map((file) => `${file.name} · ${formatBytes(file.size || 0)}`))}
+    ${analysisList(
+      "Dosyalar",
+      (result.files || [])
+        .slice(0, 20)
+        .map((file) => `${file.name} · ${formatBytes(file.size || 0)}`)
+    )}
     ${result.report_preview ? `<div class="section-divider"></div><pre class="log-box" style="white-space:pre-wrap;max-height:260px">${escapeHtml(result.report_preview)}</pre>` : ""}
     ${analysisList("Uyarılar", result.warnings || [], "warning")}
     ${analysisList("Öneriler", result.recommendations || [])}
@@ -4731,7 +5503,7 @@ function analysisMetric(label, value) {
 function analysisList(title, items, tone = "") {
   const safeItems = Array.isArray(items) ? items.filter((item) => String(item || "").trim()) : [];
   if (!safeItems.length) return "";
-  const color = tone === "warning" ? " style=\"color:#ffb86b\"" : "";
+  const color = tone === "warning" ? ' style="color:#ffb86b"' : "";
   return `
     <div class="section-divider"></div>
     <p class="section-label"${color}>${escapeHtml(title)}</p>
@@ -4750,7 +5522,7 @@ function renderTree(node, depth = 0) {
   const toggle = node.is_dir ? `<span class="toggle-icon">${expanded ? "▾" : "▸"}</span>` : "";
   const sizeStr = node.is_dir ? "" : `<span class="node-size">${formatBytes(node.size)}</span>`;
   const note = node.note || node.name || "";
-  
+
   let relativePath = node.path;
   if (!isVirtual && state.imageMount && state.imageMount.mountDir) {
     if (node.path.startsWith(state.imageMount.mountDir)) {
@@ -4762,14 +5534,14 @@ function renderTree(node, depth = 0) {
     <div class="tree-node" data-path="${escapeHtml(relativePath)}" data-is-dir="${node.is_dir}" data-virtual="${isVirtual}" data-has-children="${hasChildren}" data-note="${escapeHtml(note)}">
       <span style="width:16px;display:inline-block">${toggle}</span>
       <span class="node-icon">${fileIcon}</span>
-      <span class="node-name">${escapeHtml(node.name || node.path.split('/').pop() || "/")}</span>
+      <span class="node-name">${escapeHtml(node.name || node.path.split("/").pop() || "/")}</span>
       ${sizeStr}
     </div>
     <div class="tree-children-container"></div>
   `;
 
   const children = hasChildren
-    ? `<div class="tree-children" style="padding-left:14px; display:${expanded ? "block" : "none"}">${node.children.map(child => renderTree(child, depth + 1)).join("")}</div>`
+    ? `<div class="tree-children" style="padding-left:14px; display:${expanded ? "block" : "none"}">${node.children.map((child) => renderTree(child, depth + 1)).join("")}</div>`
     : "";
 
   return current + children;
@@ -4783,8 +5555,8 @@ async function calculateHashes() {
         method: "POST",
         body: JSON.stringify({
           path: inputPath,
-          algorithms: ["md5", "sha1", "sha256", "sha512"]
-        })
+          algorithms: ["md5", "sha1", "sha256", "sha512"],
+        }),
       });
       setHashResult("md5", hashes.md5 || "-");
       setHashResult("sha1", hashes.sha1 || "-");
@@ -4823,7 +5595,9 @@ function setHashResult(key, value) {
 
 function compareHash() {
   const expected = document.querySelector("[data-hash-expected]")?.value.trim().toLowerCase();
-  const values = [...document.querySelectorAll("[data-hash-result] strong")].map((node) => node.textContent.trim().toLowerCase());
+  const values = [...document.querySelectorAll("[data-hash-result] strong")].map((node) =>
+    node.textContent.trim().toLowerCase()
+  );
   const result = document.querySelector("[data-hash-compare-result] small");
   if (!expected) {
     showToast(t("hash.compareRequired"), "error");
@@ -4831,7 +5605,10 @@ function compareHash() {
   }
   const matched = values.includes(expected);
   if (result) result.textContent = matched ? t("hash.matched") : t("hash.notMatched");
-  showToast(matched ? t("hash.matchedToast") : t("hash.notMatchedToast"), matched ? "success" : "error");
+  showToast(
+    matched ? t("hash.matchedToast") : t("hash.notMatchedToast"),
+    matched ? "success" : "error"
+  );
 }
 
 function setStatus(selector, html) {
@@ -4851,15 +5628,21 @@ async function createEvidenceCase() {
   try {
     const result = await apiRequest("/api/evidence-create", {
       method: "POST",
-      body: JSON.stringify({ case_name: caseName })
+      body: JSON.stringify({ case_name: caseName }),
     });
     state.activeCase = result;
     state.pendingCaseName = "";
     await loadEvidenceCases();
-    setStatus("[data-case-status]", `${icon("info")} ${t("case.created", { path: escapeHtml(result.case_dir) })}`);
+    setStatus(
+      "[data-case-status]",
+      `${icon("info")} ${t("case.created", { path: escapeHtml(result.case_dir) })}`
+    );
     showToast(t("case.created", { path: result.case_dir }));
   } catch (error) {
-    setStatus("[data-case-status]", `${icon("info")} ${t("case.createFailed", { message: escapeHtml(error.message) })}`);
+    setStatus(
+      "[data-case-status]",
+      `${icon("info")} ${t("case.createFailed", { message: escapeHtml(error.message) })}`
+    );
     showToast(t("case.createFailed", { message: error.message }), "error");
   }
 }
@@ -4873,16 +5656,24 @@ async function listEvidenceFiles() {
   try {
     const result = await apiRequest("/api/evidence-list-files", {
       method: "POST",
-      body: JSON.stringify({ subdir })
+      body: JSON.stringify({ subdir }),
     });
     const files = result.files || [];
     const select = document.querySelector("#case-file-list");
     if (select) {
       select.innerHTML = files.length
-        ? files.map((file) => `<option value="${escapeHtml(file.path)}">${escapeHtml(file.name)} · ${formatBytes(file.size)}</option>`).join("")
+        ? files
+            .map(
+              (file) =>
+                `<option value="${escapeHtml(file.path)}">${escapeHtml(file.name)} · ${formatBytes(file.size)}</option>`
+            )
+            .join("")
         : `<option>${t("case.empty")}</option>`;
     }
-    setStatus("[data-case-status]", `${icon("info")} ${t("case.filesListed", { count: String(files.length) })}`);
+    setStatus(
+      "[data-case-status]",
+      `${icon("info")} ${t("case.filesListed", { count: String(files.length) })}`
+    );
     showToast(t("case.filesListed", { count: String(files.length) }));
   } catch (error) {
     showToast(t("case.listFailed", { message: error.message }), "error");
@@ -4898,16 +5689,22 @@ async function createCaseManifest() {
   try {
     const result = await apiRequest("/api/evidence-manifest", {
       method: "POST",
-      body: JSON.stringify({ case_name: caseName })
+      body: JSON.stringify({ case_name: caseName }),
     });
     if (state.activeCase) {
       state.activeCase.manifest_path = result.path || state.activeCase.manifest_path;
     }
     await loadEvidenceCases();
-    setStatus("[data-manifest-status]", `${icon("shield")} ${t("case.manifest.ready", { path: escapeHtml(result.path || "") })}`);
+    setStatus(
+      "[data-manifest-status]",
+      `${icon("shield")} ${t("case.manifest.ready", { path: escapeHtml(result.path || "") })}`
+    );
     showToast(t("case.manifest.created", { path: result.path || "" }));
   } catch (error) {
-    setStatus("[data-manifest-status]", `${icon("info")} ${t("case.manifest.failed", { message: escapeHtml(error.message) })}`);
+    setStatus(
+      "[data-manifest-status]",
+      `${icon("info")} ${t("case.manifest.failed", { message: escapeHtml(error.message) })}`
+    );
     showToast(t("case.manifest.failed", { message: error.message }), "error");
   }
 }
@@ -4922,7 +5719,7 @@ async function loadAcquisitionHistory({ silent = true } = {}) {
   try {
     const result = await apiRequest("/api/acquisition-history", {
       method: "POST",
-      body: JSON.stringify({ case_name: caseName })
+      body: JSON.stringify({ case_name: caseName }),
     });
     state.acquisitionHistory = Array.isArray(result.history) ? result.history : [];
     const detail = document.querySelector("#other-detail");
@@ -4930,7 +5727,10 @@ async function loadAcquisitionHistory({ silent = true } = {}) {
       detail.innerHTML = boundDetailPanel(state.activeTab);
       hydrateIcons(detail);
     }
-    if (!silent) showToast(t("acquisition.history.loaded", { count: String(state.acquisitionHistory.length) }));
+    if (!silent)
+      showToast(
+        t("acquisition.history.loaded", { count: String(state.acquisitionHistory.length) })
+      );
   } catch (error) {
     if (!silent) showToast(t("acquisition.history.failed", { message: error.message }), "error");
   }
@@ -4946,13 +5746,19 @@ async function addEvidenceNote() {
   try {
     const result = await apiRequest("/api/evidence-add-note", {
       method: "POST",
-      body: JSON.stringify({ note, case_name: caseName })
+      body: JSON.stringify({ note, case_name: caseName }),
     });
     await loadEvidenceCases();
-    setStatus("[data-report-status]", `${icon("info")} ${t("report.noteAdded", { path: escapeHtml(result.path) })}`);
+    setStatus(
+      "[data-report-status]",
+      `${icon("info")} ${t("report.noteAdded", { path: escapeHtml(result.path) })}`
+    );
     showToast(t("report.noteAdded", { path: result.path }));
   } catch (error) {
-    setStatus("[data-report-status]", `${icon("info")} ${t("report.noteFailed", { message: escapeHtml(error.message) })}`);
+    setStatus(
+      "[data-report-status]",
+      `${icon("info")} ${t("report.noteFailed", { message: escapeHtml(error.message) })}`
+    );
     showToast(t("report.noteFailed", { message: error.message }), "error");
   }
 }
@@ -4965,13 +5771,19 @@ async function createEvidenceReport() {
   try {
     const result = await apiRequest("/api/report-create", {
       method: "POST",
-      body: JSON.stringify({ case_name: caseName, title, description, format })
+      body: JSON.stringify({ case_name: caseName, title, description, format }),
     });
     await loadEvidenceCases();
-    setStatus("[data-report-status]", `${icon("info")} ${t("report.created", { path: escapeHtml(result.path) })}`);
+    setStatus(
+      "[data-report-status]",
+      `${icon("info")} ${t("report.created", { path: escapeHtml(result.path) })}`
+    );
     showToast(t("report.created", { path: result.path }));
   } catch (error) {
-    setStatus("[data-report-status]", `${icon("info")} ${t("report.failed", { message: escapeHtml(error.message) })}`);
+    setStatus(
+      "[data-report-status]",
+      `${icon("info")} ${t("report.failed", { message: escapeHtml(error.message) })}`
+    );
     showToast(t("report.failed", { message: error.message }), "error");
   }
 }
@@ -4988,31 +5800,42 @@ async function calculateHashInOther() {
   state.hashTargetInput = path;
   state.hashMethod = method;
 
-  const algorithms = method === "all" ? ["blake3", "sha256", "md5"] : method === "both" ? ["sha256", "md5"] : [method];
+  const algorithms =
+    method === "all"
+      ? ["blake3", "sha256", "md5"]
+      : method === "both"
+        ? ["sha256", "md5"]
+        : [method];
   setStatus("[data-hash-status]", `${icon("refresh")} ${t("hash.calculating")}`);
   try {
     const res = await apiRequest("/api/hash", {
       method: "POST",
-      body: JSON.stringify({ path, algorithms })
+      body: JSON.stringify({ path, algorithms }),
     });
     state.hashResult = {
       path,
       blake3: res.blake3,
       sha256: res.sha256,
-      md5: res.md5
+      md5: res.md5,
     };
     const outBox = document.querySelector("[data-hash-output]");
     if (outBox) {
       let outHtml = `<strong>${t("hash.file") || "Dosya"}:</strong> ${escapeHtml(path)}<br/>`;
-      if (res.blake3) outHtml += `<strong>BLAKE3:</strong> <code style="word-break:break-all">${escapeHtml(res.blake3)}</code><br/>`;
-      if (res.sha256) outHtml += `<strong>SHA-256:</strong> <code style="word-break:break-all">${escapeHtml(res.sha256)}</code><br/>`;
-      if (res.md5) outHtml += `<strong>MD5:</strong> <code style="word-break:break-all">${escapeHtml(res.md5)}</code><br/>`;
+      if (res.blake3)
+        outHtml += `<strong>BLAKE3:</strong> <code style="word-break:break-all">${escapeHtml(res.blake3)}</code><br/>`;
+      if (res.sha256)
+        outHtml += `<strong>SHA-256:</strong> <code style="word-break:break-all">${escapeHtml(res.sha256)}</code><br/>`;
+      if (res.md5)
+        outHtml += `<strong>MD5:</strong> <code style="word-break:break-all">${escapeHtml(res.md5)}</code><br/>`;
       outBox.innerHTML = outHtml;
     }
     setStatus("[data-hash-status]", `${icon("shield")} ${t("hash.done")}`);
     showToast(t("hash.done"));
   } catch (err) {
-    setStatus("[data-hash-status]", `${icon("info")} ${t("hash.failed", { message: escapeHtml(err.message) })}`);
+    setStatus(
+      "[data-hash-status]",
+      `${icon("info")} ${t("hash.failed", { message: escapeHtml(err.message) })}`
+    );
     showToast(t("hash.failed", { message: err.message }), "error");
   }
 }
@@ -5025,13 +5848,18 @@ async function listEvidenceReports() {
   try {
     const result = await apiRequest("/api/evidence-list-files", {
       method: "POST",
-      body: JSON.stringify({ subdir: "raporlar" })
+      body: JSON.stringify({ subdir: "raporlar" }),
     });
     const files = result.files || [];
     const outBox = document.querySelector("[data-report-output]");
     if (outBox) {
       outBox.innerHTML = files.length
-        ? files.map((f) => `<strong>${escapeHtml(f.name)}</strong> (${formatBytes(f.size)})<br/><small style="color:var(--muted)">${escapeHtml(f.path)}</small>`).join("<hr style='border:0;border-top:1px solid var(--line);margin:8px 0;'/>")
+        ? files
+            .map(
+              (f) =>
+                `<strong>${escapeHtml(f.name)}</strong> (${formatBytes(f.size)})<br/><small style="color:var(--muted)">${escapeHtml(f.path)}</small>`
+            )
+            .join("<hr style='border:0;border-top:1px solid var(--line);margin:8px 0;'/>")
         : t("report.noReports");
     }
     showToast(t("report.refreshDone"));
@@ -5048,13 +5876,18 @@ async function loadEvidenceLogs() {
   try {
     const result = await apiRequest("/api/evidence-list-files", {
       method: "POST",
-      body: JSON.stringify({ subdir: "gunlukler" })
+      body: JSON.stringify({ subdir: "gunlukler" }),
     });
     const files = result.files || [];
     const outBox = document.querySelector("[data-logs-output]");
     if (outBox) {
       outBox.innerHTML = files.length
-        ? files.map((f) => `<strong>${escapeHtml(f.name)}</strong> (${formatBytes(f.size)})<br/><small style="color:var(--muted)">${escapeHtml(f.path)}</small>`).join("<hr style='border:0;border-top:1px solid var(--line);margin:8px 0;'/>")
+        ? files
+            .map(
+              (f) =>
+                `<strong>${escapeHtml(f.name)}</strong> (${formatBytes(f.size)})<br/><small style="color:var(--muted)">${escapeHtml(f.path)}</small>`
+            )
+            .join("<hr style='border:0;border-top:1px solid var(--line);margin:8px 0;'/>")
         : t("logs.empty");
     }
     showToast(t("logs.refreshed"));
@@ -5077,9 +5910,11 @@ async function downloadUpdatePackage() {
   const asset = update?.platform_asset || {};
   if (!asset.download_url) {
     const target = update.update_target || state.updateTarget || {};
-    const message = update.asset_error || t("settings.noAssetForPackage", {
-      package: target.asset_package_label || target.package_label || "-"
-    });
+    const message =
+      update.asset_error ||
+      t("settings.noAssetForPackage", {
+        package: target.asset_package_label || target.package_label || "-",
+      });
     if (status) status.innerHTML = `${icon("info")} ${escapeHtml(message)}`;
     setStatus("[data-update-log]", escapeHtml(message));
     showToast(message, "error");
@@ -5091,7 +5926,8 @@ async function downloadUpdatePackage() {
   if (!progressContainer && resultArea) {
     progressContainer = document.createElement("div");
     progressContainer.className = "update-progress-container";
-    progressContainer.style.cssText = "margin-top: 14px; width: 100%; max-width: 380px; margin-left: auto; margin-right: auto;";
+    progressContainer.style.cssText =
+      "margin-top: 14px; width: 100%; max-width: 380px; margin-left: auto; margin-right: auto;";
     progressContainer.innerHTML = `
       <div class="job-progress-bg" style="height: 6px; background: rgba(255, 255, 255, 0.08); border-radius: 999px; overflow: hidden;">
         <div class="job-progress-fill" data-update-progress-fill style="width: 0%; height: 100%; background: var(--text, #fff); transition: width 0.2s ease;"></div>
@@ -5114,7 +5950,8 @@ async function downloadUpdatePackage() {
     updateBtn.style.opacity = "0.5";
   }
 
-  if (status) status.innerHTML = `${icon("download")} <span>${t("settings.downloading") || "İndiriliyor..."}</span>`;
+  if (status)
+    status.innerHTML = `${icon("download")} <span>${t("settings.downloading") || "İndiriliyor..."}</span>`;
 
   try {
     const res = await apiRequest("/api/update-download", {
@@ -5137,7 +5974,10 @@ async function downloadUpdatePackage() {
         const cleanMsg = rawMsg ? rawMsg.replace(/:\s*\d+%/g, "").trim() : `${pct}%`;
         if (progressFill) progressFill.style.width = `${pct}%`;
         if (progressPct) progressPct.textContent = `%${pct}`;
-        if (progressMsg) progressMsg.textContent = cleanMsg.includes("indirildi") ? cleanMsg : `${cleanMsg} indirildi`;
+        if (progressMsg)
+          progressMsg.textContent = cleanMsg.includes("indirildi")
+            ? cleanMsg
+            : `${cleanMsg} indirildi`;
         return `%${pct}`;
       },
     });
@@ -5145,14 +5985,16 @@ async function downloadUpdatePackage() {
     if (progressFill) progressFill.style.width = "100%";
     if (progressPct) progressPct.textContent = "%100";
     if (progressMsg) progressMsg.textContent = "İndirme tamamlandı! Kurulum başlatılıyor...";
-    if (status) status.innerHTML = `${icon("shield")} <span>${t("settings.installing") || "Kurulum başlatılıyor..."}</span>`;
+    if (status)
+      status.innerHTML = `${icon("shield")} <span>${t("settings.installing") || "Kurulum başlatılıyor..."}</span>`;
 
     const install = await apiRequest("/api/update-install", {
       method: "POST",
       body: JSON.stringify({ path: result.path }),
     });
 
-    if (status) status.innerHTML = `${icon("shield")} <span>${t("settings.installStarted") || "Kurulum başlatıldı"}</span>`;
+    if (status)
+      status.innerHTML = `${icon("shield")} <span>${t("settings.installStarted") || "Kurulum başlatıldı"}</span>`;
     if (progressMsg) progressMsg.textContent = t("settings.installStarted") || "Kurulum başlatıldı";
     setStatus(
       "[data-update-log]",
@@ -5163,10 +6005,13 @@ async function downloadUpdatePackage() {
     if (progressFill) progressFill.style.width = "0%";
     if (progressPct) progressPct.textContent = "%0";
     if (progressMsg) progressMsg.textContent = "İndirme başarısız";
-    const failedKey = String(error.message || "").toLowerCase().includes("installer")
+    const failedKey = String(error.message || "")
+      .toLowerCase()
+      .includes("installer")
       ? "settings.installFailed"
       : "settings.downloadFailed";
-    if (status) status.innerHTML = `${icon("info")} <span>${t(failedKey, { message: escapeHtml(error.message) })}</span>`;
+    if (status)
+      status.innerHTML = `${icon("info")} <span>${t(failedKey, { message: escapeHtml(error.message) })}</span>`;
     showToast(t(failedKey, { message: error.message }), "error");
   } finally {
     if (updateBtn) {
@@ -5187,22 +6032,27 @@ async function expandTreeNode(nodeElement, relativePath) {
   const placeholder = nodeElement.nextElementSibling?.classList.contains("tree-children-container")
     ? nodeElement.nextElementSibling
     : null;
-  nodeElement.parentNode.insertBefore(tempContainer, placeholder ? placeholder.nextSibling : nodeElement.nextSibling);
+  nodeElement.parentNode.insertBefore(
+    tempContainer,
+    placeholder ? placeholder.nextSibling : nodeElement.nextSibling
+  );
 
   try {
     nodeElement.querySelector(".toggle-icon").innerHTML = "⌛";
     const result = await apiRequest("/api/image-browse", {
       method: "POST",
-      body: JSON.stringify({ path: relativePath })
+      body: JSON.stringify({ path: relativePath }),
     });
-    
+
     let html = "";
     if (result.files && result.files.length > 0) {
       result.files.sort((a, b) => b.is_dir - a.is_dir || a.name.localeCompare(b.name));
-      result.files.forEach(file => {
+      result.files.forEach((file) => {
         const fileIcon = file.is_dir ? "📁" : "📄";
         const toggle = file.is_dir ? `<span class="toggle-icon">▸</span>` : "";
-        const sizeStr = file.is_dir ? "" : `<span class="node-size">${formatBytes(file.size)}</span>`;
+        const sizeStr = file.is_dir
+          ? ""
+          : `<span class="node-size">${formatBytes(file.size)}</span>`;
         html += `
           <div class="tree-node" data-path="${escapeHtml(file.relative_path)}" data-is-dir="${file.is_dir}">
             <span style="width:16px;display:inline-block">${toggle}</span>
@@ -5216,7 +6066,7 @@ async function expandTreeNode(nodeElement, relativePath) {
     } else {
       html += `<div class="tree-node" style="opacity:0.5;padding-left:20px">Boş Klasör / Empty Directory</div>`;
     }
-    
+
     nodeElement.querySelector(".toggle-icon").innerHTML = "▾";
     tempContainer.innerHTML = html;
   } catch (error) {
@@ -5251,7 +6101,8 @@ function toggleExistingTreeChildren(nodeElement) {
 function showVirtualTreeInfo(nodeElement) {
   const container = document.querySelector("#image-file-preview");
   if (!container) return;
-  const title = nodeElement.querySelector(".node-name")?.textContent?.trim() || t("analysis.virtualInfo");
+  const title =
+    nodeElement.querySelector(".node-name")?.textContent?.trim() || t("analysis.virtualInfo");
   const note = nodeElement.dataset.note || title;
   container.innerHTML = `
     <div class="log-box" style="padding:20px;white-space:pre-wrap">
@@ -5266,13 +6117,13 @@ async function previewImageFile(relativePath) {
   const container = document.querySelector("#image-file-preview");
   if (!container) return;
   container.innerHTML = `<div class="log-box" style="display:flex;align-items:center;justify-content:center;color:var(--muted);height:200px">⌛ Yükleniyor / Loading...</div>`;
-  
+
   try {
     const result = await apiRequest("/api/image-read-file", {
       method: "POST",
-      body: JSON.stringify({ path: relativePath })
+      body: JSON.stringify({ path: relativePath }),
     });
-    
+
     let contentHtml = "";
     if (result.type === "image") {
       contentHtml = `
@@ -5289,11 +6140,11 @@ async function previewImageFile(relativePath) {
         <div class="hex-viewer-area" style="height:320px">${escapeHtml(result.content)}</div>
       `;
     }
-    
+
     container.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:12px;padding:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:10px">
-          <strong style="color:var(--text);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(relativePath.split('/').pop())}</strong>
+          <strong style="color:var(--text);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(relativePath.split("/").pop())}</strong>
           <small class="meta" style="margin-top:0">${formatBytes(result.size)}</small>
         </div>
         <div style="flex:1;overflow:hidden">
@@ -5309,30 +6160,32 @@ async function previewImageFile(relativePath) {
 async function inspectProcessDetails(pid, name) {
   const rightContent = document.querySelector("#ram-right-content");
   if (!rightContent) return;
-  
+
   const osProfile = document.querySelector("#ram-os-profile")?.value || "windows";
   rightContent.innerHTML = ramConsoleHtml("Canlı Proses Detay Konsolu", [
     "Volatility3 ile proses detayları yükleniyor...",
-    osProfile === "windows" ? "DLL listesi çıkarılıyor." : "Açık dosyalar listeleniyor."
+    osProfile === "windows" ? "DLL listesi çıkarılıyor." : "Açık dosyalar listeleniyor.",
   ]);
-  
+
   const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
   const symbolDir = ramSymbolDirValue();
   try {
     const start = await apiRequest("/api/ram-process-details-start", {
       method: "POST",
-      body: JSON.stringify({ path: ramPath, pid, os_type: osProfile, symbol_dir: symbolDir })
+      body: JSON.stringify({ path: ramPath, pid, os_type: osProfile, symbol_dir: symbolDir }),
     });
     if (!start.job_id) throw new Error(t("workflow.jobIdMissing"));
     const result = await waitForAcquisitionJob(start.job_id, {
       onUpdate(job) {
         updateRamConsole("#ram-right-content", job, "Canlı Proses Detay Konsolu");
-      }
+      },
     });
-    
-    const label = osProfile === "windows" ? "Yüklenen DLL Modülleri (Loaded DLLs)" : 
-                  "Açık Dosyalar (Open Files / lsof)";
-    
+
+    const label =
+      osProfile === "windows"
+        ? "Yüklenen DLL Modülleri (Loaded DLLs)"
+        : "Açık Dosyalar (Open Files / lsof)";
+
     rightContent.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:14px;padding:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:8px">
@@ -5376,24 +6229,26 @@ async function runProcessMemorySearch(pid) {
     showToast("Arama sorgusu boş olamaz", "error");
     return;
   }
-  
+
   const osProfile = document.querySelector("#ram-os-profile")?.value || "windows";
   resultsDiv.innerHTML = `<div class="log-box" style="text-align:center;padding:10px">⌛ Uçucu bellek taranıyor...</div>`;
-  
+
   const ramPath = document.querySelector("#ram-analysis-path")?.value.trim();
   try {
     const result = await apiRequest("/api/ram-process-search", {
       method: "POST",
-      body: JSON.stringify({ path: ramPath, pid, query, os_type: osProfile })
+      body: JSON.stringify({ path: ramPath, pid, query, os_type: osProfile }),
     });
-    
+
     const count = result.length || 0;
     if (count === 0) {
       resultsDiv.innerHTML = `<div class="log-box" style="color:var(--muted);text-align:center;padding:10px">Hiçbir eşleşme bulunamadı.</div>`;
     } else {
       resultsDiv.innerHTML = `
         <div class="strings-results-list" style="max-height:220px">
-          ${result.map(item => `
+          ${result
+            .map(
+              (item) => `
             <div class="string-match-item">
               <div class="match-meta">
                 <span>Segment: <strong>${escapeHtml(item.category)}</strong></span>
@@ -5402,7 +6257,9 @@ async function runProcessMemorySearch(pid) {
               <div class="match-value" style="color:var(--text)">${escapeHtml(item.value)}</div>
               <div class="match-context">${escapeHtml(item.context)}</div>
             </div>
-          `).join("")}
+          `
+            )
+            .join("")}
         </div>
       `;
     }
@@ -5414,15 +6271,15 @@ async function runProcessMemorySearch(pid) {
 async function previewCarvedFile(filePath) {
   const rightContent = document.querySelector("#ram-right-content");
   if (!rightContent) return;
-  
+
   rightContent.innerHTML = `<div class="log-box" style="text-align:center;padding:20px">⌛ Kurtarılan dosya yükleniyor... / Loading carved file...</div>`;
-  
+
   try {
     const result = await apiRequest("/api/ram-read-carved", {
       method: "POST",
-      body: JSON.stringify({ path: filePath })
+      body: JSON.stringify({ path: filePath }),
     });
-    
+
     let contentHtml = "";
     if (result.type === "image") {
       contentHtml = `
@@ -5439,11 +6296,11 @@ async function previewCarvedFile(filePath) {
         <div class="hex-viewer-area" style="height:320px">${escapeHtml(result.content)}</div>
       `;
     }
-    
+
     rightContent.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:12px;padding:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:10px">
-          <strong style="color:var(--text);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(filePath.split('/').pop())}</strong>
+          <strong style="color:var(--text);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(filePath.split("/").pop())}</strong>
           <small class="meta" style="margin-top:0">${formatBytes(result.size)}</small>
         </div>
         <div style="flex:1;overflow:hidden">
@@ -5497,7 +6354,7 @@ async function bootApp() {
       } catch (_) {}
       render();
     },
-    logout: () => showProfileGate()
+    logout: () => showProfileGate(),
   });
 
   // Yapay zeka ajanlarını ve modellerini arka planda yükle
@@ -5535,7 +6392,13 @@ async function bootApp() {
   // Developer mode — 5 kez logoya tıklayınca aktifleşir
   initDeveloperMode({ apiRequest, backendReady });
   if (backendAvailable) initJobWidget({ onNavigate: (route) => setRoute(route) });
-  devLog("INFO", "ui:startup", `Amele ${APP_VERSION} başlatıldı — platform: ${state.platform}, dil: ${state.language}, tema: ${state.theme}, backend: ${backendAvailable}`, apiRequest, backendReady);
+  devLog(
+    "INFO",
+    "ui:startup",
+    `Amele ${APP_VERSION} başlatıldı — platform: ${state.platform}, dil: ${state.language}, tema: ${state.theme}, backend: ${backendAvailable}`,
+    apiRequest,
+    backendReady
+  );
 }
 
 const DEFAULT_CONTRIBUTORS = [
@@ -5549,8 +6412,8 @@ const DEFAULT_CONTRIBUTORS = [
       ["LinkedIn", "https://linkedin.com/in/melihemik"],
       ["Website", "https://melihemik.com.tr"],
       ["E-posta", "mailto:melihemik@noirlang.tr"],
-      ["GPG", "https://keys.openpgp.org/search?q=melihemik@noirlang.tr"]
-    ]
+      ["GPG", "https://keys.openpgp.org/search?q=melihemik@noirlang.tr"],
+    ],
   },
   {
     id: "m-ali-guner",
@@ -5559,8 +6422,8 @@ const DEFAULT_CONTRIBUTORS = [
     photo: "muhammet-ali-guner.jpg",
     links: [
       ["GitHub", "https://github.com/kafkaskrtl"],
-      ["LinkedIn", "https://www.linkedin.com/in/muhammetali-g%C3%BCner/"]
-    ]
+      ["LinkedIn", "https://www.linkedin.com/in/muhammetali-g%C3%BCner/"],
+    ],
   },
   {
     id: "toretto",
@@ -5569,9 +6432,9 @@ const DEFAULT_CONTRIBUTORS = [
     photo: "abdulhalim.jpg",
     links: [
       ["GitHub", "https://github.com/abdulhalimaltuntas"],
-      ["LinkedIn", "https://www.linkedin.com/in/abdulhalimaltuntas/"]
-    ]
-  }
+      ["LinkedIn", "https://www.linkedin.com/in/abdulhalimaltuntas/"],
+    ],
+  },
 ];
 
 let developersLoading = false;
@@ -5584,7 +6447,10 @@ async function loadDevelopers(force = false) {
 
     // Doğrudan web'den fetch et — R2/domain üzerinde CORS izinleri mevcuttur
     try {
-      const res = await fetch(`https://download.amele.noirlang.tr/developers.json?_t=${Date.now()}`, { cache: "no-store" });
+      const res = await fetch(
+        `https://download.amele.noirlang.tr/developers.json?_t=${Date.now()}`,
+        { cache: "no-store" }
+      );
       if (res.ok) {
         data = await res.json();
       }
@@ -5593,13 +6459,15 @@ async function loadDevelopers(force = false) {
     // JSON formatlarını normalize et:
     // { developers: [...] } veya { developer: [...] } veya [...] veya tek nesne { ... }
     const rawList = data
-      ? (Array.isArray(data)
+      ? Array.isArray(data)
         ? data
         : Array.isArray(data.developers)
-        ? data.developers
-        : Array.isArray(data.developer)
-        ? data.developer
-        : (data.name ? [data] : []))
+          ? data.developers
+          : Array.isArray(data.developer)
+            ? data.developer
+            : data.name
+              ? [data]
+              : []
       : [];
 
     if (rawList.length > 0) {
@@ -5619,7 +6487,11 @@ async function loadDevelopers(force = false) {
           if (d.website || d.site) links.push(["Website", d.website || d.site]);
           if (d.email || d.mail) links.push(["E-posta", d.email || d.mail]);
           if (d.gpg_url || d.pgp_url) links.push(["GPG/PGP", d.gpg_url || d.pgp_url]);
-          else if (d.gpg_key || d.pgp_key) links.push(["GPG Key", `https://keys.openpgp.org/search?q=${encodeURIComponent(d.email || d.gpg_key || d.pgp_key)}`]);
+          else if (d.gpg_key || d.pgp_key)
+            links.push([
+              "GPG Key",
+              `https://keys.openpgp.org/search?q=${encodeURIComponent(d.email || d.gpg_key || d.pgp_key)}`,
+            ]);
           if (d.twitter || d.x) links.push(["X", d.twitter || d.x]);
         }
 
@@ -5628,7 +6500,7 @@ async function loadDevelopers(force = false) {
           name,
           role,
           photo,
-          links
+          links,
         };
       });
 
@@ -5686,7 +6558,7 @@ async function checkForUpdates() {
       const controller = new AbortController();
       const tid = setTimeout(() => controller.abort(), 15000);
       const res = await fetch("https://download.amele.noirlang.tr/version.json", {
-        signal: controller.signal
+        signal: controller.signal,
       });
       clearTimeout(tid);
       if (res.ok) {
@@ -5698,7 +6570,7 @@ async function checkForUpdates() {
           name: `Amele ${tag}`,
           version: vStr,
           html_url: "https://amele.noirlang.tr",
-          mandatory: vdata.mandatory
+          mandatory: vdata.mandatory,
         };
       }
     }
@@ -5776,7 +6648,9 @@ function showUpdateToast({ latestTag, releaseUrl, isTr }) {
   const hide = (skip = false) => {
     toast.classList.remove("visible");
     if (skip) {
-      try { localStorage.setItem("amele_update_skip", latestTag); } catch {}
+      try {
+        localStorage.setItem("amele_update_skip", latestTag);
+      } catch {}
     }
     setTimeout(() => toast.remove(), 350);
   };
@@ -5790,7 +6664,9 @@ function showUpdateToast({ latestTag, releaseUrl, isTr }) {
       hide(false);
       setRoute("settings");
       setTimeout(() => {
-        const targetEl = document.querySelector("[data-update-result]") || document.querySelector(".settings-update-row-centered");
+        const targetEl =
+          document.querySelector("[data-update-result]") ||
+          document.querySelector(".settings-update-row-centered");
         if (targetEl) {
           targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
         }
