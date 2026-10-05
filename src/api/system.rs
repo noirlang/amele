@@ -63,6 +63,7 @@ pub struct LocalImageRequest {
     pub output: String,
     pub case_name: Option<String>,
     pub output_format: Option<String>,
+    pub sparse: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
@@ -76,6 +77,7 @@ pub struct RemoteImageRequest {
     pub output: String,
     pub case_name: Option<String>,
     pub output_format: Option<String>,
+    pub sparse: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
@@ -220,7 +222,8 @@ fn run_local_image_job(
         None,
     );
     let plan = output_format::plan_output(&target, format);
-    let task = DiskAcquisitionTask::new(&request.source, &plan.working_path);
+    let task = DiskAcquisitionTask::new(&request.source, &plan.working_path)
+        .with_sparse(request.sparse.unwrap_or(true));
 
     if local_image_source_requires_elevation(&task.source) {
         run_elevated_local_image_job(
@@ -328,6 +331,7 @@ fn run_elevated_local_image_job(
         "target": task.target,
         "owner_uid": helper_owner_uid(),
         "owner_gid": helper_owner_gid(),
+        "sparse": task.sparse,
     });
     if let Err(err) = write_json_file(&request_path, &request) {
         fail_acquisition_job_with_message(job_id, err, "Imaj alma basarisiz");
@@ -619,12 +623,13 @@ fn run_remote_image_job(
                 Some(&request.ip),
             );
             let plan = output_format::plan_output(&target_seed, format);
-            match connection.acquire_image(
+            match connection.acquire_image_ext(
                 &request.disk_id,
                 request.disk_name.as_deref(),
                 plan.working_path.parent().unwrap_or(output.as_path()),
                 Some(&remote_job_id),
                 format,
+                request.sparse.unwrap_or(true),
                 |done, total| update_acquisition_progress(&job_id, done, total),
             ) {
                 Ok(result) => {

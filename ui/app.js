@@ -4440,6 +4440,7 @@ async function startAcquisition(button) {
       ? (state.ramToolPath || document.querySelector("[data-field='target']")?.value.trim() || "")
       : (document.querySelector("[data-field='target']")?.value.trim() || "");
     const outputFormat = document.querySelector("[data-field='output-format']")?.value || "raw";
+    const sparseAcquisition = document.querySelector("[data-field='sparse-acquisition']")?.checked ?? true;
     if (workflow && !workflow.mode.includes("ram") && !target) {
       showToast(t("workflow.diskRequired"), "error");
       return;
@@ -4513,7 +4514,8 @@ async function startAcquisition(button) {
                 disk_name: diskName,
                 output,
                 case_name: caseName,
-                output_format: outputFormat
+                output_format: outputFormat,
+                sparse: sparseAcquisition
               })
         })
       : await apiRequest(isRam ? "/api/local-ram" : "/api/local-image", {
@@ -4531,7 +4533,8 @@ async function startAcquisition(button) {
                 disk_name: diskName,
                 output,
                 case_name: caseName,
-                output_format: outputFormat
+                output_format: outputFormat,
+                sparse: sparseAcquisition
               })
         });
     if (!start.job_id) throw new Error(t("workflow.jobIdMissing"));

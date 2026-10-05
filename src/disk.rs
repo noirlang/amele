@@ -38,6 +38,7 @@ pub struct DiskAcquisitionTask {
     pub chunk_size: usize,
     pub calculate_hash: bool,
     pub full_disk: bool,
+    pub sparse: bool,
 }
 
 /// Disk imajı alma tamamlandığında veya kısmi kaldığında dönen sonuçtur.
@@ -61,7 +62,14 @@ impl DiskAcquisitionTask {
             chunk_size: DEFAULT_READ_CHUNK,
             calculate_hash: true,
             full_disk: true,
+            sparse: false,
         }
+    }
+
+    /// Akıllı seyrek alan (sparse / bitmap) atlamalı edinim modunu açıp kapatır.
+    pub fn with_sparse(mut self, sparse: bool) -> Self {
+        self.sparse = sparse;
+        self
     }
 }
 
@@ -130,6 +138,29 @@ where
             format!("Kaynak boyut sifir: {:?}", err),
         );
         return Err(err);
+    }
+
+    // akıllı seyrek alan (sparse / bitmap) optimizasyonu istenmişse dene
+    if task.sparse && task.start_offset == 0 && task.full_disk {
+        runtime_log(
+            LogLevel::Info,
+            "disk",
+            "Akilli seyrek alan (Sparse/Bitmap) optimizasyonu devrede.",
+        );
+        match crate::sparse::run_sparse_acquisition(task, source_size, &mut progress, &mut control)
+        {
+            Ok(result) => return Ok(result),
+            Err(err) => {
+                runtime_log(
+                    LogLevel::Warn,
+                    "disk",
+                    format!(
+                        "Akilli seyrek edinim uygulanamadi, standart blok edinimine devam ediliyor: {:?}",
+                        err
+                    ),
+                );
+            }
+        }
     }
 
     if let Some(parent) = task.target.parent() {
@@ -403,7 +434,7 @@ pub fn cancel_disk_acquisition() {
 }
 
 /// Başarısız veya iptal edilmiş imaj dosyasını .partial uzantısıyla korur.
-fn mark_partial(path: &Path) -> AmeleResult<PathBuf> {
+pub fn mark_partial(path: &Path) -> AmeleResult<PathBuf> {
     let partial = PathBuf::from(format!("{}.partial", path.display()));
     if path.exists() {
         runtime_log(

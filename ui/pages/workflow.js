@@ -96,6 +96,12 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
                 <option value="aff4">${t("workflow.formatAff4")}</option>
               </select>
             `)}
+            ${!isRam ? field(t("workflow.sparseAcquisition"), `
+              <label class="checkbox-row" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
+                <input data-field="sparse-acquisition" type="checkbox" checked style="width:18px; height:18px; cursor:pointer;" />
+                <span>${t("workflow.sparseAcquisitionHint")}</span>
+              </label>
+            `) : ""}
             <div class="section-divider"></div>
             <p class="section-label">${isRam ? t("workflow.ramOutput") : t("workflow.diskOutput")}</p>
             ${targetSelect}
