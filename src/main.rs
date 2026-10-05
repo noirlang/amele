@@ -1718,6 +1718,7 @@ fn local_ram_command(args: Vec<String>) -> Result<(), String> {
             "target_path": finalized.target_path,
             "bytes_written": result.bytes_written,
             "sha256": finalized.sha256,
+            "blake3": finalized.blake3,
             "raw_sha256": finalized.raw_sha256,
             "output_format": finalized.format.as_str(),
         }))
@@ -1757,6 +1758,9 @@ fn local_ram_command(args: Vec<String>) -> Result<(), String> {
             finalized.format.as_str().to_uppercase()
         );
         println!("  {:<20}: {}", "SHA-256", finalized.sha256);
+        if let Some(b3) = &finalized.blake3 {
+            println!("  {:<20}: {}", "BLAKE3", b3);
+        }
         if let Some(raw_h) = &finalized.raw_sha256 {
             if finalized.format.as_str() != "raw" {
                 println!("  {:<20}: {}", t_cli("Ham SHA-256", "Raw SHA-256"), raw_h);

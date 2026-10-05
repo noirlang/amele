@@ -186,6 +186,61 @@ pub fn calculate_file_hash_with_progress(
     Ok(state.finalize())
 }
 
+/// Dosyayı tek geçişte okuyup birden fazla algoritmayı ilerleme bildirerek hesaplar.
+/// RAM imajı gibi dış araçların yazdığı dosyalarda (kopyalama sırasında hash alamıyoruz)
+/// dosyayı iki kere okumamak için kullanılır.
+pub fn calculate_multiple_with_progress(
+    path: impl AsRef<Path>,
+    algorithms: &[HashAlgorithm],
+    on_progress: &mut dyn FnMut(u64, u64),
+) -> AmeleResult<Vec<HashResult>> {
+    if algorithms.is_empty() {
+        return Err(AmeleError::new(
+            HataKodu::Genel,
+            "En az bir hash algoritmasi gerekli",
+        ));
+    }
+
+    let mut file = File::open(path.as_ref())
+        .map_err(|err| AmeleError::io(HataKodu::DosyaAcilamadi, "Hash dosyasi acilamadi", err))?;
+    let total = file.metadata().map(|meta| meta.len()).unwrap_or(0);
+    let mut states: Vec<(HashAlgorithm, HashState)> = algorithms
+        .iter()
+        .copied()
+        .map(|algorithm| (algorithm, HashState::new(algorithm)))
+        .collect();
+    let mut buffer = vec![0_u8; HASH_BUFFER_SIZE];
+    let mut done = 0_u64;
+    let mut last_report = Instant::now();
+    on_progress(0, total);
+
+    loop {
+        let read = file
+            .read(&mut buffer)
+            .map_err(|err| AmeleError::io(HataKodu::DosyaOkuma, "Hash dosyasi okunamadi", err))?;
+        if read == 0 {
+            break;
+        }
+        for (_, state) in &mut states {
+            state.update(&buffer[..read]);
+        }
+        done += read as u64;
+        if last_report.elapsed() >= Duration::from_millis(250) || done >= total {
+            last_report = Instant::now();
+            on_progress(done, total);
+        }
+    }
+    on_progress(total, total);
+
+    Ok(states
+        .into_iter()
+        .map(|(algorithm, state)| HashResult {
+            algorithm,
+            value: state.finalize(),
+        })
+        .collect())
+}
+
 /// Dosyayı bir kez okuyarak birden fazla hash algoritmasını aynı anda hesaplar.
 pub fn calculate_multiple(
     path: impl AsRef<Path>,

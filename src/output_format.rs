@@ -33,6 +33,8 @@ pub const PHASE_PACK: &str = "AFF4 paketleniyor";
 pub struct FinalizedOutput {
     pub target_path: PathBuf,
     pub sha256: String,
+    /// hash edinim sirasinda hazir geldiyse (disk) None, RAM'de finalize sirasinda hesaplanir
+    pub blake3: Option<String>,
     pub raw_sha256: Option<String>,
     pub format: AcquisitionOutputFormat,
 }
@@ -128,40 +130,23 @@ pub fn finalize_output_with_progress(
 ) -> Result<FinalizedOutput, String> {
     match plan.format {
         AcquisitionOutputFormat::Raw => {
-            let sha256 = match existing_raw_sha256.filter(|value| !value.trim().is_empty()) {
-                Some(value) => value,
-                None => {
-                    on_progress(0, 0, PHASE_HASH);
-                    hash::calculate_file_hash_with_progress(
-                        &plan.working_path,
-                        HashAlgorithm::Sha256,
-                        &mut |done, total| on_progress(done, total, PHASE_HASH),
-                    )
-                    .map_err(|err| err.to_string())?
-                }
-            };
+            let (sha256, blake3) = raw_hashes(plan, existing_raw_sha256, on_progress)?;
             hash::write_sha256_sidecar(&plan.working_path, &sha256)
                 .map_err(|err| err.to_string())?;
+            if let Some(value) = &blake3 {
+                hash::write_blake3_sidecar(&plan.working_path, value)
+                    .map_err(|err| err.to_string())?;
+            }
             Ok(FinalizedOutput {
                 target_path: plan.working_path.clone(),
                 sha256,
+                blake3,
                 raw_sha256: None,
                 format: plan.format,
             })
         }
         AcquisitionOutputFormat::Aff4 => {
-            let raw_sha256 = match existing_raw_sha256.filter(|value| !value.trim().is_empty()) {
-                Some(value) => value,
-                None => {
-                    on_progress(0, 0, PHASE_HASH);
-                    hash::calculate_file_hash_with_progress(
-                        &plan.working_path,
-                        HashAlgorithm::Sha256,
-                        &mut |done, total| on_progress(done, total, PHASE_HASH),
-                    )
-                    .map_err(|err| err.to_string())?
-                }
-            };
+            let (raw_sha256, _) = raw_hashes(plan, existing_raw_sha256, on_progress)?;
             on_progress(0, 0, PHASE_PACK);
             package_aff4(plan, artifact_kind, source_label, case_name, &raw_sha256)
                 .map_err(|err| err.to_string())?;
@@ -169,16 +154,51 @@ pub fn finalize_output_with_progress(
                 .map_err(|err| err.to_string())?;
             hash::write_sha256_sidecar(&plan.final_path, &aff4_sha256)
                 .map_err(|err| err.to_string())?;
+            // paketlenen aff4 icin blake3 mmap + rayon ile hizli, ayri sidecar yaziyoruz
+            let aff4_blake3 = hash::calculate_file_hash(&plan.final_path, HashAlgorithm::Blake3)
+                .map_err(|err| err.to_string())?;
+            hash::write_blake3_sidecar(&plan.final_path, &aff4_blake3)
+                .map_err(|err| err.to_string())?;
             let _ = fs::remove_file(&plan.working_path);
             let _ = fs::remove_file(plan.working_path.with_extension("aff4.raw.sha256"));
+            let _ = fs::remove_file(plan.working_path.with_extension("aff4.raw.b3sum"));
             Ok(FinalizedOutput {
                 target_path: plan.final_path.clone(),
                 sha256: aff4_sha256,
+                blake3: Some(aff4_blake3),
                 raw_sha256: Some(raw_sha256),
                 format: plan.format,
             })
         }
     }
+}
+
+/// Ham dosyanin SHA-256 (ve gerekirse BLAKE3) degerlerini uretir.
+/// Hash edinim sirasinda hesaplanmissa (disk) tekrar okumaz. RAM gibi dis aracin yazdigi
+/// dosyalarda ise dosyayi tek geciste okuyup ikisini birden hesaplar.
+fn raw_hashes(
+    plan: &OutputPlan,
+    existing_raw_sha256: Option<String>,
+    on_progress: &mut dyn FnMut(u64, u64, &'static str),
+) -> Result<(String, Option<String>), String> {
+    if let Some(value) = existing_raw_sha256.filter(|value| !value.trim().is_empty()) {
+        return Ok((value, None));
+    }
+    on_progress(0, 0, PHASE_HASH);
+    let results = hash::calculate_multiple_with_progress(
+        &plan.working_path,
+        &[HashAlgorithm::Sha256, HashAlgorithm::Blake3],
+        &mut |done, total| on_progress(done, total, PHASE_HASH),
+    )
+    .map_err(|err| err.to_string())?;
+    let find = |algorithm: HashAlgorithm| {
+        results
+            .iter()
+            .find(|result| result.algorithm == algorithm)
+            .map(|result| result.value.clone())
+    };
+    let sha256 = find(HashAlgorithm::Sha256).ok_or("SHA-256 sonucu uretilemedi")?;
+    Ok((sha256, find(HashAlgorithm::Blake3)))
 }
 
 /// Basit AFF4 kanıt paketini manifest ve veri girdileriyle oluşturur.
@@ -336,6 +356,9 @@ mod tests {
         assert_eq!(fin.target_path, target);
         assert!(!fin.sha256.is_empty());
         assert!(dir.path().join("mem.raw.sha256").exists());
+        // ram imajinda blake3 de hesaplanip .b3sum yazilmali
+        assert!(dir.path().join("mem.raw.b3sum").exists());
+        assert!(fin.blake3.is_some());
 
         // Test Aff4
         let aff4_plan = plan_output(dir.path().join("dump"), AcquisitionOutputFormat::Aff4);
@@ -343,5 +366,42 @@ mod tests {
         let fin_aff4 = finalize_output(&aff4_plan, "ram", "mem", "case1", None).unwrap();
         assert!(fin_aff4.target_path.exists());
         assert_eq!(fin_aff4.format, AcquisitionOutputFormat::Aff4);
+        assert!(fin_aff4.blake3.is_some());
+        assert!(dir.path().join("dump.aff4.b3sum").exists());
+        // gecici ham dosyanin sidecar'lari temizlenmis olmali
+        assert!(!dir.path().join("dump.aff4.raw.b3sum").exists());
+    }
+
+    #[test]
+    fn test_ram_raw_blake3_matches_independent_hash() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("ram.raw");
+        // 8 MB'tan buyuk veri: birden fazla okuma bloguna yayilsin
+        let data: Vec<u8> = (0..(9 * 1024 * 1024)).map(|i| (i % 251) as u8).collect();
+        fs::write(&target, &data).unwrap();
+
+        let plan = plan_output(&target, AcquisitionOutputFormat::Raw);
+        let fin = finalize_output(&plan, "ram", "mem", "case1", None).unwrap();
+
+        assert_eq!(
+            fin.blake3.as_deref(),
+            Some(blake3::hash(&data).to_hex().as_str())
+        );
+        // otomatik dogrulama .b3sum'u bulup gecmeli
+        assert!(crate::disk::verify_image_auto(&target).unwrap());
+    }
+
+    #[test]
+    fn test_disk_existing_sha256_skips_rehash() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("disk.img");
+        fs::write(&target, b"disk data").unwrap();
+
+        // disk edinimi hash'i zaten hesapladiysa finalize dosyayi tekrar okumaz, blake3 de uretmez
+        let plan = plan_output(&target, AcquisitionOutputFormat::Raw);
+        let fin = finalize_output(&plan, "disk", "d", "case1", Some("abc123".to_string())).unwrap();
+        assert_eq!(fin.sha256, "abc123");
+        assert!(fin.blake3.is_none());
+        assert!(!dir.path().join("disk.img.b3sum").exists());
     }
 }
