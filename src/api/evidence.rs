@@ -1,8 +1,9 @@
 //! delil kasası ve dosya listesi api rotaları.
 
 use crate::api::{
-    current_evidence_case, current_evidence_vault, default_case_base_dir, evidence_subdir,
-    report_evidence_vault, sanitize_case_name, set_current_evidence_case,
+    EvidenceCaseState, clear_current_evidence_case, current_evidence_case, current_evidence_vault,
+    default_case_base_dir, evidence_subdir, report_evidence_vault, sanitize_case_name,
+    set_current_evidence_case,
 };
 use crate::evidence::{EvidenceVault, relative_case_path};
 use crate::report::{self, ReportFormat, ReportInfo};
@@ -12,6 +13,15 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use std::fs;
 use std::path::{Path, PathBuf};
+
+/// Aktif vaka adını geçerli ayarlar.json dosyasına kaydeder.
+pub fn save_active_case_to_settings(case_name: &str) {
+    let settings_path = crate::settings::default_settings_path();
+    if let Ok(mut settings) = crate::settings::AppSettings::load(&settings_path) {
+        settings.aktif_vaka = case_name.trim().to_string();
+        let _ = settings.save(&settings_path);
+    }
+}
 
 /// Yeni vaka klasörü oluşturur ve aktif vakayı günceller.
 pub fn evidence_create_endpoint(body: &[u8]) -> Response {
@@ -38,6 +48,7 @@ pub fn evidence_create_endpoint(body: &[u8]) -> Response {
                 Err(err) => return json_error(500, err.to_string()),
             };
             set_current_evidence_case(base_dir, case_name.clone());
+            save_active_case_to_settings(&case_name);
             let _ = crate::profile::record_active_profile_activity(
                 "case",
                 "create",
@@ -236,29 +247,102 @@ pub fn evidence_cases_endpoint() -> Response {
             .cmp(right["case_name"].as_str().unwrap_or_default())
     });
 
-    let current = current_evidence_case()
+    let mut current_opt = current_evidence_case()
         .lock()
         .ok()
-        .and_then(|state| state.clone())
-        .map(|state| {
-            let case_dir = state.base_dir.join(&state.case_name);
-            json!({
-                "case_name": state.case_name,
-                "case_dir": case_dir,
-                "base_dir": state.base_dir,
-                "output_dir": case_dir.join("ciktilar"),
-                "ram_dir": case_dir.join("ram"),
-                "android_dir": case_dir.join("android"),
-                "ios_dir": case_dir.join("ios"),
-                "docker_dir": case_dir.join("docker"),
-            })
-        });
+        .and_then(|state| state.clone());
+
+    if current_opt.is_none() {
+        let settings_path = crate::settings::default_settings_path();
+        if let Ok(settings) = crate::settings::AppSettings::load(&settings_path) {
+            let saved_case = settings.aktif_vaka.trim();
+            if !saved_case.is_empty() {
+                let candidate = base_dir.join(saved_case);
+                if candidate.is_dir() {
+                    set_current_evidence_case(base_dir.clone(), saved_case.to_string());
+                    current_opt = Some(EvidenceCaseState {
+                        base_dir: base_dir.clone(),
+                        case_name: saved_case.to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    let current = current_opt.map(|state| {
+        let case_dir = state.base_dir.join(&state.case_name);
+        json!({
+            "case_name": state.case_name,
+            "case_dir": case_dir,
+            "base_dir": state.base_dir,
+            "output_dir": case_dir.join("ciktilar"),
+            "ram_dir": case_dir.join("ram"),
+            "android_dir": case_dir.join("android"),
+            "ios_dir": case_dir.join("ios"),
+            "docker_dir": case_dir.join("docker"),
+        })
+    });
 
     json_ok(json!({
         "base_dir": base_dir,
         "cases": cases,
         "current_case": current,
     }))
+}
+
+/// Aktif vaka seçimini günceller ve ayarlar.json'a yazar.
+pub fn evidence_select_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct EvidenceSelectRequest {
+        case_name: String,
+    }
+
+    let request: EvidenceSelectRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, err.to_string()),
+    };
+
+    let case_name = sanitize_case_name(&request.case_name);
+    let base_dir = default_case_base_dir();
+
+    if case_name.is_empty() {
+        save_active_case_to_settings("");
+        clear_current_evidence_case();
+        return json_ok(json!({ "cleared": true }));
+    }
+
+    let already_selected = current_evidence_case()
+        .lock()
+        .ok()
+        .and_then(|state| state.clone())
+        .map(|s| s.case_name == case_name)
+        .unwrap_or(false);
+
+    let candidate = base_dir.join(&case_name);
+    if candidate.is_dir() {
+        set_current_evidence_case(base_dir.clone(), case_name.clone());
+        save_active_case_to_settings(&case_name);
+        if !already_selected {
+            let _ = crate::profile::record_active_profile_activity(
+                "case",
+                "select",
+                Some(&case_name),
+                Some(&format!("Vaka seçildi: {}", case_name)),
+            );
+        }
+        json_ok(json!({
+            "case_name": case_name,
+            "base_dir": base_dir,
+            "case_dir": candidate,
+        }))
+    } else {
+        // Klasör henüz yoksa (pending case), yine de ayara kaydedip durum döndür
+        save_active_case_to_settings(&case_name);
+        json_ok(json!({
+            "case_name": case_name,
+            "pending": true,
+        }))
+    }
 }
 
 /// Seçili vaka için TXT veya JSON rapor oluşturur.
@@ -952,5 +1036,19 @@ mod tests {
         assert!(history.iter().any(|item| item["platform"] == "android"));
         assert!(history.iter().any(|item| item["platform"] == "ios"));
         assert!(history.iter().any(|item| item["platform"] == "docker"));
+    }
+
+    #[test]
+    fn test_evidence_select_endpoint_validation_and_clear() {
+        let resp = evidence_select_endpoint(b"not json");
+        assert_eq!(resp.status, 400);
+
+        let resp_empty = evidence_select_endpoint(br#"{"case_name": ""}"#);
+        assert_eq!(resp_empty.status, 200);
+
+        let resp_pending = evidence_select_endpoint(br#"{"case_name": "non_existent_case"}"#);
+        assert_eq!(resp_pending.status, 200);
+        let val: Value = serde_json::from_slice(&resp_pending.body).unwrap();
+        assert_eq!(val["case_name"], "non_existent_case");
     }
 }

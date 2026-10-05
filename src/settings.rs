@@ -24,6 +24,7 @@ pub struct AppSettings {
     pub dil: String,
     pub hash_algoritmasi: String,
     pub parca_boyutu: usize,
+    pub aktif_vaka: String,
 }
 
 impl Default for AppSettings {
@@ -43,6 +44,7 @@ impl Default for AppSettings {
             dil: "tr".to_string(),
             hash_algoritmasi: "sha256".to_string(),
             parca_boyutu: DEFAULT_CHUNK_SIZE,
+            aktif_vaka: String::new(),
         }
     }
 }

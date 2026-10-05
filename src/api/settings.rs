@@ -5,11 +5,12 @@ use serde_json::json;
 
 use crate::server::{Response, json_error, json_ok};
 
-/// UI ayar kaydetme isteğinde tema ve dil tercihini taşır.
+/// UI ayar kaydetme isteğinde tema, dil ve aktif vaka tercihini taşır.
 #[derive(Debug, Deserialize, PartialEq, Eq)]
 struct SaveSettingsRequest {
     theme: Option<String>,
     language: Option<String>,
+    aktif_vaka: Option<String>,
 }
 
 /// Kalıcı uygulama ayarlarını dosyadan okur.
@@ -55,6 +56,15 @@ pub fn settings_save_endpoint(body: &[u8]) -> Response {
 
     if let Some(language) = request.language.as_deref() {
         settings.dil = language.to_string();
+    }
+
+    if let Some(aktif_vaka) = request.aktif_vaka.as_deref() {
+        let clean = crate::api::sanitize_case_name(aktif_vaka);
+        settings.aktif_vaka = clean.clone();
+        if !clean.is_empty() {
+            let base_dir = crate::api::default_case_base_dir();
+            crate::api::set_current_evidence_case(base_dir, clean);
+        }
     }
 
     settings.normalize();

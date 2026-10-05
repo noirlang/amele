@@ -1005,6 +1005,8 @@ async function selectProfile(username) {
     body: JSON.stringify({ username, open_directly: openDirectly }),
   });
   state.activeProfile = result.profile;
+  state.activeCase = null;
+  state.pendingCaseName = "";
   if (result.access) {
     state.mobileToolsAccess = result.access;
   }
@@ -1018,6 +1020,7 @@ async function selectProfile(username) {
   syncProfileButton();
   await loadPersistedSettings();
   await loadEvidenceCases();
+  render();
   setRoute("home");
 }
 
@@ -1049,6 +1052,8 @@ async function createLocalProfileFromWizard() {
     });
     upsertProfile(result.profile);
     state.activeProfile = result.profile;
+    state.activeCase = null;
+    state.pendingCaseName = "";
     state.mobileToolsAccess = { allowed: false, reason: "" };
     state.profileDraft = {
       fullName: "",
@@ -1066,6 +1071,7 @@ async function createLocalProfileFromWizard() {
     syncProfileButton();
     await loadPersistedSettings();
     await loadEvidenceCases();
+    render();
     setRoute("home");
     showToast(
       t("profile.created", { name: result.profile.full_name }) || "Profil başarıyla oluşturuldu.",
@@ -1096,6 +1102,8 @@ async function connectOnlineProfileFromWizard() {
       body: JSON.stringify({ identifier, password, language, theme, open_directly: openDirectly }),
     });
     state.activeProfile = result.profile;
+    state.activeCase = null;
+    state.pendingCaseName = "";
     upsertProfile(result.profile);
     state.mobileToolsAccess = result.access || { allowed: false, reason: "" };
     state.profileDraft = {
@@ -1114,6 +1122,7 @@ async function connectOnlineProfileFromWizard() {
     syncProfileButton();
     await loadPersistedSettings();
     await loadEvidenceCases();
+    render();
     setRoute("home");
     showToast(t("profile.onlineConnected"), "success");
   } catch (error) {
@@ -2094,29 +2103,31 @@ async function loadEvidenceCases({ silent = true } = {}) {
     state.cases = Array.isArray(result.cases) ? result.cases : [];
 
     // Keep frontend selected/pending case active even before it exists on disk.
-    const rememberedCaseName = getPersistedCaseName();
+    const activeUser = state.activeProfile?.username || "";
+    const backendCase = result.current_case?.case_name || "";
+    const rememberedCaseName = getPersistedCaseName(activeUser);
     const activeCaseName =
-      state.pendingCaseName || state.activeCase?.case_name || rememberedCaseName;
+      state.pendingCaseName || backendCase || state.activeCase?.case_name || rememberedCaseName;
     if (activeCaseName) {
       const stillExists = state.cases.find((c) => c.case_name === activeCaseName);
       if (stillExists) {
         state.activeCase = stillExists;
         state.pendingCaseName = "";
-        persistCaseName(stillExists.case_name);
+        persistCaseName(stillExists.case_name, activeUser);
       } else if (state.pendingCaseName) {
         state.activeCase = { case_name: state.pendingCaseName };
       } else if (result.current_case) {
         state.activeCase = result.current_case;
-        persistCaseName(result.current_case.case_name);
+        persistCaseName(result.current_case.case_name, activeUser);
       } else if (rememberedCaseName) {
-        persistCaseName("");
+        persistCaseName("", activeUser);
       }
     } else if (result.current_case) {
       state.activeCase = result.current_case;
-      persistCaseName(result.current_case.case_name);
+      persistCaseName(result.current_case.case_name, activeUser);
     } else if (state.cases.length) {
       state.activeCase = state.cases[0];
-      persistCaseName(state.activeCase.case_name);
+      persistCaseName(state.activeCase.case_name, activeUser);
     }
 
     updateCaseControls();
@@ -2805,7 +2816,7 @@ document.addEventListener("click", async (event) => {
     const matched = state.cases.find((c) => c.case_name === caseName);
     if (matched && state.activeCase?.case_name !== caseName) {
       state.activeCase = matched;
-      persistCaseName(caseName);
+      persistCaseName(caseName, state.activeProfile?.username || "");
       render();
       return;
     }
@@ -3024,6 +3035,7 @@ document.addEventListener("change", async (event) => {
 
   const caseSelect = event.target.closest("[data-case-select]");
   if (caseSelect) {
+    const activeUser = state.activeProfile?.username || "";
     if (caseSelect.value === "__new__") {
       const promptTitle =
         t("case.promptNewName") || "Lütfen oluşturmak istediğiniz yeni vaka adını girin:";
@@ -3032,7 +3044,7 @@ document.addEventListener("change", async (event) => {
         const cleanName = newName.trim();
         state.pendingCaseName = cleanName;
         state.activeCase = { case_name: cleanName };
-        persistCaseName(cleanName);
+        persistCaseName(cleanName, activeUser);
 
         // Mirror to all data-case-select fields on the page
         document.querySelectorAll("[data-case-select]").forEach((el) => {
@@ -3052,7 +3064,7 @@ document.addEventListener("change", async (event) => {
         const fallback = state.cases.length ? state.cases[0].case_name : "";
         state.pendingCaseName = "";
         state.activeCase = state.cases.find((c) => c.case_name === fallback) || null;
-        persistCaseName(fallback);
+        persistCaseName(fallback, activeUser);
         caseSelect.value = fallback;
         document.querySelectorAll("[data-case-select]").forEach((el) => {
           el.value = fallback;
@@ -3063,7 +3075,7 @@ document.addEventListener("change", async (event) => {
       state.activeCase = state.cases.find((c) => c.case_name === caseSelect.value) || {
         case_name: caseSelect.value,
       };
-      persistCaseName(caseSelect.value);
+      persistCaseName(caseSelect.value, activeUser);
     }
     toggleCaseCreateInput(caseSelect);
   }
@@ -3418,7 +3430,7 @@ async function handleAction(button) {
         state.pendingCaseName = caseName;
         state.activeCase = { case_name: caseName };
       }
-      persistCaseName(caseName);
+      persistCaseName(caseName, state.activeProfile?.username || "");
       updateCaseControls();
       showToast(t("case.selected", { name: caseName }) || `Varsayılan vaka: ${caseName}`);
     }

@@ -429,6 +429,14 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
             );
             evidence::acquisition_history_endpoint(body)
         }
+        ("POST", "/api/evidence-select") => {
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Info,
+                "api:evidence",
+                "Aktif vaka seçimi yapılıyor",
+            );
+            evidence::evidence_select_endpoint(body)
+        }
         ("GET", "/api/evidence-cases") => {
             crate::logging::runtime_log(
                 crate::logging::LogLevel::Debug,

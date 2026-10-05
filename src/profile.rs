@@ -183,8 +183,19 @@ pub fn bootstrap_profiles() -> AmeleResult<ProfileBootstrap> {
         set_active_profile(Some(profile.clone()));
         ensure_profile_dirs(&profile)?;
         ensure_profile_settings(&profile)?;
+        let p_settings_path = settings_path_for_username(&profile.username);
+        if let Ok(settings) = settings::AppSettings::load(&p_settings_path) {
+            let saved_case = settings.aktif_vaka.trim();
+            if !saved_case.is_empty() {
+                let base = case_base_dir_for_username(&profile.username);
+                if base.join(saved_case).is_dir() {
+                    crate::api::set_current_evidence_case(base, saved_case.to_string());
+                }
+            }
+        }
     } else {
         set_active_profile(None);
+        crate::api::clear_current_evidence_case();
     }
 
     Ok(ProfileBootstrap {
@@ -256,6 +267,7 @@ pub fn create_profile(
     ensure_profile_dirs(&profile)?;
     ensure_profile_settings(&profile)?;
     set_active_profile(Some(profile.clone()));
+    crate::api::clear_current_evidence_case();
     Ok(profile)
 }
 
@@ -369,6 +381,21 @@ pub fn select_profile(username: &str, open_directly: bool) -> AmeleResult<LocalP
     ensure_profile_dirs(&profile)?;
     ensure_profile_settings(&profile)?;
     set_active_profile(Some(profile.clone()));
+
+    // Profilin ayarlar.json dosyasından kayıtlı aktif vakayı yükle
+    let p_settings_path = settings_path_for_username(&profile.username);
+    if let Ok(settings) = settings::AppSettings::load(&p_settings_path) {
+        let saved_case = settings.aktif_vaka.trim();
+        let base = case_base_dir_for_username(&profile.username);
+        if !saved_case.is_empty() && base.join(saved_case).is_dir() {
+            crate::api::set_current_evidence_case(base, saved_case.to_string());
+        } else {
+            crate::api::clear_current_evidence_case();
+        }
+    } else {
+        crate::api::clear_current_evidence_case();
+    }
+
     Ok(profile)
 }
 
@@ -381,6 +408,7 @@ pub fn logout_profile() -> AmeleResult<()> {
     }
     save_profile_store(&store)?;
     set_active_profile(None);
+    crate::api::clear_current_evidence_case();
     Ok(())
 }
 
@@ -510,6 +538,21 @@ pub fn link_online_profile(
     store.active_username = Some(profile.username.clone());
     save_profile_store(&store)?;
     set_active_profile(Some(profile.clone()));
+
+    // Profilin ayarlar.json dosyasından kayıtlı aktif vakayı yükle
+    let p_settings_path = settings_path_for_username(&profile.username);
+    if let Ok(settings) = settings::AppSettings::load(&p_settings_path) {
+        let saved_case = settings.aktif_vaka.trim();
+        let base = case_base_dir_for_username(&profile.username);
+        if !saved_case.is_empty() && base.join(saved_case).is_dir() {
+            crate::api::set_current_evidence_case(base, saved_case.to_string());
+        } else {
+            crate::api::clear_current_evidence_case();
+        }
+    } else {
+        crate::api::clear_current_evidence_case();
+    }
+
     Ok(profile)
 }
 

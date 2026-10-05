@@ -123,6 +123,12 @@ test("Frontend Routing and Module Health", async (t) => {
     persistCaseName("");
     assert.strictEqual(localStorageValues.has(ACTIVE_CASE_STORAGE_KEY), false);
     assert.strictEqual(getPersistedCaseName(), "");
+
+    persistCaseName("UserA_Case", "user_a");
+    assert.strictEqual(getPersistedCaseName("user_a"), "UserA_Case");
+    assert.strictEqual(localStorageValues.get(`${ACTIVE_CASE_STORAGE_KEY}:user_a`), "UserA_Case");
+    persistCaseName("", "user_a");
+    assert.strictEqual(localStorageValues.has(`${ACTIVE_CASE_STORAGE_KEY}:user_a`), false);
   });
 
   await t.test("AI agent preference is persisted and restored safely", async () => {

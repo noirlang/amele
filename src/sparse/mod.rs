@@ -20,7 +20,6 @@ use digest::Digest;
 use sha2::Sha256;
 use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
 

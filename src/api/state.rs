@@ -123,6 +123,12 @@ pub fn set_current_evidence_case(base_dir: PathBuf, case_name: String) {
     });
 }
 
+/// Aktif vaka durumunu temizler.
+pub fn clear_current_evidence_case() {
+    let mut current = lock_current_evidence_case();
+    *current = None;
+}
+
 /// Çıktı üretirken açık vaka yoksa yeni vaka oluşturarak kasa döndürür.
 pub fn evidence_vault_for_output(
     case_name: Option<&str>,
