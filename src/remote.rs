@@ -9,7 +9,7 @@ use chrono::Local;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::fs::{self, File};
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -161,6 +161,25 @@ impl RemoteConnection {
         target_dir: impl AsRef<Path>,
         job_id: Option<&str>,
         format: AcquisitionOutputFormat,
+        progress: F,
+    ) -> AmeleResult<RemoteTransferResult>
+    where
+        F: FnMut(u64, u64),
+    {
+        self.acquire_image_ext(
+            disk_id, disk_name, target_dir, job_id, format, false, progress,
+        )
+    }
+
+    /// Uzak agent üzerinden disk imajı başlatır; opsiyonel akıllı seyrek (sparse) transfer desteği sunar.
+    pub fn acquire_image_ext<F>(
+        &mut self,
+        disk_id: &str,
+        disk_name: Option<&str>,
+        target_dir: impl AsRef<Path>,
+        job_id: Option<&str>,
+        format: AcquisitionOutputFormat,
+        sparse: bool,
         mut progress: F,
     ) -> AmeleResult<RemoteTransferResult>
     where
@@ -179,6 +198,7 @@ impl RemoteConnection {
             "disk_id": disk_id,
             "format": format.as_str(),
             "parca_boyutu": DEFAULT_CHUNK_SIZE,
+            "sparse": sparse,
         });
         if let Some(job_id) = job_id {
             request["is_id"] = Value::String(job_id.to_string());
@@ -251,6 +271,10 @@ impl RemoteConnection {
                 AmeleError::io(HataKodu::Baglanti, "Socket timeout kapatilamadi", err)
             })?;
 
+        if sparse {
+            let _ = target.set_len(total);
+        }
+
         let mut transferred = 0_u64;
         let mut buffer = vec![0_u8; DEFAULT_CHUNK_SIZE];
         while transferred < total {
@@ -267,9 +291,15 @@ impl RemoteConnection {
                     "Ajan baglantisi kesildi",
                 ));
             }
-            target
-                .write_all(&buffer[..read])
-                .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "Uzak veri yazilamadi", err))?;
+            if sparse && buffer[..read].iter().all(|&b| b == 0) {
+                target.seek(SeekFrom::Current(read as i64)).map_err(|err| {
+                    AmeleError::io(HataKodu::DosyaYazma, "Seyrek seek hatasi", err)
+                })?;
+            } else {
+                target.write_all(&buffer[..read]).map_err(|err| {
+                    AmeleError::io(HataKodu::DosyaYazma, "Uzak veri yazilamadi", err)
+                })?;
+            }
             transferred += read as u64;
             progress(transferred, total);
         }
