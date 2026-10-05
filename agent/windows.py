@@ -95,11 +95,22 @@ def json_gonder(conn, veri):
 
 def normalize_output_format(value):
     fmt = str(value or "raw").strip().lower()
-    if fmt in {"dd", "img"}:
+    if fmt in {"dd", "img", "raw_sparse", "raw-sparse", "raw_full", "raw-full"}:
         fmt = "raw"
+    elif fmt in {"aff4_sparse", "aff4-sparse", "aff4_full", "aff4-full"}:
+        fmt = "aff4"
     if fmt not in SUPPORTED_OUTPUT_FORMATS:
         return "", f"Unsupported output format: {fmt}. Supported formats: raw, aff4"
     return fmt, ""
+
+
+def parse_sparse_preference(value, default=False):
+    val = str(value or "").strip().lower()
+    if any(x in val for x in ["sparse", "smart"]):
+        return True
+    if any(x in val for x in ["full"]):
+        return False
+    return default
 
 
 def find_winpmem_paths(script_dir):
@@ -770,7 +781,7 @@ def docker_get_logs(container_id, tail=200):
                 break
             threading.Thread(target=self._istemci_yonet, args=(conn, addr), daemon=True).start()
 
-    def _imaj_gonder(self, conn, disk_id, parca_boyutu=4 * 1024 * 1024, is_id=None, output_format="raw"):
+    def _imaj_gonder(self, conn, disk_id, parca_boyutu=4 * 1024 * 1024, is_id=None, output_format="raw", sparse=False):
         handle = None
         try:
             handle = win32file.CreateFile(
@@ -786,7 +797,7 @@ def docker_get_logs(container_id, tail=200):
             is_id = is_id or ("IMG_" + str(int(time.time())))
             toplam_boyut = disk_boyut_al(disk_id)
             if toplam_boyut <= 0:
-                json_gonder(conn, {"tur": "hata", "format": output_format, "mesaj": "Disk size could not be read"})
+                json_gonder(conn, {"tur": "hata", "format": output_format, "sparse": sparse, "mesaj": "Disk size could not be read"})
                 return
             self._set_job_state(is_id, "running")
 
@@ -794,6 +805,7 @@ def docker_get_logs(container_id, tail=200):
                 "durum": "ok",
                 "is_id": is_id,
                 "format": output_format,
+                "sparse": sparse,
                 "tahmini_boyut": toplam_boyut,
             })
 
@@ -807,6 +819,7 @@ def docker_get_logs(container_id, tail=200):
                 "tur": "veri_basliyor",
                 "is_id": is_id,
                 "format": output_format,
+                "sparse": sparse,
                 "toplam": toplam_boyut,
             })
 
@@ -852,15 +865,18 @@ def docker_get_logs(container_id, tail=200):
                     "tur": "bitti",
                     "is_id": is_id,
                     "format": output_format,
+                    "sparse": sparse,
                     "sha256": sha256.hexdigest(),
                     "md5": md5.hexdigest(),
                 })
-                self.transfer_bilgi(f"Disk transfer completed ({is_id})")
+                mode_str = "sparse" if sparse else "full"
+                self.transfer_bilgi(f"Disk transfer completed ({is_id}, mod: {mode_str})")
             else:
                 json_gonder(conn, {
                     "tur": "hata",
                     "is_id": is_id,
                     "format": output_format,
+                    "sparse": sparse,
                     "mesaj": "Image transfer stopped by user" if self._get_job_state(is_id) == "stopped" else "Image transfer interrupted",
                     "okunan": okunan,
                     "toplam": toplam_boyut,
@@ -868,7 +884,7 @@ def docker_get_logs(container_id, tail=200):
                 self.transfer_bilgi(f"Disk transfer interrupted ({is_id})")
 
         except Exception as e:
-            json_gonder(conn, {"tur": "hata", "format": output_format, "mesaj": str(e)})
+            json_gonder(conn, {"tur": "hata", "format": output_format, "sparse": sparse, "mesaj": str(e)})
             self.transfer_bilgi(f"Disk transfer error: {e}")
         finally:
             self._clear_job_state(is_id)
@@ -1364,15 +1380,18 @@ def docker_get_logs(container_id, tail=200):
                         })
                         continue
 
-                    disk_id = mesaj.get("disk_id", "0")
-                    fmt, format_error = normalize_output_format(mesaj.get("format", "raw"))
+                    disk_id = str(mesaj.get("disk_id", "0"))
+                    raw_fmt = mesaj.get("format", "raw")
+                    fmt, format_error = normalize_output_format(raw_fmt)
                     if format_error:
                         json_gonder(conn, {"durum": "hata", "mesaj": format_error, "kod": "UNSUPPORTED_FORMAT"})
                         continue
+                    sparse = bool(mesaj.get("sparse", False)) or parse_sparse_preference(raw_fmt)
                     parca = int(mesaj.get("parca_boyutu", 4 * 1024 * 1024))
                     is_id = mesaj.get("is_id") or ("IMG_" + str(int(time.time())))
-                    self.log(f"Starting disk acquisition for {disk_id} in {fmt} format")
-                    self._imaj_gonder(conn, disk_id, parca, is_id, fmt)
+                    mode_str = "sparse" if sparse else "full"
+                    self.log(f"Starting disk acquisition for {disk_id} in {fmt} format (mode: {mode_str})")
+                    self._imaj_gonder(conn, disk_id, parca, is_id, fmt, sparse)
 
                 elif komut == "winpmem_kontrol":
                     mevcut, yol, durum = self.winpmem_hazirla(auto_download=True)

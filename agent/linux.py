@@ -148,11 +148,22 @@ def json_send(conn, payload):
 
 def normalize_output_format(value):
     fmt = str(value or "raw").strip().lower()
-    if fmt in {"dd", "img"}:
+    if fmt in {"dd", "img", "raw_sparse", "raw-sparse", "raw_full", "raw-full"}:
         fmt = "raw"
+    elif fmt in {"aff4_sparse", "aff4-sparse", "aff4_full", "aff4-full"}:
+        fmt = "aff4"
     if fmt not in SUPPORTED_OUTPUT_FORMATS:
         return "", f"Unsupported output format: {fmt}. Supported formats: raw, aff4"
     return fmt, ""
+
+
+def parse_sparse_preference(value, default=False):
+    val = str(value or "").strip().lower()
+    if any(x in val for x in ["sparse", "smart"]):
+        return True
+    if any(x in val for x in ["full"]):
+        return False
+    return default
 
 
 def calc_mem_total_bytes():
@@ -168,21 +179,34 @@ def calc_mem_total_bytes():
 
 
 def list_disks_linux():
-    cmd = ["lsblk", "-J", "-b", "-dn", "-o", "NAME,SIZE,TYPE"]
-    out = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-    obj = json.loads(out.decode("utf-8", errors="ignore"))
+    try:
+        cmd = ["lsblk", "-J", "-b", "-n", "-o", "NAME,SIZE,TYPE"]
+        out = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        obj = json.loads(out.decode("utf-8", errors="ignore"))
+    except Exception:
+        cmd = ["lsblk", "-J", "-b", "-dn", "-o", "NAME,SIZE,TYPE"]
+        out = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        obj = json.loads(out.decode("utf-8", errors="ignore"))
+
     result = []
+
+    def add_device(entry):
+        dev_type = entry.get("type", "")
+        if dev_type in {"disk", "part", "lvm", "crypt"}:
+            name = entry.get("name", "")
+            size = int(entry.get("size", 0) or 0)
+            if name and size > 0:
+                result.append({
+                    # Keep id slash-free because controller uses disk_id in output filename.
+                    "id": f"{name}",
+                    "ad": f"{name}",
+                    "boyut": size,
+                })
+        for child in entry.get("children", []):
+            add_device(child)
+
     for entry in obj.get("blockdevices", []):
-        if entry.get("type") != "disk":
-            continue
-        name = entry.get("name", "")
-        size = int(entry.get("size", 0) or 0)
-        result.append({
-            # Keep id slash-free because controller uses disk_id in output filename.
-            "id": f"{name}",
-            "ad": f"{name}",
-            "boyut": size,
-        })
+        add_device(entry)
     return result
 
 
@@ -1009,23 +1033,23 @@ class LinuxAgentController:
 
         return True, ""
 
-    def _stream_disk(self, conn, disk_id, chunk_size, job_id, output_format="raw"):
+    def _stream_disk(self, conn, disk_id, chunk_size, job_id, output_format="raw", sparse=False):
         disk_path = resolve_disk_path(disk_id)
 
         if not os.path.exists(disk_path):
-            json_send(conn, {"tur": "hata", "format": output_format, "mesaj": f"Disk not found: {disk_path}"})
+            json_send(conn, {"tur": "hata", "format": output_format, "sparse": sparse, "mesaj": f"Disk not found: {disk_path}"})
             return
 
         total_size = disk_size_bytes_linux(disk_path)
 
         if total_size <= 0:
-            json_send(conn, {"tur": "hata", "format": output_format, "mesaj": "Disk size could not be read"})
+            json_send(conn, {"tur": "hata", "format": output_format, "sparse": sparse, "mesaj": "Disk size could not be read"})
             return
 
         self._set_job_state(job_id, "running")
 
-        json_send(conn, {"durum": "ok", "is_id": job_id, "format": output_format, "tahmini_boyut": total_size})
-        json_send(conn, {"tur": "veri_basliyor", "is_id": job_id, "format": output_format, "toplam": total_size})
+        json_send(conn, {"durum": "ok", "is_id": job_id, "format": output_format, "sparse": sparse, "tahmini_boyut": total_size})
+        json_send(conn, {"tur": "veri_basliyor", "is_id": job_id, "format": output_format, "sparse": sparse, "toplam": total_size})
 
         sha256 = hashlib.sha256()
         md5 = hashlib.md5()
@@ -1070,11 +1094,13 @@ class LinuxAgentController:
         if sent == total_size:
             self._show_progress(label, total_size, total_size)
             self._finish_progress()
-            self.log(f"Disk transfer completed: {disk_path} ({sent} bytes)")
+            mode_str = "sparse" if sparse else "full"
+            self.log(f"Disk transfer completed: {disk_path} ({sent} bytes, mode: {mode_str})")
             json_send(conn, {
                 "tur": "bitti",
                 "is_id": job_id,
                 "format": output_format,
+                "sparse": sparse,
                 "sha256": sha256.hexdigest(),
                 "md5": md5.hexdigest(),
             })
@@ -1085,6 +1111,7 @@ class LinuxAgentController:
                 "tur": "hata",
                 "is_id": job_id,
                 "format": output_format,
+                "sparse": sparse,
                 "mesaj": "Image transfer stopped by user" if self._get_job_state(job_id) == "stopped" else "Image transfer interrupted",
                 "okunan": sent,
                 "toplam": total_size,
@@ -1492,14 +1519,17 @@ class LinuxAgentController:
 
                 elif cmd == "imaj_baslat":
                     disk_id = message.get("disk_id", "")
-                    fmt, format_error = normalize_output_format(message.get("format", "raw"))
+                    raw_fmt = message.get("format", "raw")
+                    fmt, format_error = normalize_output_format(raw_fmt)
                     if format_error:
                         json_send(conn, {"durum": "hata", "mesaj": format_error, "kod": "UNSUPPORTED_FORMAT"})
                         continue
+                    sparse = bool(message.get("sparse", False)) or parse_sparse_preference(raw_fmt)
                     chunk_size = int(message.get("parca_boyutu", 4 * 1024 * 1024))
                     job_id = message.get("is_id") or ("IMG_" + str(int(time.time())))
-                    self.log(f"Starting disk acquisition for {disk_id} in {fmt} format")
-                    self._stream_disk(conn, disk_id, chunk_size, job_id, fmt)
+                    mode_str = "sparse" if sparse else "full"
+                    self.log(f"Starting disk acquisition for {disk_id} in {fmt} format (mode: {mode_str})")
+                    self._stream_disk(conn, disk_id, chunk_size, job_id, fmt, sparse)
 
                 elif cmd == "winpmem_kontrol":
                     json_send(conn, {
