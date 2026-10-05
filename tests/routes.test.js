@@ -112,6 +112,19 @@ globalThis.localStorage = {
 };
 
 test("Frontend Routing and Module Health", async (t) => {
+  await t.test("active case preference is persisted and cleared safely", async () => {
+    const { ACTIVE_CASE_STORAGE_KEY, getPersistedCaseName, persistCaseName } =
+      await import("../ui/core/case.js");
+
+    persistCaseName("  Case_2026  ");
+    assert.strictEqual(localStorageValues.get(ACTIVE_CASE_STORAGE_KEY), "Case_2026");
+    assert.strictEqual(getPersistedCaseName(), "Case_2026");
+
+    persistCaseName("");
+    assert.strictEqual(localStorageValues.has(ACTIVE_CASE_STORAGE_KEY), false);
+    assert.strictEqual(getPersistedCaseName(), "");
+  });
+
   await t.test("AI agent preference is persisted and restored safely", async () => {
     const {
       SELECTED_AGENT_STORAGE_KEY,
