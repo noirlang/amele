@@ -90,18 +90,20 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
             <div class="section-divider"></div>
             <p class="section-label">${t("workflow.caseSection")}</p>
             ${outputField}
-            ${field(t("workflow.outputFormat"), `
+            ${isRam ? field(t("workflow.outputFormat"), `
               <select class="select" data-field="output-format">
                 <option value="raw">${t("workflow.formatRaw")}</option>
                 <option value="aff4">${t("workflow.formatAff4")}</option>
               </select>
+            `) : field(t("workflow.outputFormat"), `
+              <select class="select" data-field="output-format">
+                <option value="raw_sparse" selected>${t("workflow.formatRawSparse")}</option>
+                <option value="raw_full">${t("workflow.formatRawFull")}</option>
+                <option value="aff4_sparse">${t("workflow.formatAff4Sparse")}</option>
+                <option value="aff4_full">${t("workflow.formatAff4Full")}</option>
+              </select>
+              <p class="field-hint" style="margin-top:6px; font-size:12px; color:var(--text-muted); line-height:1.4;">${t("workflow.sparseModeHint")}</p>
             `)}
-            ${!isRam ? field(t("workflow.sparseAcquisition"), `
-              <label class="checkbox-row" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
-                <input data-field="sparse-acquisition" type="checkbox" checked style="width:18px; height:18px; cursor:pointer;" />
-                <span>${t("workflow.sparseAcquisitionHint")}</span>
-              </label>
-            `) : ""}
             <div class="section-divider"></div>
             <p class="section-label">${isRam ? t("workflow.ramOutput") : t("workflow.diskOutput")}</p>
             ${targetSelect}

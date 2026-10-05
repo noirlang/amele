@@ -26,7 +26,7 @@ use std::thread;
 use std::time::Duration;
 
 /// sabit sıfır buffer boyutu (hash hesaplamasını ram'de hızlandırmak için)
-const ZERO_BUFFER_SIZE: usize = 1024 * 1024; // 1 mb
+const ZERO_BUFFER_SIZE: usize = 4 * 1024 * 1024; // 4 mb
 
 /// diskin seyrek haritası ve istatistik özeti
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -178,7 +178,25 @@ where
             // hash bütünlüğü için ram'deki sıfır tamponunu sha256 / blake3'e besle (disk i/o yok)
             if sha256.is_some() || blake3.is_some() {
                 let mut remaining_zeroes = range.length;
+                let mut zero_reported = 0_u64;
                 while remaining_zeroes > 0 {
+                    match control() {
+                        DiskAcquisitionControl::Continue => {}
+                        DiskAcquisitionControl::Pause => {
+                            thread::sleep(Duration::from_millis(200));
+                            continue;
+                        }
+                        DiskAcquisitionControl::Cancel => {
+                            runtime_log(
+                                LogLevel::Warn,
+                                "sparse",
+                                "Seyrek edinim sifir hashleme sirasinda kullanici tarafindan iptal edildi.",
+                            );
+                            cancelled = true;
+                            break;
+                        }
+                    }
+
                     let to_hash = remaining_zeroes.min(zero_buffer.len() as u64) as usize;
                     if let Some(ctx) = &mut sha256 {
                         ctx.update(&zero_buffer[..to_hash]);
@@ -187,11 +205,23 @@ where
                         ctx.update(&zero_buffer[..to_hash]);
                     }
                     remaining_zeroes -= to_hash as u64;
+                    processed_bytes += to_hash as u64;
+                    zero_reported += to_hash as u64;
+
+                    // her 32 MB'da bir veya aralık tamamlandığında ilerleme bildir ki donma hissi olmasın
+                    if zero_reported >= 32 * 1024 * 1024 || remaining_zeroes == 0 {
+                        progress(processed_bytes, source_size);
+                        zero_reported = 0;
+                    }
                 }
+                if cancelled {
+                    break;
+                }
+            } else {
+                processed_bytes += range.length;
+                progress(processed_bytes, source_size);
             }
 
-            processed_bytes += range.length;
-            progress(processed_bytes, source_size);
             continue;
         }
 

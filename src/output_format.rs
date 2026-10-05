@@ -47,9 +47,23 @@ impl AcquisitionOutputFormat {
             .to_ascii_lowercase()
             .as_str()
         {
-            "raw" | "dd" | "img" => Ok(Self::Raw),
-            "aff4" => Ok(Self::Aff4),
+            "raw" | "dd" | "img" | "raw_sparse" | "raw-sparse" | "raw_full" | "raw-full" => {
+                Ok(Self::Raw)
+            }
+            "aff4" | "aff4_sparse" | "aff4-sparse" | "aff4_full" | "aff4-full" => Ok(Self::Aff4),
             other => Err(format!("output_format raw veya aff4 olmalıdır: {other}")),
+        }
+    }
+
+    /// Format dizgisi içinde açıkça seyrek veya tam edinim tercihi belirtilmişse döner.
+    pub fn parse_sparse_preference(value: Option<&str>) -> Option<bool> {
+        let val = value?.trim().to_ascii_lowercase();
+        if val.ends_with("_sparse") || val.ends_with("-sparse") || val.contains("sparse") {
+            Some(true)
+        } else if val.ends_with("_full") || val.ends_with("-full") || val.contains("full") {
+            Some(false)
+        } else {
+            None
         }
     }
 
@@ -259,6 +273,42 @@ mod tests {
         assert_eq!(
             AcquisitionOutputFormat::parse(Some("aff4")).unwrap(),
             AcquisitionOutputFormat::Aff4
+        );
+        assert_eq!(
+            AcquisitionOutputFormat::parse(Some("raw_sparse")).unwrap(),
+            AcquisitionOutputFormat::Raw
+        );
+        assert_eq!(
+            AcquisitionOutputFormat::parse(Some("raw_full")).unwrap(),
+            AcquisitionOutputFormat::Raw
+        );
+        assert_eq!(
+            AcquisitionOutputFormat::parse(Some("aff4_sparse")).unwrap(),
+            AcquisitionOutputFormat::Aff4
+        );
+        assert_eq!(
+            AcquisitionOutputFormat::parse(Some("aff4_full")).unwrap(),
+            AcquisitionOutputFormat::Aff4
+        );
+        assert_eq!(
+            AcquisitionOutputFormat::parse_sparse_preference(Some("raw_sparse")),
+            Some(true)
+        );
+        assert_eq!(
+            AcquisitionOutputFormat::parse_sparse_preference(Some("raw_full")),
+            Some(false)
+        );
+        assert_eq!(
+            AcquisitionOutputFormat::parse_sparse_preference(Some("aff4_sparse")),
+            Some(true)
+        );
+        assert_eq!(
+            AcquisitionOutputFormat::parse_sparse_preference(Some("aff4_full")),
+            Some(false)
+        );
+        assert_eq!(
+            AcquisitionOutputFormat::parse_sparse_preference(Some("raw")),
+            None
         );
         assert!(AcquisitionOutputFormat::parse(Some("invalid")).is_err());
     }

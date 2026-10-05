@@ -222,8 +222,13 @@ fn run_local_image_job(
         None,
     );
     let plan = output_format::plan_output(&target, format);
-    let task = DiskAcquisitionTask::new(&request.source, &plan.working_path)
-        .with_sparse(request.sparse.unwrap_or(true));
+    let sparse_flag = output_format::AcquisitionOutputFormat::parse_sparse_preference(
+        request.output_format.as_deref(),
+    )
+    .or(request.sparse)
+    .unwrap_or(true);
+    let task =
+        DiskAcquisitionTask::new(&request.source, &plan.working_path).with_sparse(sparse_flag);
 
     if local_image_source_requires_elevation(&task.source) {
         run_elevated_local_image_job(
@@ -623,13 +628,18 @@ fn run_remote_image_job(
                 Some(&request.ip),
             );
             let plan = output_format::plan_output(&target_seed, format);
+            let sparse_flag = output_format::AcquisitionOutputFormat::parse_sparse_preference(
+                request.output_format.as_deref(),
+            )
+            .or(request.sparse)
+            .unwrap_or(true);
             match connection.acquire_image_ext(
                 &request.disk_id,
                 request.disk_name.as_deref(),
                 plan.working_path.parent().unwrap_or(output.as_path()),
                 Some(&remote_job_id),
                 format,
-                request.sparse.unwrap_or(true),
+                sparse_flag,
                 |done, total| update_acquisition_progress(&job_id, done, total),
             ) {
                 Ok(result) => {
