@@ -54,8 +54,8 @@ node --test tests/routes.test.js
 
 ## Repos & remotes
 
-- `upstream` → `noirlang/amele` (main repo)
-- `wormnext` → `worm-next/worm-next` (active repo)
+- `origin` / `amelenext` → `amele-next/amele-next` (aktif geliştirme reposu)
+- `upstream` → `noirlang/amele` (ana repo - geliştirme esnasında push atılmaz, sadece ana sürüm tamamlandıktan sonra aktarılır)
 
 
 ## Quirks
@@ -99,8 +99,10 @@ Bu projede çalışan tüm yapay zeka ajanları ve geliştiriciler aşağıdaki 
 - Küfür olmadan, ama aşırı bürokratik/resmi olmadan doğrudan mantığı açıklayın.
 - Örnek: `// docker icinde browser acilmasin diye kontrol ediyoruz`
 
-### 4. Git Push Kuralı (ÖNEMLİ)
+### 4. Git Push & Remote Kuralı (ÖNEMLİ)
 - Kullanıcı açıkça onay vermeden ASLA remote repoya push yapılmaz (`git push`).
+- Tüm geliştirmeler `amele-next/amele-next` (`origin` / `amelenext`) üzerinde yürütülür.
+- `upstream` (`noirlang/amele`) ana reposuna geliştirme sürecinde kesinlikle push gönderilmez. Yalnızca ana sürüm bittikten ve tamamlandıktan sonra sürüm aktarımı yapılır.
 - Tüm değişiklikler lokal branch'te tutulur ve kullanıcının kontrolüne bırakılır.
 
 ### 5. Kod Formatı ve Testler
