@@ -101,10 +101,14 @@ Amele'de fare kullanımına mahkûm kalmadan klavye ile yüksek hızda adli oper
 - **Headless & Sunucu Uyumu**: Adli bilişim operasyonları çoğunlukla sunucularda veya terminal ortamında grafik arayüz olmadan yürütülür. CLI asla ikinci plana itilemez; UI olmadan da tüm iş akışı CLI ile baştan sona yapılabilmelidir.
 - **Makine Okunabilirliği (`--json`)**: Kritik CLI komutları script ve otomasyonlarda kullanılabilmek için `--json` bayrağını desteklemeli ve temiz JSON çıktısı üretmelidir.
 
-### 4. SKILL.md ve Dokümantasyon Senkronizasyon Kuralı
-- Kök dizindeki `SKILL.md` dosyası, yapay zeka ajanları ve geliştiriciler için projenin operasyonel kılavuzudur.
-- Kod tabanına yeni bir CLI komutu, bayrak, edinim yöntemi, algoritma veya mimari eklendiğinde/değiştiğinde, **`SKILL.md` dosyası da aynı işlem/PR kapsamında güncellenmek zorundadır**.
-- Dokümantasyonu güncellenmemiş veya CLI karşılığı yazılmamış hiçbir özellik tamamlanmış sayılamaz.
+### 4. Dokümantasyon Senkronizasyon Kuralı (Repo & Uygulama İçi Docs)
+- **Repo Dokümantasyonu (`SKILL.md` & `README.md`)**:
+  - Kök dizindeki `SKILL.md` dosyası, yapay zeka ajanları ve geliştiriciler için projenin operasyonel kılavuzudur.
+  - Kod tabanına yeni bir CLI komutu, bayrak, edinim yöntemi, algoritma veya mimari eklendiğinde/değiştiğinde, **`SKILL.md` (ve gerekirse `README.md`) aynı işlem/PR kapsamında güncellenmek zorundadır**.
+- **Uygulama İçi Dokümantasyon (`ui/` İçi Yardım, Rehber ve İpuçları)**:
+  - Yapılan büyük eklemelerde ve arayüze eklenen yeni özelliklerde, yalnızca repodaki markdown dosyaları değil, **aynı zamanda uygulamanın kendi içindeki dokümantasyon, yardım sayfaları/menüleri (`ui/pages/help.js` vb.), araç rehberleri ve ipuçları da** eşzamanlı olarak güncellenmelidir.
+- **Eksiksiz Tamamlanma İlkesi**:
+  - Hem repo dokümantasyonu (`SKILL.md`) hem de uygulamanın kendi içindeki dokümantasyon güncellenmemiş veya CLI karşılığı yazılmamış hiçbir özellik tamamlanmış sayılamaz ve PR açılamaz.
 
 ---
 
