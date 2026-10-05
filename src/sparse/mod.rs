@@ -2,7 +2,9 @@
 //! ntfs $bitmap, ext4 ve xfs blok tahsis haritalarını okuyarak veri olmayan boş sektörleri
 //! fiziksel okuma yapmadan doğrudan atlar ve hedefte seyrek dosya (sparse hole) açar.
 
+pub mod exfat;
 pub mod ext4;
+pub mod fat;
 pub mod ntfs;
 pub mod scanner;
 pub mod xfs;

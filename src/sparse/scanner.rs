@@ -1,6 +1,8 @@
 //! mbr ve gpt bölümlerini tarayarak tüm disk için birleşik seyrek harita oluşturan modül.
 
+use super::exfat::parse_exfat_bitmap;
 use super::ext4::parse_ext4_bitmap;
+use super::fat::parse_fat_bitmap;
 use super::ntfs::{SparseRange, parse_ntfs_bitmap};
 use super::xfs::parse_xfs_bitmap;
 use std::fs::File;
@@ -104,6 +106,16 @@ pub fn scan_single_volume(
 
     // 3. xfs dene
     if let Some(ranges) = parse_xfs_bitmap(file, part_offset, part_size) {
+        return Some(ranges);
+    }
+
+    // 4. exfat dene
+    if let Some(ranges) = parse_exfat_bitmap(file, part_offset, part_size) {
+        return Some(ranges);
+    }
+
+    // 5. fat (fat16/fat32) dene
+    if let Some(ranges) = parse_fat_bitmap(file, part_offset, part_size) {
         return Some(ranges);
     }
 
@@ -292,5 +304,80 @@ mod tests {
         assert_eq!(map.len(), 1);
         assert_eq!(map[0].length, 4096);
         assert!(map[0].allocated);
+    }
+
+    #[test]
+    fn test_scan_single_volume_exfat_detected() {
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        let mut vbr = [0_u8; 512];
+        vbr[0..3].copy_from_slice(&[0xEB, 0x76, 0x90]);
+        vbr[3..11].copy_from_slice(b"EXFAT   ");
+        vbr[108] = 9;
+        vbr[109] = 1;
+        vbr[88..92].copy_from_slice(&10_u32.to_le_bytes());
+        vbr[92..96].copy_from_slice(&16_u32.to_le_bytes());
+        vbr[96..100].copy_from_slice(&2_u32.to_le_bytes());
+        vbr[510] = 0x55;
+        vbr[511] = 0xAA;
+        tmp.write_all(&vbr).unwrap();
+
+        let padding = vec![0_u8; 5120 - 512];
+        tmp.write_all(&padding).unwrap();
+
+        let mut root_dir = vec![0_u8; 1024];
+        root_dir[0] = 0x81;
+        root_dir[1] = 0x00;
+        root_dir[20..24].copy_from_slice(&3_u32.to_le_bytes());
+        root_dir[24..32].copy_from_slice(&2_u64.to_le_bytes());
+        tmp.write_all(&root_dir).unwrap();
+
+        let mut bitmap = vec![0_u8; 1024];
+        bitmap[0] = 0xFF;
+        bitmap[1] = 0x00;
+        tmp.write_all(&bitmap).unwrap();
+
+        let rem = vec![0_u8; 14 * 1024];
+        tmp.write_all(&rem).unwrap();
+        tmp.flush().unwrap();
+
+        let mut file = File::open(tmp.path()).unwrap();
+        let total = 5120 + 16 * 1024;
+        let ranges = scan_single_volume(&mut file, 0, total);
+        assert!(ranges.is_some());
+        let r = ranges.unwrap();
+        assert!(!r.is_empty());
+    }
+
+    #[test]
+    fn test_scan_single_volume_fat32_detected() {
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        let mut vbr = [0_u8; 512];
+        vbr[11..13].copy_from_slice(&512_u16.to_le_bytes());
+        vbr[13] = 1;
+        vbr[14..16].copy_from_slice(&32_u16.to_le_bytes());
+        vbr[16] = 2;
+        vbr[32..36].copy_from_slice(&100_u32.to_le_bytes());
+        vbr[36..40].copy_from_slice(&2_u32.to_le_bytes());
+        vbr[510] = 0x55;
+        vbr[511] = 0xAA;
+        tmp.write_all(&vbr).unwrap();
+
+        let res_padding = vec![0_u8; 31 * 512];
+        tmp.write_all(&res_padding).unwrap();
+
+        let mut fat = vec![0_u8; 1024];
+        fat[0..4].copy_from_slice(&0x0FFF_FFF8_u32.to_le_bytes());
+        fat[4..8].copy_from_slice(&0x0FFF_FFFF_u32.to_le_bytes());
+        fat[8..12].copy_from_slice(&0x0FFF_FFFF_u32.to_le_bytes());
+        tmp.write_all(&fat).unwrap();
+        tmp.write_all(&fat).unwrap();
+
+        let data = vec![0_u8; 64 * 512];
+        tmp.write_all(&data).unwrap();
+        tmp.flush().unwrap();
+
+        let mut file = File::open(tmp.path()).unwrap();
+        let ranges = scan_single_volume(&mut file, 0, 100 * 512);
+        assert!(ranges.is_some());
     }
 }
