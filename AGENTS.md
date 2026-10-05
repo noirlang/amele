@@ -136,8 +136,11 @@ Bu proje birden fazla geliştirici ve yapay zeka ajanları ile ortak yürütülm
 - **Dil**: Türkçe.
 - **Biçim**: Basit, kısa ve net. Gereksiz yapay zeka süslemesi, kurumsal laf kalabalığı ve akademik ağız kesinlikle yasaktır.
 - Standart önekler kullanın (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`).
-- `[build]` etiketi: CI üzerinde tam derleme ve prerelease çıktısı üretilecekse commit mesajına `[build]` eklenir.
-- Örnek: `feat: [build] exfat sparse tarama destegi eklendi`, `fix: baglanti kopma sorunu duzeltildi`.
+- **`[build]` Etiketi Kuralı**:
+  - Her commit'e veya rastgele commit'lere `[build]` etiketi **KESİNLİKLE ATILMAZ**.
+  - `[build]` etiketi **YALNIZCA VE YALNIZCA** kullanıcı açıkça tam derleme ve paket çıktısı (AppImage, DEB, RPM, MSI) üretilmesini istediğini belirttiğinde commit mesajına eklenir.
+  - Normal geliştirme, refactor, dokümantasyon veya hata düzeltme commit'lerinde `[build]` kullanılmaz; aksi halde CI gereksiz yere uzun süren paketleme işleriyle kilitlenir.
+- Örnek: `feat: [build] exfat sparse tarama destegi eklendi` (kullanıcı build istediyse), `fix: baglanti kopma sorunu duzeltildi` (normal).
 - ❌ Yasak: Emojili veya süslü mesajlar (`✨ feat(core): enterprise grade resilient containerization`).
 
 ### 5. PR Başlık ve Açıklamaları
@@ -150,10 +153,15 @@ Bu proje birden fazla geliştirici ve yapay zeka ajanları ile ortak yürütülm
 - Ne yapıldıysa maddeler halinde veya birkaç düz cümleyle, bir yazılımcının ekip arkadaşına anlattığı gibi yazılmalıdır.
 
 ### 6. Kod İçi Yorum Satırları
-- **Dil**: Türkçe.
-- **Biçim**: Samimi, küçük harf ağırlıklı, mantığı düz ve basit anlatan geliştirici tarzı.
-- Aşırı resmi/bürokratik olmadan mantığı net açıklayın.
-- Örnek: `// docker icinde browser acilmasin diye kontrol ediyoruz`
+- **Dil**: Kesinlikle Türkçe.
+- **Biçim ve Ton**: Samimi, küçük harf ağırlıklı, mantığı düz ve basit anlatan geliştirici tarzı.
+- **Sadelik ve Netlik**:
+  - Aşırı resmi, bürokratik, tumturaklı ifadelerden ve yapay zeka çeviri jargonu kokan metinlerden kaçınılmalıdır.
+  - Kodun "ne" yaptığını bariz şekilde papağan gibi tekrar etmek yerine (örn: `// i degiskenini bir artiriyoruz`), "neden" o şekilde yazıldığını, arkasındaki mantığı veya dikkat edilmesi gereken bir püf noktayı açıklayın.
+- Örnekler:
+  - `// docker icinde browser acilmasin diye kontrol ediyoruz`
+  - `// ram ediniminde hash tek geciste sha256 ve blake3 olarak cift hesaplaniyor`
+  - `// baglanti hemen kapanip porta kilit atmasin diye linger kapatiyoruz`
 
 ### 7. Git Push & Remote Kuralları (ÖNEMLİ)
 - Kullanıcı açıkça onay vermeden ASLA remote repoya push yapılmaz (`git push`).
