@@ -80,6 +80,7 @@ fn parse_algorithms(values: Option<Vec<String>>) -> Result<Vec<HashAlgorithm>, S
                 HashAlgorithm::Sha1,
                 HashAlgorithm::Sha256,
                 HashAlgorithm::Sha512,
+                HashAlgorithm::Blake3,
             ]);
         }
     };
@@ -103,6 +104,7 @@ fn parse_algorithms(values: Option<Vec<String>>) -> Result<Vec<HashAlgorithm>, S
             HashAlgorithm::Sha1,
             HashAlgorithm::Sha256,
             HashAlgorithm::Sha512,
+            HashAlgorithm::Blake3,
         ]);
     }
 
@@ -117,14 +119,15 @@ mod tests {
     #[test]
     fn test_parse_algorithms_default() {
         let algs = parse_algorithms(None).unwrap();
-        assert_eq!(algs.len(), 4);
+        assert_eq!(algs.len(), 5);
         assert!(algs.contains(&HashAlgorithm::Md5));
         assert!(algs.contains(&HashAlgorithm::Sha1));
         assert!(algs.contains(&HashAlgorithm::Sha256));
         assert!(algs.contains(&HashAlgorithm::Sha512));
+        assert!(algs.contains(&HashAlgorithm::Blake3));
 
         let algs_empty = parse_algorithms(Some(vec![])).unwrap();
-        assert_eq!(algs_empty.len(), 4);
+        assert_eq!(algs_empty.len(), 5);
     }
 
     #[test]
@@ -134,6 +137,7 @@ mod tests {
             "MD5".to_string(),
             "sha256".to_string(),
             "  Sha1  ".to_string(),
+            "blake3".to_string(),
         ];
         let algs = parse_algorithms(Some(input)).unwrap();
         assert_eq!(
@@ -142,13 +146,14 @@ mod tests {
                 HashAlgorithm::Sha256,
                 HashAlgorithm::Md5,
                 HashAlgorithm::Sha1,
+                HashAlgorithm::Blake3,
             ]
         );
     }
 
     #[test]
     fn test_parse_algorithms_unsupported() {
-        let input = vec!["blake3".to_string()];
+        let input = vec!["unsupported_algo_xyz".to_string()];
         let err = parse_algorithms(Some(input)).unwrap_err();
         assert!(err.contains("desteklenmeyen"));
     }

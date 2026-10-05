@@ -806,7 +806,7 @@ fn append_csv_log(
                 HashAlgorithm::Md5 => md5 = value.clone(),
                 HashAlgorithm::Sha1 => sha1 = value.clone(),
                 HashAlgorithm::Sha256 => sha256 = value.clone(),
-                HashAlgorithm::Sha512 => {}
+                HashAlgorithm::Sha512 | HashAlgorithm::Blake3 => {}
             }
         }
     }

@@ -14,7 +14,7 @@ use crate::disk::{
     DiskAcquisitionControl, DiskAcquisitionResult, DiskAcquisitionTask, mark_partial,
 };
 use crate::error::{AmeleError, AmeleResult, HataKodu};
-use crate::hash::to_hex;
+use crate::hash::{to_hex, write_blake3_sidecar, write_sha256_sidecar};
 use crate::logging::{LogLevel, runtime_log};
 use digest::Digest;
 use sha2::Sha256;
@@ -138,6 +138,7 @@ where
     let mut processed_bytes = 0_u64;
     let mut actually_read_bytes = 0_u64;
     let mut sha256 = task.calculate_hash.then(Sha256::new);
+    let mut blake3 = task.calculate_blake3.then(blake3::Hasher::new);
     let mut cancelled = false;
 
     // 2. haritadaki her aralığı sırayla işle
@@ -173,12 +174,17 @@ where
                 ));
             }
 
-            // hash bütünlüğü için ram'deki sıfır tamponunu sha256'ya besle (disk i/o yok)
-            if let Some(ctx) = &mut sha256 {
+            // hash bütünlüğü için ram'deki sıfır tamponunu sha256 / blake3'e besle (disk i/o yok)
+            if sha256.is_some() || blake3.is_some() {
                 let mut remaining_zeroes = range.length;
                 while remaining_zeroes > 0 {
                     let to_hash = remaining_zeroes.min(zero_buffer.len() as u64) as usize;
-                    ctx.update(&zero_buffer[..to_hash]);
+                    if let Some(ctx) = &mut sha256 {
+                        ctx.update(&zero_buffer[..to_hash]);
+                    }
+                    if let Some(ctx) = &mut blake3 {
+                        ctx.update(&zero_buffer[..to_hash]);
+                    }
                     remaining_zeroes -= to_hash as u64;
                 }
             }
@@ -258,6 +264,9 @@ where
             if let Some(ctx) = &mut sha256 {
                 ctx.update(&buffer[..read]);
             }
+            if let Some(ctx) = &mut blake3 {
+                ctx.update(&buffer[..read]);
+            }
 
             range_read += read as u64;
             actually_read_bytes += read as u64;
@@ -288,11 +297,13 @@ where
             bytes_copied: actually_read_bytes,
             total_bytes: source_size,
             sha256: None,
+            blake3: None,
             partial_path: Some(partial),
         });
     }
 
     let mut hash_value = None;
+    let mut blake3_value = None;
     if let Some(ctx) = sha256 {
         let hash = to_hex(&ctx.finalize());
         runtime_log(
@@ -300,9 +311,18 @@ where
             "sparse",
             format!("Seyrek edinim SHA-256 tamamlandi: {}", hash),
         );
-        let sidecar = PathBuf::from(format!("{}.sha256", task.target.display()));
-        let _ = std::fs::write(&sidecar, format!("{hash}  {}\n", task.target.display()));
+        let _ = write_sha256_sidecar(&task.target, &hash);
         hash_value = Some(hash);
+    }
+    if let Some(ctx) = blake3 {
+        let hash = to_hex(ctx.finalize().as_bytes());
+        runtime_log(
+            LogLevel::Info,
+            "sparse",
+            format!("Seyrek edinim BLAKE3 tamamlandi: {}", hash),
+        );
+        let _ = write_blake3_sidecar(&task.target, &hash);
+        blake3_value = Some(hash);
     }
 
     runtime_log(
@@ -319,6 +339,7 @@ where
         bytes_copied: source_size,
         total_bytes: source_size,
         sha256: hash_value,
+        blake3: blake3_value,
         partial_path: None,
     })
 }
