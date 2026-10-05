@@ -73,41 +73,64 @@ node --test tests/routes.test.js
 - Windows: WebView2 Runtime, WiX 3.14 for MSI
 - Rust stable with `rustfmt` component
 
-## Agent, Commit & PR Kuralları (Kesin Kurallar)
+## Agent, Dal (Branch) & PR Kuralları (Kesin Kurallar)
 
-Bu projede çalışan tüm yapay zeka ajanları ve geliştiriciler aşağıdaki kurallara uymak zorundadır:
+Bu proje birden fazla geliştirici ve yapay zeka ajanları ile ortak yürütülmektedir. Projede çalışan tüm geliştiriciler ve yapay zeka ajanları aşağıdaki kurallara **istisnasız** uymak zorundadır:
 
-### 1. Commit Mesajları
+### 1. Ajanların (AI Agents) Görevi ve Sınırları
+- Yapay zeka ajanları kod tabanında araştırma yapma, hata çözme, yeni özellik geliştirme, test yazma ve formatlama işlerinde geliştiricilere eşlik eder.
+- Ajanlar kullanıcıdan habersiz veya izinsiz kritik yapılandırmaları değiştiremez, diskleri biçimlendiremez veya doğrudan uzak sunucuya yetkisiz müdahalede bulunamaz.
+- Ajanlar kod tabanının mevcut mimarisine (Rust 2024 edition, wry/WebKit, vanilla ES modules) ve Türkçe kod içi yorum standartlarına tam sadık kalır.
+
+### 2. Dal (Branch) Açma ve PR (Pull Request) Zorunluluğu
+- **Doğrudan `main` dalına commit veya push atılması kesinlikle YASAKTIR.**
+- Yapılacak her iş, düzeltme veya özellik için ilgili amaç doğrultusunda ayrı bir dal açılmalıdır:
+  - `feat/<ozellik-adi>`: Yeni özellikler
+  - `fix/<hata-adi>`: Hata düzeltmeleri
+  - `refactor/<alan-adi>`: Kod düzenlemeleri ve iyileştirmeler
+  - `docs/<konu>`: Dokümantasyon güncellemeleri
+- İş tamamlandığında değişiklikler açılan dala commit'lenir ve `main` dalına PR olarak açılır.
+
+### 3. PR Onay ve Merge Yetkisi
+- Açılan PR'ları inceleme, dokunma, onaylama ve `main` dalına merge etme yetkisi **YALNIZCA** aşağıdaki hesaplara aittir:
+  - `@melihemik`
+  - `@kafkaskrtl`
+- Yetkili hesapların onayı ve incelemesi olmadan hiçbir PR merge edilemez, kapatılamaz veya doğrudan ana dala aktarılamaz.
+
+### 4. Commit Mesajları
 - **Dil**: Türkçe.
-- **Biçim**: Basit, kısa ve net. Gereksiz yapay zeka süslemesi, akademik ağız veya kurumsal gevezelik kesinlikle yasaktır.
-- Tercihen `feat:`, `fix:`, `refactor:`, `chore:` gibi standart önekler kullanın.
-- Örnek: `feat: docker ve prettier eklendi`, `fix: baglanti kopma sorunu duzeltildi`.
-- ❌ Yasak: `✨ feat(docker): add highly resilient enterprise grade containerization`
+- **Biçim**: Basit, kısa ve net. Gereksiz yapay zeka süslemesi, kurumsal laf kalabalığı ve akademik ağız kesinlikle yasaktır.
+- Standart önekler kullanın (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`).
+- `[build]` etiketi: CI üzerinde tam derleme ve prerelease çıktısı üretilecekse commit mesajına `[build]` eklenir.
+- Örnek: `feat: [build] exfat sparse tarama destegi eklendi`, `fix: baglanti kopma sorunu duzeltildi`.
+- ❌ Yasak: Emojili veya süslü mesajlar (`✨ feat(core): enterprise grade resilient containerization`).
 
-### 2. PR (Pull Request) Başlık ve Açıklamaları
-- **PR Başlığı**: Basit, ne yapıldığını doğrudan anlatan kısa başlık.
+### 5. PR Başlık ve Açıklamaları
+- **PR Başlığı**: Basit, yapılan işi doğrudan anlatan kısa başlık.
 - **PR Açıklaması**: Düz, samimi ve sade Türkçe.
 - **KESİNLİKLE YASAK**:
   - Robotik AI şablonları (`## 🛠️ Çözülen Sorunlar`, `## 📝 Özet`, `## 🧪 Test Planı` vb.).
   - Emojiler (`🚀`, `✨`, `🎉`, `🔥` vb.).
-  - Uzun uzadıya yapay zeka özetleri.
-- Ne yapıldıysa maddeler halinde veya birkaç düz cümleyle, bir yazılımcının ekip arkadaşına yazdığı gibi yazılmalıdır.
+  - Uzun uzadıya yapay zeka gevezelikleri.
+- Ne yapıldıysa maddeler halinde veya birkaç düz cümleyle, bir yazılımcının ekip arkadaşına anlattığı gibi yazılmalıdır.
 
-### 3. Kod İçi Yorum Satırları
+### 6. Kod İçi Yorum Satırları
 - **Dil**: Türkçe.
 - **Biçim**: Samimi, küçük harf ağırlıklı, mantığı düz ve basit anlatan geliştirici tarzı.
-- Küfür olmadan, ama aşırı bürokratik/resmi olmadan doğrudan mantığı açıklayın.
+- Aşırı resmi/bürokratik olmadan mantığı net açıklayın.
 - Örnek: `// docker icinde browser acilmasin diye kontrol ediyoruz`
 
-### 4. Git Push & Remote Kuralı (ÖNEMLİ)
+### 7. Git Push & Remote Kuralları (ÖNEMLİ)
 - Kullanıcı açıkça onay vermeden ASLA remote repoya push yapılmaz (`git push`).
 - Tüm geliştirmeler `amele-next/amele-next` (`origin` / `amelenext`) üzerinde yürütülür.
-- `upstream` (`noirlang/amele`) ana reposuna geliştirme sürecinde kesinlikle push gönderilmez. Yalnızca ana sürüm bittikten ve tamamlandıktan sonra sürüm aktarımı yapılır.
-- Tüm değişiklikler lokal branch'te tutulur ve kullanıcının kontrolüne bırakılır.
+- `upstream` (`noirlang/amele`) ana reposuna geliştirme sürecinde kesinlikle push gönderilmez. Yalnızca ana sürüm tamamlandıktan sonra sürüm aktarımı yapılır.
+- Tüm değişiklikler yerel branch'te tutulur ve kullanıcının kontrolüne bırakılır.
 
-### 5. Kod Formatı ve Testler
-- **JavaScript / CSS / JSON**: Prettier (`.prettierrc`, `.prettierignore`).
-- **Rust**: `cargo fmt` ve `cargo test --lib`.
-- **Frontend testleri**: `node --check ui/app.js` ve `node --test tests/routes.test.js`.
-- **Entegrasyon testleri**: `bash tests/run_tests.sh`.
+### 8. Kod Formatı ve Testler
+Her PR açılmadan önce aşağıdaki kontrollerin yerelde hatasız geçmesi şarttır:
+- **Rust formatı**: `cargo fmt --all -- --check` (Düzeltmek için: `cargo fmt`)
+- **Rust derleme ve test**: `RUSTFLAGS="-D warnings" cargo test --lib`
+- **JavaScript formatı**: `npx prettier --write ui/app.js tests/routes.test.js`
+- **Frontend testleri**: `node --check ui/app.js` ve `node --test tests/routes.test.js`
+- **Tam entegrasyon paketi**: `bash tests/run_tests.sh`
 
