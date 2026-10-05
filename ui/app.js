@@ -29,6 +29,7 @@ import { otherPage, detailPanel, settingsPage, aboutPage, hashPanel } from "./pa
 import { workflowPage, pickerField, field, pageTitle, casePanel } from "./pages/workflow.js";
 import { initDeveloperMode, devLog, toggleDevPanel } from "./developer.js";
 import { initJobWidget } from "./core/jobs.js";
+import { getPersistedCaseName, persistCaseName } from "./core/case.js";
 import {
   initAgent,
   loadAgents,
@@ -2093,21 +2094,29 @@ async function loadEvidenceCases({ silent = true } = {}) {
     state.cases = Array.isArray(result.cases) ? result.cases : [];
 
     // Keep frontend selected/pending case active even before it exists on disk.
-    const activeCaseName = state.pendingCaseName || state.activeCase?.case_name;
+    const rememberedCaseName = getPersistedCaseName();
+    const activeCaseName =
+      state.pendingCaseName || state.activeCase?.case_name || rememberedCaseName;
     if (activeCaseName) {
       const stillExists = state.cases.find((c) => c.case_name === activeCaseName);
       if (stillExists) {
         state.activeCase = stillExists;
         state.pendingCaseName = "";
+        persistCaseName(stillExists.case_name);
       } else if (state.pendingCaseName) {
         state.activeCase = { case_name: state.pendingCaseName };
       } else if (result.current_case) {
         state.activeCase = result.current_case;
+        persistCaseName(result.current_case.case_name);
+      } else if (rememberedCaseName) {
+        persistCaseName("");
       }
     } else if (result.current_case) {
       state.activeCase = result.current_case;
+      persistCaseName(result.current_case.case_name);
     } else if (state.cases.length) {
       state.activeCase = state.cases[0];
+      persistCaseName(state.activeCase.case_name);
     }
 
     updateCaseControls();
@@ -2796,6 +2805,7 @@ document.addEventListener("click", async (event) => {
     const matched = state.cases.find((c) => c.case_name === caseName);
     if (matched && state.activeCase?.case_name !== caseName) {
       state.activeCase = matched;
+      persistCaseName(caseName);
       render();
       return;
     }
@@ -3022,6 +3032,7 @@ document.addEventListener("change", async (event) => {
         const cleanName = newName.trim();
         state.pendingCaseName = cleanName;
         state.activeCase = { case_name: cleanName };
+        persistCaseName(cleanName);
 
         // Mirror to all data-case-select fields on the page
         document.querySelectorAll("[data-case-select]").forEach((el) => {
@@ -3041,6 +3052,7 @@ document.addEventListener("change", async (event) => {
         const fallback = state.cases.length ? state.cases[0].case_name : "";
         state.pendingCaseName = "";
         state.activeCase = state.cases.find((c) => c.case_name === fallback) || null;
+        persistCaseName(fallback);
         caseSelect.value = fallback;
         document.querySelectorAll("[data-case-select]").forEach((el) => {
           el.value = fallback;
@@ -3051,6 +3063,7 @@ document.addEventListener("change", async (event) => {
       state.activeCase = state.cases.find((c) => c.case_name === caseSelect.value) || {
         case_name: caseSelect.value,
       };
+      persistCaseName(caseSelect.value);
     }
     toggleCaseCreateInput(caseSelect);
   }
@@ -3405,6 +3418,7 @@ async function handleAction(button) {
         state.pendingCaseName = caseName;
         state.activeCase = { case_name: caseName };
       }
+      persistCaseName(caseName);
       updateCaseControls();
       showToast(t("case.selected", { name: caseName }) || `Varsayılan vaka: ${caseName}`);
     }
