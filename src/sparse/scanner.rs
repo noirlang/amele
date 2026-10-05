@@ -19,8 +19,16 @@ pub struct DetectedPartition {
 
 /// tüm disk veya bölüm için eksiksiz seyrek alan haritası üretir
 pub fn build_disk_sparse_map(file: &mut File, total_disk_size: u64) -> Vec<SparseRange> {
+    build_disk_sparse_map_ext(file, total_disk_size).0
+}
+
+/// tüm disk veya bölüm için eksiksiz seyrek alan haritası, desteklenen bölüm sayısı ve tespit edilen dosya sistemlerini üretir
+pub fn build_disk_sparse_map_ext(
+    file: &mut File,
+    total_disk_size: u64,
+) -> (Vec<SparseRange>, usize, Vec<String>) {
     if total_disk_size == 0 {
-        return Vec::new();
+        return (Vec::new(), 0, Vec::new());
     }
 
     // 1. diskteki bölümleri tespit et
@@ -28,26 +36,35 @@ pub fn build_disk_sparse_map(file: &mut File, total_disk_size: u64) -> Vec<Spars
 
     if partitions.is_empty() {
         // bölüm tablosu yoksa doğrudan disk başlangıcında dosya sistemi ara
-        if let Some(ranges) = scan_single_volume(file, 0, total_disk_size) {
-            return ranges;
+        if let Some((fs_name, ranges)) = identify_and_scan_volume(file, 0, total_disk_size) {
+            return (ranges, 1, vec![fs_name.to_string()]);
         }
 
-        // linux çekirdek seviyesi seek_hole / seek_data dene
+        // linux çekirdek seviyesi seek_hole / seek_data dene (sadece gerçek delikler varsa)
         #[cfg(unix)]
         if let Some(ranges) = scan_kernel_holes(file, total_disk_size) {
-            return ranges;
+            let has_hole = ranges.iter().any(|r| !r.allocated);
+            if has_hole {
+                return (ranges, 1, vec!["sparse-hole".to_string()]);
+            }
         }
 
         // fallback: hiçbir harita çıkarılamadıysa tüm diski dolu say
-        return vec![SparseRange {
-            offset: 0,
-            length: total_disk_size,
-            allocated: true,
-        }];
+        return (
+            vec![SparseRange {
+                offset: 0,
+                length: total_disk_size,
+                allocated: true,
+            }],
+            0,
+            Vec::new(),
+        );
     }
 
     let mut full_ranges: Vec<SparseRange> = Vec::new();
     let mut current_offset: u64 = 0;
+    let mut supported_volumes_found = 0usize;
+    let mut detected_filesystems = Vec::new();
 
     for part in partitions {
         // bölümden önceki alan (mbr, gpt tabloları veya boşluklar)
@@ -62,15 +79,20 @@ pub fn build_disk_sparse_map(file: &mut File, total_disk_size: u64) -> Vec<Spars
         }
 
         // bölümün içindeki dosya sistemini tara
-        let part_ranges =
-            scan_single_volume(file, part.start_offset, part.length).unwrap_or_else(|| {
-                // dosya sistemi desteklenmiyorsa veya şifreliyse bölümün tamamını güvenle oku
-                vec![SparseRange {
-                    offset: part.start_offset,
-                    length: part.length,
-                    allocated: true,
-                }]
-            });
+        let part_ranges = if let Some((fs_name, ranges)) =
+            identify_and_scan_volume(file, part.start_offset, part.length)
+        {
+            supported_volumes_found += 1;
+            detected_filesystems.push(fs_name.to_string());
+            ranges
+        } else {
+            // dosya sistemi desteklenmiyorsa veya şifreliyse bölümün tamamını güvenle oku
+            vec![SparseRange {
+                offset: part.start_offset,
+                length: part.length,
+                allocated: true,
+            }]
+        };
 
         full_ranges.extend(part_ranges);
         current_offset = part.start_offset + part.length;
@@ -85,7 +107,45 @@ pub fn build_disk_sparse_map(file: &mut File, total_disk_size: u64) -> Vec<Spars
         });
     }
 
-    merge_ranges(full_ranges)
+    (
+        merge_ranges(full_ranges),
+        supported_volumes_found,
+        detected_filesystems,
+    )
+}
+
+/// tek bir bölüm veya raw volume içindeki dosya sistemi bitmap'ini inceler ve dosya sistemi adıyla birlikte döner
+pub fn identify_and_scan_volume(
+    file: &mut File,
+    part_offset: u64,
+    part_size: u64,
+) -> Option<(&'static str, Vec<SparseRange>)> {
+    // 1. ntfs dene
+    if let Some(ranges) = parse_ntfs_bitmap(file, part_offset, part_size) {
+        return Some(("NTFS", ranges));
+    }
+
+    // 2. ext4 dene
+    if let Some(ranges) = parse_ext4_bitmap(file, part_offset, part_size) {
+        return Some(("ext4", ranges));
+    }
+
+    // 3. xfs dene
+    if let Some(ranges) = parse_xfs_bitmap(file, part_offset, part_size) {
+        return Some(("XFS", ranges));
+    }
+
+    // 4. exfat dene
+    if let Some(ranges) = parse_exfat_bitmap(file, part_offset, part_size) {
+        return Some(("exFAT", ranges));
+    }
+
+    // 5. fat (fat16/fat32) dene
+    if let Some(ranges) = parse_fat_bitmap(file, part_offset, part_size) {
+        return Some(("FAT", ranges));
+    }
+
+    None
 }
 
 /// tek bir bölüm veya raw volume içindeki dosya sistemi bitmap'ini inceler
@@ -94,32 +154,7 @@ pub fn scan_single_volume(
     part_offset: u64,
     part_size: u64,
 ) -> Option<Vec<SparseRange>> {
-    // 1. ntfs dene
-    if let Some(ranges) = parse_ntfs_bitmap(file, part_offset, part_size) {
-        return Some(ranges);
-    }
-
-    // 2. ext4 dene
-    if let Some(ranges) = parse_ext4_bitmap(file, part_offset, part_size) {
-        return Some(ranges);
-    }
-
-    // 3. xfs dene
-    if let Some(ranges) = parse_xfs_bitmap(file, part_offset, part_size) {
-        return Some(ranges);
-    }
-
-    // 4. exfat dene
-    if let Some(ranges) = parse_exfat_bitmap(file, part_offset, part_size) {
-        return Some(ranges);
-    }
-
-    // 5. fat (fat16/fat32) dene
-    if let Some(ranges) = parse_fat_bitmap(file, part_offset, part_size) {
-        return Some(ranges);
-    }
-
-    None
+    identify_and_scan_volume(file, part_offset, part_size).map(|(_, ranges)| ranges)
 }
 
 /// gpt ve mbr bölüm tablolarını okur

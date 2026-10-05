@@ -218,6 +218,44 @@ def resolve_disk_path(disk_id):
     return f"/dev/{disk_id}"
 
 
+def check_disk_sparse_support_linux(disk_path):
+    """
+    Seyrek edinim icin disk veya bolum uzerinde desteklenen bir dosya sistemi
+    (NTFS, ext4, XFS, exFAT, FAT) olup olmadigini denetler.
+    """
+    supported_fs = {
+        "ntfs", "ext4", "ext3", "ext2", "xfs", "exfat", "vfat", "fat", "fat16", "fat32", "msdos"
+    }
+    # 1. lsblk ile dosya sistemlerini sorgula (bolumleri de listeler)
+    try:
+        out = subprocess.check_output(
+            ["lsblk", "-rno", "FSTYPE", disk_path],
+            stderr=subprocess.DEVNULL
+        ).decode("utf-8", errors="ignore")
+        for line in out.splitlines():
+            fstype = line.strip().lower()
+            if fstype in supported_fs:
+                return True, fstype
+    except Exception:
+        pass
+
+    # 2. blkid ile sorgula
+    try:
+        out = subprocess.check_output(
+            ["blkid", disk_path],
+            stderr=subprocess.DEVNULL
+        ).decode("utf-8", errors="ignore")
+        for token in out.split():
+            if token.upper().startswith('TYPE="'):
+                fstype = token.split('"', 2)[1].lower()
+                if fstype in supported_fs:
+                    return True, fstype
+    except Exception:
+        pass
+
+    return False, ""
+
+
 def disk_size_bytes_linux(path):
     try:
         st = os.stat(path)
@@ -1045,6 +1083,25 @@ class LinuxAgentController:
         if total_size <= 0:
             json_send(conn, {"tur": "hata", "format": output_format, "sparse": sparse, "mesaj": "Disk size could not be read"})
             return
+
+        if sparse:
+            is_supported, fstype = check_disk_sparse_support_linux(disk_path)
+            if not is_supported:
+                err_msg = (
+                    "Diskiniz desteklenmiyor: Akıllı seyrek edinim (dolu olan kadar al) için bu disk veya bölümde "
+                    "desteklenen bir dosya sistemi (NTFS, ext4, XFS, exFAT, FAT) bulunamadı. "
+                    "Lütfen 'Tamamını al (Fiziksel DD)' modunu seçin."
+                )
+                self.log(f"Unsupported disk for sparse acquisition: {disk_path}")
+                json_send(conn, {
+                    "tur": "hata",
+                    "durum": "hata",
+                    "kod": "UNSUPPORTED_DISK",
+                    "format": output_format,
+                    "sparse": sparse,
+                    "mesaj": err_msg,
+                })
+                return
 
         self._set_job_state(job_id, "running")
 

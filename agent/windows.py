@@ -283,6 +283,46 @@ def disk_boyut_al(disk_id):
             win32file.CloseHandle(handle)
 
 
+def check_disk_sparse_support_windows(disk_id):
+    """
+    Windows uzerinde diskin veya bolumun dosya sistemini sorgular (NTFS, exFAT, FAT, ReFS).
+    """
+    supported_fs = {"ntfs", "exfat", "fat32", "fat16", "fat", "refs"}
+    # 1. PowerShell Get-Partition / Get-Volume ile dosya sistemlerini sorgula
+    try:
+        disk_str = str(disk_id).strip()
+        if len(disk_str) <= 2 and disk_str.replace(":", "").isalpha():
+            letter = disk_str.replace(":", "")
+            ps_cmd = f"Get-Volume -DriveLetter {letter} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FileSystem"
+        else:
+            ps_cmd = f"Get-Partition -DiskNumber {disk_str} -ErrorAction SilentlyContinue | Get-Volume -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FileSystem"
+        res = subprocess.check_output(
+            ["powershell", "-NoProfile", "-Command", ps_cmd],
+            stderr=subprocess.DEVNULL
+        ).decode("utf-8", errors="ignore")
+        for line in res.splitlines():
+            fstype = line.strip().lower()
+            if fstype in supported_fs:
+                return True, fstype
+    except Exception:
+        pass
+
+    # 2. wmic fallback
+    try:
+        res = subprocess.check_output(
+            ["wmic", "volume", "get", "FileSystem"],
+            stderr=subprocess.DEVNULL
+        ).decode("utf-8", errors="ignore")
+        for line in res.splitlines():
+            fstype = line.strip().lower()
+            if fstype in supported_fs:
+                return True, fstype
+    except Exception:
+        pass
+
+    return False, ""
+
+
 def disk_listele_tani():
     tani = {
         "windows_mod": WINDOWS,
@@ -799,6 +839,26 @@ def docker_get_logs(container_id, tail=200):
             if toplam_boyut <= 0:
                 json_gonder(conn, {"tur": "hata", "format": output_format, "sparse": sparse, "mesaj": "Disk size could not be read"})
                 return
+
+            if sparse:
+                is_supported, fstype = check_disk_sparse_support_windows(disk_id)
+                if not is_supported:
+                    err_msg = (
+                        "Diskiniz desteklenmiyor: Akıllı seyrek edinim (dolu olan kadar al) için bu disk veya bölümde "
+                        "desteklenen bir dosya sistemi (NTFS, ext4, XFS, exFAT, FAT) bulunamadı. "
+                        "Lütfen 'Tamamını al (Fiziksel DD)' modunu seçin."
+                    )
+                    self.log(f"Unsupported disk for sparse imaging: PhysicalDrive{disk_id}")
+                    json_gonder(conn, {
+                        "tur": "hata",
+                        "durum": "hata",
+                        "kod": "UNSUPPORTED_DISK",
+                        "format": output_format,
+                        "sparse": sparse,
+                        "mesaj": err_msg,
+                    })
+                    return
+
             self._set_job_state(is_id, "running")
 
             json_gonder(conn, {
