@@ -5146,6 +5146,8 @@ async function startAcquisition(button) {
     ? state.ramToolPath || document.querySelector("[data-field='target']")?.value.trim() || ""
     : document.querySelector("[data-field='target']")?.value.trim() || "";
   const outputFormat = document.querySelector("[data-field='output-format']")?.value || "raw";
+  const sparseAcquisition =
+    document.querySelector("[data-field='sparse-acquisition']")?.checked ?? true;
   if (workflow && !workflow.mode.includes("ram") && !target) {
     showToast(t("workflow.diskRequired"), "error");
     return;
@@ -5225,6 +5227,7 @@ async function startAcquisition(button) {
                     output,
                     case_name: caseName,
                     output_format: outputFormat,
+                    sparse: sparseAcquisition,
                   }
             ),
           })
@@ -5245,6 +5248,7 @@ async function startAcquisition(button) {
                     output,
                     case_name: caseName,
                     output_format: outputFormat,
+                    sparse: sparseAcquisition,
                   }
             ),
           });
@@ -5796,7 +5800,12 @@ async function calculateHashInOther() {
   state.hashTargetInput = path;
   state.hashMethod = method;
 
-  const algorithms = method === "both" ? ["sha256", "md5"] : [method];
+  const algorithms =
+    method === "all"
+      ? ["blake3", "sha256", "md5"]
+      : method === "both"
+        ? ["sha256", "md5"]
+        : [method];
   setStatus("[data-hash-status]", `${icon("refresh")} ${t("hash.calculating")}`);
   try {
     const res = await apiRequest("/api/hash", {
@@ -5805,12 +5814,15 @@ async function calculateHashInOther() {
     });
     state.hashResult = {
       path,
+      blake3: res.blake3,
       sha256: res.sha256,
       md5: res.md5,
     };
     const outBox = document.querySelector("[data-hash-output]");
     if (outBox) {
       let outHtml = `<strong>${t("hash.file") || "Dosya"}:</strong> ${escapeHtml(path)}<br/>`;
+      if (res.blake3)
+        outHtml += `<strong>BLAKE3:</strong> <code style="word-break:break-all">${escapeHtml(res.blake3)}</code><br/>`;
       if (res.sha256)
         outHtml += `<strong>SHA-256:</strong> <code style="word-break:break-all">${escapeHtml(res.sha256)}</code><br/>`;
       if (res.md5)

@@ -162,8 +162,10 @@ export function hashPanel(pickerField, field, state, t, icon) {
     ${field(
       t("hash.algorithm"),
       `<select id="hash-algorithm" class="select">
+        <option value="blake3" ${method === "blake3" ? "selected" : ""}>BLAKE3 (Çok Çekirdekli SIMD - En Hızlı / Fastest)</option>
         <option value="sha256" ${method === "sha256" ? "selected" : ""}>SHA-256 (Önerilen / Recommended)</option>
         <option value="md5" ${method === "md5" ? "selected" : ""}>MD5</option>
+        <option value="all" ${method === "all" ? "selected" : ""}>BLAKE3 + SHA-256 + MD5</option>
         <option value="both" ${method === "both" ? "selected" : ""}>SHA-256 + MD5</option>
       </select>`
     )}
@@ -179,6 +181,8 @@ export function hashPanel(pickerField, field, state, t, icon) {
 
 function renderHashResult(res, t) {
   let out = `<strong>${t("hash.file") || "Dosya"}:</strong> ${res.path}<br/><strong>${t("hash.size") || "Boyut"}:</strong> ${res.file_size_formatted || res.file_size + " B"}<br/>`;
+  if (res.blake3)
+    out += `<strong>BLAKE3:</strong> <code style="word-break:break-all">${res.blake3}</code><br/>`;
   if (res.sha256)
     out += `<strong>SHA-256:</strong> <code style="word-break:break-all">${res.sha256}</code><br/>`;
   if (res.md5)

@@ -1373,8 +1373,8 @@ MANAGEMENT & EVIDENCE:
   profile <subcommand>    Manage local analyst profiles & online synchronization
   case <subcommand>       Case management (list, create, info, export, import, verify)
   mount <subcommand>      Mount/unmount forensic disk images (requires sudo)
-  hash <file> [algo]      Calculate cryptographic hash (md5, sha1, sha256, sha512)
-  verify <image> <sha256> Verify forensic image SHA-256 checksum
+  hash <file> [algo]      Calculate cryptographic hash (blake3, sha256, sha512, md5, sha1)
+  verify <image> [hash]   Verify forensic image checksum (BLAKE3 / SHA-256)
   wireguard <file>        Generate secure WireGuard VPN configuration
   update [--json]         Check for software updates
   completion <shell>      Generate shell autocompletions (bash, zsh, fish)
@@ -1416,8 +1416,8 @@ YONETIM VE DELIL ISLEMLERI:
   profile <alt-komut>     Yerel ve online analist profillerini yonet
   case <alt-komut>        Vaka yonetimi (listeleme, olusturma, detay, .amelecase paketleme)
   mount <alt-komut>       Adli disk imaji baglama (mount) ve temizleme (sudo)
-  hash <dosya> [algo]     Dosya ozeti hesapla (md5, sha1, sha256, sha512)
-  verify <imaj> <sha256>  Imaj SHA-256 hash dogrulamasi yap
+  hash <dosya> [algo]     Dosya ozeti hesapla (blake3, sha256, sha512, md5, sha1)
+  verify <imaj> [hash]    Imaj hash dogrulamasi yap (BLAKE3 / SHA-256)
   wireguard <dosya>       Guvenli WireGuard VPN yapilandirmasi uret
   update [--json]         Yazilim guncelleme kontrolu
   completion <kabuk>      Kabuk otomatik tamamlama uret (bash, zsh, fish)
@@ -1533,6 +1533,7 @@ fn local_image_command(args: Vec<String>) -> Result<(), String> {
     let mut args = args;
     let json_output = args.iter().any(|a| a == "--json");
     args.retain(|a| a != "--json");
+    let sparse = extract_flag(&mut args, &["--sparse", "--smart", "-s"]);
     let selected_format = extract_output_format(&mut args)?;
     if args.len() < 2 {
         return Err(t_cli(
@@ -1563,7 +1564,7 @@ fn local_image_command(args: Vec<String>) -> Result<(), String> {
         cli_timestamp()
     ));
     let plan = output_format::plan_output(&raw_target, selected_format);
-    let task = disk::DiskAcquisitionTask::new(&source, &plan.working_path);
+    let task = disk::DiskAcquisitionTask::new(&source, &plan.working_path).with_sparse(sparse);
     let result = disk::run_disk_acquisition(&task, |done, total| {
         print_progress("imaj", done, total);
     })
@@ -2714,6 +2715,7 @@ struct ImageHelperRequest {
     target: PathBuf,
     owner_uid: Option<u32>,
     owner_gid: Option<u32>,
+    sparse: Option<bool>,
 }
 
 /// Root/admin yetkisiyle disk imajı alır ve ilerlemeyi/result dosyalarını günceller.
@@ -2732,7 +2734,8 @@ fn image_helper_command(args: Vec<String>) -> Result<(), String> {
         serde_json::from_slice(&fs::read(&request_path).map_err(|err| err.to_string())?)
             .map_err(|err| err.to_string())?;
 
-    let task = disk::DiskAcquisitionTask::new(&request.source, &request.target);
+    let task = disk::DiskAcquisitionTask::new(&request.source, &request.target)
+        .with_sparse(request.sparse.unwrap_or(true));
     let result = disk::run_disk_acquisition_with_control(
         &task,
         |done, total| {
@@ -3585,13 +3588,37 @@ fn disk_size_command(args: Vec<String>) -> Result<(), String> {
 }
 
 fn verify_command(args: Vec<String>) -> Result<(), String> {
-    if args.len() != 2 {
+    if args.is_empty() || args.len() > 3 {
         return Err(t_cli(
-            "Kullanim: verify <imaj> <sha256>",
-            "Usage: verify <image> <sha256>",
+            "Kullanim: verify <imaj> [beklenen_hash] [blake3|sha256|sha512|md5|sha1]",
+            "Usage: verify <image> [expected_hash] [blake3|sha256|sha512|md5|sha1]",
         ));
     }
-    let ok = disk::verify_image(&args[0], &args[1]).map_err(|err| err.to_string())?;
+    let image_path = Path::new(&args[0]);
+    if args.len() == 1 {
+        // Otomatik sidecar tespiti (.b3sum, .blake3, .sha256 vb.)
+        let ok = disk::verify_image_auto(image_path).map_err(|err| err.to_string())?;
+        println!("{}", if ok { "OK" } else { "FAIL" });
+        return Ok(());
+    }
+
+    let (expected_hash, algorithm) = if args.len() == 2 {
+        if let Some(alg) = HashAlgorithm::parse(&args[1]) {
+            let detected = hash::detect_sidecar_hash(image_path)
+                .map_err(|e| e.to_string())?
+                .filter(|(_, a)| *a == alg)
+                .ok_or_else(|| format!("{} sidecar dosyasi bulunamadi", alg.name()))?;
+            (detected.0, alg)
+        } else {
+            (args[1].clone(), HashAlgorithm::Sha256)
+        }
+    } else {
+        let alg = HashAlgorithm::parse(&args[2]).unwrap_or(HashAlgorithm::Sha256);
+        (args[1].clone(), alg)
+    };
+
+    let ok = disk::verify_image_with_algorithm(image_path, &expected_hash, algorithm)
+        .map_err(|err| err.to_string())?;
     println!("{}", if ok { "OK" } else { "FAIL" });
     Ok(())
 }
@@ -3667,6 +3694,7 @@ fn remote_image_command(args: Vec<String>) -> Result<(), String> {
     let mut args = args;
     let json_output = args.iter().any(|a| a == "--json");
     args.retain(|a| a != "--json");
+    let sparse = extract_flag(&mut args, &["--sparse", "--smart", "-s"]);
     let selected_format = extract_output_format(&mut args)?;
     if args.len() < 4 {
         return Err(t_cli(
@@ -3679,12 +3707,13 @@ fn remote_image_command(args: Vec<String>) -> Result<(), String> {
     let mut connection =
         RemoteConnection::connect(&args[0], port, token).map_err(|err| err.to_string())?;
     let result = connection
-        .acquire_image(
+        .acquire_image_ext(
             &args[2],
             None,
             &args[3],
             None,
             selected_format,
+            sparse,
             |done: u64, total: u64| {
                 if let Some(percent) = done.saturating_mul(100).checked_div(total) {
                     eprintln!("{}%", percent);
