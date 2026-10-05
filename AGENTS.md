@@ -15,14 +15,14 @@ cargo run -- ui-browser
 cargo fmt
 cargo test --locked
 node --check ui/app.js
-node --test tests/routes.test.js
+node --test tests/routes.test.js tests/shortcuts.test.js
 ```
 
 ## CI rules
 
 - `cargo fmt --all -- --check` must pass. Always run `cargo fmt` before committing.
 - CI uses `-D warnings` (converted from `RUSTFLAGS`). Fmt + no warnings required.
-- Every push to the `dev` branch triggers the CI pipeline. However, **full builds and prereleases** are only run if the commit message contains the `[build]` tag (or via `workflow_dispatch` manual trigger).
+- `main` dalına veya PR'lara yapılan her push CI testlerini tetikler. Ancak **tam derleme ve prerelease paketleri (AppImage, DEB, RPM, MSI)** yalnızca commit mesajında `[build]` etiketi varsa (veya `workflow_dispatch` manuel tetiklendiğinde) üretilir.
 
 ## Architecture
 
@@ -42,21 +42,25 @@ node --test tests/routes.test.js
 | `src/api/` | HTTP API handlers + router + state |
 | `src/server.rs` | HTTP server bootstrap |
 | `src/ram.rs` | RAM acquisition (AVML/WinPMEM/Volatility) |
-| `src/disk.rs` | Disk imaging |
+| `src/disk.rs` | Disk imaging & control engine |
+| `src/sparse/` | Akıllı seyrek blok motoru (NTFS, ext4, XFS, exFAT, FAT) |
+| `src/hash.rs` | Çok çekirdekli BLAKE3 SIMD & SHA-256 doğrulama motoru |
 | `src/android/` | Android ADB/acquisition modules |
 | `src/volatility.rs` | Volatility3 integration |
 | `ui/` | Frontend: ES modules, no framework |
+| `ui/shortcuts.js` | Klavye kısayolları ve dinamik Shift overlay motoru |
 | `ui/developer.js` | Dev console (5x logo click) |
 | `tests/routes.test.js` | Frontend module health tests |
+| `tests/shortcuts.test.js` | Klavye kısayol sistemi testleri |
 | `scripts/` | Linux/Windows build scripts |
 | `packaging/` | WiX MSI source |
 | `.github/workflows/ci.yml` | CI pipeline definition |
+| `SKILL.md` | CLI, Agent ve operasyonel komut referans kılavuzu |
 
 ## Repos & remotes
 
 - `origin` / `amelenext` → `amele-next/amele-next` (aktif geliştirme reposu)
 - `upstream` → `noirlang/amele` (ana repo - geliştirme esnasında push atılmaz, sadece ana sürüm tamamlandıktan sonra aktarılır)
-
 
 ## Quirks
 
@@ -73,6 +77,37 @@ node --test tests/routes.test.js
 - Windows: WebView2 Runtime, WiX 3.14 for MSI
 - Rust stable with `rustfmt` component
 
+---
+
+## Tasarım, Mimari ve Ürün İlkeleri (Product Principles)
+
+### 1. Tasarım Felsefesi ve Sadelik (UI/UX)
+- **Amaca Yönelik ve Dikkat Dağıtmayan Arayüz**: Amele bir adli bilişim (forensic) aracıdır. Gösterişli, hantal, dikkati dağıtan animasyonlar veya gereksiz görsel karmaşadan kesinlikle kaçınılmalıdır.
+- **Hafiflik & Bağımlılıksızlık**: Frontend tarafında harici framework (React, Vue, Tailwind derleyicileri, npm paketleri, bundler vb.) sokulamaz. Saf vanilya ES modülleri (`ui/*.js`) ve native CSS kullanılır.
+- **Native WebView Uyumu**: Uygulama masaüstünde wry / WebKit / WebView2 ile çalışır. `window.open` gibi tarayıcıya özgü pop-up'lar wry'da çalışmaz; tüm pencereler/paneller tek sayfada veya backend üzerinden (`/api/open-dev-console`) yönetilir.
+- **Yüksek Kontrast ve Tema Desteği**: Adli bilişim uzmanları karanlık ortamlarda da çalışabildiğinden koyu (dark) ve açık (light) tema tam uyumlu olmalı, kontrast oranları metin ve durum göstergelerinde net korunmalıdır.
+
+### 2. Klavye Kısayol Sistemi (Keyboard Shortcuts Architecture)
+Amele'de fare kullanımına mahkûm kalmadan klavye ile yüksek hızda adli operasyon yürütmek birincil tasarım kuralıdır.
+- **Shift Overlay İlkesi**: Klavyede `Shift` tuşuna basılı tutulduğunda, ekranda tıklanabilir tüm ana aksiyonların ve araç kartlarının üzerinde kısayol harf/rakam rozetleri (badge) dinamik olarak belirir; tuş bırakıldığında rozetler kaybolur.
+- **Hiyerarşi ve Öncelik**:
+  - Sayfa içi aksiyonlar (`ui/shortcuts.js`), küresel gezinme rotalarından önceliklidir (örneğin Shift+D sayfada temaya veya özel bir butona atanmışsa sayfa eylemi çalışır).
+  - Giriş alanlarında (`input`, `textarea`, `select` vb.) yazım esnasında kısayollar kesinlikle tetiklenmez.
+  - Vaka kısayolları (`Shift+C` veya `Shift+V` + rakam), araç çalıştırma (`Shift+1..9` veya tek basımlı rakamlar), radial menü açma (`Shift+M`).
+- **Geliştirme Standardı**: Yeni bir sayfa, modal veya buton eklendiğinde uygun `data-shortcut` özniteliği belirlenmeli ve `tests/shortcuts.test.js` test suite'i güncellenip hatasız geçmelidir.
+
+### 3. CLI Her Zaman Olmalı (CLI First & Parity İlkesi)
+- **Eksiksiz Eşlik Kuralı**: Arayüze (UI) eklenen **HER BİR** özellik (disk imajı alma, canlı RAM edinimi, hash doğrulama, imaj bağlama/analiz, vaka paketleme, export/import, profil yönetimi vb.) **MUTLAKA** CLI tarafında da (`amele <komut>`) eksiksiz çalışır durumda bulunmalıdır.
+- **Headless & Sunucu Uyumu**: Adli bilişim operasyonları çoğunlukla sunucularda veya terminal ortamında grafik arayüz olmadan yürütülür. CLI asla ikinci plana itilemez; UI olmadan da tüm iş akışı CLI ile baştan sona yapılabilmelidir.
+- **Makine Okunabilirliği (`--json`)**: Kritik CLI komutları script ve otomasyonlarda kullanılabilmek için `--json` bayrağını desteklemeli ve temiz JSON çıktısı üretmelidir.
+
+### 4. SKILL.md ve Dokümantasyon Senkronizasyon Kuralı
+- Kök dizindeki `SKILL.md` dosyası, yapay zeka ajanları ve geliştiriciler için projenin operasyonel kılavuzudur.
+- Kod tabanına yeni bir CLI komutu, bayrak, edinim yöntemi, algoritma veya mimari eklendiğinde/değiştiğinde, **`SKILL.md` dosyası da aynı işlem/PR kapsamında güncellenmek zorundadır**.
+- Dokümantasyonu güncellenmemiş veya CLI karşılığı yazılmamış hiçbir özellik tamamlanmış sayılamaz.
+
+---
+
 ## Agent, Dal (Branch) & PR Kuralları (Kesin Kurallar)
 
 Bu proje birden fazla geliştirici ve yapay zeka ajanları ile ortak yürütülmektedir. Projede çalışan tüm geliştiriciler ve yapay zeka ajanları aşağıdaki kurallara **istisnasız** uymak zorundadır:
@@ -80,7 +115,7 @@ Bu proje birden fazla geliştirici ve yapay zeka ajanları ile ortak yürütülm
 ### 1. Ajanların (AI Agents) Görevi ve Sınırları
 - Yapay zeka ajanları kod tabanında araştırma yapma, hata çözme, yeni özellik geliştirme, test yazma ve formatlama işlerinde geliştiricilere eşlik eder.
 - Ajanlar kullanıcıdan habersiz veya izinsiz kritik yapılandırmaları değiştiremez, diskleri biçimlendiremez veya doğrudan uzak sunucuya yetkisiz müdahalede bulunamaz.
-- Ajanlar kod tabanının mevcut mimarisine (Rust 2024 edition, wry/WebKit, vanilla ES modules) ve Türkçe kod içi yorum standartlarına tam sadık kalır.
+- Ajanlar kod tabanının mevcut mimarisine (Rust 2024 edition, wry/WebKit, vanilla ES modules), tasarım ilkelerine (sadelik, klavye kısayolları, CLI eşliği) ve Türkçe kod içi yorum standartlarına tam sadık kalır.
 
 ### 2. Dal (Branch) Açma ve PR (Pull Request) Zorunluluğu
 - **Doğrudan `main` dalına commit veya push atılması kesinlikle YASAKTIR.**

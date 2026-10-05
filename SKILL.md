@@ -26,6 +26,7 @@ Bu kılavuz; CLI komutlarının kullanımını, uzak sunucuya Linux/Windows agen
    - [6. Vaka Paketleme, Bilgi & Doğrulama (`case`)](#6-vaka-paketleme-bilgi--doğrulama)
    - [7. Bütünlük & İmaj Bağlama (`hash`, `verify`, `mount`)](#7-bütünlük--imaj-bağlama)
    - [8. Sistem & Güncelleme (`update`, `wireguard`, `ui`)](#8-sistem--güncelleme)
+   - [9. Masaüstü Arayüzü & Klavye Kısayolları (`ui`)](#9-masaüstü-arayüzü--klavye-kısayolları)
 4. [Standart POSIX Çıkış Kodları](#-standart-posix-çıkış-kodları)
 5. [Uzak Sunuculara Agent Kurulum Kılavuzu](#-uzak-sunuculara-agent-kurulum-kılavuzu)
    - [Linux Sunucuya Agent Kurulumu (`amele-linux`)](#linux-sunucuya-agent-kurulumu)
@@ -116,11 +117,19 @@ amele completion fish > ~/.config/fish/completions/amele.fish
 
 * **Yerel Disk İmajı Alma:**
   ```bash
-  # amele linux disk [acquire] <kaynak> <vaka_adi> [disk_adi] [raw|aff4]
-  amele linux disk /dev/nvme0n1 vaka_2026_01 disk1 raw
-  amele linux disk acquire /dev/sda vaka_2026_01 disk1 raw
-  amele windows disk \\.\PhysicalDrive0 vaka_2026_01 os_disk aff4
+  # Standart / Tam Disk Edinimi (Fiziksel DD - Silinmiş alanlar dahil tüm sektörler):
+  amele linux disk /dev/nvme0n1 vaka_2026_01 disk1 raw --full
+  amele linux disk acquire /dev/sda vaka_2026_01 disk1 raw -f
+  amele windows disk \\.\PhysicalDrive0 vaka_2026_01 os_disk aff4 --full
+
+  # Akıllı Seyrek (Sparse / Dolu Olan Kadar Al) Mod:
+  # Desteklenen dosya sistemlerinin (NTFS, ext4, XFS, exFAT, FAT16/32) bitmap haritalarını
+  # okuyarak boş sektörleri atlar, hedefte delikli (sparse) dosya oluşturur.
+  amele linux disk /dev/sda1 vaka_2026_01 usb1 raw --sparse
+  amele disk /dev/sdb vaka_2026_01 disk2 raw -s
   ```
+
+  > ⚠️ **Seyrek (Sparse) Mod Notu:** Seyrek modda boş kümeler atlandığı için boş alandaki silinmiş veriler (unallocated space) imaja dahil edilmez. Adli kurtarma ve silinen dosyaların taranması gerekiyorsa `--full` modu kullanılmalıdır. Diskte desteklenen bir dosya sistemi bulunamazsa sistem sessizce tam kopyalamaya düşmez, doğrudan `Diskiniz desteklenmiyor` hatası verir.
 
 * **Disk İmajı Yapısal Analizi:**
   ```bash
@@ -176,6 +185,8 @@ amele completion fish > ~/.config/fish/completions/amele.fish
   amele linux ram acquire vaka_2026_01
   amele windows ram vaka_2026_01 C:\tools\winpmem.exe raw
   ```
+
+  > ℹ️ **RAM Bütünlük ve Hash Notu:** RAM edinimi tamamlandığında dosya tek geçişte taranarak hem **SHA-256** hem de çok çekirdekli **BLAKE3** hash'leri eşzamanlı hesaplanır. Çıktı klasöründe hem `.sha256` hem de `.b3sum` yan dosyaları otomatik oluşturulur.
 
 * **Uzak Agent Üzerinden RAM İmajı Alma:**
   ```bash
@@ -319,14 +330,21 @@ amele case verify /delil/vaka1.amelecase
 
 ---
 
-### 7. Bütünlük & İmaj Bağlama
+### 7. Bütünlük & İmaj Bağlama (`hash`, `verify`, `mount`)
 
 ```bash
-# Dosya Hash Hesaplama
-amele hash /path/to/evidence.raw sha256       # md5, sha1, sha256, sha512
+# Dosya Hash Hesaplama (Çok çekirdekli BLAKE3, SHA-256, SHA-512, MD5, SHA-1)
+# BLAKE3: Rayon çoklu iş parçacığı + AVX-512/AVX2/NEON SIMD ile GB/s seviyesinde CPU darboğazsız çalışır.
+amele hash /path/to/evidence.raw blake3
+amele hash /path/to/evidence.raw sha256
 
-# İmaj Bütünlük Doğrulama
-amele verify /path/to/evidence.raw 7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069
+# Otomatik İmaj Bütünlük Doğrulama (Otomatik Sidecar Tespiti)
+# Dosya yanında .b3sum, .blake3 veya .sha256 dosyası varsa hash belirtmeden otomatik doğrular:
+amele verify /path/to/evidence.raw
+
+# Belirtilen Hash Değeri veya Algoritma ile Doğrulama
+amele verify /path/to/evidence.raw <beklenen_hash> blake3
+amele verify /path/to/evidence.raw <beklenen_hash> sha256
 
 # Adli İmaj Bağlama (Mount)
 amele mount /path/to/evidence.raw             # Salt-okunur loop/partition mount (sudo)
@@ -348,6 +366,28 @@ amele update                                  # Güncellemeleri kontrol et (AppI
 amele update --json                           # Güncelleme bilgisini JSON olarak ver
 amele wireguard /tmp/wg0.conf                 # Varsayılan güvenli WireGuard VPN yapılandırması üret
 ```
+
+---
+
+### 9. Masaüstü Arayüzü & Klavye Kısayolları
+
+Amele masaüstü arayüzü, bağımlılıksız saf ES modülleri (`ui/*.js`) ve native WebKit/WebView2 üzerinde çalışır. Klavye odaklı yüksek hızlı adli operasyon için dinamik bir kısayol motoru içerir:
+
+* **Dinamik Shift Overlay:** Arayüzde herhangi bir ekrandayken `Shift` tuşuna basılı tutulduğunda, o sayfada tıklanabilir tüm kartların, butonların ve menü öğelerinin üzerinde kısayol harf/rakam rozetleri belirir. Tuş bırakıldığında rozetler kaybolur.
+* **Küresel Rota Kısayolları:**
+  - `Shift + H`: Ana Sayfa (Home)
+  - `Shift + W`: İş Akışı & Araçlar (Workflow)
+  - `Shift + L`: Olay Günlükleri (Logs)
+  - `Shift + D`: Tema Değiştir / Geliştirici Paneli
+  - `Shift + M`: Amele Radial İşlem Menüsünü Aç / Kapat
+  - `Shift + V` veya `Shift + C`: Vaka Yönetim Kenar Çubuğunu Aç / Kapat
+  - `Shift + T`: Arayüz Dilini Değiştir (TR / EN)
+* **Vaka ve Araç Hızlı Seçimi:**
+  - `Shift + C` veya `Shift + V` ardından `1..9`: İlgili numaralı vakayı anında aktif seçer.
+  - `Shift + N`: Yeni Vaka Oluşturma penceresini açar.
+  - `1..9` veya `Shift + 1..9`: Sayfadaki adli araç kartlarını anında çalıştırır.
+* **Geliştirici Konsolu:** Logo üzerine 5 kez art arda tıklandığında dahili geliştirici ve API izleme paneli açılır.
+
 
 ---
 
