@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Amele Linux Agent v0.0.7
+Amele Linux Agent v0.0.8
 - TUI startup wizard
 - Remote disk imaging protocol compatible with controller
 - AVML check/install guidance + RAM acquisition over protocol
@@ -11,8 +11,10 @@ import binascii
 import hashlib
 import json
 import os
+import platform
 import shutil
 import socket
+import ssl
 import stat
 import subprocess
 import sys
@@ -20,9 +22,11 @@ import tarfile
 import tempfile
 import threading
 import time
+import urllib.error
+import urllib.request
 from datetime import datetime
 
-VERSION = "0.0.7"
+VERSION = "0.0.8"
 HOST = "0.0.0.0"
 DEFAULT_PORT = 4444
 BUFFER_SIZE = 1024 * 1024
@@ -118,6 +122,18 @@ def app_base_dir():
     return os.path.dirname(os.path.abspath(__file__))
 
 
+def clean_subproc_env(extra=None):
+    # pyinstaller tek dosya calisirken gomulu openssl ve diger kutuphanelerini ld_library_path ile disa sizdiriyor.
+    # bu da sistemdeki curl/wget/avml gibi binary'lerin libcrypto sembol uyumsuzluguyla patlamasina yol aciyor.
+    # sistem araclari calistirilirken ortam degiskenlerini temizliyoruz.
+    env = os.environ.copy()
+    for var in ["LD_LIBRARY_PATH", "LIBPATH", "LD_PRELOAD"]:
+        env.pop(var, None)
+    if extra:
+        env.update(extra)
+    return env
+
+
 def load_os_release():
     data = {}
     try:
@@ -181,11 +197,11 @@ def calc_mem_total_bytes():
 def list_disks_linux():
     try:
         cmd = ["lsblk", "-J", "-b", "-n", "-o", "NAME,SIZE,TYPE"]
-        out = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        out = subprocess.check_output(cmd, stderr=subprocess.STDOUT, env=clean_subproc_env())
         obj = json.loads(out.decode("utf-8", errors="ignore"))
     except Exception:
         cmd = ["lsblk", "-J", "-b", "-dn", "-o", "NAME,SIZE,TYPE"]
-        out = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        out = subprocess.check_output(cmd, stderr=subprocess.STDOUT, env=clean_subproc_env())
         obj = json.loads(out.decode("utf-8", errors="ignore"))
 
     result = []
@@ -230,7 +246,8 @@ def check_disk_sparse_support_linux(disk_path):
     try:
         out = subprocess.check_output(
             ["lsblk", "-rno", "FSTYPE", disk_path],
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
+            env=clean_subproc_env(),
         ).decode("utf-8", errors="ignore")
         for line in out.splitlines():
             fstype = line.strip().lower()
@@ -243,7 +260,8 @@ def check_disk_sparse_support_linux(disk_path):
     try:
         out = subprocess.check_output(
             ["blkid", disk_path],
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
+            env=clean_subproc_env(),
         ).decode("utf-8", errors="ignore")
         for token in out.split():
             if token.upper().startswith('TYPE="'):
@@ -272,7 +290,7 @@ def disk_size_bytes_linux(path):
     # Block devices often report 0 via getsize; use blockdev/lsblk.
     if stat.S_ISBLK(st.st_mode):
         try:
-            out = subprocess.check_output(["blockdev", "--getsize64", path], stderr=subprocess.STDOUT)
+            out = subprocess.check_output(["blockdev", "--getsize64", path], stderr=subprocess.STDOUT, env=clean_subproc_env())
             size = int(out.decode("utf-8", errors="ignore").strip() or "0")
             if size > 0:
                 return size
@@ -280,7 +298,7 @@ def disk_size_bytes_linux(path):
             pass
 
         try:
-            out = subprocess.check_output(["lsblk", "-b", "-dn", "-o", "SIZE", path], stderr=subprocess.STDOUT)
+            out = subprocess.check_output(["lsblk", "-b", "-dn", "-o", "SIZE", path], stderr=subprocess.STDOUT, env=clean_subproc_env())
             size = int(out.decode("utf-8", errors="ignore").strip() or "0")
             if size > 0:
                 return size
@@ -290,18 +308,165 @@ def disk_size_bytes_linux(path):
     return 0
 
 
+def avml_download_urls():
+    # mimariye gore dogru binary adini belirliyoruz, arm64 makinelerde x86 calismaz
+    arch = platform.machine().lower()
+    asset = "avml-aarch64" if arch in {"aarch64", "arm64"} else "avml"
+    urls = []
+    if asset == "avml":
+        urls.append(AVML_DIRECT_URL)
+    urls.append(f"https://github.com/microsoft/avml/releases/latest/download/{asset}")
+    return urls
+
+
+def download_avml(script_dir, log_cb=None):
+    hedef = os.path.join(script_dir, AVML_BIN_NAME)
+    gecici = hedef + ".download"
+
+    # onceden yarim kalmis veya wget'in dns hatasinda arkasinda biraktigi 0 baytlik cop dosyalari siliyoruz
+    if os.path.exists(hedef) and os.path.getsize(hedef) == 0:
+        try:
+            os.remove(hedef)
+        except Exception:
+            pass
+
+    # 1. oncelikle dahili python urllib ile deniyoruz.
+    # harici curl/wget bagimliligi yoktur ve kutuphane cakismasi yasamadan calisir
+    headers = {"User-Agent": f"Amele-Agent/{VERSION}"}
+    for url in avml_download_urls():
+        attempts = [("verified TLS", None)]
+        if "amele.noirlang.tr" in url:
+            attempts.append(("fallback TLS", ssl._create_unverified_context()))
+
+        for label, ctx in attempts:
+            try:
+                if os.path.exists(gecici):
+                    try:
+                        os.remove(gecici)
+                    except Exception:
+                        pass
+                if log_cb:
+                    log_cb(f"AVML indiriliyor ({label}): {url}")
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=45, context=ctx) as resp:
+                    with open(gecici, "wb") as f:
+                        while True:
+                            chunk = resp.read(1024 * 1024)
+                            if not chunk:
+                                break
+                            f.write(chunk)
+                if os.path.exists(gecici) and os.path.getsize(gecici) > 0:
+                    os.chmod(gecici, 0o755)
+                    os.replace(gecici, hedef)
+                    if log_cb:
+                        log_cb(f"AVML basariyla kuruldu: {hedef}")
+                    return True, hedef
+            except Exception as e:
+                if log_cb:
+                    log_cb(f"urllib ile indirme basarisiz ({url}): {e}")
+            finally:
+                if os.path.exists(gecici):
+                    try:
+                        os.remove(gecici)
+                    except Exception:
+                        pass
+
+    # 2. urllib yetersiz kalirsa curl denemesi (temizlenmis ortam degiskeniyle)
+    if shutil.which("curl"):
+        for url in avml_download_urls():
+            try:
+                if log_cb:
+                    log_cb(f"curl ile AVML deneniyor: {url}")
+                res = subprocess.run(
+                    ["curl", "-sSL", url, "-o", gecici],
+                    env=clean_subproc_env(),
+                    timeout=60,
+                )
+                if res.returncode == 0 and os.path.exists(gecici) and os.path.getsize(gecici) > 0:
+                    os.chmod(gecici, 0o755)
+                    os.replace(gecici, hedef)
+                    if log_cb:
+                        log_cb(f"AVML curl ile kuruldu: {hedef}")
+                    return True, hedef
+            except Exception as e:
+                if log_cb:
+                    log_cb(f"curl indirme hatasi: {e}")
+            finally:
+                if os.path.exists(gecici):
+                    try:
+                        os.remove(gecici)
+                    except Exception:
+                        pass
+
+    # 3. son care wget denemesi
+    if shutil.which("wget"):
+        for url in avml_download_urls():
+            try:
+                if log_cb:
+                    log_cb(f"wget ile AVML deneniyor: {url}")
+                res = subprocess.run(
+                    ["wget", "-q", url, "-O", gecici],
+                    env=clean_subproc_env(),
+                    timeout=60,
+                )
+                if res.returncode == 0 and os.path.exists(gecici) and os.path.getsize(gecici) > 0:
+                    os.chmod(gecici, 0o755)
+                    os.replace(gecici, hedef)
+                    if log_cb:
+                        log_cb(f"AVML wget ile kuruldu: {hedef}")
+                    return True, hedef
+            except Exception as e:
+                if log_cb:
+                    log_cb(f"wget indirme hatasi: {e}")
+            finally:
+                if os.path.exists(gecici):
+                    try:
+                        os.remove(gecici)
+                    except Exception:
+                        pass
+
+    # hedef dosya bos olusmus kalmissa temizle ki sonraki adimlarda exec format error vermesin
+    if os.path.exists(hedef) and os.path.getsize(hedef) == 0:
+        try:
+            os.remove(hedef)
+        except Exception:
+            pass
+
+    return False, ""
+
+
 def find_avml(script_dir):
     local_path = os.path.join(script_dir, AVML_BIN_NAME)
-    if os.path.isfile(local_path) and os.access(local_path, os.X_OK):
-        return local_path
+    # bos dosya kalmissa copluk yapmasin diye siliyoruz
+    if os.path.isfile(local_path) and os.path.getsize(local_path) == 0:
+        try:
+            os.remove(local_path)
+        except Exception:
+            pass
+
+    if os.path.isfile(local_path) and os.path.getsize(local_path) > 0:
+        if not os.access(local_path, os.X_OK):
+            try:
+                os.chmod(local_path, 0o755)
+            except Exception:
+                pass
+        if os.access(local_path, os.X_OK):
+            return local_path
 
     found = shutil.which(AVML_BIN_NAME)
-    if found:
-        return found
+    if found and os.path.isfile(found) and os.path.getsize(found) > 0:
+        if not os.access(found, os.X_OK):
+            try:
+                os.chmod(found, 0o755)
+            except Exception:
+                pass
+        if os.access(found, os.X_OK):
+            return found
 
-    if os.path.isfile(local_path):
-        # Allow non-executable local file but we will chmod before running.
-        return local_path
+    # sistem dizinlerindeki standart yollari da kontrol ediyoruz
+    for sys_path in ["/usr/bin/avml", "/usr/local/bin/avml", "/opt/avml/avml"]:
+        if os.path.isfile(sys_path) and os.path.getsize(sys_path) > 0 and os.access(sys_path, os.X_OK):
+            return sys_path
 
     return ""
 
@@ -331,31 +496,16 @@ def try_install_avml(lang, t):
 
     print(f"{t['repo_try']} {' '.join(full_cmd)}")
     try:
-        subprocess.run(full_cmd, check=True)
+        subprocess.run(full_cmd, env=clean_subproc_env(), check=True)
         return True
     except Exception:
         return False
 
 
 def try_install_avml_via_wget(script_dir, t):
-    hedef = os.path.join(script_dir, AVML_BIN_NAME)
-    if shutil.which("wget"):
-        print(f"{t['wget_try']} wget {AVML_DIRECT_URL}")
-        try:
-            subprocess.run(["wget", AVML_DIRECT_URL, "-O", hedef], check=True)
-            subprocess.run(["chmod", "+x", hedef], check=True)
-            return os.path.isfile(hedef) and os.access(hedef, os.X_OK)
-        except Exception:
-            pass
-    if shutil.which("curl"):
-        print(f"{t['wget_try']} curl {AVML_DIRECT_URL}")
-        try:
-            subprocess.run(["curl", "-sSL", AVML_DIRECT_URL, "-o", hedef], check=True)
-            subprocess.run(["chmod", "+x", hedef], check=True)
-            return os.path.isfile(hedef) and os.access(hedef, os.X_OK)
-        except Exception:
-            pass
-    return False
+    # geriye uyumluluk amaciyla sihirbaz tarafindan cagrilan fonksiyon artik cok kanalli indirmeyi tetikliyor
+    ok, path = download_avml(script_dir, log_cb=print)
+    return ok
 
 
 def docker_get_status():
@@ -843,7 +993,7 @@ class LinuxAgentController:
 
     def _fs_type(self, path):
         try:
-            out = subprocess.check_output(["stat", "-f", "-c", "%T", path], stderr=subprocess.STDOUT)
+            out = subprocess.check_output(["stat", "-f", "-c", "%T", path], stderr=subprocess.STDOUT, env=clean_subproc_env())
             return out.decode("utf-8", errors="ignore").strip().lower()
         except Exception:
             return ""
@@ -1252,6 +1402,14 @@ class LinuxAgentController:
 
         avml = self.avml_path or find_avml(self.script_dir)
         if not avml:
+            # avml bulunamadiysa edinim oncesi otomatik indirmeyi deniyoruz
+            self.log("AVML bulunamadi, otomatik olarak indirilmeye calisiliyor...")
+            ok, indirilen = download_avml(self.script_dir, log_cb=self.log)
+            if ok:
+                avml = indirilen
+                self.avml_path = avml
+
+        if not avml:
             json_send(conn, {"tur": "hata", "is_id": job_id, "format": output_format, "mesaj": "AVML not found", "kod": "AVML_NOT_FOUND"})
             self._clear_job_state(job_id)
             return
@@ -1284,16 +1442,35 @@ class LinuxAgentController:
             os.makedirs(avml_tmp_dir, exist_ok=True)
         except Exception:
             avml_tmp_dir = ram_work_dir
-        avml_env = os.environ.copy()
-        avml_env["TMPDIR"] = avml_tmp_dir
-        avml_env["TMP"] = avml_tmp_dir
-        avml_env["TEMP"] = avml_tmp_dir
+        # avml calistirilirken pyinstaller dinamik kutuphanelerinin sizmasini onluyoruz
+        avml_env = clean_subproc_env({
+            "TMPDIR": avml_tmp_dir,
+            "TMP": avml_tmp_dir,
+            "TEMP": avml_tmp_dir,
+        })
         self.log(f"AVML temp path: {avml_tmp_dir}")
 
-        cmd_candidates = [
-            [avml, output_file],
-            [avml, "--source", "/proc/kcore", output_file],
-        ]
+        # avml'in yeni surumlerinde (v0.2+) 'acquire' alt komutu zorunludur.
+        # eski surumlerinde ise dogrudan dosya yolu verilir.
+        # dinamik olarak avml --help ciktisina bakarak tespit ediyoruz.
+        use_acquire = False
+        try:
+            help_out = subprocess.check_output([avml, "--help"], stderr=subprocess.STDOUT, env=avml_env).decode(errors="ignore")
+            if "acquire" in help_out:
+                use_acquire = True
+        except Exception:
+            pass
+
+        if use_acquire:
+            cmd_candidates = [
+                [avml, "acquire", output_file],
+                [avml, "acquire", "--source", "/proc/kcore", output_file],
+            ]
+        else:
+            cmd_candidates = [
+                [avml, output_file],
+                [avml, "--source", "/proc/kcore", output_file],
+            ]
 
         label = self.t["progress_ram"]
 
@@ -1600,6 +1777,12 @@ class LinuxAgentController:
 
                 elif cmd == "avml_kontrol":
                     avml = self.avml_path or find_avml(self.script_dir)
+                    if not avml and message.get("otomatik_indir", False):
+                        self.log("AVML kontrol sirasinda otomatik indirme istendi...")
+                        ok, indirilen = download_avml(self.script_dir, log_cb=self.log)
+                        if ok:
+                            avml = indirilen
+                            self.avml_path = avml
                     json_send(conn, {
                         "durum": "ok",
                         "avml_mevcut": bool(avml),
@@ -1607,6 +1790,18 @@ class LinuxAgentController:
                         "yonetici_yetkisi": os.geteuid() == 0,
                         "ram_boyut": calc_mem_total_bytes(),
                         "mesaj": "AVML ready" if avml else "AVML not found",
+                    })
+
+                elif cmd == "avml_indir":
+                    self.log("AVML indirme komutu alindi...")
+                    ok, indirilen = download_avml(self.script_dir, log_cb=self.log)
+                    if ok:
+                        self.avml_path = indirilen
+                    json_send(conn, {
+                        "durum": "ok" if ok else "hata",
+                        "avml_mevcut": bool(ok),
+                        "avml_yol": self.avml_path or "",
+                        "mesaj": "AVML indirildi" if ok else "AVML indirilemedi",
                     })
 
                 elif cmd == "ram_edinim_baslat":

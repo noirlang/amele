@@ -420,8 +420,9 @@ scp /home/ra/Projects/amele-pack/amele-linux-next/linux.py root@192.168.1.100:/o
 
 #### 2. Canlı Olarak Çalıştırma (Hızlı Triage)
 ```bash
-# Hedef sunucuda:
-sudo python3 /opt/amele-linux.py --port 9000 --token "GucluGizliToken2026!"
+# Hedef sunucuda (RAM edinimi için root/sudo gereklidir):
+# Not: Agent açılışta veya RAM edinimi çağrıldığında sistemde AVML yoksa Python urllib ve fallback kanallarıyla otomatik indirir.
+sudo ./amele-linux --port 9000 --key "GucluGizliToken2026!"
 ```
 
 #### 3. Systemd Servisi Olarak Kurma (Kalıcı Sunucu Ajanı)
@@ -437,7 +438,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/opt
-ExecStart=/usr/bin/python3 /opt/amele-linux.py --port 9000 --token "GucluGizliToken2026!"
+ExecStart=/opt/amele-linux --port 9000 --key "GucluGizliToken2026!"
 Restart=on-failure
 RestartSec=5s
 
