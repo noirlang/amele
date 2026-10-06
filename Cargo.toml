@@ -18,6 +18,7 @@ flate2 = "1"
 regex = "1"
 tar = "0.4"
 ureq = "3"
+tsp-http-client = "0.1"
 ssh2 = { version = "0.9", features = ["vendored-openssl"] }
 blake3 = { version = "1.8.7", features = ["rayon", "mmap"] }
 

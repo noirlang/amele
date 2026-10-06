@@ -301,6 +301,14 @@ pub fn route_api(method: &str, path: &str, body: &[u8]) -> Response {
             );
             hash_api::hash_endpoint(body)
         }
+        ("POST", "/api/hash-timestamp") => {
+            crate::logging::runtime_log(
+                crate::logging::LogLevel::Info,
+                "api:hash",
+                "RFC 3161 TSA zaman damgasi talebi alindi",
+            );
+            hash_api::hash_timestamp_endpoint(body)
+        }
         ("POST", "/api/local-image") => {
             crate::logging::runtime_log(
                 crate::logging::LogLevel::Info,

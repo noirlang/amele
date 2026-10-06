@@ -4515,6 +4515,10 @@ async function handleAction(button) {
     await calculateHashInOther();
     return;
   }
+  if (action === "timestamp-hash") {
+    await timestampHashInOther();
+    return;
+  }
 
   const label = button.textContent.trim().replace(/\s+/g, " ");
   writeWorkflowLog(`${label}: ${t("ready")}`);
@@ -5850,6 +5854,7 @@ async function calculateHashInOther() {
     showToast(t("hash.fileRequired"), "error");
     return;
   }
+
   const algSelect = document.querySelector("#hash-algorithm");
   const method = algSelect?.value || "sha256";
   state.hashTargetInput = path;
@@ -5892,6 +5897,46 @@ async function calculateHashInOther() {
       `${icon("info")} ${t("hash.failed", { message: escapeHtml(err.message) })}`
     );
     showToast(t("hash.failed", { message: err.message }), "error");
+  }
+}
+
+async function timestampHashInOther() {
+  const path = document.querySelector("#hash-target-path")?.value?.trim();
+  const tsaUrl = document.querySelector("#hash-tsa-url")?.value?.trim();
+  if (!path) {
+    showToast(t("hash.fileRequired"), "error");
+    return;
+  }
+  if (!tsaUrl) {
+    showToast(t("hash.tsaRequired"), "error");
+    return;
+  }
+  state.hashTargetInput = path;
+  state.tsaUrl = tsaUrl;
+  setStatus("[data-hash-status]", `${icon("clock")} ${t("hash.timestamping")}`);
+  try {
+    const result = await apiRequest("/api/hash-timestamp", {
+      method: "POST",
+      body: JSON.stringify({ path, tsa_url: tsaUrl }),
+    });
+    state.hashResult = {
+      ...(state.hashResult || {}),
+      path,
+      sha256: result.sha256,
+      tsa_url: result.tsa_url,
+      timestamped_at: result.timestamped_at,
+      timestamp_response_path: result.timestamp_response_path,
+    };
+    const outBox = document.querySelector("[data-hash-output]");
+    if (outBox) outBox.innerHTML = renderHashResult(state.hashResult, t);
+    setStatus("[data-hash-status]", `${icon("shield")} ${t("hash.timestamped")}`);
+    showToast(t("hash.timestamped"));
+  } catch (err) {
+    setStatus(
+      "[data-hash-status]",
+      `${icon("info")} ${t("hash.timestampFailed", { message: escapeHtml(err.message) })}`
+    );
+    showToast(t("hash.timestampFailed", { message: err.message }), "error");
   }
 }
 

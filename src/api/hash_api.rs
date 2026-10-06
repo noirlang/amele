@@ -2,7 +2,8 @@
 
 use serde::Deserialize;
 use serde_json::Value;
-use std::path::Path;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 use crate::hash::{self, HashAlgorithm};
 use crate::server::{Response, json_error, json_ok};
@@ -68,6 +69,78 @@ pub fn hash_endpoint(body: &[u8]) -> Response {
         }
         Err(err) => json_error(500, err.to_string()),
     }
+}
+
+/// SHA-256 özeti için RFC 3161 zaman damgası alır ve DER yanıtını sidecar olarak saklar.
+pub fn hash_timestamp_endpoint(body: &[u8]) -> Response {
+    #[derive(Deserialize)]
+    struct TimestampRequest {
+        path: String,
+        tsa_url: Option<String>,
+    }
+
+    let request: TimestampRequest = match serde_json::from_slice(body) {
+        Ok(request) => request,
+        Err(err) => return json_error(400, format!("Gecersiz istek JSON: {}", err)),
+    };
+    let path = request.path.trim();
+    if path.is_empty() {
+        return json_error(400, "path parametresi bos olamaz");
+    }
+    let target = Path::new(path);
+    if !target.is_file() {
+        return json_error(404, format!("Hedef dosya bulunamadi: {}", path));
+    }
+
+    let tsa_url = request
+        .tsa_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("https://freetsa.org/tsr");
+    let sha256 = match hash::calculate_file_hash(target, HashAlgorithm::Sha256) {
+        Ok(value) => value,
+        Err(err) => return json_error(500, err.to_string()),
+    };
+    let timestamp = match tsp_http_client::request_timestamp_for_digest(tsa_url, &sha256) {
+        Ok(timestamp) => timestamp,
+        Err(err) => return json_error(502, format!("TSA zaman damgasi alinamadi: {err}")),
+    };
+    let timestamped_at = match timestamp.datetime() {
+        Ok(value) => value.to_rfc3339(),
+        Err(err) => return json_error(502, format!("TSA yaniti gecersiz: {err}")),
+    };
+
+    let sidecar = timestamp_sidecar_path(target);
+    if let Err(err) = fs::write(&sidecar, timestamp.as_der_encoded()) {
+        return json_error(500, format!("TSA yaniti kaydedilemedi: {err}"));
+    }
+
+    let _ = crate::profile::record_active_profile_activity(
+        "hash",
+        "timestamp",
+        None,
+        Some(&format!("Dosya: {}, TSA: {}", path, tsa_url)),
+    );
+    json_ok(serde_json::json!({
+        "path": path,
+        "sha256": sha256,
+        "tsa_url": tsa_url,
+        "timestamped_at": timestamped_at,
+        "timestamp_response_path": sidecar,
+        "protocol": "RFC 3161",
+    }))
+}
+
+fn timestamp_sidecar_path(target: &Path) -> PathBuf {
+    target.with_extension(format!(
+        "{}tsr",
+        target
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| format!("{ext}."))
+            .unwrap_or_default()
+    ))
 }
 
 /// API'den gelen hash algoritması stringlerini tekilleştirilmiş enum listesine çevirir.
@@ -202,5 +275,28 @@ mod tests {
         assert!(val.get("md5").is_some());
         assert!(val.get("sha256").is_some());
         assert!(val.get("sha1").is_none());
+    }
+
+    #[test]
+    fn test_timestamp_sidecar_path() {
+        assert_eq!(
+            timestamp_sidecar_path(Path::new("/tmp/evidence.raw")),
+            PathBuf::from("/tmp/evidence.raw.tsr")
+        );
+        assert_eq!(
+            timestamp_sidecar_path(Path::new("/tmp/evidence")),
+            PathBuf::from("/tmp/evidence.tsr")
+        );
+    }
+
+    #[test]
+    fn test_hash_timestamp_endpoint_validation() {
+        assert_eq!(hash_timestamp_endpoint(b"invalid").status, 400);
+        assert_eq!(hash_timestamp_endpoint(br#"{"path":""}"#).status, 400);
+        assert_eq!(
+            hash_timestamp_endpoint(br#"{"path":"/tmp/nonexistent_file_amele_tsa_test_12345"}"#)
+                .status,
+            404
+        );
     }
 }

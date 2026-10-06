@@ -149,6 +149,7 @@ export function hashPanel(pickerField, field, state, t, icon) {
   const method = state?.hashMethod || "sha256";
   const path = state?.hashTargetInput || "";
   const result = state?.hashResult || null;
+  const tsaUrl = state?.tsaUrl || "https://freetsa.org/tsr";
 
   return `
     <p class="section-label">${t("hash.title")}</p>
@@ -172,6 +173,13 @@ export function hashPanel(pickerField, field, state, t, icon) {
     <div class="button-row" style="margin: 16px 0;">
       <button class="primary-button" data-action="run-hash" data-shortcut="H">${icon("shield")} ${t("hash.calculate")}<span class="shortcut-key-badge" aria-hidden="true">H</span></button>
     </div>
+    ${field(
+      t("hash.tsaUrl"),
+      `<input id="hash-tsa-url" class="input" type="url" value="${escapeHtml(tsaUrl)}" />`
+    )}
+    <div class="button-row" style="margin: 16px 0;">
+      <button class="secondary-button" data-action="timestamp-hash">${icon("clock")} ${t("hash.timestamp")}</button>
+    </div>
     <div class="status-badge" data-hash-status style="display:none"></div>
     <div class="log-box" data-hash-output style="margin-top: 14px;">
       ${result ? renderHashResult(result, t) : t("hash.outputWaiting")}
@@ -187,6 +195,8 @@ function renderHashResult(res, t) {
     out += `<strong>SHA-256:</strong> <code style="word-break:break-all">${res.sha256}</code><br/>`;
   if (res.md5)
     out += `<strong>MD5:</strong> <code style="word-break:break-all">${res.md5}</code><br/>`;
+  if (res.timestamped_at)
+    out += `<strong>${t("hash.timestampedAt")}:</strong> ${res.timestamped_at}<br/><strong>${t("hash.timestampResponse")}:</strong> <code style="word-break:break-all">${res.timestamp_response_path}</code><br/>`;
   return out;
 }
 
