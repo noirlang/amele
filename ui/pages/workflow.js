@@ -2,20 +2,49 @@
 
 import { icon as defaultIcon } from "../icons.js";
 
-export function workflowPage({ id, workflows, state, t, icon, localText, canonicalRamFileName, caseSelectOptions, caseOutputLabel, escapeHtml }) {
+export function workflowPage({
+  id,
+  workflows,
+  state,
+  t,
+  icon,
+  localText,
+  canonicalRamFileName,
+  caseSelectOptions,
+  caseOutputLabel,
+  escapeHtml,
+}) {
   const data = workflows[id] || workflows["windows-remote-disk"];
   const isSsh = data.mode.startsWith("ssh");
   const isRemote = data.mode.startsWith("remote") || isSsh;
   const isRam = data.mode.includes("ram");
   const toolCheck = data.platform === "Windows" ? "WinPMEM" : "AVML";
   const initialTargetLabel = t("scanDisksFirst");
-  const outputField = isRam ? ramCasePanel({ t, icon, state, caseSelectOptions, caseOutputLabel, escapeHtml, canonicalRamFileName }) : imageCasePanel({ t, icon, state, caseSelectOptions, caseOutputLabel, escapeHtml });
+  const outputField = isRam
+    ? ramCasePanel({
+        t,
+        icon,
+        state,
+        caseSelectOptions,
+        caseOutputLabel,
+        escapeHtml,
+        canonicalRamFileName,
+        platform: data.platform,
+      })
+    : imageCasePanel({ t, icon, state, caseSelectOptions, caseOutputLabel, escapeHtml });
   const targetSelect = isRam
     ? ""
-    : field(t("workflow.disk"), `<select class="select" data-field="target"><option value="" disabled selected>${initialTargetLabel}</option></select>`);
+    : field(
+        t("workflow.disk"),
+        `<select class="select" data-field="target"><option value="" disabled selected>${initialTargetLabel}</option></select>`
+      );
   const scanLabel = isRam
-    ? (isRemote ? t("workflow.checkTool", { tool: toolCheck }) : t("workflow.checkToolAction", { tool: toolCheck }))
-    : (isRemote ? t("workflow.scanDisks") : t("workflow.scanLocalDisks"));
+    ? isRemote
+      ? t("workflow.checkTool", { tool: toolCheck })
+      : t("workflow.checkToolAction", { tool: toolCheck })
+    : isRemote
+      ? t("workflow.scanDisks")
+      : t("workflow.scanLocalDisks");
 
   const isWindows = data.platform === "Windows";
   const defaultUser = isWindows ? "Administrator" : "root";
@@ -71,7 +100,9 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
       `;
 
   const backRoute = isWindows ? "windows" : "linux";
-  const backLabel = isWindows ? (t("nav.windows") || "Windows Araçları") : (t("nav.linux") || "Linux Araçları");
+  const backLabel = isWindows
+    ? t("nav.windows") || "Windows Araçları"
+    : t("nav.linux") || "Linux Araçları";
 
   return `
     <section class="page">
@@ -90,12 +121,20 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
             <div class="section-divider"></div>
             <p class="section-label">${t("workflow.caseSection")}</p>
             ${outputField}
-            ${isRam ? field(t("workflow.outputFormat"), `
+            ${
+              isRam
+                ? field(
+                    t("workflow.outputFormat"),
+                    `
               <select class="select" data-field="output-format">
                 <option value="raw">${t("workflow.formatRaw")}</option>
                 <option value="aff4">${t("workflow.formatAff4")}</option>
               </select>
-            `) : field(t("workflow.outputFormat"), `
+            `
+                  )
+                : field(
+                    t("workflow.outputFormat"),
+                    `
               <select class="select" data-field="output-format">
                 <option value="raw_sparse" selected>${t("workflow.formatRawSparse")}</option>
                 <option value="raw_full">${t("workflow.formatRawFull")}</option>
@@ -103,7 +142,9 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
                 <option value="aff4_full">${t("workflow.formatAff4Full")}</option>
               </select>
               <p class="field-hint" style="margin-top:6px; font-size:12px; color:var(--text-muted); line-height:1.4;">${t("workflow.sparseModeHint")}</p>
-            `)}
+            `
+                  )
+            }
             <div class="section-divider"></div>
             <p class="section-label">${isRam ? t("workflow.ramOutput") : t("workflow.diskOutput")}</p>
             ${targetSelect}
@@ -139,7 +180,6 @@ export function workflowPage({ id, workflows, state, t, icon, localText, canonic
   `;
 }
 
-
 export function pageTitle(title, _desc, iconName, icon = defaultIcon) {
   return `
     <div class="page-title">
@@ -160,7 +200,10 @@ export function field(label, control) {
 
 export function pickerField(label, id, value, type = "file", icon = defaultIcon, t = (key) => key) {
   const action = type === "folder" ? "pick-folder" : "pick-file";
-  const placeholderOnly = value.startsWith(".") || value.toLowerCase().includes("seç") || value.toLowerCase().includes("select");
+  const placeholderOnly =
+    value.startsWith(".") ||
+    value.toLowerCase().includes("seç") ||
+    value.toLowerCase().includes("select");
   const valueAttr = placeholderOnly ? `placeholder="${value}" value=""` : `value="${value}"`;
   return field(
     label,
@@ -169,18 +212,39 @@ export function pickerField(label, id, value, type = "file", icon = defaultIcon,
 }
 
 function imageCasePanel({ t, icon, state, caseSelectOptions, caseOutputLabel, escapeHtml }) {
-  return casePanel("ciktilar", t("workflow.caseHint"), { t, icon, state, caseSelectOptions, caseOutputLabel, escapeHtml });
+  return casePanel("ciktilar", t("workflow.caseHint"), {
+    t,
+    icon,
+    state,
+    caseSelectOptions,
+    caseOutputLabel,
+    escapeHtml,
+  });
 }
 
-function ramCasePanel({ t, icon, state, caseSelectOptions, caseOutputLabel, escapeHtml, canonicalRamFileName }) {
+function ramCasePanel({
+  t,
+  icon,
+  state,
+  caseSelectOptions,
+  caseOutputLabel,
+  escapeHtml,
+  canonicalRamFileName,
+  platform = "",
+}) {
   return `
     ${casePanel("ram", t("workflow.ramCaseHint"), { t, icon, state, caseSelectOptions, caseOutputLabel, escapeHtml })}
-    ${field(t("workflow.outputFileName"), `<input id="workflow-output" class="input" value="${escapeHtml(canonicalRamFileName())}" readonly />`)}
+    ${field(t("workflow.outputFileName"), `<input id="workflow-output" class="input" value="${escapeHtml(canonicalRamFileName("", new Date(), platform))}" readonly />`)}
   `;
 }
 
-export function casePanel(subdir, hint, { t, icon, state, caseSelectOptions, caseOutputLabel, escapeHtml }) {
-  const selected = state.activeCase?.case_name || (state.cases.length ? state.cases[0].case_name : "");
+export function casePanel(
+  subdir,
+  hint,
+  { t, icon, state, caseSelectOptions, caseOutputLabel, escapeHtml }
+) {
+  const selected =
+    state.activeCase?.case_name || (state.cases.length ? state.cases[0].case_name : "");
   const output = caseOutputLabel(selected, subdir);
   void hint;
   return `

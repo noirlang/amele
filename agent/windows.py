@@ -28,12 +28,23 @@ from datetime import datetime
 
 VERSION = "0.0.8"
 
+if sys.platform == "win32":
+    try:
+        if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+TK_ERR = ""
 try:
     import tkinter as tk
     from tkinter import ttk, messagebox
     HAS_TK = True
-except Exception:
+except Exception as _tk_exc:
     HAS_TK = False
+    TK_ERR = str(_tk_exc)
 
 try:
     import win32con
@@ -366,27 +377,6 @@ def disk_listele_tani():
     return diskler, tani
 
 
-class AgentController:
-    def __init__(self, ui=None):
-        self.ui = ui
-        self.sock = None
-        self.running = False
-        self.port = DEFAULT_PORT
-        self.script_dir = app_base_dir()
-        self.winpmem_path = ""
-        self.security_key = ""
-        self.language = "tr"
-        self.log_file_path = self._init_log_file()
-        self.ram_output_index = {}
-        self.job_lock = threading.Lock()
-        self.job_state = {}
-
-    def _set_job_state(self, job_id, state):
-        if not job_id:
-            return
-        with self.job_lock:
-            self.job_state[job_id] = state
-
 def docker_get_status():
     is_avail = False
     is_running = False
@@ -617,6 +607,28 @@ def docker_get_logs(container_id, tail=200):
         logs = logs[-tail:]
     return logs
 
+
+
+class AgentController:
+    def __init__(self, ui=None):
+        self.ui = ui
+        self.sock = None
+        self.running = False
+        self.port = DEFAULT_PORT
+        self.script_dir = app_base_dir()
+        self.winpmem_path = ""
+        self.security_key = ""
+        self.language = "tr"
+        self.log_file_path = self._init_log_file()
+        self.ram_output_index = {}
+        self.job_lock = threading.Lock()
+        self.job_state = {}
+
+    def _set_job_state(self, job_id, state):
+        if not job_id:
+            return
+        with self.job_lock:
+            self.job_state[job_id] = state
 
     def _get_job_state(self, job_id):
         if not job_id:
@@ -1371,9 +1383,9 @@ def docker_get_logs(container_id, tail=200):
             return True, ""
 
         try:
-            dosya = conn.makefile("rb")
+            sock_dosya = conn.makefile("rb")
             while True:
-                data = dosya.readline()
+                data = sock_dosya.readline()
                 if not data:
                     return
 
@@ -1493,11 +1505,11 @@ def docker_get_logs(container_id, tail=200):
 
                 elif komut == "ram_dosya_indir":
                     is_id = mesaj.get("is_id") or ("RAMDL_" + str(int(time.time())))
-                    dosya = mesaj.get("dosya", "memory_dump.raw")
+                    dosya_adi = mesaj.get("dosya", "memory_dump.raw")
                     # Guvenlik: sadece dosya adi kabul et, dizin gecisine izin verme.
-                    dosya = os.path.basename(dosya)
-                    hedef = self.ram_output_index.get(dosya, os.path.join(self.script_dir, dosya))
-                    self._dosya_stream_gonder(conn, hedef, is_id, delete_after_success=True, index_key=dosya)
+                    dosya_adi = os.path.basename(dosya_adi)
+                    hedef = self.ram_output_index.get(dosya_adi, os.path.join(self.script_dir, dosya_adi))
+                    self._dosya_stream_gonder(conn, hedef, is_id, delete_after_success=True, index_key=dosya_adi)
 
                 elif komut == "edinim_kontrol":
                     is_id = mesaj.get("is_id", "")
@@ -1556,6 +1568,11 @@ def docker_get_logs(container_id, tail=200):
         except Exception as e:
             self.log(f"Client error: {e}")
         finally:
+            try:
+                if "sock_dosya" in locals() and sock_dosya:
+                    sock_dosya.close()
+            except Exception:
+                pass
             try:
                 conn.close()
             except Exception:
@@ -1752,37 +1769,5 @@ class AgentUI:
 
 
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(
-        description=f"{ASCII_LOGO}\n\nAmele Windows Agent v{VERSION}",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="Port to listen on")
-    parser.add_argument("--key", type=str, default="", help="Security key / password")
-    parser.add_argument("--cli", "--headless", "--non-interactive", action="store_true", help="Start in CLI / headless mode without GUI")
-    parser.add_argument("--no-logo", "-q", "--quiet", action="store_true", help="Suppress ASCII logo")
-    args, _ = parser.parse_known_args()
-
-    show_logo = not args.no_logo
-    if show_logo:
-        print(f"{ASCII_LOGO}\n")
-        print(f"Amele Windows Agent v{VERSION}\n")
-
-    if getattr(args, "cli", False) or not HAS_TK:
-        if not HAS_TK and not getattr(args, "cli", False):
-            print("Tkinter not available. Starting in headless CLI mode...")
-        controller = AgentController()
-        controller.security_key = args.key
-        ok, msg = controller.start_server(args.port)
-        if not ok:
-            print(f"Error starting server: {msg}")
-            sys.exit(1)
-        print(f"Server started on {HOST}:{args.port}. Press Ctrl+C to stop.")
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            controller.stop_server()
-    else:
-        ui = AgentUI()
-        ui.run()
+    ui = AgentUI()
+    ui.run()

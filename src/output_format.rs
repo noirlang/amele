@@ -6,7 +6,9 @@ use chrono::Local;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fs::{self, File};
+use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -161,11 +163,22 @@ pub fn finalize_output_with_progress(
         }
         AcquisitionOutputFormat::Aff4 => {
             let (raw_sha256, _) = raw_hashes(plan, existing_raw_sha256, on_progress)?;
-            on_progress(0, 0, PHASE_PACK);
-            package_aff4(plan, artifact_kind, source_label, case_name, &raw_sha256)
-                .map_err(|err| err.to_string())?;
-            let aff4_sha256 = hash::calculate_file_hash(&plan.final_path, HashAlgorithm::Sha256)
-                .map_err(|err| err.to_string())?;
+            package_aff4(
+                plan,
+                artifact_kind,
+                source_label,
+                case_name,
+                &raw_sha256,
+                on_progress,
+            )
+            .map_err(|err| err.to_string())?;
+            on_progress(0, 0, PHASE_HASH);
+            let aff4_sha256 = hash::calculate_file_hash_with_progress(
+                &plan.final_path,
+                HashAlgorithm::Sha256,
+                &mut |done, total| on_progress(done, total, PHASE_HASH),
+            )
+            .map_err(|err| err.to_string())?;
             hash::write_sha256_sidecar(&plan.final_path, &aff4_sha256)
                 .map_err(|err| err.to_string())?;
             // paketlenen aff4 icin blake3 mmap + rayon ile hizli, ayri sidecar yaziyoruz
@@ -215,6 +228,29 @@ fn raw_hashes(
     Ok((sha256, find(HashAlgorithm::Blake3)))
 }
 
+struct ProgressRead<R: Read, F: FnMut(u64, u64)> {
+    inner: R,
+    total: u64,
+    copied: u64,
+    last_report: Instant,
+    on_progress: F,
+}
+
+impl<R: Read, F: FnMut(u64, u64)> Read for ProgressRead<R, F> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let n = self.inner.read(buf)?;
+        if n > 0 {
+            self.copied += n as u64;
+            if self.copied >= self.total || self.last_report.elapsed() >= Duration::from_millis(250)
+            {
+                (self.on_progress)(self.copied, self.total);
+                self.last_report = Instant::now();
+            }
+        }
+        Ok(n)
+    }
+}
+
 /// Basit AFF4 kanıt paketini manifest ve veri girdileriyle oluşturur.
 fn package_aff4(
     plan: &OutputPlan,
@@ -222,6 +258,7 @@ fn package_aff4(
     source_label: &str,
     case_name: &str,
     raw_sha256: &str,
+    on_progress: &mut dyn FnMut(u64, u64, &'static str),
 ) -> AmeleResult<()> {
     if let Some(parent) = plan.final_path.parent() {
         fs::create_dir_all(parent).map_err(|err| {
@@ -278,9 +315,19 @@ fn package_aff4(
     data_header.set_size(raw_size);
     data_header.set_mode(0o644);
     data_header.set_cksum();
+
+    on_progress(0, raw_size, PHASE_PACK);
+    let progress_reader = ProgressRead {
+        inner: raw_file,
+        total: raw_size,
+        copied: 0,
+        last_report: Instant::now(),
+        on_progress: |done, total| on_progress(done, total, PHASE_PACK),
+    };
     builder
-        .append_data(&mut data_header, data_name, raw_file)
+        .append_data(&mut data_header, data_name, progress_reader)
         .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "AFF4 veri yazılamadı", err))?;
+    on_progress(raw_size, raw_size, PHASE_PACK);
     builder
         .finish()
         .map_err(|err| AmeleError::io(HataKodu::DosyaYazma, "AFF4 paket kapatılamadı", err))

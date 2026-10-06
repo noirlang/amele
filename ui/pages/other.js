@@ -1,5 +1,7 @@
 // adli yardımcılar, vaka yönetimi, raporlama, ayarlar ve hakkında sayfası.
 
+import { escapeHtml } from "../core/utils.js";
+
 export function otherPage({
   t,
   icon,
@@ -123,10 +125,15 @@ export function detailPanel({
       <div class="log-box" data-logs-output style="margin-top: 14px;">${t("logs.outputWaiting")}</div>
     `;
   }
-  return hashPanel(pickerField, field, state, t, icon);
+  return (hashPanel || defaultHashPanel)(pickerField, field, state, t, icon, escapeHtml);
 }
 
-function renderHistoryList(items, escapeHtml, icon) {
+function defaultHashPanel(pickerField, field, state, t, icon, escapeHtmlFn) {
+  return hashPanel(pickerField, field, state, t, icon, escapeHtmlFn);
+}
+
+function renderHistoryList(items, escapeHtmlFn, icon) {
+  const esc = escapeHtmlFn || escapeHtml || ((s) => s);
   return items
     .map(
       (item) => `
@@ -134,10 +141,10 @@ function renderHistoryList(items, escapeHtml, icon) {
       <span class="metric-icon">${icon("clock")}</span>
       <div>
         <div class="history-title-row">
-          <strong>${escapeHtml(item.mode || item.title || item.type || "Adli Edinim")}</strong>
-          <small>${escapeHtml(item.timestamp || item.created_at || "")}</small>
+          <strong>${esc(item.mode || item.title || item.type || "Adli Edinim")}</strong>
+          <small>${esc(item.timestamp || item.created_at || "")}</small>
         </div>
-        <small class="path-text">${escapeHtml(item.path || item.output || item.case_name || "")}</small>
+        <small class="path-text">${esc(item.path || item.output || item.case_name || "")}</small>
       </div>
     </div>
   `
@@ -145,7 +152,8 @@ function renderHistoryList(items, escapeHtml, icon) {
     .join("");
 }
 
-export function hashPanel(pickerField, field, state, t, icon) {
+export function hashPanel(pickerField, field, state, t, icon, escapeHtmlFn) {
+  const esc = escapeHtmlFn || escapeHtml || ((s) => s);
   const method = state?.hashMethod || "sha256";
   const path = state?.hashTargetInput || "";
   const result = state?.hashResult || null;
@@ -175,28 +183,29 @@ export function hashPanel(pickerField, field, state, t, icon) {
     </div>
     ${field(
       t("hash.tsaUrl"),
-      `<input id="hash-tsa-url" class="input" type="url" value="${escapeHtml(tsaUrl)}" />`
+      `<input id="hash-tsa-url" class="input" type="url" value="${esc(tsaUrl)}" />`
     )}
     <div class="button-row" style="margin: 16px 0;">
       <button class="secondary-button" data-action="timestamp-hash">${icon("clock")} ${t("hash.timestamp")}</button>
     </div>
     <div class="status-badge" data-hash-status style="display:none"></div>
     <div class="log-box" data-hash-output style="margin-top: 14px;">
-      ${result ? renderHashResult(result, t) : t("hash.outputWaiting")}
+      ${result ? renderHashResult(result, t, esc) : t("hash.outputWaiting")}
     </div>
   `;
 }
 
-function renderHashResult(res, t) {
-  let out = `<strong>${t("hash.file") || "Dosya"}:</strong> ${res.path}<br/><strong>${t("hash.size") || "Boyut"}:</strong> ${res.file_size_formatted || res.file_size + " B"}<br/>`;
+function renderHashResult(res, t, escapeHtmlFn) {
+  const esc = escapeHtmlFn || escapeHtml || ((s) => s);
+  let out = `<strong>${esc(t("hash.file") || "Dosya")}:</strong> ${esc(res.path || "")}<br/><strong>${esc(t("hash.size") || "Boyut")}:</strong> ${esc(res.file_size_formatted || (res.file_size != null ? res.file_size + " B" : "-"))}<br/>`;
   if (res.blake3)
-    out += `<strong>BLAKE3:</strong> <code style="word-break:break-all">${res.blake3}</code><br/>`;
+    out += `<strong>BLAKE3:</strong> <code style="word-break:break-all">${esc(res.blake3)}</code><br/>`;
   if (res.sha256)
-    out += `<strong>SHA-256:</strong> <code style="word-break:break-all">${res.sha256}</code><br/>`;
+    out += `<strong>SHA-256:</strong> <code style="word-break:break-all">${esc(res.sha256)}</code><br/>`;
   if (res.md5)
-    out += `<strong>MD5:</strong> <code style="word-break:break-all">${res.md5}</code><br/>`;
+    out += `<strong>MD5:</strong> <code style="word-break:break-all">${esc(res.md5)}</code><br/>`;
   if (res.timestamped_at)
-    out += `<strong>${t("hash.timestampedAt")}:</strong> ${res.timestamped_at}<br/><strong>${t("hash.timestampResponse")}:</strong> <code style="word-break:break-all">${res.timestamp_response_path}</code><br/>`;
+    out += `<strong>${esc(t("hash.timestampedAt"))}:</strong> ${esc(res.timestamped_at)}<br/><strong>${esc(t("hash.timestampResponse"))}:</strong> <code style="word-break:break-all">${esc(res.timestamp_response_path || "")}</code><br/>`;
   return out;
 }
 
@@ -393,7 +402,12 @@ export function getContributorFallbackPhoto(c, assetPath = "assets") {
   ) {
     return `${assetPath}/contributors/abdulhalim.jpg`;
   }
-  if (id.includes("yusuf") || id.includes("tuncel") || name.includes("yusuf") || photo.includes("yusuf")) {
+  if (
+    id.includes("yusuf") ||
+    id.includes("tuncel") ||
+    name.includes("yusuf") ||
+    photo.includes("yusuf")
+  ) {
     return `${assetPath}/contributors/yusuf-tuncel.jpg`;
   }
   return `${assetPath}/contributors/melih-emik.jpg`;
@@ -401,11 +415,16 @@ export function getContributorFallbackPhoto(c, assetPath = "assets") {
 
 export function renderContributors(contributors, t, icon, assetPath) {
   if (Array.isArray(contributors) && contributors.length > 0) {
-    return contributors.map(c => {
-      const roleText = c.roleKey ? t(c.roleKey) : (c.role || "Developer");
-      const fallbackPhoto = getContributorFallbackPhoto(c, assetPath);
-      const avatarSrc = c.photo ? (c.photo.startsWith("http") ? c.photo : `${assetPath}/contributors/${c.photo}`) : fallbackPhoto;
-      return `
+    return contributors
+      .map((c) => {
+        const roleText = c.roleKey ? t(c.roleKey) : c.role || "Developer";
+        const fallbackPhoto = getContributorFallbackPhoto(c, assetPath);
+        const avatarSrc = c.photo
+          ? c.photo.startsWith("http")
+            ? c.photo
+            : `${assetPath}/contributors/${c.photo}`
+          : fallbackPhoto;
+        return `
         <article class="contributor-card">
           <img class="avatar" src="${avatarSrc}" alt="${c.name}" draggable="false" onerror="this.onerror=null; this.src='${fallbackPhoto}'" />
           <h3>${c.name}</h3>
@@ -415,7 +434,8 @@ export function renderContributors(contributors, t, icon, assetPath) {
           </div>
         </article>
       `;
-    }).join("");
+      })
+      .join("");
   }
 
   return `
@@ -433,7 +453,14 @@ export function renderContributors(contributors, t, icon, assetPath) {
 
 export function aboutPage({ t, icon, APP_VERSION, assetPath, theme, state }) {
   const logoFile = theme === "light" ? "logo-siyah.png" : "logo.png";
-  const orbitShortcuts = { windows: "W", linux: "L", docker: "D", android: "A", ios: "I", other: "O" };
+  const orbitShortcuts = {
+    windows: "W",
+    linux: "L",
+    docker: "D",
+    android: "A",
+    ios: "I",
+    other: "O",
+  };
   return `
     <section class="page">
       <div class="about-hero">

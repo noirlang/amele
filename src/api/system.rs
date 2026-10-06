@@ -50,7 +50,7 @@ use super::{
     write_helper_control_state,
     write_json_file,
 };
-use crate::output_format::PHASE_HASH;
+use crate::output_format::{PHASE_HASH, PHASE_PACK};
 
 #[cfg(target_os = "linux")]
 use super::linux_mount_image_readonly;
@@ -648,12 +648,20 @@ fn run_remote_image_job(
                         working_path: result.target_path.clone(),
                         final_path: plan.final_path.clone(),
                     };
-                    match output_format::finalize_output(
+                    let initial_phase = if format == AcquisitionOutputFormat::Aff4 {
+                        PHASE_PACK
+                    } else {
+                        PHASE_HASH
+                    };
+                    let mut hasher =
+                        PhaseProgress::start(&job_id, initial_phase, result.bytes_transferred);
+                    match output_format::finalize_output_with_progress(
                         &actual_plan,
                         "disk",
                         request.disk_name.as_deref().unwrap_or(&request.disk_id),
                         request.case_name.as_deref().unwrap_or_default(),
                         result.sha256.clone(),
+                        &mut |done, total, phase| hasher.report(done, total, phase),
                     ) {
                         Ok(finalized) => finish_acquisition_job_with_message(
                             &job_id,

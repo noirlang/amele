@@ -269,7 +269,11 @@ impl PhaseProgress {
 
     /// Okunan baytı hiz ve tahmini süreyle ilerleme mesajına yazar.
     pub fn report(&mut self, done: u64, total: u64, phase: &'static str) {
-        self.phase = phase;
+        if self.phase != phase {
+            self.phase = phase;
+            self.started = Instant::now();
+            self.logged_start = false;
+        }
         update_acquisition_phase(&self.job_id, phase);
         let elapsed = self.started.elapsed().as_secs_f64().max(0.5);
         let speed = done as f64 / elapsed;

@@ -11,7 +11,8 @@ use crate::server::{Response, json_error, json_ok, json_serialize};
 use chrono::Local;
 use serde::Deserialize;
 use serde_json::{Value, json};
-use std::fs;
+use std::fs::{self, File};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 /// Aktif vaka adını geçerli ayarlar.json dosyasına kaydeder.
@@ -444,6 +445,37 @@ struct CaseArtifactsData {
     artifacts: Value,
 }
 
+/// RAM imaj dosyasının başlangıcını kontrol ederek Windows kernel/boot imzası içerip içermediğini sorgular.
+fn is_windows_ram_file(path: &Path) -> bool {
+    let mut file = match File::open(path) {
+        Ok(f) => f,
+        Err(_) => return false,
+    };
+    let mut buf = vec![0u8; 1024 * 1024];
+    let n = match file.read(&mut buf) {
+        Ok(n) => n,
+        Err(_) => return false,
+    };
+    if n == 0 {
+        return false;
+    }
+    let data = &buf[..n];
+    let markers: &[&[u8]] = &[
+        b"Microsoft",
+        b"Windows",
+        b"NTFS",
+        b"BOOTMGR",
+        b"PAGEPAGE",
+        b"KdVersionBlock",
+    ];
+    for marker in markers {
+        if data.windows(marker.len()).any(|w| w == *marker) {
+            return true;
+        }
+    }
+    false
+}
+
 /// Vaka içindeki edinim türlerini platform ve türe göre gruplayıp sayar.
 fn case_artifacts_summary(case_dir: &Path) -> CaseArtifactsData {
     let mut linux_disk = 0usize;
@@ -455,10 +487,12 @@ fn case_artifacts_summary(case_dir: &Path) -> CaseArtifactsData {
     #[allow(unused_mut)]
     let mut other_ram = 0usize;
 
+    // Aynı vakadaki disklerden Windows makinelerinin IP/host ipuçlarını topla
+    let mut windows_hosts: Vec<String> = Vec::new();
+
     let mut output_count = 0usize;
     if let Ok(entries) = fs::read_dir(case_dir.join("ciktilar")) {
         for entry in entries.flatten() {
-            output_count += 1;
             let path = entry.path();
             if path.is_file() {
                 let name = path
@@ -466,9 +500,17 @@ fn case_artifacts_summary(case_dir: &Path) -> CaseArtifactsData {
                     .and_then(|n| n.to_str())
                     .unwrap_or("")
                     .to_lowercase();
-                if name.ends_with(".sha256") || name.ends_with(".txt") || name.ends_with(".log") {
+                if name.ends_with(".sha256")
+                    || name.ends_with(".txt")
+                    || name.ends_with(".log")
+                    || name.ends_with(".b3sum")
+                    || name.ends_with(".tsr")
+                    || name.ends_with(".partial")
+                    || name.ends_with(".aff4.raw")
+                {
                     continue;
                 }
+                output_count += 1;
                 if name.contains("linux")
                     || name.starts_with("sd")
                     || name.starts_with("nvme")
@@ -478,6 +520,11 @@ fn case_artifacts_summary(case_dir: &Path) -> CaseArtifactsData {
                     linux_disk += 1;
                 } else if name.contains("win") || name.contains("physicaldrive") {
                     windows_disk += 1;
+                    if let Some(prefix) = name.split('_').next() {
+                        if !prefix.is_empty() && !windows_hosts.contains(&prefix.to_string()) {
+                            windows_hosts.push(prefix.to_string());
+                        }
+                    }
                 } else {
                     #[cfg(unix)]
                     {
@@ -499,7 +546,6 @@ fn case_artifacts_summary(case_dir: &Path) -> CaseArtifactsData {
     let mut ram_count = 0usize;
     if let Ok(entries) = fs::read_dir(case_dir.join("ram")) {
         for entry in entries.flatten() {
-            ram_count += 1;
             let path = entry.path();
             if path.is_file() {
                 let name = path
@@ -507,13 +553,28 @@ fn case_artifacts_summary(case_dir: &Path) -> CaseArtifactsData {
                     .and_then(|n| n.to_str())
                     .unwrap_or("")
                     .to_lowercase();
-                if name.ends_with(".sha256") || name.ends_with(".txt") || name.ends_with(".log") {
+                if name.ends_with(".sha256")
+                    || name.ends_with(".txt")
+                    || name.ends_with(".log")
+                    || name.ends_with(".b3sum")
+                    || name.ends_with(".tsr")
+                    || name.ends_with(".partial")
+                    || name.ends_with(".aff4.raw")
+                {
                     continue;
                 }
-                if name.contains("win") || name.contains("pmem") {
+                ram_count += 1;
+                let is_known_win_host = windows_hosts.iter().any(|h| name.starts_with(h));
+                if name.contains("win")
+                    || name.contains("pmem")
+                    || name.contains("windows")
+                    || is_known_win_host
+                {
                     windows_ram += 1;
                 } else if name.contains("linux") || name.contains("avml") || name.contains("lime") {
                     linux_ram += 1;
+                } else if is_windows_ram_file(&path) {
+                    windows_ram += 1;
                 } else {
                     #[cfg(unix)]
                     {
@@ -950,15 +1011,39 @@ mod tests {
         fs::create_dir_all(case_dir.join("docker")).unwrap();
 
         fs::write(case_dir.join("ciktilar").join("sda.dd"), b"disk data").unwrap();
+        fs::write(
+            case_dir
+                .join("ciktilar")
+                .join("192.168.1.50_physicaldrive0.img"),
+            b"windows disk",
+        )
+        .unwrap();
         fs::write(case_dir.join("ram").join("lime.dump"), b"ram data").unwrap();
+        fs::write(
+            case_dir.join("ram").join("192.168.1.50_ram_20261006.raw"),
+            b"windows ram by host",
+        )
+        .unwrap();
+        fs::write(
+            case_dir.join("ram").join("standalone_ram.raw"),
+            b"header with Microsoft Windows memory data",
+        )
+        .unwrap();
+        fs::write(
+            case_dir.join("ram").join("standalone_ram.raw.sha256"),
+            b"sha256",
+        )
+        .unwrap();
         fs::write(case_dir.join("docker").join("docker_metadata.json"), b"{}").unwrap();
 
         let data = case_artifacts_summary(&case_dir);
-        assert_eq!(data.output_count, 1);
-        assert_eq!(data.ram_count, 1);
+        assert_eq!(data.output_count, 2);
+        assert_eq!(data.ram_count, 3);
         assert_eq!(data.docker_count, 1);
         assert_eq!(data.artifacts["linux_disk"], 1);
+        assert_eq!(data.artifacts["windows_disk"], 1);
         assert_eq!(data.artifacts["linux_ram"], 1);
+        assert_eq!(data.artifacts["windows_ram"], 2);
     }
 
     #[test]

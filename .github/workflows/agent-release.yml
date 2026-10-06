@@ -56,12 +56,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller
+          pip install pyinstaller pyinstaller-hooks-contrib
           pip install -r agent/requirements-windows.txt
 
       - name: Build Windows agent
         run: |
-          pyinstaller --onefile --name amele-win agent/windows.py
+          pyinstaller --onefile --collect-all tkinter --hidden-import tkinter --hidden-import _tkinter --name amele-win agent/windows.py
           dir dist/
 
       - name: Upload Windows agent artifact

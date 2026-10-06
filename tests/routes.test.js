@@ -269,9 +269,28 @@ test("Frontend Routing and Module Health", async (t) => {
       };
 
       // This will invoke setRoute and render() in app.js
-      assert.doesNotThrow(() => {
-        clickListener(mockEvent);
+      await assert.doesNotReject(async () => {
+        await clickListener(mockEvent);
       }, `Route "${route}" should navigate and render without throwing exceptions`);
+    }
+
+    // "Diğer" sayfası tab geçişlerini test et (hash, evidence, reports, history, logs)
+    const otherTabs = ["hash", "evidence", "reports", "history", "logs"];
+    for (const tab of otherTabs) {
+      const mockTabEvent = {
+        preventDefault: () => {},
+        target: {
+          closest: (selector) => {
+            if (selector === "[data-tab]") {
+              return { dataset: { tab } };
+            }
+            return null;
+          },
+        },
+      };
+      await assert.doesNotReject(async () => {
+        await clickListener(mockTabEvent);
+      }, `Other tab "${tab}" should render without throwing exceptions`);
     }
   });
 

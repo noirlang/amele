@@ -12,9 +12,19 @@ export function sanitizeFileStem(value) {
     .replace(/^_+|_+$/g, "");
 }
 
-export function canonicalRamFileName(remoteIp = "", date = new Date()) {
+export function canonicalRamFileName(remoteIp = "", date = new Date(), platform = "") {
   const ip = sanitizeFileStem(remoteIp);
-  return `${ip ? `${ip}_` : ""}ram_${timestampForFileName(date)}.raw`;
+  const plat = String(platform || "")
+    .toLowerCase()
+    .includes("win")
+    ? "win"
+    : String(platform || "")
+          .toLowerCase()
+          .includes("lin")
+      ? "linux"
+      : "";
+  const parts = [ip, plat, "ram"].filter(Boolean);
+  return `${parts.join("_")}_${timestampForFileName(date)}.raw`;
 }
 
 export function formatBytes(bytes) {
@@ -40,5 +50,7 @@ export function escapeHtml(value) {
 }
 
 export function compactLogLine(message) {
-  return String(message || "").replace(/\s+/g, " ").trim();
+  return String(message || "")
+    .replace(/\s+/g, " ")
+    .trim();
 }

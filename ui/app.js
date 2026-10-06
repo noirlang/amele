@@ -191,7 +191,8 @@ function boundDetailPanel(tab) {
     field,
     escapeHtml,
     caseSelectOptions,
-    hashPanel,
+    hashPanel: (picker, f, st, trans, ico, esc) =>
+      hashPanel(picker, f, st, trans, ico, esc || escapeHtml),
   });
 }
 
@@ -240,6 +241,10 @@ function setRoute(route, direction) {
   }
 
   const prevRoute = state.route || "home";
+
+  if (prevRoute !== route && !state.activeAcquisition) {
+    state.lastLog = initialLogMessages(state.language);
+  }
 
   if (direction) {
     state.navDirection = direction;
@@ -5175,37 +5180,26 @@ async function startAcquisition(button) {
   const target = isRam
     ? state.ramToolPath || document.querySelector("[data-field='target']")?.value.trim() || ""
     : document.querySelector("[data-field='target']")?.value.trim() || "";
-  const selectedFormatMode =
-    document.querySelector("[data-field='output-format']")?.value || "raw";
+  const selectedFormatMode = document.querySelector("[data-field='output-format']")?.value || "raw";
   let outputFormat = "raw";
   let sparseAcquisition = true;
 
   if (selectedFormatMode === "raw_full" || selectedFormatMode === "raw-full") {
     outputFormat = "raw";
     sparseAcquisition = false;
-  } else if (
-    selectedFormatMode === "raw_sparse" ||
-    selectedFormatMode === "raw-sparse"
-  ) {
+  } else if (selectedFormatMode === "raw_sparse" || selectedFormatMode === "raw-sparse") {
     outputFormat = "raw";
     sparseAcquisition = true;
-  } else if (
-    selectedFormatMode === "aff4_full" ||
-    selectedFormatMode === "aff4-full"
-  ) {
+  } else if (selectedFormatMode === "aff4_full" || selectedFormatMode === "aff4-full") {
     outputFormat = "aff4";
     sparseAcquisition = false;
-  } else if (
-    selectedFormatMode === "aff4_sparse" ||
-    selectedFormatMode === "aff4-sparse"
-  ) {
+  } else if (selectedFormatMode === "aff4_sparse" || selectedFormatMode === "aff4-sparse") {
     outputFormat = "aff4";
     sparseAcquisition = true;
   } else {
     outputFormat = selectedFormatMode.startsWith("aff4") ? "aff4" : "raw";
     sparseAcquisition =
-      document.querySelector("[data-field='sparse-acquisition']")?.checked ??
-      true;
+      document.querySelector("[data-field='sparse-acquisition']")?.checked ?? true;
   }
   if (workflow && !workflow.mode.includes("ram") && !target) {
     showToast(t("workflow.diskRequired"), "error");
@@ -5217,6 +5211,9 @@ async function startAcquisition(button) {
   button.disabled = true;
   window.clearInterval(state.jobs.workflow);
   setProgress(0, "0%");
+  state.lastLog = [];
+  const initialLogBox = document.querySelector("#workflow-log");
+  if (initialLogBox) initialLogBox.innerHTML = "";
   const operation = isRam ? t("ramAcquisition") : t("imageAcquisition");
   // son is durumu catch blogundan da gorunsun diye try disinda tutulur.
   let lastJob = null;
@@ -5228,7 +5225,7 @@ async function startAcquisition(button) {
     caseName = evidenceCase.case_name;
     if (isRam) {
       const remoteIp = workflow?.mode.startsWith("remote") || isSsh ? payload?.ip : "";
-      const fileName = canonicalRamFileName(remoteIp);
+      const fileName = canonicalRamFileName(remoteIp, new Date(), workflow?.platform || "");
       const outputInput = document.querySelector("#workflow-output");
       if (outputInput) outputInput.value = fileName;
       const ramDir = evidenceCase.ram_dir || `${evidenceCase.case_dir}/ram`;

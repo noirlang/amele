@@ -53,7 +53,7 @@ use super::{
     write_helper_control_state,
     write_json_file,
 };
-use crate::output_format::PHASE_HASH;
+use crate::output_format::{PHASE_HASH, PHASE_PACK};
 
 #[derive(Deserialize)]
 /// Yerel RAM edinim isteğinde araç, çıktı ve vaka bilgisini taşır.
@@ -325,12 +325,23 @@ fn run_remote_ram_job(job_id: String, request: RemoteRamRequest) {
                                 working_path: download.target_path.clone(),
                                 final_path: plan.final_path.clone(),
                             };
-                            match output_format::finalize_output(
+                            let initial_phase = if format == AcquisitionOutputFormat::Aff4 {
+                                PHASE_PACK
+                            } else {
+                                PHASE_HASH
+                            };
+                            let mut hasher = PhaseProgress::start(
+                                &job_id,
+                                initial_phase,
+                                download.bytes_transferred,
+                            );
+                            match output_format::finalize_output_with_progress(
                                 &actual_plan,
                                 "ram",
                                 &request.ip,
                                 request.case_name.as_deref().unwrap_or_default(),
                                 remote_sha256,
+                                &mut |done, total, phase| hasher.report(done, total, phase),
                             ) {
                                 Ok(finalized) => {
                                     let completion_message =

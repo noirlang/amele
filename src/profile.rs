@@ -2077,15 +2077,17 @@ mod tests {
             std::env::temp_dir().join(format!("amele_logout_test_{}", std::process::id()));
         let _ = fs::create_dir_all(&temp_dir);
         let orig_home = std::env::var("HOME").ok();
+        let orig_sudo = std::env::var("SUDO_USER").ok();
         unsafe {
             std::env::set_var("HOME", &temp_dir);
+            std::env::remove_var("SUDO_USER");
         }
 
         let mut store = ProfileStore::default();
         store.profiles.push(LocalProfile {
-            username: "deneme_user".to_string(),
-            full_name: "Deneme User".to_string(),
-            display_name: "Deneme".to_string(),
+            username: "test_logout_user".to_string(),
+            full_name: "Test Logout User".to_string(),
+            display_name: "Test".to_string(),
             avatar_url: None,
             language: "tr".to_string(),
             theme: "dark".to_string(),
@@ -2095,7 +2097,7 @@ mod tests {
             activity_log: vec![],
             online: None,
         });
-        store.active_username = Some("deneme_user".to_string());
+        store.active_username = Some("test_logout_user".to_string());
         save_profile_store(&store).unwrap();
         set_active_profile(Some(store.profiles[0].clone()));
 
@@ -2106,12 +2108,17 @@ mod tests {
         let loaded = load_profile_store().unwrap();
         assert_eq!(loaded.active_username, None);
         assert_eq!(loaded.profiles.len(), 1);
-        assert_eq!(loaded.profiles[0].username, "deneme_user");
+        assert_eq!(loaded.profiles[0].username, "test_logout_user");
         assert!(!loaded.profiles[0].open_directly);
 
         if let Some(h) = orig_home {
             unsafe {
                 std::env::set_var("HOME", h);
+            }
+        }
+        if let Some(s) = orig_sudo {
+            unsafe {
+                std::env::set_var("SUDO_USER", s);
             }
         }
         let _ = fs::remove_dir_all(&temp_dir);
