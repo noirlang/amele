@@ -51,14 +51,14 @@ Amele Forensic Agents are lightweight Python-based services that enable remote d
 
 ```bash
 pip install -r requirements-linux.txt
-python linux.py --port 9000 --token <your-token>
+python linux.py --port 9000 --key <your-key>
 ```
 
 ### Windows Agent
 
 ```bash
 pip install -r requirements-windows.txt
-python windows.py --port 9000 --token <your-token>
+python windows.py --port 9000 --key <your-key>
 ```
 
 ## Build Standalone Binary
