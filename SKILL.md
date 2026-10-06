@@ -24,7 +24,7 @@ Bu kılavuz; CLI komutlarının kullanımını, uzak sunucuya Linux/Windows agen
    - [4. Docker Konteyner Adli Bilişimi (`docker`)](#4-docker-konteyner-adli-bilişimi)
    - [5. Profil Yönetimi, Oturum & Giriş (`profile`, `login`)](#5-profil-yönetimi-oturum--giriş-profile-login)
    - [6. Vaka Paketleme, Bilgi & Doğrulama (`case`)](#6-vaka-paketleme-bilgi--doğrulama)
-   - [7. Bütünlük & İmaj Bağlama (`hash`, `verify`, `mount`)](#7-bütünlük--imaj-bağlama)
+   - [7. Bütünlük & İmaj Bağlama (`hash`, `timestamp`, `verify`, `mount`)](#7-bütünlük--imaj-bağlama)
    - [8. Sistem & Güncelleme (`update`, `wireguard`, `ui`)](#8-sistem--güncelleme)
    - [9. Masaüstü Arayüzü & Klavye Kısayolları (`ui`)](#9-masaüstü-arayüzü--klavye-kısayolları)
 4. [Standart POSIX Çıkış Kodları](#-standart-posix-çıkış-kodları)
@@ -127,9 +127,18 @@ amele completion fish > ~/.config/fish/completions/amele.fish
   # okuyarak boş sektörleri atlar, hedefte delikli (sparse) dosya oluşturur.
   amele linux disk /dev/sda1 vaka_2026_01 usb1 raw --sparse
   amele disk /dev/sdb vaka_2026_01 disk2 raw -s
+  amele disk /dev/sdb vaka_2026_01 disk2 raw --dolu
+  amele image /dev/sdb vaka_2026_01 raw-dolu
   ```
 
-  > ⚠️ **Seyrek (Sparse) Mod Notu:** Seyrek modda boş kümeler atlandığı için boş alandaki silinmiş veriler (unallocated space) imaja dahil edilmez. Adli kurtarma ve silinen dosyaların taranması gerekiyorsa `--full` modu kullanılmalıdır. Diskte desteklenen bir dosya sistemi bulunamazsa sistem sessizce tam kopyalamaya düşmez, doğrudan `Diskiniz desteklenmiyor` hatası verir.
+  > ⚠️ **Seyrek (Sparse / Dolu Olan Kadar Al) Mod Notu:** Seyrek modda boş kümeler atlandığı için boş alandaki silinmiş veriler (unallocated space) imaja dahil edilmez. Adli kurtarma ve silinen dosyaların taranması gerekiyorsa `--full` veya `--tam` modu kullanılmalıdır. Diskte desteklenen bir dosya sistemi bulunamazsa sistem sessizce tam kopyalamaya düşmez, doğrudan `Diskiniz desteklenmiyor` hatası verir.
+
+* **Akıllı Seyrek Blok (Dolu Alan) Analizi & Tasarruf Oranı:**
+  ```bash
+  # Hedef disk veya imajın dosya sistemini ve dolu/boş sektör oranını analiz eder:
+  amele sparse /dev/sdb
+  amele sparse-scan /delil/disk.img --json
+  ```
 
 * **Disk İmajı Yapısal Analizi:**
   ```bash
@@ -330,13 +339,21 @@ amele case verify /delil/vaka1.amelecase
 
 ---
 
-### 7. Bütünlük & İmaj Bağlama (`hash`, `verify`, `mount`)
+### 7. Bütünlük & İmaj Bağlama (`hash`, `timestamp`, `verify`, `mount`)
 
 ```bash
 # Dosya Hash Hesaplama (Çok çekirdekli BLAKE3, SHA-256, SHA-512, MD5, SHA-1)
 # BLAKE3: Rayon çoklu iş parçacığı + AVX-512/AVX2/NEON SIMD ile GB/s seviyesinde CPU darboğazsız çalışır.
 amele hash /path/to/evidence.raw blake3
 amele hash /path/to/evidence.raw sha256
+
+# RFC 3161 Güvenilir Delil Zaman Damgası Mühürleme (TSA / Time Stamp Authority)
+# Delilin SHA-256 özetini yetkili TSA sunucusuna mühürletir ve yanına ikili .tsr (Time Stamp Response) sidecar dosyası yazar:
+amele timestamp /path/to/evidence.raw                           # Varsayılan TSA: https://freetsa.org/tsr
+amele timestamp /path/to/evidence.raw https://freetsa.org/tsr   # Özel TSA sunucusu ile
+amele timestamp /path/to/evidence.raw --tsa https://freetsa.org/tsr --json  # Yapılandırılmış JSON çıktısı
+amele tsa /path/to/evidence.raw                                 # 'timestamp' aliası
+amele seal /path/to/evidence.raw                                # 'timestamp' aliası
 
 # Otomatik İmaj Bütünlük Doğrulama (Otomatik Sidecar Tespiti)
 # Dosya yanında .b3sum, .blake3 veya .sha256 dosyası varsa hash belirtmeden otomatik doğrular:

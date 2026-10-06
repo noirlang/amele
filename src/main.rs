@@ -172,8 +172,16 @@ fn main() {
         Some("profile-logout") | Some("logout") => profile_logout_command(),
         Some("profile-online-sync") | Some("online-sync") => profile_online_sync_command(),
         Some("hash") => hash_command(args.collect()),
+        Some("timestamp") | Some("tsa") | Some("seal") | Some("hash-timestamp") => {
+            timestamp_command(args.collect())
+        }
         Some("disk-list") => disk_list_command_with_args(args.collect()),
-        Some("local-image") => local_image_command(args.collect()),
+        Some("local-image") | Some("image") | Some("disk-image") => {
+            local_image_command(args.collect())
+        }
+        Some("sparse") | Some("sparse-scan") | Some("disk-sparse") => {
+            sparse_scan_command(args.collect())
+        }
         Some("local-ram") => local_ram_command(args.collect()),
         Some("remote-ram") => remote_ram_command(args.collect()),
         Some("image-analyze") => image_analyze_command(args.collect()),
@@ -423,6 +431,8 @@ fn is_silent_or_helper_command(cmd: Option<&str>, raw_args: &[String]) -> bool {
         | Some("winpmem-install-helper")
         | Some("mount-helper")
         | Some("disk-size")
+        | Some("sparse-scan")
+        | Some("disk-sparse")
         | Some("remote-tool-check")
         | Some("ui")
         | Some("ui-browser")
@@ -496,6 +506,9 @@ fn is_profile_exempt_command(cmd: Option<&str>, raw_args: &[String]) -> bool {
         | Some("winpmem-install-helper")
         | Some("mount-helper")
         | Some("disk-size")
+        | Some("sparse")
+        | Some("sparse-scan")
+        | Some("disk-sparse")
         | Some("remote-tool-check")
         | Some("ssh-tool-check") => true,
         _ => false,
@@ -670,10 +683,10 @@ KULLANIM:
 
 DISK ISLEMLERI:
   amele linux disk --list                                    Yerel diskleri listele
-  amele linux disk <kaynak> <vaka> [disk_adi] [raw|aff4]     Yerel disk imaji al (sudo gerektirir)
+  amele linux disk <kaynak> <vaka> [ad] [raw|aff4] [--sparse|--dolu|--full] Yerel disk imaji al (sudo)
   amele linux disk analyze <imaj> [mount_klasoru]            Disk imajini yapisal olarak analiz et
   amele linux disk --agent <ip> <port> --list [token]        Uzak agent disklerini listele
-  amele linux disk --agent <ip> <port> <id> <cikti> [token]  Uzak agent uzerinden imaj al
+  amele linux disk --agent <ip> <port> <id> <cikti> [token] [--sparse|--full] Uzak agent uzerinden imaj al
   amele linux disk --ssh <ip> <port> --list [user] [pass]    SSH ile diskleri listele
   amele linux disk --ssh <ip> <port> <id> <vaka> [user]      SSH ile agent'siz imaj al
 
@@ -690,10 +703,10 @@ USAGE:
 
 DISK OPERATIONS:
   amele linux disk --list                                    List local disks
-  amele linux disk <source> <case> [disk_name] [raw|aff4]    Acquire local disk image (requires sudo)
+  amele linux disk <source> <case> [name] [raw|aff4] [--sparse|--full] Acquire local disk image (sudo)
   amele linux disk analyze <image> [mount_dir]               Analyze disk image structurally
   amele linux disk --agent <ip> <port> --list [token]        List remote agent disks
-  amele linux disk --agent <ip> <port> <id> <out_dir> [token] Acquire remote image
+  amele linux disk --agent <ip> <port> <id> <out_dir> [token] [--sparse|--full] Acquire remote image
   amele linux disk --ssh <ip> <port> --list [user] [pass]    List disks via SSH
   amele linux disk --ssh <ip> <port> <id> <case> [user]      Acquire image via SSH
 
@@ -820,10 +833,10 @@ KULLANIM:
 
 DISK ISLEMLERI:
   amele windows disk --list                                    Yerel diskleri listele
-  amele windows disk <kaynak> <vaka> [disk_adi] [raw|aff4]     Yerel disk imaji al
+  amele windows disk <kaynak> <vaka> [ad] [raw|aff4] [--sparse|--dolu|--full] Yerel disk imaji al
   amele windows disk analyze <imaj> [mount_klasoru]            Disk imajini yapisal olarak analiz et
   amele windows disk --agent <ip> <port> --list [token]        Uzak agent disklerini listele
-  amele windows disk --agent <ip> <port> <id> <cikti> [token]  Uzak agent uzerinden imaj al
+  amele windows disk --agent <ip> <port> <id> <cikti> [token] [--sparse|--full] Uzak agent uzerinden imaj al
   amele windows disk --ssh <ip> <port> --list [user] [pass]    SSH ile diskleri listele
   amele windows disk --ssh <ip> <port> <id> <vaka> [user]      SSH ile agent'siz imaj al
 
@@ -840,10 +853,10 @@ USAGE:
 
 DISK OPERATIONS:
   amele windows disk --list                                    List local disks
-  amele windows disk <source> <case> [disk_name] [raw|aff4]    Acquire local disk image
+  amele windows disk <source> <case> [name] [raw|aff4] [--sparse|--full] Acquire local disk image
   amele windows disk analyze <image> [mount_dir]               Analyze disk image structurally
   amele windows disk --agent <ip> <port> --list [token]        List remote agent disks
-  amele windows disk --agent <ip> <port> <id> <out_dir> [token] Acquire remote image
+  amele windows disk --agent <ip> <port> <id> <out_dir> [token] [--sparse|--full] Acquire remote image
   amele windows disk --ssh <ip> <port> --list [user] [pass]    List disks via SSH
   amele windows disk --ssh <ip> <port> <id> <case> [user]      Acquire image via SSH
 
@@ -1374,7 +1387,9 @@ MANAGEMENT & EVIDENCE:
   case <subcommand>       Case management (list, create, info, export, import, verify)
   mount <subcommand>      Mount/unmount forensic disk images (requires sudo)
   hash <file> [algo]      Calculate cryptographic hash (blake3, sha256, sha512, md5, sha1)
+  timestamp <file> [url]  RFC 3161 evidence hash timestamping (.tsr sidecar)
   verify <image> [hash]   Verify forensic image checksum (BLAKE3 / SHA-256)
+  sparse <image|disk>     Scan file systems & analyze allocated space (savings %)
   wireguard <file>        Generate secure WireGuard VPN configuration
   update [--json]         Check for software updates
   completion <shell>      Generate shell autocompletions (bash, zsh, fish)
@@ -1417,7 +1432,9 @@ YONETIM VE DELIL ISLEMLERI:
   case <alt-komut>        Vaka yonetimi (listeleme, olusturma, detay, .amelecase paketleme)
   mount <alt-komut>       Adli disk imaji baglama (mount) ve temizleme (sudo)
   hash <dosya> [algo]     Dosya ozeti hesapla (blake3, sha256, sha512, md5, sha1)
+  timestamp <dosya> [url] Delil dosyasini RFC 3161 TSA ile zaman damgala (.tsr yan dosya)
   verify <imaj> [hash]    Imaj hash dogrulamasi yap (BLAKE3 / SHA-256)
+  sparse <imaj|disk>      Dosya sistemlerini tara ve dolu/bos alan oranini goster
   wireguard <dosya>       Guvenli WireGuard VPN yapilandirmasi uret
   update [--json]         Yazilim guncelleme kontrolu
   completion <kabuk>      Kabuk otomatik tamamlama uret (bash, zsh, fish)
@@ -1528,13 +1545,129 @@ fn hash_command(args: Vec<String>) -> Result<(), String> {
     Ok(())
 }
 
+/// rfc 3161 zaman damgasi istemcisi (tsa). delilin sha-256 ozetini tsa otoritesine gonderip
+/// zaman damgali token alir ve yan dosya (.tsr) olarak saklar.
+fn timestamp_command(mut args: Vec<String>) -> Result<(), String> {
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!(
+            "{}",
+            t_cli(
+                r#"RFC 3161 Delil Zaman Damgası Mühürleyici (TSA)
+
+KULLANIM:
+  amele timestamp <dosya> [tsa_url] [--tsa <url>] [--json]
+
+SEÇENEKLER:
+  [tsa_url], --tsa <url>  RFC 3161 TSA sunucu URL'i (varsayılan: https://freetsa.org/tsr)
+  --json                  Sonucu JSON formatında döndür
+
+ÖRNEKLER:
+  amele timestamp delil.raw
+  amele timestamp delil.aff4 https://freetsa.org/tsr
+  amele timestamp /path/to/vaka.raw --json"#,
+                r#"RFC 3161 Evidence Timestamp Sealer (TSA)
+
+USAGE:
+  amele timestamp <file> [tsa_url] [--tsa <url>] [--json]
+
+OPTIONS:
+  [tsa_url], --tsa <url>  RFC 3161 TSA server URL (default: https://freetsa.org/tsr)
+  --json                  Output result in JSON format
+
+EXAMPLES:
+  amele timestamp evidence.raw
+  amele timestamp evidence.aff4 https://freetsa.org/tsr
+  amele timestamp /path/to/case.raw --json"#
+            )
+        );
+        return Ok(());
+    }
+
+    let json_output = extract_flag(&mut args, &["--json"]);
+
+    // tsa adresi hem bayrakla (--tsa, -u) hem de sirali arguman olarak verilebiliyor
+    let mut tsa_url = None;
+    if let Some(pos) = args
+        .iter()
+        .position(|a| a == "--tsa" || a == "--url" || a == "-u")
+    {
+        args.remove(pos);
+        if pos < args.len() {
+            tsa_url = Some(args.remove(pos));
+        }
+    }
+
+    if args.is_empty() {
+        return Err(t_cli(
+            "Kullanim: timestamp <dosya> [tsa_url] [--tsa <url>] [--json]",
+            "Usage: timestamp <file> [tsa_url] [--tsa <url>] [--json]",
+        ));
+    }
+
+    let file_path = PathBuf::from(&args[0]);
+    if tsa_url.is_none() && args.len() > 1 {
+        tsa_url = Some(args[1].clone());
+    }
+
+    let tsa_target = tsa_url.as_deref().unwrap_or("https://freetsa.org/tsr");
+    let result =
+        hash::seal_file_timestamp(&file_path, tsa_target).map_err(|err| err.to_string())?;
+
+    if json_output {
+        print_json(&result)?;
+    } else {
+        println!("============================================================");
+        println!(
+            "       {}",
+            t_cli(
+                "RFC 3161 Delil Zaman Damgası Mühürlendi",
+                "RFC 3161 Evidence Timestamp Sealed"
+            )
+        );
+        println!("============================================================");
+        println!(
+            "  {:<20}: {}",
+            t_cli("Delil Dosyası", "Evidence File"),
+            result.path.display()
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("SHA-256 Özeti", "SHA-256 Digest"),
+            result.sha256
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("TSA Sunucusu", "TSA URL"),
+            result.tsa_url
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("Protokol", "Protocol"),
+            result.protocol
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("Mühürlenme Zamanı", "Timestamped At"),
+            result.timestamped_at
+        );
+        println!(
+            "  {:<20}: {}",
+            t_cli("TSR Yan Dosyası", "TSR Sidecar"),
+            result.timestamp_response_path.display()
+        );
+        println!("============================================================");
+    }
+
+    Ok(())
+}
+
 /// Yerel disk veya dosya kaynağını vaka klasörüne imaj olarak yazar.
 fn local_image_command(args: Vec<String>) -> Result<(), String> {
     let mut args = args;
     let json_output = args.iter().any(|a| a == "--json");
     args.retain(|a| a != "--json");
-    let full_flag = extract_flag(&mut args, &["--full", "-f"]);
-    let sparse_flag = extract_flag(&mut args, &["--sparse", "--smart", "-s"]);
+    let full_flag = extract_flag(&mut args, &["--full", "--tam", "-f"]);
+    let sparse_flag = extract_flag(&mut args, &["--sparse", "--smart", "--dolu", "-s"]);
     let (selected_format, format_sparse_pref) = extract_output_format_with_sparse(&mut args)?;
     let sparse = if full_flag {
         false
@@ -1546,7 +1679,7 @@ fn local_image_command(args: Vec<String>) -> Result<(), String> {
 
     if args.len() < 2 {
         return Err(t_cli(
-            "Kullanim: local-image <kaynak> <vaka> [disk_adı] [raw|raw-full|aff4|aff4-full] [--sparse|--full]",
+            "Kullanim: local-image <kaynak> <vaka> [disk_adı] [raw|raw-full|aff4|aff4-full] [--sparse|--dolu|--full]",
             "Usage: local-image <source> <case> [disk_name] [raw|raw-full|aff4|aff4-full] [--sparse|--full]",
         ));
     }
@@ -3471,6 +3604,18 @@ fn extract_output_format_with_sparse(
                 | "aff4_sparse"
                 | "aff4-full"
                 | "aff4_full"
+                | "raw-dolu"
+                | "raw_dolu"
+                | "raw-tam"
+                | "raw_tam"
+                | "aff4-dolu"
+                | "aff4_dolu"
+                | "aff4-tam"
+                | "aff4_tam"
+                | "sparse"
+                | "dolu"
+                | "full"
+                | "tam"
         ) {
             Some(arg.as_str())
         } else {
@@ -3636,6 +3781,96 @@ fn disk_size_command(args: Vec<String>) -> Result<(), String> {
     Ok(())
 }
 
+/// hedef disk veya imajin seyrek blok haritasini ve dosya/dolu alan oranini tarar
+fn sparse_scan_command(mut args: Vec<String>) -> Result<(), String> {
+    let json_output = extract_flag(&mut args, &["--json"]);
+    if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h") {
+        return Err(t_cli(
+            "Kullanim: sparse-scan <cihaz_veya_imaj> [--json]",
+            "Usage: sparse-scan <device_or_image> [--json]",
+        ));
+    }
+    let source_path = PathBuf::from(&args[0]);
+    let size = disk::disk_size(&source_path).map_err(|e| e.to_string())?;
+    let mut file =
+        std::fs::File::open(&source_path).map_err(|e| format!("Dosya acilamadi: {e}"))?;
+    let map = amele::sparse::SparseMap::from_file(&mut file, size);
+
+    if json_output {
+        print_json(&json!({
+            "source": source_path.display().to_string(),
+            "total_bytes": map.total_size,
+            "allocated_bytes": map.allocated_bytes,
+            "unallocated_bytes": map.unallocated_bytes,
+            "savings_percentage": map.savings_percentage(),
+            "supported_volumes_found": map.supported_volumes_found,
+            "detected_filesystems": map.detected_filesystems,
+            "is_supported": map.is_supported(),
+        }))?;
+    } else {
+        println!("============================================================");
+        println!(
+            "       {}",
+            t_cli(
+                "Akıllı Seyrek Blok (Dolu Alan) Analizi",
+                "Smart Sparse (Allocated Space) Analysis"
+            )
+        );
+        println!("============================================================");
+        println!(
+            "  {:<24}: {}",
+            t_cli("Kaynak", "Source"),
+            source_path.display()
+        );
+        println!(
+            "  {:<24}: {} ({:.2} GB)",
+            t_cli("Toplam Boyut", "Total Size"),
+            map.total_size,
+            map.total_size as f64 / 1_073_741_824.0
+        );
+        println!(
+            "  {:<24}: {} ({:.2} GB)",
+            t_cli("Dolu Alan (Dosyalar)", "Allocated (Files)"),
+            map.allocated_bytes,
+            map.allocated_bytes as f64 / 1_073_741_824.0
+        );
+        println!(
+            "  {:<24}: {} ({:.2} GB)",
+            t_cli("Boş Alan (Atlanacak)", "Unallocated (Skipped)"),
+            map.unallocated_bytes,
+            map.unallocated_bytes as f64 / 1_073_741_824.0
+        );
+        println!(
+            "  {:<24}: %{:.2}",
+            t_cli("Tahmini Tasarruf", "Estimated Savings"),
+            map.savings_percentage()
+        );
+        println!(
+            "  {:<24}: {}",
+            t_cli("Tespit Edilen FS", "Detected FS"),
+            if map.detected_filesystems.is_empty() {
+                t_cli("Bilinmiyor", "Unknown")
+            } else {
+                map.detected_filesystems.join(", ")
+            }
+        );
+        println!(
+            "  {:<24}: {}",
+            t_cli("Seyrek Edinim Desteği", "Sparse Support"),
+            if map.is_supported() {
+                t_cli("Evet (Destekleniyor)", "Yes (Supported)")
+            } else {
+                t_cli(
+                    "Hayır (Desteklenmeyen dosya sistemi)",
+                    "No (Unsupported filesystem)",
+                )
+            }
+        );
+        println!("============================================================");
+    }
+    Ok(())
+}
+
 fn verify_command(args: Vec<String>) -> Result<(), String> {
     if args.is_empty() || args.len() > 3 {
         return Err(t_cli(
@@ -3743,8 +3978,8 @@ fn remote_image_command(args: Vec<String>) -> Result<(), String> {
     let mut args = args;
     let json_output = args.iter().any(|a| a == "--json");
     args.retain(|a| a != "--json");
-    let full_flag = extract_flag(&mut args, &["--full", "-f"]);
-    let sparse_flag = extract_flag(&mut args, &["--sparse", "--smart", "-s"]);
+    let full_flag = extract_flag(&mut args, &["--full", "--tam", "-f"]);
+    let sparse_flag = extract_flag(&mut args, &["--sparse", "--smart", "--dolu", "-s"]);
     let (selected_format, format_sparse_pref) = extract_output_format_with_sparse(&mut args)?;
     let sparse = if full_flag {
         false
@@ -3755,7 +3990,7 @@ fn remote_image_command(args: Vec<String>) -> Result<(), String> {
     };
     if args.len() < 4 {
         return Err(t_cli(
-            "Kullanim: remote-image <ip> <port> <disk_id> <cikti_klasoru> [token] [raw|raw-full|aff4|aff4-full] [--sparse|--full]",
+            "Kullanim: remote-image <ip> <port> <disk_id> <cikti_klasoru> [token] [raw|raw-full|aff4|aff4-full] [--sparse|--dolu|--full]",
             "Usage: remote-image <ip> <port> <disk_id> <out_dir> [token] [raw|raw-full|aff4|aff4-full] [--sparse|--full]",
         ));
     }

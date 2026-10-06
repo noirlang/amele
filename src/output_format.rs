@@ -49,10 +49,11 @@ impl AcquisitionOutputFormat {
             .to_ascii_lowercase()
             .as_str()
         {
-            "raw" | "dd" | "img" | "raw_sparse" | "raw-sparse" | "raw_full" | "raw-full" => {
-                Ok(Self::Raw)
-            }
-            "aff4" | "aff4_sparse" | "aff4-sparse" | "aff4_full" | "aff4-full" => Ok(Self::Aff4),
+            "raw" | "dd" | "img" | "raw_sparse" | "raw-sparse" | "raw_full" | "raw-full"
+            | "raw-dolu" | "raw_dolu" | "raw-tam" | "raw_tam" | "sparse" | "dolu" | "full"
+            | "tam" => Ok(Self::Raw),
+            "aff4" | "aff4_sparse" | "aff4-sparse" | "aff4_full" | "aff4-full" | "aff4-dolu"
+            | "aff4_dolu" | "aff4-tam" | "aff4_tam" => Ok(Self::Aff4),
             other => Err(format!("output_format raw veya aff4 olmalıdır: {other}")),
         }
     }
@@ -60,9 +61,22 @@ impl AcquisitionOutputFormat {
     /// Format dizgisi içinde açıkça seyrek veya tam edinim tercihi belirtilmişse döner.
     pub fn parse_sparse_preference(value: Option<&str>) -> Option<bool> {
         let val = value?.trim().to_ascii_lowercase();
-        if val.ends_with("_sparse") || val.ends_with("-sparse") || val.contains("sparse") {
+        if val.ends_with("_sparse")
+            || val.ends_with("-sparse")
+            || val.contains("sparse")
+            || val.ends_with("_dolu")
+            || val.ends_with("-dolu")
+            || val.contains("dolu")
+            || val.contains("smart")
+        {
             Some(true)
-        } else if val.ends_with("_full") || val.ends_with("-full") || val.contains("full") {
+        } else if val.ends_with("_full")
+            || val.ends_with("-full")
+            || val.contains("full")
+            || val.ends_with("_tam")
+            || val.ends_with("-tam")
+            || val.contains("tam")
+        {
             Some(false)
         } else {
             None

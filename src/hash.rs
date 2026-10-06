@@ -373,6 +373,76 @@ pub(crate) fn to_hex(bytes: &[u8]) -> String {
     out
 }
 
+/// delil dosyasi icin rfc 3161 tsr (time stamp response) yan dosya yolunu belirler
+pub fn timestamp_sidecar_path(target: &Path) -> std::path::PathBuf {
+    target.with_extension(format!(
+        "{}tsr",
+        target
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| format!("{ext}."))
+            .unwrap_or_default()
+    ))
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimestampSealResult {
+    pub path: std::path::PathBuf,
+    pub sha256: String,
+    pub tsa_url: String,
+    pub timestamped_at: String,
+    pub timestamp_response_path: std::path::PathBuf,
+    pub protocol: &'static str,
+}
+
+/// delilin sha256 ozetini cikarip rfc 3161 tsa sunucusundan guvenilir zaman damgasi alir ve tsr olarak kaydeder
+pub fn seal_file_timestamp(target: &Path, tsa_url: &str) -> AmeleResult<TimestampSealResult> {
+    if !target.is_file() {
+        return Err(AmeleError::new(
+            HataKodu::Dosya,
+            format!("hedef dosya bulunamadi veya gecersiz: {}", target.display()),
+        ));
+    }
+    let sha256 = calculate_file_hash(target, HashAlgorithm::Sha256)?;
+    let timestamp =
+        tsp_http_client::request_timestamp_for_digest(tsa_url, &sha256).map_err(|err| {
+            AmeleError::new(HataKodu::Ag, format!("tsa zaman damgasi alinamadi: {err}"))
+        })?;
+    let timestamped_at = timestamp
+        .datetime()
+        .map_err(|err| {
+            AmeleError::new(
+                HataKodu::IcerikGecersiz,
+                format!("tsa yaniti gecersiz: {err}"),
+            )
+        })?
+        .to_rfc3339();
+    let sidecar = timestamp_sidecar_path(target);
+    std::fs::write(&sidecar, timestamp.as_der_encoded()).map_err(|err| {
+        AmeleError::io(
+            HataKodu::DosyaYazma,
+            format!("tsa yaniti kaydedilemedi: {err}"),
+            err,
+        )
+    })?;
+
+    let _ = crate::profile::record_active_profile_activity(
+        "hash",
+        "timestamp",
+        None,
+        Some(&format!("dosya: {}, tsa: {}", target.display(), tsa_url)),
+    );
+
+    Ok(TimestampSealResult {
+        path: target.to_path_buf(),
+        sha256,
+        tsa_url: tsa_url.to_string(),
+        timestamped_at,
+        timestamp_response_path: sidecar,
+        protocol: "RFC 3161",
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

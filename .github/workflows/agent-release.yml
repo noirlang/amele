@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   build-linux-agent:
+    if: github.repository == 'amele-next/amele-next'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -41,6 +42,7 @@ jobs:
           path: dist/amele-linux
 
   build-windows-agent:
+    if: github.repository == 'amele-next/amele-next'
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -73,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    if: (github.repository == 'amele-next/amele-next') && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
     steps:
       - name: Download Linux agent
         uses: actions/download-artifact@v4

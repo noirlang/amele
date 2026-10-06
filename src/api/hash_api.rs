@@ -2,8 +2,7 @@
 
 use serde::Deserialize;
 use serde_json::Value;
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::hash::{self, HashAlgorithm};
 use crate::server::{Response, json_error, json_ok};
@@ -98,49 +97,11 @@ pub fn hash_timestamp_endpoint(body: &[u8]) -> Response {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .unwrap_or("https://freetsa.org/tsr");
-    let sha256 = match hash::calculate_file_hash(target, HashAlgorithm::Sha256) {
-        Ok(value) => value,
-        Err(err) => return json_error(500, err.to_string()),
-    };
-    let timestamp = match tsp_http_client::request_timestamp_for_digest(tsa_url, &sha256) {
-        Ok(timestamp) => timestamp,
-        Err(err) => return json_error(502, format!("TSA zaman damgasi alinamadi: {err}")),
-    };
-    let timestamped_at = match timestamp.datetime() {
-        Ok(value) => value.to_rfc3339(),
-        Err(err) => return json_error(502, format!("TSA yaniti gecersiz: {err}")),
-    };
 
-    let sidecar = timestamp_sidecar_path(target);
-    if let Err(err) = fs::write(&sidecar, timestamp.as_der_encoded()) {
-        return json_error(500, format!("TSA yaniti kaydedilemedi: {err}"));
+    match hash::seal_file_timestamp(target, tsa_url) {
+        Ok(result) => json_ok(serde_json::to_value(&result).unwrap_or_default()),
+        Err(err) => json_error(502, err.to_string()),
     }
-
-    let _ = crate::profile::record_active_profile_activity(
-        "hash",
-        "timestamp",
-        None,
-        Some(&format!("Dosya: {}, TSA: {}", path, tsa_url)),
-    );
-    json_ok(serde_json::json!({
-        "path": path,
-        "sha256": sha256,
-        "tsa_url": tsa_url,
-        "timestamped_at": timestamped_at,
-        "timestamp_response_path": sidecar,
-        "protocol": "RFC 3161",
-    }))
-}
-
-fn timestamp_sidecar_path(target: &Path) -> PathBuf {
-    target.with_extension(format!(
-        "{}tsr",
-        target
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .map(|ext| format!("{ext}."))
-            .unwrap_or_default()
-    ))
 }
 
 /// API'den gelen hash algoritması stringlerini tekilleştirilmiş enum listesine çevirir.
@@ -188,6 +149,7 @@ fn parse_algorithms(values: Option<Vec<String>>) -> Result<Vec<HashAlgorithm>, S
 mod tests {
     use super::*;
     use std::io::Write;
+    use std::path::PathBuf;
 
     #[test]
     fn test_parse_algorithms_default() {
@@ -280,11 +242,11 @@ mod tests {
     #[test]
     fn test_timestamp_sidecar_path() {
         assert_eq!(
-            timestamp_sidecar_path(Path::new("/tmp/evidence.raw")),
+            hash::timestamp_sidecar_path(Path::new("/tmp/evidence.raw")),
             PathBuf::from("/tmp/evidence.raw.tsr")
         );
         assert_eq!(
-            timestamp_sidecar_path(Path::new("/tmp/evidence")),
+            hash::timestamp_sidecar_path(Path::new("/tmp/evidence")),
             PathBuf::from("/tmp/evidence.tsr")
         );
     }

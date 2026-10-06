@@ -7,7 +7,7 @@ _amele_completion() {
     local cur prev words cword
     _init_completion || return
 
-    local commands="linux windows ram disk android ios docker profile case mount hash verify update ui ui-browser help completion"
+    local commands="linux windows ram disk image android ios docker profile case mount hash timestamp tsa verify sparse sparse-scan update ui ui-browser help completion"
     local global_flags="--help -h --version -V --quiet -q --no-logo --verbose -v --lang --profile --json"
 
     if [[ $cword -eq 1 ]]; then
@@ -98,7 +98,7 @@ _amele_completion() {
                 COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") )
             fi
             ;;
-        hash|verify)
+        hash|verify|timestamp|tsa|seal|sparse|sparse-scan)
             COMPREPLY=( $(compgen -f -- "$cur") )
             ;;
         *)
@@ -122,6 +122,7 @@ _amele() {
         'windows:Windows disk and RAM acquisition/analysis'
         'ram:Live RAM acquisition'
         'disk:Disk listing and raw/AFF4 image acquisition'
+        'image:Acquire forensic disk image'
         'android:Android physical/logical forensics and ADB'
         'ios:iOS forensic backup and structure analysis'
         'docker:Docker container acquisition and evidence dump'
@@ -129,7 +130,9 @@ _amele() {
         'case:Forensic case vault and export/import packages'
         'mount:Mount and unmount forensic disk images read-only'
         'hash:Cryptographic hashing (SHA256, SHA1, MD5)'
+        'timestamp:RFC 3161 evidence hash timestamping (.tsr sidecar)'
         'verify:Verify image hashes against evidence logs'
+        'sparse:Scan file systems and analyze allocated space'
         'update:Check for software updates'
         'ui:Launch Amele forensic GUI'
         'ui-browser:Open Amele GUI in default web browser'
@@ -236,7 +239,10 @@ complete -c amele -n "__fish_use_subcommand" -a profile -d "Investigator and ana
 complete -c amele -n "__fish_use_subcommand" -a case -d "Forensic case vault and export/import packages"
 complete -c amele -n "__fish_use_subcommand" -a mount -d "Mount and unmount forensic disk images read-only"
 complete -c amele -n "__fish_use_subcommand" -a hash -d "Cryptographic hashing (SHA256, SHA1, MD5)"
+complete -c amele -n "__fish_use_subcommand" -a timestamp -d "RFC 3161 evidence hash timestamping"
 complete -c amele -n "__fish_use_subcommand" -a verify -d "Verify image hashes against evidence logs"
+complete -c amele -n "__fish_use_subcommand" -a sparse -d "Scan file systems and analyze allocated space"
+complete -c amele -n "__fish_use_subcommand" -a image -d "Acquire forensic disk image"
 complete -c amele -n "__fish_use_subcommand" -a update -d "Check for software updates"
 complete -c amele -n "__fish_use_subcommand" -a ui -d "Launch Amele forensic GUI"
 complete -c amele -n "__fish_use_subcommand" -a ui-browser -d "Open Amele GUI in default web browser"
