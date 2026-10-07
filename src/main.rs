@@ -425,9 +425,7 @@ const AMELE_ASCII_LOGO: &str = r#"          ⣠⣧⡀
 fn is_silent_or_helper_command(cmd: Option<&str>, raw_args: &[String]) -> bool {
     if raw_args
         .iter()
-        .any(|a| {
-            a == "--json" || a == "--quiet" || a == "-q" || a == "-d" || a == "--no-logo"
-        })
+        .any(|a| a == "--json" || a == "--quiet" || a == "-q" || a == "-d" || a == "--no-logo")
     {
         return true;
     }
