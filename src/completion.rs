@@ -8,7 +8,7 @@ _amele_completion() {
     _init_completion || return
 
     local commands="linux windows ram disk image android ios docker profile case mount hash timestamp tsa verify sparse sparse-scan update ui ui-browser help completion"
-    local global_flags="--help -h --version -V --quiet -q --no-logo --verbose -v --lang --profile --json"
+    local global_flags="--help -h --version -V --quiet -d -q --no-logo --verbose -v --lang --profile --json"
 
     if [[ $cword -eq 1 ]]; then
         COMPREPLY=( $(compgen -W "${commands} ${global_flags}" -- "$cur") )
@@ -143,7 +143,7 @@ _amele() {
     _arguments -C \
         '(-h --help)'{-h,--help}'[Show help information]' \
         '(-V --version)'{-V,--version}'[Show version information]' \
-        '(-q --quiet)'{-q,--quiet}'[Quiet mode, suppress ASCII banner]' \
+        '(-d -q --quiet)'{-d,-q,--quiet}'[Silent disk acquisition output]' \
         '--no-logo[Suppress ASCII banner]' \
         '(-v --verbose)'{-v,--verbose}'[Verbose output]' \
         '--lang[Select language (tr/en)]:language:(tr en)' \
@@ -220,7 +220,7 @@ complete -c amele -f
 # Global flags
 complete -c amele -s h -l help -d "Show help information"
 complete -c amele -s V -l version -d "Show version information"
-complete -c amele -s q -l quiet -d "Suppress ASCII logo banner"
+complete -c amele -s d -s q -l quiet -d "Silent disk acquisition output"
 complete -c amele -l no-logo -d "Suppress ASCII logo banner"
 complete -c amele -s v -l verbose -d "Verbose output"
 complete -c amele -l json -d "JSON output"
@@ -262,13 +262,16 @@ mod tests {
         let bash = generate_bash_completion();
         assert!(bash.contains("_amele_completion"));
         assert!(bash.contains("android"));
+        assert!(bash.contains("--quiet -d -q"));
 
         let zsh = generate_zsh_completion();
         assert!(zsh.contains("#compdef amele"));
         assert!(zsh.contains("_amele"));
+        assert!(zsh.contains("{-d,-q,--quiet}"));
 
         let fish = generate_fish_completion();
         assert!(fish.contains("complete -c amele"));
         assert!(fish.contains("subcommand"));
+        assert!(fish.contains("-s d -s q -l quiet"));
     }
 }

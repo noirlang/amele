@@ -33,6 +33,7 @@ use std::thread;
 use std::time::Duration;
 
 static IS_ENGLISH: AtomicBool = AtomicBool::new(false);
+static CLI_QUIET: AtomicBool = AtomicBool::new(false);
 
 fn set_cli_english(val: bool) {
     IS_ENGLISH.store(val, Ordering::SeqCst);
@@ -40,6 +41,14 @@ fn set_cli_english(val: bool) {
 
 fn is_cli_english() -> bool {
     IS_ENGLISH.load(Ordering::SeqCst)
+}
+
+fn set_cli_quiet(val: bool) {
+    CLI_QUIET.store(val, Ordering::SeqCst);
+}
+
+fn is_cli_quiet() -> bool {
+    CLI_QUIET.load(Ordering::SeqCst)
 }
 
 fn t_cli(tr: &str, en: &str) -> String {
@@ -63,7 +72,9 @@ fn main() {
         return;
     }
 
-    let quiet = extract_flag(&mut raw_args, &["--quiet", "-q", "--no-logo"]);
+    let quiet = extract_flag(&mut raw_args, &["--quiet", "-q", "-d"]);
+    let no_logo = extract_flag(&mut raw_args, &["--no-logo"]);
+    set_cli_quiet(quiet);
     let verbose = extract_flag(&mut raw_args, &["--verbose", "-v"]);
     if verbose {
         amele::logging::set_verbose(true);
@@ -94,7 +105,7 @@ fn main() {
     }
 
     let first_cmd = raw_args.first().map(|s| s.as_str());
-    if !quiet && !is_silent_or_helper_command(first_cmd, &raw_args) {
+    if !quiet && !no_logo && !is_silent_or_helper_command(first_cmd, &raw_args) {
         println!("{AMELE_ASCII_LOGO}\n");
     }
 
@@ -414,7 +425,9 @@ const AMELE_ASCII_LOGO: &str = r#"          ⣠⣧⡀
 fn is_silent_or_helper_command(cmd: Option<&str>, raw_args: &[String]) -> bool {
     if raw_args
         .iter()
-        .any(|a| a == "--json" || a == "--quiet" || a == "-q" || a == "--no-logo")
+        .any(|a| {
+            a == "--json" || a == "--quiet" || a == "-q" || a == "-d" || a == "--no-logo"
+        })
     {
         return true;
     }
@@ -1402,7 +1415,8 @@ USER INTERFACE:
 GLOBAL OPTIONS:
   -h, --help              Show help information
   -V, --version           Show version information
-  -q, --quiet, --no-logo  Suppress ASCII logo banner
+  -d, -q, --quiet         Silent mode (disk acquisition progress and summary)
+  --no-logo               Suppress ASCII logo banner
   -v, --verbose           Enable verbose / debug logs
   --lang <tr|en>          Switch CLI language (Turkish or English)
   --profile <username>    Run using specific analyst profile
@@ -1447,7 +1461,8 @@ ARAYUZ:
 GENEL SECENEKLER:
   -h, --help              Yardim bilgisini goster
   -V, --version           Surum bilgisini goster
-  -q, --quiet, --no-logo  ASCII logo basligini gizle
+  -d, -q, --quiet         Sessiz mod (disk edinimi ilerleme ve sonuc ozeti)
+  --no-logo               ASCII logo basligini gizle
   -v, --verbose           Ayrintili (debug) gunlukleri konsola yaz
   --lang <tr|en>          CLI dilini sec (Turkce veya Ingilizce)
   --profile <kullanici>   Belirtilen analist profili ile calis
@@ -1708,7 +1723,9 @@ fn local_image_command(args: Vec<String>) -> Result<(), String> {
     let plan = output_format::plan_output(&raw_target, selected_format);
     let task = disk::DiskAcquisitionTask::new(&source, &plan.working_path).with_sparse(sparse);
     let result = disk::run_disk_acquisition(&task, |done, total| {
-        print_progress("imaj", done, total);
+        if should_emit_disk_progress(json_output, is_cli_quiet()) {
+            print_progress("imaj", done, total);
+        }
     })
     .map_err(|err| crate_diagnostic(err.to_string()))?;
     let finalized = output_format::finalize_output(
@@ -1728,8 +1745,8 @@ fn local_image_command(args: Vec<String>) -> Result<(), String> {
             "sha256": finalized.sha256,
             "raw_sha256": finalized.raw_sha256,
             "output_format": finalized.format.as_str(),
-        }))
-    } else {
+        }))?;
+    } else if should_emit_human_disk_output(json_output, is_cli_quiet()) {
         println!("============================================================");
         println!(
             "       {}",
@@ -1790,8 +1807,8 @@ fn local_image_command(args: Vec<String>) -> Result<(), String> {
                 "Disk image saved to case vault and verified."
             )
         );
-        Ok(())
     }
+    Ok(())
 }
 
 /// AVML veya WinPMEM ile yerel RAM imajı alır.
@@ -3757,6 +3774,14 @@ fn print_progress(label: &str, done: u64, total: u64) {
     }
 }
 
+fn should_emit_disk_progress(json_output: bool, quiet: bool) -> bool {
+    !json_output && !quiet
+}
+
+fn should_emit_human_disk_output(json_output: bool, quiet: bool) -> bool {
+    !json_output && !quiet
+}
+
 /// Adım bazlı ilerlemeyi stderr'e yazar.
 fn print_step_progress(label: &str, done: u32, total: u32, step: &str) {
     if total == 0 {
@@ -4007,8 +4032,10 @@ fn remote_image_command(args: Vec<String>) -> Result<(), String> {
             selected_format,
             sparse,
             |done: u64, total: u64| {
-                if let Some(percent) = done.saturating_mul(100).checked_div(total) {
-                    eprintln!("{}%", percent);
+                if should_emit_disk_progress(json_output, is_cli_quiet()) {
+                    if let Some(percent) = done.saturating_mul(100).checked_div(total) {
+                        eprintln!("{}%", percent);
+                    }
                 }
             },
         )
@@ -4031,8 +4058,8 @@ fn remote_image_command(args: Vec<String>) -> Result<(), String> {
             "output_format": finalized.format.as_str(),
             "md5": result.md5,
             "message": result.message,
-        }))
-    } else {
+        }))?;
+    } else if should_emit_human_disk_output(json_output, is_cli_quiet()) {
         println!("============================================================");
         println!(
             "       {}",
@@ -4073,8 +4100,8 @@ fn remote_image_command(args: Vec<String>) -> Result<(), String> {
                 "Remote disk image downloaded successfully."
             )
         );
-        Ok(())
     }
+    Ok(())
 }
 
 fn remote_tool_check_command(args: Vec<String>) -> Result<(), String> {
@@ -4244,8 +4271,10 @@ fn ssh_image_command(args: Vec<String>) -> Result<(), String> {
             &out_dir,
             case_name.as_deref(),
             selected_format,
-            |done: u64, _total: u64| {
-                eprintln!("{done} bytes transferred");
+            |done: u64, total: u64| {
+                if should_emit_disk_progress(json_output, is_cli_quiet()) {
+                    print_progress("ssh-image", done, total);
+                }
             },
         )
         .map_err(|err| err.to_string())?;
@@ -4257,8 +4286,8 @@ fn ssh_image_command(args: Vec<String>) -> Result<(), String> {
             "sha256": result.sha256,
             "md5": result.md5,
             "message": result.message,
-        }))
-    } else {
+        }))?;
+    } else if should_emit_human_disk_output(json_output, is_cli_quiet()) {
         println!("============================================================");
         println!(
             "       {}",
@@ -4301,8 +4330,8 @@ fn ssh_image_command(args: Vec<String>) -> Result<(), String> {
                 "Disk image acquired via SSH successfully."
             )
         );
-        Ok(())
     }
+    Ok(())
 }
 
 fn ssh_ram_command(args: Vec<String>) -> Result<(), String> {
@@ -5887,5 +5916,26 @@ mod tests {
         assert_eq!(t_cli("Türkçe", "English"), "English");
 
         set_cli_english(false);
+    }
+
+    #[test]
+    fn disk_sessiz_mod_cikti_kurallari() {
+        assert!(should_emit_disk_progress(false, false));
+        assert!(should_emit_human_disk_output(false, false));
+
+        assert!(!should_emit_disk_progress(false, true));
+        assert!(!should_emit_human_disk_output(false, true));
+
+        assert!(!should_emit_disk_progress(true, false));
+        assert!(!should_emit_human_disk_output(true, false));
+    }
+
+    #[test]
+    fn sessiz_mod_kisa_bayraklarini_ayiklar() {
+        for flag in ["-d", "-q", "--quiet"] {
+            let mut args = vec!["disk".to_string(), flag.to_string()];
+            assert!(extract_flag(&mut args, &["--quiet", "-q", "-d"]));
+            assert_eq!(args, vec!["disk"]);
+        }
     }
 }

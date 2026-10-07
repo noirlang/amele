@@ -71,13 +71,23 @@ amele [seçenekler] <komut> [alt-komut] [argümanlar]
 | Bayrak | Kısa | Açıklama |
 | :--- | :--- | :--- |
 | `--version` | `-V` | Sürüm bilgisini (`amele 0.1.1`) basar, logo ve profil gerektirmez, çıkış kodu `0`dır. |
-| `--quiet` | `-q` | ASCII logo başlığını gizler (script, boru hattı ve otomasyon dostu temiz çıktı). |
-| `--no-logo` | | ASCII logo başlığını bastırır (`--quiet` eşdeğeri). |
+| `--quiet` | `-d`, `-q` | Logoyu gizler; disk ediniminde ilerleme ve sonuç özetini bastırır. Hatalar yine `stderr` üzerinden gösterilir. |
+| `--no-logo` | | Yalnızca ASCII logo başlığını bastırır. |
 | `--verbose` | `-v` | Hata ayıklama modunu açar; tüm arka plan loglarını konsola (`stderr`) yazdırır. |
 | `--lang <tr\|en>` | | CLI çalışma dilini geçici olarak Türkçe veya İngilizce seçer. |
 | `--profile <ad>` | | Komutu geçici olarak belirtilen analist profili ile çalıştırır. |
 | `--json` | | Sonuçları JSON formatında yapılandırılmış veri olarak döndürür. |
 | `--help` | `-h` | Komut veya alt komut kullanım kılavuzunu ekrana basar. |
+
+Disk edinimini terminal çıktısı üretmeden çalıştırmak için sessiz mod kullanılabilir:
+
+```bash
+sudo amele -d linux disk /dev/nvme0n1 vaka-001
+amele --quiet remote-image 192.168.1.20 9000 disk0 ./cikti TOKEN
+amele -q ssh-image 192.168.1.20 root /dev/sda ./cikti
+```
+
+`--quiet` ile `--json` birlikte verilirse ilerleme ve insan odaklı özet bastırılmaz, sonuç JSON'u korunur.
 
 ### Kabuk Otomatik Tamamlama (Shell Autocompletion)
 
