@@ -157,20 +157,6 @@ https://amele.noirlang.tr/amele-win.exe
 
 Connect to an agent from the app with IP address, port, and optional token.
 
-## CI/CD / Automated Builds
-
-This project uses **GitHub Actions** for automated building and packaging. 
-
-To save runner resources, full builds and prereleases are only triggered when the commit message contains the `[build]` tag:
-
-```bash
-git commit -m "feat: add new feature [build]"
-```
-
-Commits without the `[build]` tag will be pushed to the `dev` branch but will not trigger build workflows.
-
-**Manual Build:** You can also trigger the build workflow manually from the "Actions" tab in GitHub by clicking "Run workflow".
-
 ---
 
 <div align="center">
@@ -307,38 +293,6 @@ Tarayıcı tabanlı hata ayıklama arayüzünü (debug UI) açın:
 cargo run -- ui-browser
 ```
 
-## Komut Satırı Kullanımı (CLI)
-
-### Agentsız (SSH) Uzak Edinim
-```bash
-# Hedef Linux/Windows disklerini listele
-amele ssh-disks 192.168.1.100 root 22 parola123
-
-# RAM aracını ve bellek durumunu kontrol et
-amele ssh-tool-check 192.168.1.100 root 22 parola123
-
-# Uzak disk imajı al (Linux /dev/sda veya Windows PhysicalDrive0)
-amele ssh-image 192.168.1.100 root /dev/sda ./ciktilar vaka_adi 22 parola123 raw
-
-# Uzak RAM dökümü al (/proc/kcore, AVML veya WinPMEM)
-amele ssh-ram 192.168.1.100 root ./ciktilar vaka_adi 22 parola123 raw
-```
-
-### Docker Adli Bilişimi
-```bash
-# Docker durumu, konteyner listesi ve loglar
-amele docker-status
-amele docker-list
-amele docker-logs <container_id> 200
-
-# Yerel konteyner delillerini (Overlay2 UpperDir drift, config, log) vakaya edin
-amele docker-acquire <container_id> Case_Docker_001
-
-# Uzak Linux Agent üzerinden Docker inceleme ve edinimi
-amele docker-remote-status 192.168.1.100 8080 mysecrettoken
-amele docker-remote-list 192.168.1.100 8080 mysecrettoken
-amele docker-remote-acquire 192.168.1.100 8080 <container_id> Case_Remote_Docker mysecrettoken
-```
 
 ## Online Profil Güvenliği
 
@@ -363,17 +317,3 @@ https://amele.noirlang.tr/amele-win.exe
 ```
 
 IP adresi, port ve isteğe bağlı token ile uygulama içerisinden ajana bağlanın.
-
-## CI/CD / Otomatik Derlemeler
-
-Bu proje, otomatik derleme ve paketleme işlemleri için **GitHub Actions** kullanmaktadır.
-
-Sunucu (runner) kaynaklarını tasarruflu kullanmak amacıyla, tam sürüm derlemeleri ve ön sürümler (prerelease) yalnızca commit mesajı `[build]` etiketini içerdiğinde tetiklenir:
-
-```bash
-git commit -m "feat: add new feature [build]"
-```
-
-`[build]` etiketi içermeyen commit'ler `dev` dalına pushlanır ancak derleme iş akışlarını tetiklemez.
-
-**Manuel Derleme:** GitHub'daki "Actions" sekmesinden "Run workflow" seçeneğine tıklayarak derleme iş akışını manuel olarak da tetikleyebilirsiniz.
