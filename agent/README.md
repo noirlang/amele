@@ -8,18 +8,11 @@
 
 [Back to Main Repo](../README.md) | [Website](https://amele.noirlang.tr) | [License (EULA)](../LICENSE)
 
-<table width="100%">
-  <tr>
-    <td width="50%" align="center">
-      <b>Linux Agent</b><br/><br/>
-      <img src="assets/linux.gif" alt="Linux Agent Demo" width="100%" />
-    </td>
-    <td width="50%" align="center">
-      <b>Windows Agent</b><br/><br/>
-      <img src="assets/windows.gif" alt="Windows Agent Demo" width="100%" />
-    </td>
-  </tr>
-</table>
+<br/>
+
+| Linux Agent | Windows Agent |
+| :---: | :---: |
+| ![Linux Agent Demo](assets/linux.gif) | ![Windows Agent Demo](assets/windows.gif) |
 
 </div>
 
