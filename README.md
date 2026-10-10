@@ -6,7 +6,7 @@
 
 *Windows, Linux, Android, and iOS unified digital forensics platform. Disk, RAM, logical acquisition, and backup analysis.*
 
-[Website](https://amele.noirlang.tr) | [Releases](https://github.com/noirlang/amele/releases) | [License (EULA)](LICENSE) | [Agents](agent/README.md)
+[Website](https://amele.noirlang.tr) | [License (EULA)](LICENSE) | [Agents](agent/README.md)
 
 <img src="amele.gif" alt="Amele Forensic Tool Demo" width="700" />
 
@@ -33,46 +33,7 @@ The app runs as a real desktop window on Linux and Windows.
 - **Hashing and verification:** calculate MD5, SHA1, SHA256, and SHA512; generate sidecar hashes and verify file integrity on the fly.
 - **Image viewing:** mount supported images read-only for inspection.
 - **Reports:** create case reports from collected outputs, notes, and iOS backup metadata summaries.
-- **Updates:** check GitHub releases and download platform installers from inside the app.
-
-## Downloads
-
-Official binary distributions and installers are published on GitHub Releases and on the website:
-
-- **Linux AppImage:** `amele-linux-x64.AppImage`
-- **Linux DEB:** `amele-linux-x64.deb`
-- **Linux RPM:** `amele-linux-x64.rpm`
-- **Arch Linux package:** `amele-linux-x64.pkg.tar.zst`
-- **Windows MSI Installer:** `amele-windows-x64.msi`
-
-Official Agent Binaries:
-
-```text
-https://amele.noirlang.tr/amele-linux
-https://amele.noirlang.tr/amele-win.exe
-```
-
-## Remote Agents
-
-Run the pre-compiled Linux agent on the target machine:
-
-```bash
-wget -O amele-linux https://amele.noirlang.tr/amele-linux
-chmod +x amele-linux
-./amele-linux --port 9000 --key <your-token>
-```
-
-Download and run the Windows agent:
-
-```text
-https://amele.noirlang.tr/amele-win.exe
-```
-
-```powershell
-.\amele-win.exe --port 9000 --key <your-token>
-```
-
-Connect to the remote agent from the Amele desktop application using the target IP address, port, and security token.
+- **Updates:** check updates and download official platform packages securely.
 
 ## License
 
@@ -92,7 +53,7 @@ For complete license terms, see [LICENSE](LICENSE) or visit [https://amele.noirl
 
 *Windows, Linux, Android ve iOS için bütünleşik adli bilişim platformu. Disk, RAM, mantıksal edinim ve yedekleme analizi.*
 
-[Web Sitesi](https://amele.noirlang.tr) | [Sürümler](https://github.com/noirlang/amele/releases) | [Lisans Sözleşmesi (EULA)](LICENSE) | [Ajanlar](agent/README.md)
+[Web Sitesi](https://amele.noirlang.tr) | [Lisans Sözleşmesi (EULA)](LICENSE) | [Ajanlar](agent/README.md)
 
 <img src="amele.gif" alt="Amele Forensic Tool Demo" width="700" />
 
@@ -119,46 +80,7 @@ Uygulama Linux ve Windows üzerinde yerel masaüstü penceresi olarak çalışı
 - **Hash hesaplama ve doğrulama:** MD5, SHA1, SHA256 ve SHA512 hesaplayın; elde edilen deliller için yan dosya (sidecar) hash dosyaları oluşturun.
 - **İmaj görüntüleme:** Desteklenen imajları inceleme amacıyla salt okunur (read-only) olarak bağlayın (mount).
 - **Raporlar:** Toplanan çıktılardan, notlardan ve iOS backup metadata özetlerinden vaka raporları oluşturun.
-- **Güncellemeler:** Uygulama içerisinden GitHub sürümlerini kontrol edin ve platform yükleyicilerini indirin.
-
-## İndirmeler
-
-Kararlı resmi kurulum paketleri GitHub Sürümleri (Releases) sayfasında ve web sitesinde yayınlanmaktadır:
-
-- **Linux AppImage:** `amele-linux-x64.AppImage`
-- **Linux DEB:** `amele-linux-x64.deb`
-- **Linux RPM:** `amele-linux-x64.rpm`
-- **Arch Linux Paketi:** `amele-linux-x64.pkg.tar.zst`
-- **Windows MSI Kurulum Paketi:** `amele-windows-x64.msi`
-
-Ajan (Agent) ikili dosyaları:
-
-```text
-https://amele.noirlang.tr/amele-linux
-https://amele.noirlang.tr/amele-win.exe
-```
-
-## Uzak Ajanlar
-
-Hedef makinede Linux ajanını çalıştırın:
-
-```bash
-wget -O amele-linux https://amele.noirlang.tr/amele-linux
-chmod +x amele-linux
-./amele-linux --port 9000 --key <token>
-```
-
-Windows ajanını indirin ve çalıştırın:
-
-```text
-https://amele.noirlang.tr/amele-win.exe
-```
-
-```powershell
-.\amele-win.exe --port 9000 --key <token>
-```
-
-IP adresi, port ve belirlediğiniz token ile uygulama içerisinden ajana bağlanın.
+- **Güncellemeler:** Uygulama içerisinden güncellemeleri kontrol edin ve resmi platform paketlerini edinin.
 
 ## Lisans
 

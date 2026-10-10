@@ -6,7 +6,7 @@
 
 *Remote forensic acquisition agents for Linux and Windows targets.*
 
-[Back to Main Repo](../README.md) | [Website](https://amele.noirlang.tr) | [Releases](https://github.com/noirlang/amele/releases)
+[Back to Main Repo](../README.md) | [Website](https://amele.noirlang.tr) | [License (EULA)](../LICENSE)
 
 <table width="100%">
   <tr>
@@ -35,44 +35,6 @@ Amele Forensic Agents are lightweight standalone services that enable remote dis
 - **Token-based authentication:** secure communication with the main Amele application
 - **Cross-platform:** Linux and Windows standalone binary support
 - **Zero runtime dependencies:** pre-compiled self-contained binaries
-
-## Downloads
-
-Official standalone agent binaries:
-
-- **Linux Agent (x86_64):**
-  ```bash
-  wget -O amele-linux https://amele.noirlang.tr/amele-linux
-  chmod +x amele-linux
-  ```
-
-- **Windows Agent (x86_64):**
-  Download: [https://amele.noirlang.tr/amele-win.exe](https://amele.noirlang.tr/amele-win.exe)
-
-## Usage
-
-### Linux Agent
-
-Run with default port (9000) and your authentication token:
-
-```bash
-./amele-linux --port 9000 --key <your-token>
-```
-
-### Windows Agent
-
-Run via Command Prompt or PowerShell:
-
-```powershell
-.\amele-win.exe --port 9000 --key <your-token>
-```
-
-### Connecting from Amele Desktop
-
-1. Open Amele desktop application.
-2. Navigate to **Uzak Edinim (Remote Acquisition)** / Agent.
-3. Enter the target machine's IP address, port, and security token.
-4. Start live disk imaging or RAM acquisition.
 
 ## License
 
