@@ -6,7 +6,7 @@
 
 *Windows, Linux, Android, and iOS unified digital forensics platform. Disk, RAM, logical acquisition, and backup analysis.*
 
-[Website](https://amele.noirlang.tr) | [Releases](https://github.com/noirlang/amele/releases) | [Contributing](CONTRIBUTING.md) | [Security](SECURITY.md) | [Linux Agent](agent/README.md) | [Windows Agent](agent/README.md)
+[Website](https://amele.noirlang.tr) | [Releases](https://github.com/noirlang/amele/releases) | [License (EULA)](LICENSE) | [Agents](agent/README.md)
 
 <img src="amele.gif" alt="Amele Forensic Tool Demo" width="700" />
 
@@ -14,7 +14,7 @@
 
 ## Overview
 
-Amele is a desktop forensic acquisition tool for authorized investigations. It brings disk imaging, memory acquisition, Android collection, iOS backup normalization, hash verification, case output handling, image viewing, and reporting into one native application.
+Amele is a desktop forensic acquisition platform for authorized digital investigations. It brings disk imaging, memory acquisition, Android collection, iOS backup normalization, hash verification, case output handling, image viewing, and reporting into one unified native application.
 
 The app runs as a real desktop window on Linux and Windows.
 
@@ -37,118 +37,50 @@ The app runs as a real desktop window on Linux and Windows.
 
 ## Downloads
 
-Release builds are published on GitHub Releases and on the website.
+Official binary distributions and installers are published on GitHub Releases and on the website:
 
-- Linux AppImage: `amele-linux-x64.AppImage`
-- Linux DEB: `amele-linux-x64.deb`
-- Linux RPM: `amele-linux-x64.rpm`
-- Arch Linux package: `amele-linux-x64.pkg.tar.zst`
-- Windows MSI: `amele-windows-x64.msi`
+- **Linux AppImage:** `amele-linux-x64.AppImage`
+- **Linux DEB:** `amele-linux-x64.deb`
+- **Linux RPM:** `amele-linux-x64.rpm`
+- **Arch Linux package:** `amele-linux-x64.pkg.tar.zst`
+- **Windows MSI Installer:** `amele-windows-x64.msi`
 
-Agent binaries:
+Official Agent Binaries:
 
 ```text
 https://amele.noirlang.tr/amele-linux
 https://amele.noirlang.tr/amele-win.exe
 ```
 
-## Build Requirements
+## Remote Agents
 
-Module documentation:
-
-- [Windows forensic module](docs/windows.md)
-- [Linux forensic module](docs/linux.md)
-- [Android forensic module](docs/android.md)
-- [iOS forensic module](docs/ios.md)
-- [Docker forensic module](docs/docker.md)
-
-Install the Rust stable toolchain:
-
-```bash
-rustup toolchain install stable --component rustfmt
-rustup default stable
-```
-
-Linux development packages:
-
-```bash
-sudo apt update
-sudo apt install -y build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
-```
-
-Windows builds require the Microsoft Edge WebView2 Runtime on the target system.
-
-## Build
-
-Debug build:
-
-```bash
-cargo build --locked
-```
-
-Release build:
-
-```bash
-cargo build --release --locked
-```
-
-Run tests and checks:
-
-```bash
-cargo test --locked
-cargo fmt --all -- --check
-node --check ui/app.js
-```
-
-Build the Linux AppImage:
-
-```bash
-./scripts/build-appimage.sh
-```
-
-Build Linux DEB, RPM, and Arch packages:
-
-```bash
-./scripts/build-linux-packages.sh
-```
-
-## Run
-
-Start the native desktop app:
-
-```bash
-cargo run -- ui
-```
-
-Run the release binary:
-
-```bash
-./target/release/amele ui
-```
-
-Open the browser-backed debug UI:
-
-```bash
-cargo run -- ui-browser
-```
-
-## Agents
-
-Run the Linux agent on the target machine:
+Run the pre-compiled Linux agent on the target machine:
 
 ```bash
 wget -O amele-linux https://amele.noirlang.tr/amele-linux
 chmod +x amele-linux
-./amele-linux
+./amele-linux --port 9000 --key <your-token>
 ```
 
-Download the Windows agent:
+Download and run the Windows agent:
 
 ```text
 https://amele.noirlang.tr/amele-win.exe
 ```
 
-Connect to an agent from the app with IP address, port, and optional token.
+```powershell
+.\amele-win.exe --port 9000 --key <your-token>
+```
+
+Connect to the remote agent from the Amele desktop application using the target IP address, port, and security token.
+
+## License
+
+Copyright (c) 2026 noirLang. All rights reserved.
+
+Amele Forensic Tool is distributed under the noirLang End User License Agreement (EULA). Official binary releases may be freely downloaded, installed, and executed for authorized forensic investigations, DFIR operations, and research. Reverse engineering, decompilation, disassembly, tampering, or cracking is strictly prohibited.
+
+For complete license terms, see [LICENSE](LICENSE) or visit [https://amele.noirlang.tr/license](https://amele.noirlang.tr/license).
 
 ---
 
@@ -160,7 +92,7 @@ Connect to an agent from the app with IP address, port, and optional token.
 
 *Windows, Linux, Android ve iOS için bütünleşik adli bilişim platformu. Disk, RAM, mantıksal edinim ve yedekleme analizi.*
 
-[Web Sitesi](https://amele.noirlang.tr) | [Sürümler](https://github.com/noirlang/amele/releases) | [Katkıda Bulunma](CONTRIBUTING.md) | [Güvenlik](SECURITY.md) | [Linux Ajanı](https://github.com/noirlang/amele-linux) | [Windows Ajanı](https://github.com/noirlang/amele-win)
+[Web Sitesi](https://amele.noirlang.tr) | [Sürümler](https://github.com/noirlang/amele/releases) | [Lisans Sözleşmesi (EULA)](LICENSE) | [Ajanlar](agent/README.md)
 
 <img src="amele.gif" alt="Amele Forensic Tool Demo" width="700" />
 
@@ -168,9 +100,9 @@ Connect to an agent from the app with IP address, port, and optional token.
 
 ## Genel Bakış
 
-Amele, yetkili incelemeler için geliştirilmiş bir masaüstü adli edinim aracıdır. Disk imajı alma, bellek (RAM) edinimi, Android veri toplama, iOS backup normalizasyonu, hash doğrulama, vaka çıktısı yönetimi, imaj görüntüleme ve raporlama özelliklerini tek bir yerel uygulamada bir araya getirir.
+Amele, yetkili incelemeler için geliştirilmiş bütünleşik bir masaüstü adli edinim ve analiz platformudur. Disk imajı alma, bellek (RAM) edinimi, Android veri toplama, iOS backup normalizasyonu, hash doğrulama, vaka çıktısı yönetimi, imaj görüntüleme ve raporlama özelliklerini tek bir yerel uygulamada bir araya getirir.
 
-Uygulama Linux ve Windows üzerinde gerçek bir masaüstü penceresi olarak çalışır.
+Uygulama Linux ve Windows üzerinde yerel masaüstü penceresi olarak çalışır.
 
 ## Özellikler
 
@@ -191,13 +123,13 @@ Uygulama Linux ve Windows üzerinde gerçek bir masaüstü penceresi olarak çal
 
 ## İndirmeler
 
-Kararlı sürümler GitHub Sürümleri (Releases) sayfasında ve web sitesinde yayınlanmaktadır.
+Kararlı resmi kurulum paketleri GitHub Sürümleri (Releases) sayfasında ve web sitesinde yayınlanmaktadır:
 
-- Linux AppImage: `amele-linux-x64.AppImage`
-- Linux DEB: `amele-linux-x64.deb`
-- Linux RPM: `amele-linux-x64.rpm`
-- Arch Linux Paketi: `amele-linux-x64.pkg.tar.zst`
-- Windows MSI: `amele-windows-x64.msi`
+- **Linux AppImage:** `amele-linux-x64.AppImage`
+- **Linux DEB:** `amele-linux-x64.deb`
+- **Linux RPM:** `amele-linux-x64.rpm`
+- **Arch Linux Paketi:** `amele-linux-x64.pkg.tar.zst`
+- **Windows MSI Kurulum Paketi:** `amele-windows-x64.msi`
 
 Ajan (Agent) ikili dosyaları:
 
@@ -206,99 +138,32 @@ https://amele.noirlang.tr/amele-linux
 https://amele.noirlang.tr/amele-win.exe
 ```
 
-## Derleme Gereksinimleri
-
-Modül dokümantasyonu:
-
-- [Windows adli bilişim modülü](docs/windows.md)
-- [Linux adli bilişim modülü](docs/linux.md)
-- [Android adli bilişim modülü](docs/android.md)
-- [iOS adli bilişim modülü](docs/ios.md)
-
-Stabil Rust araç zincirini (toolchain) kurun:
-
-```bash
-rustup toolchain install stable --component rustfmt
-rustup default stable
-```
-
-Linux geliştirme paketleri:
-
-```bash
-sudo apt update
-sudo apt install -y build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
-```
-
-Windows derlemeleri, hedef sistemde Microsoft Edge WebView2 Çalışma Zamanı (Runtime) gerektirir.
-
-## Derleme
-
-Geliştirici (Debug) derlemesi:
-
-```bash
-cargo build --locked
-```
-
-Kararlı (Release) derlemesi:
-
-```bash
-cargo build --release --locked
-```
-
-Testleri ve kontrolleri çalıştırın:
-
-```bash
-cargo test --locked
-cargo fmt --all -- --check
-node --check ui/app.js
-```
-
-Linux AppImage derleme:
-
-```bash
-./scripts/build-appimage.sh
-```
-
-Linux DEB, RPM ve Arch paketlerini derleme:
-
-```bash
-./scripts/build-linux-packages.sh
-```
-
-## Çalıştırma
-
-Yerel masaüstü uygulamasını başlatın:
-
-```bash
-cargo run -- ui
-```
-
-Kararlı ikili dosyayı çalıştırın:
-
-```bash
-./target/release/amele ui
-```
-
-Tarayıcı tabanlı hata ayıklama arayüzünü (debug UI) açın:
-
-```bash
-cargo run -- ui-browser
-```
-
-## Ajanlar (Agents)
+## Uzak Ajanlar
 
 Hedef makinede Linux ajanını çalıştırın:
 
 ```bash
 wget -O amele-linux https://amele.noirlang.tr/amele-linux
 chmod +x amele-linux
-./amele-linux
+./amele-linux --port 9000 --key <token>
 ```
 
-Windows ajanını indirin:
+Windows ajanını indirin ve çalıştırın:
 
 ```text
 https://amele.noirlang.tr/amele-win.exe
 ```
 
-IP adresi, port ve isteğe bağlı token ile uygulama içerisinden ajana bağlanın.
+```powershell
+.\amele-win.exe --port 9000 --key <token>
+```
+
+IP adresi, port ve belirlediğiniz token ile uygulama içerisinden ajana bağlanın.
+
+## Lisans
+
+Copyright (c) 2026 noirLang. Tüm hakları saklıdır.
+
+Amele Adli Bilişim Aracı, noirLang Son Kullanıcı Lisans Sözleşmesi (EULA) kapsamında sunulmaktadır. Resmi ikili dosyalar adli bilişim incelemeleri, DFIR operasyonları ve araştırmalar için ücretsiz olarak indirilebilir ve çalıştırılabilir. Yazılım üzerinde herhangi bir tersine mühendislik (reverse engineering), decompile, disassemble, yamalama veya kırma işlemi kesinlikle yasaktır.
+
+Tam lisans metni için [LICENSE](LICENSE) dosyasına veya [https://amele.noirlang.tr/license](https://amele.noirlang.tr/license) adresine göz atabilirsiniz.
