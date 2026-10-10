@@ -6,7 +6,7 @@
 
 *Remote forensic acquisition agents for Linux and Windows targets.*
 
-[Back to Main Repo](../README.md) | [Releases](https://github.com/noirlang/amele/releases)
+[Back to Main Repo](../README.md) | [Website](https://amele.noirlang.tr) | [License (EULA)](../LICENSE)
 
 <table width="100%">
   <tr>
@@ -25,7 +25,7 @@
 
 ## Overview
 
-Amele Forensic Agents are lightweight Python-based services that enable remote disk imaging, memory acquisition, and container forensics on Linux and Windows targets. They communicate with the main Amele application over TCP with token-based authentication.
+Amele Forensic Agents are lightweight standalone services that enable remote disk imaging, memory acquisition, and container forensics on Linux and Windows targets. They communicate securely with the main Amele desktop application over TCP with token-based authentication.
 
 ## Features
 
@@ -33,60 +33,11 @@ Amele Forensic Agents are lightweight Python-based services that enable remote d
 - **Remote memory acquisition:** capture RAM dumps via AVML (Linux) or WinPMEM (Windows)
 - **Container forensics:** audit Docker containers, extract logs, configs, and drift layers
 - **Token-based authentication:** secure communication with the main Amele application
-- **Cross-platform:** Linux and Windows support
-
-## Agents
-
-- `linux.py` - Linux remote forensic agent (AVML, disk imaging, container forensics)
-- `windows.py` - Windows remote forensic agent (WinPMEM, disk imaging)
-
-## Dependencies
-
-- `requirements-linux.txt` - Linux agent dependencies
-- `requirements-windows.txt` - Windows agent dependencies
-
-## Usage
-
-### Linux Agent
-
-```bash
-pip install -r requirements-linux.txt
-python linux.py --port 9000 --key <your-key>
-```
-
-### Windows Agent
-
-```bash
-pip install -r requirements-windows.txt
-python windows.py --port 9000 --key <your-key>
-```
-
-## Build Standalone Binary
-
-Debug build:
-
-```bash
-# Linux
-pip install pyinstaller
-pyinstaller --onefile --name amele-linux linux.py
-
-# Windows
-pip install pyinstaller
-pyinstaller --onefile --name amele-win windows.py
-```
-
-## CI/CD
-
-Agent builds are handled by `.github/workflows/agent-release.yml`. This workflow triggers only on changes to `agent/**` and publishes binaries to GitHub Releases independently from the main application release cycle.
-
-## Contributing
-
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for details.
-
-## Security
-
-See [SECURITY.md](../SECURITY.md) for security policies.
+- **Cross-platform:** Linux and Windows standalone binary support
+- **Zero runtime dependencies:** pre-compiled self-contained binaries
 
 ## License
 
-See [LICENSE](../LICENSE) for details.
+Copyright (c) 2026 noirLang. All rights reserved.
+
+Distributed under the noirLang Proprietary EULA. See [LICENSE](../LICENSE) or visit [https://amele.noirlang.tr/license](https://amele.noirlang.tr/license) for full terms.
